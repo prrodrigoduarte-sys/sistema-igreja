@@ -114,35 +114,31 @@ export default function App() {
   const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
     try {
-      // 1. Busca as contas cadastradas
-      const { data: cData, error: errContas } = await supabase
+      // 1. Busca todas as contas da igreja
+      const { data: cData } = await supabase
         .from('contas_financeiras')
         .select('*')
         .eq('codigo_igreja', cod);
 
-      if (errContas) console.error('Erro ao carregar contas:', errContas);
-
-      // 2. Busca os lançamentos ordenados por data
-      const { data: lData, error: errLanc } = await supabase
+      // 2. Busca todos os lançamentos da igreja sem travar em relacionamento de tabelas
+      const { data: lData, error } = await supabase
         .from('lancamentos_financeiros')
-        .select('*, contas_financeiras(nome_conta)')
+        .select('*')
         .eq('codigo_igreja', cod)
         .order('data_lancamento', { ascending: true });
 
-      if (errLanc) {
-        console.error('Erro ao carregar lançamentos:', errLanc);
-        alert('Erro ao buscar lançamentos: ' + errLanc.message);
+      if (error) {
+        console.error('Erro ao buscar lançamentos:', error.message);
       }
 
       setContasFinanceiras(cData || []);
       setLancamentosCorrente(lData || []);
     } catch (err: any) {
-      console.error('Erro geral ao carregar financeiro:', err);
+      console.error('Erro geral:', err);
     } finally {
       setLoadingFinanceiro(false);
     }
   };
-
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;

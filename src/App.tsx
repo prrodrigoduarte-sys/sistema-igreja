@@ -60,46 +60,49 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
+    <div className="min-h-screen bg-slate-100 flex flex-col">
+      {/* Topo do Sistema */}
+      <header className="bg-blue-950 text-white px-6 py-4 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <span className="text-xl font-black text-blue-900">BRSYSTEM</span>
-            
-            <nav className="flex items-center gap-6 text-sm font-bold">
-              <button 
-                onClick={() => setActiveTab('membros')} 
-                className={`py-2 transition-colors cursor-pointer ${activeTab === 'membros' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
-              >
-                Cadastros
-              </button>
-
-              <button 
-                onClick={() => setActiveTab('agenda')} 
-                className={`py-2 transition-colors cursor-pointer ${activeTab === 'agenda' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
-              >
-                Agenda
-              </button>
-
-              <button 
-                onClick={() => setActiveTab('financeiro')} 
-                className={`py-2 transition-colors cursor-pointer ${activeTab === 'financeiro' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
-              >
-                Financeiro
-              </button>
-            </nav>
+          <div className="flex items-center gap-3">
+            <span className="text-xl font-black tracking-wider">BRSYSTEM</span>
+            <span className="text-xs bg-blue-900 px-2.5 py-1 rounded-full text-blue-200">Painel Administrativo</span>
           </div>
-
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</p>
-              <p className="text-xs text-slate-500 font-medium">{loggedUser?.nome_usuario}</p>
+              <p className="text-sm font-bold">{loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</p>
+              <p className="text-xs text-blue-300">{loggedUser?.nome_usuario}</p>
             </div>
-            <button onClick={() => setIsLoggedIn(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl cursor-pointer">Sair</button>
+            <button onClick={() => setIsLoggedIn(false)} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg cursor-pointer">Sair</button>
           </div>
         </div>
       </header>
 
+      {/* Barra de Abas / Módulos */}
+      <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
+        <div className="max-w-7xl mx-auto flex gap-3">
+          <button 
+            onClick={() => setActiveTab('membros')} 
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'membros' ? 'bg-blue-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+          >
+            👥 Módulo Membros
+          </button>
+          <button 
+            onClick={() => setActiveTab('agenda')} 
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+          >
+            📅 Módulo Agenda
+          </button>
+          <button 
+            onClick={() => setActiveTab('financeiro')} 
+            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+          >
+            💰 Módulo Financeiro
+          </button>
+        </div>
+      </div>
+
+      {/* Área de Exibição do Conteúdo */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
         {loggedUser && activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
         {loggedUser && activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}

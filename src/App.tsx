@@ -354,27 +354,39 @@ export default function App() {
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  // --- TELA 1: LOGIN PRINCIPAL ---
+  // --- TELA 1: LOGIN PRINCIPAL COM LOGO BRSYSTEM ---
   if (!isLoggedIn) {
     const isLocked = lockUntil && Date.now() < lockUntil;
 
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 space-y-6">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-extrabold text-slate-800">Sistema Igreja</h1>
-            <p className="text-sm text-slate-500">Entre com as credenciais da sua instituição</p>
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6 border border-slate-100">
+          
+          {/* LOGO BRSYSTEM NO LOGIN */}
+          <div className="text-center space-y-3">
+            <div className="inline-flex items-center justify-center gap-2.5">
+              <div className="w-12 h-12 bg-gradient-to-tr from-blue-900 via-blue-700 to-indigo-600 rounded-2xl shadow-lg flex items-center justify-center text-white transform rotate-3">
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div className="text-left">
+                <span className="text-2xl font-black text-blue-900 tracking-tight block leading-none">BRSYSTEM</span>
+                <span className="text-[10px] font-bold text-indigo-600 tracking-widest uppercase">Gestão & Tecnologia</span>
+              </div>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Acesse a plataforma da sua instituição</p>
           </div>
 
           {isLocked && (
-            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-lg text-sm text-center">
-              ⚠️ <strong>Acesso Bloqueado!</strong> Você excedeu 3 tentativas incorretas. Retorne após 1 hora.
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl text-xs text-center font-semibold">
+              ⚠️ Acesso bloqueado por 3 tentativas incorretas. Retorne após 1 hora.
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Código da Igreja</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Código da Igreja</label>
               <input
                 type="text"
                 required
@@ -382,12 +394,12 @@ export default function App() {
                 placeholder="Ex: IGR-001"
                 value={loginCodigo}
                 onChange={(e) => setLoginCodigo(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100"
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-blue-600 disabled:bg-slate-100"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Usuário</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Usuário</label>
               <input
                 type="text"
                 required
@@ -395,12 +407,12 @@ export default function App() {
                 placeholder="Seu usuário"
                 value={loginUsuario}
                 onChange={(e) => setLoginUsuario(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100"
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-blue-600 disabled:bg-slate-100"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 uppercase mb-1">Senha</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Senha</label>
               <input
                 type="password"
                 required
@@ -408,21 +420,21 @@ export default function App() {
                 placeholder="••••••••"
                 value={loginSenha}
                 onChange={(e) => setLoginSenha(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100"
+                className="w-full rounded-xl border border-slate-300 p-3 text-sm focus:ring-2 focus:ring-blue-600 disabled:bg-slate-100"
               />
             </div>
 
             <button
               type="submit"
               disabled={loginLoading || !!isLocked}
-              className="w-full py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg shadow transition-colors disabled:opacity-50"
+              className="w-full py-3.5 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-700 hover:opacity-95 text-white font-bold rounded-xl shadow-lg transition-all disabled:opacity-50"
             >
-              {loginLoading ? 'Verificando...' : 'Entrar no Sistema'}
+              {loginLoading ? 'Acessando...' : 'Entrar no Sistema'}
             </button>
           </form>
 
           {failedAttempts > 0 && !isLocked && (
-            <p className="text-xs text-center text-rose-500 font-medium">
+            <p className="text-xs text-center text-rose-500 font-semibold">
               Aviso: {failedAttempts} de 3 tentativas utilizadas.
             </p>
           )}
@@ -431,57 +443,66 @@ export default function App() {
     );
   }
 
-  // --- TELA 2: DASHBOARD COM MENU SUPERIOR HORIZONTAL ---
+  // --- TELA 2: DASHBOARD COM LOGO BRSYSTEM NO TOPO ---
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       
-      {/* CABEÇALHO SUPERIOR HORIZONTAL */}
+      {/* CABEÇALHO SUPERIOR COM LOGO BRSYSTEM */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
-          {/* LOGO + MENU SUPERIOR */}
+          {/* LOGO BRSYSTEM + MENU SUPERIOR */}
           <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2 cursor-pointer">
-              <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-white font-bold text-xl shadow">
-                P
+            
+            {/* ÍCONE E MARCA BRSYSTEM */}
+            <div className="flex items-center gap-2.5 cursor-pointer group">
+              <div className="w-10 h-10 bg-gradient-to-tr from-blue-900 via-blue-700 to-indigo-600 rounded-xl shadow-md flex items-center justify-center text-white transform group-hover:scale-105 transition-transform">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xl font-black text-blue-900 tracking-tight leading-none">BRSYSTEM</span>
+                <span className="text-[9px] font-extrabold text-indigo-600 tracking-widest uppercase">Tecnologia</span>
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-blue-900">
+            {/* NAVEGAÇÃO SUPERIOR HORIZONTAL */}
+            <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-blue-900">
               
               {/* DROPDOWN 1: CADASTROS */}
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('cadastros')}
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
                 >
                   <span>Cadastros</span>
                   <span className="text-xs">∨</span>
                 </button>
 
                 {openDropdown === 'cadastros' && (
-                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50">
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
                     <button
                       onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold"
                     >
                       📋 Membros
                     </button>
                     <button
                       onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold"
                     >
                       👤 Usuários
                     </button>
                     <button
                       onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold"
                     >
                       🚚 Fornecedores
                     </button>
                     <button
                       onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }}
-                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium border-t border-slate-100"
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold border-t border-slate-100"
                     >
                       📊 Relatórios
                     </button>
@@ -493,14 +514,14 @@ export default function App() {
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('celulas')}
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
                 >
                   <span>Células</span>
                   <span className="text-xs">∨</span>
                 </button>
                 {openDropdown === 'celulas' && (
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
-                    Módulo de Células em breve...
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50 text-xs text-slate-500">
+                    Módulo de Células em desenvolvimento...
                   </div>
                 )}
               </div>
@@ -509,14 +530,14 @@ export default function App() {
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('agenda')}
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
                 >
                   <span>Agenda</span>
                   <span className="text-xs">∨</span>
                 </button>
                 {openDropdown === 'agenda' && (
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
-                    Módulo de Agenda em breve...
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50 text-xs text-slate-500">
+                    Módulo de Agenda em desenvolvimento...
                   </div>
                 )}
               </div>
@@ -525,14 +546,14 @@ export default function App() {
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('financeiro')}
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
                 >
                   <span>Financeiro</span>
                   <span className="text-xs">∨</span>
                 </button>
                 {openDropdown === 'financeiro' && (
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
-                    Módulo Financeiro em breve...
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50 text-xs text-slate-500">
+                    Módulo Financeiro em desenvolvimento...
                   </div>
                 )}
               </div>
@@ -541,14 +562,14 @@ export default function App() {
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('controle')}
-                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
                 >
                   <span>Controle</span>
                   <span className="text-xs">∨</span>
                 </button>
                 {openDropdown === 'controle' && (
-                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
-                    Módulo de Controle em breve...
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 z-50 text-xs text-slate-500">
+                    Módulo de Controle em desenvolvimento...
                   </div>
                 )}
               </div>
@@ -556,15 +577,15 @@ export default function App() {
             </nav>
           </div>
 
-          {/* ÁREA DO USUÁRIO E SAIR */}
+          {/* ÁREA DE USUÁRIO E SAIR */}
           <div className="flex items-center gap-4">
             <div className="hidden sm:block text-right">
               <p className="text-sm font-bold text-slate-800">{loggedIgreja?.nome_fantasia || 'Igreja'}</p>
-              <p className="text-xs text-slate-500">{loggedUser?.nome_usuario}</p>
+              <p className="text-xs text-slate-500 font-medium">{loggedUser?.nome_usuario}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-lg transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
             >
               Sair
             </button>
@@ -582,7 +603,7 @@ export default function App() {
 
         {/* MENU MOBILE EXPANSÍVEL */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t mt-3 pt-3 space-y-2 text-sm font-semibold text-blue-900">
+          <div className="md:hidden border-t mt-3 pt-3 space-y-2 text-sm font-bold text-blue-900">
             <div className="font-bold text-xs text-slate-400 uppercase tracking-wider px-2">Cadastros</div>
             <button onClick={() => { setActiveTab('membros'); setMobileMenuOpen(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-100">📋 Membros</button>
             <button onClick={() => { setActiveTab('usuarios'); setMobileMenuOpen(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-100">👤 Usuários</button>
@@ -612,11 +633,11 @@ export default function App() {
                   placeholder="Buscar por nome ou CPF..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600"
                 />
                 <button
                   onClick={() => setIsMemberModalOpen(true)}
-                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-xl shadow transition-all flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <span>+</span> Novo Membro
                 </button>
@@ -637,7 +658,7 @@ export default function App() {
                   {filteredMembers.length > 0 ? (
                     filteredMembers.map((m) => (
                       <tr key={m.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-4 font-medium text-slate-900">{m.nome}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-900">{m.nome}</td>
                         <td className="py-3 px-4">{m.tipo_cadastro}</td>
                         <td className="py-3 px-4">{m.cpf || '-'}</td>
                         <td className="py-3 px-4">{m.celular_principal || '-'}</td>
@@ -669,7 +690,7 @@ export default function App() {
 
               <button
                 onClick={() => setIsUserModalOpen(true)}
-                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-xl shadow transition-all flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span>+</span> Novo Usuário
               </button>
@@ -688,8 +709,8 @@ export default function App() {
                   {usersList.length > 0 ? (
                     usersList.map((u) => (
                       <tr key={u.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-4 font-medium text-slate-900">{u.nome_usuario || 'Não informado'}</td>
-                        <td className="py-3 px-4 font-mono text-blue-700 font-semibold">{u.usuario}</td>
+                        <td className="py-3 px-4 font-semibold text-slate-900">{u.nome_usuario || 'Não informado'}</td>
+                        <td className="py-3 px-4 font-mono text-blue-800 font-bold">{u.usuario}</td>
                         <td className="py-3 px-4">
                           <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full">
                             Ativo
@@ -723,7 +744,7 @@ export default function App() {
 
               <button
                 onClick={() => alert('Módulo de fornecedores em breve!')}
-                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-xl shadow transition-all flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span>+</span> Novo Fornecedor
               </button>
@@ -809,7 +830,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={startCamera}
-                          className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                          className="bg-blue-800 hover:bg-blue-900 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
                         >
                           Tirar Foto
                         </button>
@@ -839,7 +860,7 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
-                  <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500">
+                  <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600">
                     <option value="">Selecione...</option>
                     <option value="Membro">Membro</option>
                     <option value="Visitante">Visitante</option>
@@ -849,17 +870,17 @@ export default function App() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label>
-                  <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label>
-                  <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
-                  <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500">
+                  <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600">
                     <option value="">Selecione...</option>
                     <option value="Masculino">Masculino</option>
                     <option value="Feminino">Feminino</option>
@@ -868,32 +889,32 @@ export default function App() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label>
-                  <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Identificação</label>
-                  <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label>
-                  <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade - Cidade</label>
-                  <input type="text" name="naturalidade" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="naturalidade" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Escolaridade</label>
-                  <select name="escolaridade" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500">
+                  <select name="escolaridade" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600">
                     <option value="">Selecione...</option>
                     <option value="Fundamental">Ensino Fundamental</option>
                     <option value="Médio">Ensino Médio</option>
@@ -904,12 +925,12 @@ export default function App() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Profissão</label>
-                  <input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label>
-                  <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                 </div>
               </div>
 
@@ -918,22 +939,22 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Nome Contato</label>
-                    <input type="text" name="nome_contato" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" name="nome_contato" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Celular Principal</label>
-                    <input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Celular secundário</label>
-                    <input type="text" name="celular_secundario" placeholder="(00) 00000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" name="celular_secundario" placeholder="(00) 00000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone Fixo</label>
-                    <input type="text" name="telefone_fixo" placeholder="(00) 0000-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                    <input type="text" name="telefone_fixo" placeholder="(00) 0000-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600" />
                   </div>
                 </div>
               </div>
@@ -949,7 +970,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
+                  className="px-6 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
                 >
                   {loading ? 'Salvando...' : 'Salvar Cadastro'}
                 </button>
@@ -987,7 +1008,7 @@ export default function App() {
                   placeholder="Ex: João da Silva"
                   value={userFormData.nome_usuario}
                   onChange={handleUserChange}
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
@@ -1000,7 +1021,7 @@ export default function App() {
                   placeholder="Ex: joao"
                   value={userFormData.usuario}
                   onChange={handleUserChange}
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
@@ -1013,7 +1034,7 @@ export default function App() {
                   placeholder="••••••••"
                   value={userFormData.senha}
                   onChange={handleUserChange}
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
                 />
               </div>
 
@@ -1028,7 +1049,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
+                  className="px-6 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
                 >
                   {loading ? 'Cadastrando...' : 'Cadastrar Usuário'}
                 </button>

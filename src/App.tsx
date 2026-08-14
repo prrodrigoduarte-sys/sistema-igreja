@@ -45,12 +45,24 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-          <h1 className="text-3xl font-black text-blue-900 text-center">BRSYSTEM</h1>
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-black text-blue-900 tracking-tight">BRSYSTEM</h1>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tecnologia para Gestão</p>
+          </div>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" placeholder="Código Igreja" value={loginCodigo} onChange={(e) => setLoginCodigo(e.target.value)} className="w-full rounded-xl border p-3" />
-            <input type="text" placeholder="Usuário" value={loginUsuario} onChange={(e) => setLoginUsuario(e.target.value)} className="w-full rounded-xl border p-3" />
-            <input type="password" placeholder="Senha" value={loginSenha} onChange={(e) => setLoginSenha(e.target.value)} className="w-full rounded-xl border p-3" />
-            <button type="submit" disabled={loginLoading} className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow-lg cursor-pointer">
+            <div>
+              <label className="text-xs font-bold text-slate-600 ml-1">Código da Igreja</label>
+              <input type="text" value={loginCodigo} onChange={(e) => setLoginCodigo(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-900" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 ml-1">Usuário</label>
+              <input type="text" placeholder="Digite seu usuário" value={loginUsuario} onChange={(e) => setLoginUsuario(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-900" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-600 ml-1">Senha</label>
+              <input type="password" placeholder="••••••••" value={loginSenha} onChange={(e) => setLoginSenha(e.target.value)} className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:outline-none focus:border-blue-900" />
+            </div>
+            <button type="submit" disabled={loginLoading} className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg transition-all cursor-pointer">
               {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
             </button>
           </form>
@@ -60,46 +72,52 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="bg-blue-950 text-white px-6 py-4 shadow-md">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
+      {/* Cabeçalho Principal */}
+      <header className="bg-white border-b border-slate-200 px-6 py-3.5 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="text-xl font-black tracking-wider">BRSYSTEM</span>
-            <span className="text-xs bg-blue-900 px-2.5 py-1 rounded-full text-blue-200">Painel Administrativo</span>
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black text-blue-900 tracking-tight">BRSYSTEM</span>
+              <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md">TECNOLOGIA</span>
+            </div>
+            
+            {/* Menu de Abas Limpo e Profissional */}
+            <nav className="flex items-center gap-2 text-sm font-bold">
+              <button 
+                onClick={() => setActiveTab('membros')} 
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${activeTab === 'membros' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                Cadastros
+              </button>
+
+              <button 
+                onClick={() => setActiveTab('agenda')} 
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                Agenda
+              </button>
+
+              <button 
+                onClick={() => setActiveTab('financeiro')} 
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+              >
+                Financeiro
+              </button>
+            </nav>
           </div>
+
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-bold">{loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</p>
-              <p className="text-xs text-blue-300">{loggedUser?.nome_usuario}</p>
+              <p className="text-sm font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</p>
+              <p className="text-xs text-slate-400 font-medium">{loggedUser?.nome_usuario || 'Administrador'}</p>
             </div>
-            <button onClick={() => setIsLoggedIn(false)} className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-lg cursor-pointer">Sair</button>
+            <button onClick={() => setIsLoggedIn(false)} className="px-3 py-2 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">Sair</button>
           </div>
         </div>
       </header>
 
-      <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
-        <div className="max-w-7xl mx-auto flex gap-3">
-          <button 
-            onClick={() => setActiveTab('membros')} 
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'membros' ? 'bg-blue-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-          >
-            👥 Módulo Membros
-          </button>
-          <button 
-            onClick={() => setActiveTab('agenda')} 
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-          >
-            📅 Módulo Agenda
-          </button>
-          <button 
-            onClick={() => setActiveTab('financeiro')} 
-            className={`px-5 py-2.5 rounded-xl font-bold text-sm transition-all cursor-pointer ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow-md' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
-          >
-            💰 Módulo Financeiro
-          </button>
-        </div>
-      </div>
-
+      {/* Conteúdo Dinâmico */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
         {loggedUser && activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
         {loggedUser && activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}

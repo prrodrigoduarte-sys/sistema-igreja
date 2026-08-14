@@ -2,45 +2,42 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
 export default function App() {
-  // Estados de Autenticação e Navegação Central
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'agenda' | 'financeiro'>('membros');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null);
 
-  // Estados do Formulário de Login
+  // Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Estados do Módulo de Membros
+  // Membros
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingMembros, setLoadingMembros] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
 
-  // Estados do Formulário de Membro
   const [formNome, setFormNome] = useState('');
   const [formTipo, setFormTipo] = useState('Membro');
   const [formCpf, setFormCpf] = useState('');
   const [formCelular, setFormCelular] = useState('');
 
-  // Estados do Módulo de Usuários e Fornecedores
+  // Usuários e Fornecedores
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
   const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
 
-  // Estados do Módulo da Agenda
+  // Agenda
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
 
-  // Estados do Módulo Financeiro
+  // Financeiro
   const [contas, setContas] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
 
-  // --- FUNÇÃO DE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -51,7 +48,6 @@ export default function App() {
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
 
-  // --- CARREGAMENTO DE DADOS DO BANCO (SUPABASE) ---
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
@@ -89,7 +85,6 @@ export default function App() {
     carregarDados();
   }, [isLoggedIn, activeTab, loggedUser]);
 
-  // --- FUNÇÕES DE SALVAR E EDITAR MEMBRO ---
   const handleOpenNewMember = () => {
     setEditingMember(null);
     setFormNome('');
@@ -122,19 +117,16 @@ export default function App() {
 
     try {
       if (editingMember) {
-        // Alteração
         const { error } = await supabase.from('members').update(payload).eq('id', editingMember.id);
         if (error) throw error;
         alert('Membro atualizado com sucesso!');
       } else {
-        // Inclusão
         const { error } = await supabase.from('members').insert([payload]);
         if (error) throw error;
         alert('Membro cadastrado com sucesso!');
       }
 
       setShowMemberModal(false);
-      // Recarrega lista
       const { data } = await supabase.from('members').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
       setMembers(data || []);
     } catch (err: any) {
@@ -217,7 +209,6 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
-        {/* ABA MEMBROS */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -264,7 +255,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA USUÁRIOS */}
         {activeTab === 'usuarios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4">
@@ -298,7 +288,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA FORNECEDORES */}
         {activeTab === 'fornecedores' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4">
@@ -330,7 +319,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA AGENDA */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4">
@@ -363,7 +351,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -417,7 +404,6 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL DE INCLUSÃO / ALTERAÇÃO DE MEMBRO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">

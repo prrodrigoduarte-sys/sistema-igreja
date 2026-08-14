@@ -111,24 +111,36 @@ export default function App() {
     setLoadingAgenda(false);
   };
 
-  const carregarFinanceiro = async (cod: string) => {
+  cconst carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
-    
-    // Busca as contas
-    const { data: cData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
-    
-    // Busca os lançamentos forçando a ordenação mais recente (data_lancamento)
-    const { data: lData, error } = await supabase
-      .from('lancamentos_financeiros')
-      .select('*, contas_financeiras(nome_conta)')
-      .eq('codigo_igreja', cod)
-      .order('data_lancamento', { ascending: false }); // Mude para false para ver o último primeiro
+    try {
+      // 1. Busca as contas cadastradas
+      const { data: cData, error: errContas } = await supabase
+        .from('contas_financeiras')
+        .select('*')
+        .eq('codigo_igreja', cod);
 
-    if (error) console.error("Erro ao carregar:", error);
+      if (errContas) console.error('Erro ao carregar contas:', errContas);
 
-    setContasFinanceiras(cData || []);
-    setLancamentosCorrente(lData || []);
-    setLoadingFinanceiro(false);
+      // 2. Busca os lançamentos ordenados por data
+      const { data: lData, error: errLanc } = await supabase
+        .from('lancamentos_financeiros')
+        .select('*, contas_financeiras(nome_conta)')
+        .eq('codigo_igreja', cod)
+        .order('data_lancamento', { ascending: true });
+
+      if (errLanc) {
+        console.error('Erro ao carregar lançamentos:', errLanc);
+        alert('Erro ao buscar lançamentos: ' + errLanc.message);
+      }
+
+      setContasFinanceiras(cData || []);
+      setLancamentosCorrente(lData || []);
+    } catch (err: any) {
+      console.error('Erro geral ao carregar financeiro:', err);
+    } finally {
+      setLoadingFinanceiro(false);
+    }
   };
 
   useEffect(() => {

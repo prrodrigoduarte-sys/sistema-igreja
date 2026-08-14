@@ -7,8 +7,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro' | 'igreja'>('membros');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
-  // Sub-aba interna para Relatórios de Membros
+  // Sub-abas de Relatórios
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
+
+  // Sub-abas da Agenda (Lista, Calendário, Impressão)
+  const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
 
   // Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -49,6 +52,7 @@ export default function App() {
   const [formAgendaHoraInicio, setFormAgendaHoraInicio] = useState('');
   const [formAgendaHoraFim, setFormAgendaHoraFim] = useState('');
   const [formAgendaComentario, setFormAgendaComentario] = useState('');
+  const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
 
   // Financeiro
   const [contas, setContas] = useState<any[]>([]);
@@ -90,7 +94,7 @@ export default function App() {
 
   const carregarAgenda = async (cod: string) => {
     setLoadingAgenda(true);
-    const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true });
+    const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true }).order('hora_compromisso', { ascending: true });
     setCompromissos(data || []);
     setLoadingAgenda(false);
   };
@@ -100,7 +104,7 @@ export default function App() {
     const cod = loggedUser.codigo_igreja;
     
     async function carregarDados() {
-      if (activeTab === 'membros' || activeTab === 'relatorios') {
+      if (activeTab === 'membros' || activeTab === 'relatorios' || activeTab === 'agenda') {
         setLoadingMembros(true);
         const { data } = await supabase.from('members').select('*').eq('codigo_igreja', cod);
         setMembers(data || []);
@@ -205,13 +209,23 @@ export default function App() {
       return;
     }
 
+    // Busca nome do membro selecionado se houver ID
+    let nomeMembroVinculado = '';
+    if (formAgendaMembroId) {
+      const membroEncontrado = members.find((m) => String(m.id) === String(formAgendaMembroId));
+      if (membroEncontrado) {
+        nomeMembroVinculado = membroEncontrado.nome;
+      }
+    }
+
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || null,
-      descricao: formAgendaComentario.trim()
+      descricao: formAgendaComentario.trim(),
+      responsavel: nomeMembroVinculado || 'A definir'
     };
 
     try {
@@ -224,6 +238,7 @@ export default function App() {
       setFormAgendaHoraInicio('');
       setFormAgendaHoraFim('');
       setFormAgendaComentario('');
+      setFormAgendaMembroId('');
       carregarAgenda(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar compromisso: ' + err.message);
@@ -276,7 +291,6 @@ export default function App() {
               <span className="text-[10px] tracking-widest text-blue-500 font-bold">TECNOLOGIA</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
-              {/* Menu Cadastros */}
               <div className="relative">
                 <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
                   Cadastros <span className="text-xs text-slate-400">∨</span>
@@ -301,7 +315,6 @@ export default function App() {
                 Financeiro <span className="text-xs text-slate-400">∨</span>
               </button>
 
-              {/* Menu Controle Restaurado */}
               <div className="relative">
                 <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                   Controle <span className="text-xs text-slate-400">∨</span>
@@ -447,7 +460,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA CADASTRO DA IGREJA (CONTROLE) */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-2xl mx-auto">
             <div className="border-b pb-4">
@@ -619,41 +631,125 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA AGENDA COM COMPROMISSO E DADOS COMPLETOS */}
+        {/* --- ABA AGENDA COM CALENDÁRIO, LISTA E IMPRESSÃO --- */}
         {activeTab === 'agenda' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">📅 Agenda de Compromissos e Visitas</h2>
-                <p className="text-xs text-slate-500">Gerencie a escala de eventos e histórico de visitas.</p>
+                <p className="text-xs text-slate-500">Gerencie a escala de eventos, calendário e histórico de visitas.</p>
               </div>
-              <button onClick={() => setShowAgendaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Compromisso</button>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button onClick={() => setAgendaSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Lista de Compromissos</button>
+                  <button onClick={() => setAgendaSubTab('calendario')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'calendario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🗓️ Calendário</button>
+                  <button onClick={() => setAgendaSubTab('impressao')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'impressao' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🖨️ Relatório A4</button>
+                </div>
+                <button onClick={() => setShowAgendaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Compromisso</button>
+              </div>
             </div>
 
-            {loadingAgenda ? (
-              <p className="text-center py-6 text-slate-500">Carregando agenda...</p>
-            ) : compromissos.length === 0 ? (
-              <p className="text-center py-6 text-slate-400">Nenhum compromisso agendado para esta igreja.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {compromissos.map((c: any) => (
-                  <div key={c.id} className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 shadow-sm space-y-3">
-                    <div className="flex justify-between items-start border-b pb-2">
-                      <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
-                      <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Compromisso</span>
-                    </div>
-                    
-                    <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
-                      <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
-                      <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'} {c.hora_fim ? `às ${c.hora_fim}` : ''}</span></div>
-                    </div>
+            {/* Cabeçalho de Impressão A4 para Agenda */}
+            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
+              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
+              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Relatório de Compromissos e Visitas por Ordem de Data e Hora</p>
+            </div>
 
-                    <div className="pt-2 border-t text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-100">
-                      <strong className="text-slate-900 block mb-1">💬 Relatório / Comentário da Visita:</strong>
-                      <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado ainda.'}</p>
-                    </div>
+            {/* SUB-ABA: LISTA DE COMPROMISSOS */}
+            {agendaSubTab === 'lista' && (
+              <div>
+                {loadingAgenda ? (
+                  <p className="text-center py-6 text-slate-500">Carregando agenda...</p>
+                ) : compromissos.length === 0 ? (
+                  <p className="text-center py-6 text-slate-400">Nenhum compromisso agendado para esta igreja.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {compromissos.map((c: any) => (
+                      <div key={c.id} className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 shadow-sm space-y-3">
+                        <div className="flex justify-between items-start border-b pb-2">
+                          <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
+                          <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Compromisso</span>
+                        </div>
+                        
+                        <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
+                          <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
+                          <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'} {c.hora_fim ? `às ${c.hora_fim}` : ''}</span></div>
+                          <div>👤 Responsável / Membro: <span className="text-blue-800 font-bold">{c.responsavel || 'Não vinculado'}</span></div>
+                        </div>
+
+                        <div className="pt-2 border-t text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-100">
+                          <strong className="text-slate-900 block mb-1">💬 Relatório / Comentário da Visita:</strong>
+                          <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado ainda.'}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+              </div>
+            )}
+
+            {/* SUB-ABA: CALENDÁRIO DE COMPROMISSOS */}
+            {agendaSubTab === 'calendario' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between">
+                  <h3 className="font-bold text-blue-950 text-base">🗓️ Calendário de Compromissos (Visão Mensal)</h3>
+                  <span className="text-xs font-bold bg-blue-200 text-blue-900 px-3 py-1 rounded-xl">Total: {compromissos.length} agendados</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+                  {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dia) => (
+                    <div key={dia} className="p-3 bg-slate-100 text-slate-700 font-bold text-center text-xs rounded-xl">{dia}</div>
+                  ))}
+                  
+                  {/* Cards dos Compromissos organizados por dia */}
+                  <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                    {compromissos.map((c: any) => (
+                      <div key={c.id} className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 border-l-4 border-l-blue-900">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-mono font-bold bg-blue-50 text-blue-900 px-2 py-0.5 rounded">{c.data_compromisso}</span>
+                          <span className="text-xs font-semibold text-slate-500">{c.hora_compromisso}</span>
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-sm">{c.titulo}</h4>
+                        <p className="text-xs text-slate-600">👤 {c.responsavel || 'Sem vínculo'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-ABA: RELATÓRIO DE IMPRESSÃO A4 (EM ORDEM DE DATA E HORA) */}
+            {agendaSubTab === 'impressao' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center print:hidden">
+                  <h3 className="font-bold text-slate-800 text-lg">Visualização para Impressão (Ordem de Data e Hora)</h3>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Agenda A4</button>
+                </div>
+
+                <div className="overflow-x-auto border rounded-xl print:border-none">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                      <tr>
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Horário</th>
+                        <th className="p-3">Assunto / Compromisso</th>
+                        <th className="p-3">Membro / Responsável</th>
+                        <th className="p-3">Relatório / Comentário</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {compromissos.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-mono font-bold">{c.data_compromisso}</td>
+                          <td className="p-3 font-mono">{c.hora_compromisso} {c.hora_fim ? `- ${c.hora_fim}` : ''}</td>
+                          <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
+                          <td className="p-3">{c.responsavel || '-'}</td>
+                          <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -712,7 +808,7 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL DE CADASTRO DE COMPROMISSO NA AGENDA */}
+      {/* MODAL DE CADASTRO DE COMPROMISSO NA AGENDA COM VÍNCULO DE MEMBRO */}
       {showAgendaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
@@ -724,7 +820,18 @@ export default function App() {
             <form onSubmit={handleSaveAgenda} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Assunto / Título *</label>
-                <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value)} placeholder="Ex: Visita pastoral ou Reunião de Obreiros" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value)} placeholder="Ex: Visita pastoral ou Reunião" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              {/* Vínculo com Membro Cadastrado */}
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Vincular Membro (Opcional - Busca do Cadastro)</label>
+                <select value={formAgendaMembroId} onChange={(e) => setFormAgendaMembroId(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                  <option value="">Selecione um membro cadastrado...</option>
+                  {members.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.nome} ({m.tipo_cadastro})</option>
+                  ))}
+                </select>
               </div>
 
               <div>

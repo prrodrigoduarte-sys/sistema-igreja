@@ -109,6 +109,18 @@ export default function App() {
         setIsAgendaModalOpen(false);
       }
     };
+    // --- CARREGAR DADOS AUTOMATICAMENTE AO MUDAR DE ABA ---
+  useEffect(() => {
+    if (isLoggedIn && loggedUser?.codigo_igreja) {
+      if (activeTab === 'financeiro') {
+        fetchFinanceiro(loggedUser.codigo_igreja);
+      } else if (activeTab === 'agenda') {
+        fetchAgenda(loggedUser.codigo_igreja);
+      } else if (activeTab === 'membros') {
+        fetchMembers(loggedUser.codigo_igreja);
+      }
+    }
+  }, [activeTab]);
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);

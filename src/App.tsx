@@ -21,6 +21,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'igreja'>('membros');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
+  // --- TIPOS DE RELATÓRIO ---
+  const [reportType, setReportType] = useState<'aniversariantes' | 'completo'>('aniversariantes');
+  const [filterMonth, setFilterMonth] = useState<string>('todos');
+
   // --- MODAIS FLUTUANTES DE CADASTRO ---
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -183,7 +187,6 @@ export default function App() {
       setLoggedIgreja(data.igrejas);
       setIsLoggedIn(true);
 
-      // Carrega exclusivamente os dados da igreja logada
       fetchMembers(data.codigo_igreja);
       fetchUsers(data.codigo_igreja);
       fetchSuppliers(data.codigo_igreja);
@@ -205,7 +208,7 @@ export default function App() {
     setIsChurchModalOpen(false);
   };
 
-  // --- BUSCA DE DADOS FILTRADOS PELO CÓDIGO DA IGREJA ---
+  // --- BUSCA DE DADOS ---
   const fetchMembers = async (codigoIgreja: string) => {
     try {
       const { data, error } = await supabase
@@ -766,6 +769,28 @@ export default function App() {
     }
   };
 
+  // --- FUNÇÃO AUXILIAR DE DATA DE ANIVERSÁRIO ---
+  const formatBirthday = (dateStr: string) => {
+    if (!dateStr) return { formatted: '-', monthNum: 0 };
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return { formatted: '-', monthNum: 0 };
+    const month = parseInt(parts[1], 10);
+    const day = parseInt(parts[2], 10);
+    const year = parseInt(parts[0], 10);
+
+    const today = new Date();
+    let age = today.getFullYear() - year;
+    const m = today.getMonth() + 1 - month;
+    if (m < 0 || (m === 0 && today.getDate() < day)) {
+      age--;
+    }
+
+    return {
+      formatted: `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')} (${age} anos)`,
+      monthNum: month
+    };
+  };
+
   // --- FILTRAGENS INTELIGENTES ---
   const filteredMembers = members.filter((m) => {
     const isStatusMatch = showInactives ? m.ativo === false : m.ativo !== false;
@@ -774,7 +799,15 @@ export default function App() {
       !term ||
       m.nome?.toLowerCase().includes(term) ||
       m.cpf?.replaceAll('.', '').replaceAll('-', '').includes(term.replaceAll('.', '').replaceAll('-', ''));
-    return isStatusMatch && isSearchMatch;
+
+    if (!isStatusMatch || !isSearchMatch) return false;
+
+    if (activeTab === 'relatorios' && reportType === 'aniversariantes' && filterMonth !== 'todos') {
+      const bdayInfo = formatBirthday(m.nascimento);
+      return bdayInfo.monthNum === parseInt(filterMonth, 10);
+    }
+
+    return true;
   });
 
   const filteredUsers = usersList.filter((u) => {
@@ -811,6 +844,11 @@ export default function App() {
 
   const toggleDropdown = (name: string) => {
     setOpenDropdown(openDropdown === name ? null : name);
+  };
+
+  // IMPRESSÃO DE RELATÓRIO
+  const handlePrintReport = () => {
+    window.print();
   };
 
   // --- TELA 1: LOGIN PRINCIPAL COM LOGO BRSYSTEM ---
@@ -905,12 +943,11 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       
-      {/* CABEÇALHO SUPERIOR */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30">
+      {/* CABEÇALHO SUPERIOR (Oculto na impressão) */}
+      <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
           <div className="flex items-center gap-8">
-            {/* LOGOMARCA BRSYSTEM (CLIQUE VOLTA PARA HOME) */}
             <div onClick={handleGoHome} className="flex items-center gap-2.5 cursor-pointer group" title="Ir para a página inicial">
               <div className="w-10 h-10 bg-gradient-to-tr from-blue-900 via-blue-700 to-indigo-600 rounded-xl shadow-md flex items-center justify-center text-white transform group-hover:scale-105 transition-transform">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -925,7 +962,6 @@ export default function App() {
 
             <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-blue-900">
               
-              {/* DROPDOWN: CADASTROS */}
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('cadastros')}
@@ -969,7 +1005,6 @@ export default function App() {
               <div className="relative"><button onClick={() => toggleDropdown('agenda')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Agenda</span><span className="text-xs">∨</span></button></div>
               <div className="relative"><button onClick={() => toggleDropdown('financeiro')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Financeiro</span><span className="text-xs">∨</span></button></div>
               
-              {/* DROPDOWN: CONTROLE */}
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('controle')}
@@ -1261,34 +1296,138 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA 4: RELATÓRIOS */}
+        {/* ABA 4: RELATÓRIOS DIVERSOS (NOVA SEÇÃO DE RELATÓRIOS COMPACTOS E COMPLETOS) */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">Relatórios e Estatísticas Gerais</h2>
+            
+            {/* CABEÇALHO DO RELATÓRIO */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4 print:border-b-2 print:border-slate-800">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">
+                  {reportType === 'aniversariantes' ? '🎂 Relatório de Aniversariantes & Contatos' : '📜 Relatório Cadastral Completo de Membros'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Igreja: <b className="text-blue-900">{loggedIgreja?.nome_fantasia}</b> ({loggedIgreja?.codigo_igreja})
+                </p>
+              </div>
+
+              {/* CONTROLES DE FILTRO E IMPRESSÃO (OCULTOS NA IMPRESSÃO) */}
+              <div className="flex flex-wrap items-center gap-3 print:hidden">
+                <select
+                  value={reportType}
+                  onChange={(e) => setReportType(e.target.value as any)}
+                  className="rounded-xl border border-slate-300 p-2 text-xs font-bold bg-slate-50 text-slate-700"
+                >
+                  <option value="aniversariantes">1) Relatório Aniversariantes (1 Linha)</option>
+                  <option value="completo">2) Relatório Completo de Dados</option>
+                </select>
+
+                {reportType === 'aniversariantes' && (
+                  <select
+                    value={filterMonth}
+                    onChange={(e) => setFilterMonth(e.target.value)}
+                    className="rounded-xl border border-slate-300 p-2 text-xs font-bold bg-slate-50 text-slate-700"
+                  >
+                    <option value="todos">Todos os Meses</option>
+                    <option value="1">Janeiro</option>
+                    <option value="2">Fevereiro</option>
+                    <option value="3">Março</option>
+                    <option value="4">Abril</option>
+                    <option value="5">Maio</option>
+                    <option value="6">Junho</option>
+                    <option value="7">Julho</option>
+                    <option value="8">Agosto</option>
+                    <option value="9">Setembro</option>
+                    <option value="10">Outubro</option>
+                    <option value="11">Novembro</option>
+                    <option value="12">Dezembro</option>
+                  </select>
+                )}
+
+                <button
+                  onClick={handlePrintReport}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-xs rounded-xl shadow hover:opacity-95 transition-all flex items-center gap-1.5"
+                >
+                  <span>🖨️</span> Imprimir Relatório
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
-              <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-blue-600 uppercase">Membros Ativos</p>
-                <p className="text-3xl font-extrabold text-blue-900 mt-2">{members.filter(m => m.ativo !== false).length}</p>
+
+            {/* TABELA TIPO 1: ANIVERSARIANTES (LAYOUT 1 LINHA COMPACTO) */}
+            {reportType === 'aniversariantes' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider">
+                      <th className="py-2 px-3">Nome do Membro</th>
+                      <th className="py-2 px-3">Celular / WhatsApp</th>
+                      <th className="py-2 px-3">Endereço</th>
+                      <th className="py-2 px-3">Data de Aniversário</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                    {filteredMembers.length > 0 ? (
+                      filteredMembers.map((m) => {
+                        const bday = formatBirthday(m.nascimento);
+                        return (
+                          <tr key={m.id} className="hover:bg-slate-50 font-medium">
+                            <td className="py-2.5 px-3 font-bold text-slate-900">{m.nome}</td>
+                            <td className="py-2.5 px-3 font-mono">{m.celular_principal || m.celular_secundario || '-'}</td>
+                            <td className="py-2.5 px-3">{m.naturalidade || 'Não informado'}</td>
+                            <td className="py-2.5 px-3 font-mono font-bold text-blue-900">{bday.formatted}</td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr><td colSpan={4} className="py-8 text-center text-slate-400">Nenhum membro encontrado para o filtro.</td></tr>
+                    )}
+                  </tbody>
+                </table>
               </div>
-              <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-indigo-600 uppercase">Usuários Ativos</p>
-                <p className="text-3xl font-extrabold text-indigo-900 mt-2">{usersList.filter(u => u.ativo !== false).length}</p>
+            )}
+
+            {/* TABELA TIPO 2: RELATÓRIO COMPLETO DE DADOS */}
+            {reportType === 'completo' && (
+              <div className="space-y-6">
+                {filteredMembers.length > 0 ? (
+                  filteredMembers.map((m) => (
+                    <div key={m.id} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 print:break-inside-avoid">
+                      <div className="flex items-center gap-4 border-b pb-2">
+                        <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden border">
+                          {m.foto_url ? <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" /> : <span className="text-[9px] text-slate-400 flex items-center justify-center h-full">Sem foto</span>}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-900">{m.nome}</h3>
+                          <p className="text-xs text-blue-800 font-semibold">{m.tipo_cadastro} • {m.sexo}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div><span className="font-bold text-slate-500">CPF:</span> {m.cpf || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Nascimento:</span> {m.nascimento || '-'}</div>
+                        <div><span className="font-bold text-slate-500">RG/Identificação:</span> {m.identificacao || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Nacionalidade:</span> {m.nacionalidade || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Naturalidade/Endereço:</span> {m.naturalidade || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Escolaridade:</span> {m.escolaridade || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Profissão:</span> {m.profissao || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Empresa:</span> {m.empresa || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Celular 1:</span> {m.celular_principal || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Celular 2:</span> {m.celular_secundario || '-'}</div>
+                        <div><span className="font-bold text-slate-500">E-mail:</span> {m.email || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Contato Emergência:</span> {m.nome_contato || '-'}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="py-8 text-center text-slate-400">Nenhum membro cadastrado.</p>
+                )}
               </div>
-              <div className="bg-purple-50 border border-purple-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-purple-600 uppercase">Fornecedores Ativos</p>
-                <p className="text-3xl font-extrabold text-purple-900 mt-2">{suppliersList.filter(s => s.ativo !== false).length}</p>
-              </div>
-              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-emerald-600 uppercase">Status da Igreja Logada</p>
-                <p className="text-lg font-bold text-emerald-900 mt-2">{loggedIgreja?.nome_fantasia} ({loggedIgreja?.codigo_igreja})</p>
-              </div>
-            </div>
+            )}
+
           </div>
         )}
 
-        {/* ABA 5: CADASTRO DA IGREJA (MODULAR DE CONSULTA, EDIÇÃO E EXCLUSÃO) */}
+        {/* ABA 5: CADASTRO DA IGREJA */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">

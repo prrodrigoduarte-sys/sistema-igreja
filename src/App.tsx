@@ -13,7 +13,7 @@ export default function App() {
   // Sub-abas da Agenda
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
 
-  // Sub-abas do Financeiro (Adicionada a sub-aba 'relatorio')
+  // Sub-abas do Financeiro
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
 
   // Login
@@ -385,7 +385,7 @@ export default function App() {
     }
   };
 
-  // Função para anexar comprovante (Tirar foto ou carregar arquivo)
+  // Função para anexar comprovante
   const handleAnexarComprovante = async (lancamentoId: any, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -432,6 +432,11 @@ export default function App() {
       saldoAtual: saldoAcumulado
     };
   });
+
+  // Saldo final exato (último resultado do array ou 0 se vazio)
+  const saldoFinalRelatorio = lancamentosComSaldo.length > 0 
+    ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual 
+    : 0;
 
   if (!isLoggedIn) {
     return (
@@ -1095,17 +1100,17 @@ export default function App() {
               </div>
             )}
 
-            {/* NOVA SUB-ABA: RELATÓRIO FINANCEIRO */}
+            {/* SUB-ABA: RELATÓRIO FINANCEIRO COM SALDO FINAL CORRETO */}
             {financeiroSubTab === 'relatorio' && (
               <div className="space-y-6">
-                <div className="p-4 bg-slate-50 border rounded-2xl flex justify-between items-center print:hidden">
+                <div className="p-5 bg-blue-50 border border-blue-200 rounded-2xl flex justify-between items-center print:border-slate-400">
                   <div>
-                    <h3 className="font-bold text-slate-800 text-base">Relatório Consolidado da Conta Corrente</h3>
-                    <p className="text-xs text-slate-500">Visualização pronta para conferência ou impressão oficial.</p>
+                    <h3 className="font-bold text-blue-950 text-base">Saldo Atual da Conta Corrente</h3>
+                    <p className="text-xs text-blue-700">Calculado através do último resultado acumulado (Créditos menos Débitos).</p>
                   </div>
-                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer">
-                    🖨️ Imprimir Relatório
-                  </button>
+                  <div className={`text-2xl font-black font-mono ${saldoFinalRelatorio >= 0 ? 'text-blue-900' : 'text-rose-600'}`}>
+                    R$ {saldoFinalRelatorio.toFixed(2)}
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto border rounded-xl">
@@ -1116,7 +1121,7 @@ export default function App() {
                         <th className="p-3">Débito (Saída)</th>
                         <th className="p-3">Crédito (Entrada)</th>
                         <th className="p-3">Descrição</th>
-                        <th className="p-3">Saldo Final</th>
+                        <th className="p-3">Saldo Parcial / Atual</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">

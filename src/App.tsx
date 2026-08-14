@@ -17,9 +17,10 @@ export default function App() {
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState<number | null>(null);
 
-  // --- MENU LATERAL FLUTUANTE (SIDEBAR) ---
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores'>('membros');
+  // --- MENU SUPERIOR E DROPDOWNS ---
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios'>('membros');
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // --- MODAIS FLUTUANTES DE CADASTRO ---
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -141,7 +142,6 @@ export default function App() {
     setIsLoggedIn(false);
     setLoggedUser(null);
     setLoggedIgreja(null);
-    setIsSidebarOpen(false);
     setIsMemberModalOpen(false);
     setIsUserModalOpen(false);
   };
@@ -350,6 +350,10 @@ export default function App() {
       m.cpf?.includes(searchTerm)
   );
 
+  const toggleDropdown = (name: string) => {
+    setOpenDropdown(openDropdown === name ? null : name);
+  };
+
   // --- TELA 1: LOGIN PRINCIPAL ---
   if (!isLoggedIn) {
     const isLocked = lockUntil && Date.now() < lockUntil;
@@ -411,7 +415,7 @@ export default function App() {
             <button
               type="submit"
               disabled={loginLoading || !!isLocked}
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow transition-colors disabled:opacity-50"
+              className="w-full py-3 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-lg shadow transition-colors disabled:opacity-50"
             >
               {loginLoading ? 'Verificando...' : 'Entrar no Sistema'}
             </button>
@@ -427,136 +431,174 @@ export default function App() {
     );
   }
 
-  // --- TELA 2: DASHBOARD COM MENU LATERAL FLUTUANTE ---
+  // --- TELA 2: DASHBOARD COM MENU SUPERIOR HORIZONTAL ---
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col relative">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       
-      {/* CAMEÇALHO SUPERIOR */}
-      <header className="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm z-10">
-        <div className="flex items-center gap-4">
-          {/* Botão Hambúrguer para Abrir o Menu Lateral */}
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-bold transition-colors flex items-center gap-2"
-          >
-            <span className="text-xl">☰</span>
-            <span className="text-sm hidden sm:inline">Menu</span>
-          </button>
+      {/* CABEÇALHO SUPERIOR HORIZONTAL */}
+      <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          
+          {/* LOGO + MENU SUPERIOR */}
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2 cursor-pointer">
+              <div className="w-9 h-9 bg-blue-700 rounded-full flex items-center justify-center text-white font-bold text-xl shadow">
+                P
+              </div>
+            </div>
 
-          <div>
-            <h1 className="text-xl font-bold text-slate-800">
-              {loggedIgreja?.nome_fantasia || loggedIgreja?.razao_social || 'Painel Administrativo'}
-            </h1>
-            <p className="text-xs text-slate-500">
-              Código: <span className="font-mono font-semibold">{loggedUser?.codigo_igreja}</span> | Operador: <span className="font-semibold text-slate-700">{loggedUser?.nome_usuario}</span>
-            </p>
+            <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-blue-900">
+              
+              {/* DROPDOWN 1: CADASTROS */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('cadastros')}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                >
+                  <span>Cadastros</span>
+                  <span className="text-xs">∨</span>
+                </button>
+
+                {openDropdown === 'cadastros' && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50">
+                    <button
+                      onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+                    >
+                      📋 Membros
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+                    >
+                      👤 Usuários
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium"
+                    >
+                      🚚 Fornecedores
+                    </button>
+                    <button
+                      onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }}
+                      className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-medium border-t border-slate-100"
+                    >
+                      📊 Relatórios
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* DROPDOWN 2: CÉLULAS */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('celulas')}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                >
+                  <span>Células</span>
+                  <span className="text-xs">∨</span>
+                </button>
+                {openDropdown === 'celulas' && (
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
+                    Módulo de Células em breve...
+                  </div>
+                )}
+              </div>
+
+              {/* DROPDOWN 3: AGENDA */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('agenda')}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                >
+                  <span>Agenda</span>
+                  <span className="text-xs">∨</span>
+                </button>
+                {openDropdown === 'agenda' && (
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
+                    Módulo de Agenda em breve...
+                  </div>
+                )}
+              </div>
+
+              {/* DROPDOWN 4: FINANCEIRO */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('financeiro')}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                >
+                  <span>Financeiro</span>
+                  <span className="text-xs">∨</span>
+                </button>
+                {openDropdown === 'financeiro' && (
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
+                    Módulo Financeiro em breve...
+                  </div>
+                )}
+              </div>
+
+              {/* DROPDOWN 5: CONTROLE */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('controle')}
+                  className="flex items-center gap-1 hover:text-blue-600 transition-colors py-2"
+                >
+                  <span>Controle</span>
+                  <span className="text-xs">∨</span>
+                </button>
+                {openDropdown === 'controle' && (
+                  <div className="absolute top-full left-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg py-2 z-50 text-xs text-slate-500 p-3">
+                    Módulo de Controle em breve...
+                  </div>
+                )}
+              </div>
+
+            </nav>
           </div>
+
+          {/* ÁREA DO USUÁRIO E SAIR */}
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:block text-right">
+              <p className="text-sm font-bold text-slate-800">{loggedIgreja?.nome_fantasia || 'Igreja'}</p>
+              <p className="text-xs text-slate-500">{loggedUser?.nome_usuario}</p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs rounded-lg transition-colors"
+            >
+              Sair
+            </button>
+
+            {/* Menu Mobile */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-slate-700 text-xl font-bold"
+            >
+              ☰
+            </button>
+          </div>
+
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium text-sm rounded-lg transition-colors"
-        >
-          Sair
-        </button>
+        {/* MENU MOBILE EXPANSÍVEL */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t mt-3 pt-3 space-y-2 text-sm font-semibold text-blue-900">
+            <div className="font-bold text-xs text-slate-400 uppercase tracking-wider px-2">Cadastros</div>
+            <button onClick={() => { setActiveTab('membros'); setMobileMenuOpen(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-100">📋 Membros</button>
+            <button onClick={() => { setActiveTab('usuarios'); setMobileMenuOpen(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-100">👤 Usuários</button>
+            <button onClick={() => { setActiveTab('fornecedores'); setMobileMenuOpen(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-100">🚚 Fornecedores</button>
+            <button onClick={() => { setActiveTab('relatorios'); setMobileMenuOpen(false); }} className="block w-full text-left px-4 py-2 hover:bg-slate-100">📊 Relatórios</button>
+          </div>
+        )}
       </header>
 
-      {/* --- MENU LATERAL FLUTUANTE (SIDEBAR FLUTUANTE) --- */}
-      {isSidebarOpen && (
-        <div className="fixed inset-0 z-50 flex">
-          {/* Fundo Escuro Clicável */}
-          <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-
-          {/* Painel do Menu Lateral */}
-          <div className="relative bg-slate-900 text-white w-72 max-w-full h-full shadow-2xl p-6 flex flex-col justify-between z-10">
-            <div>
-              {/* Topo do Menu Lateral */}
-              <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
-                <div>
-                  <h2 className="font-extrabold text-lg text-indigo-400">SISTEMA IGREJA</h2>
-                  <p className="text-xs text-slate-400">Navegação Principal</p>
-                </div>
-                <button
-                  onClick={() => setIsSidebarOpen(false)}
-                  className="text-slate-400 hover:text-white text-2xl font-bold"
-                >
-                  &times;
-                </button>
-              </div>
-
-              {/* GRUPO CADASTRO */}
-              <div className="space-y-3">
-                <div className="text-xs font-bold text-slate-400 tracking-wider uppercase px-2">
-                  📁 CADASTRO
-                </div>
-
-                <div className="space-y-1 pl-2">
-                  {/* Opção 1: Membros */}
-                  <button
-                    onClick={() => {
-                      setActiveTab('membros');
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
-                      activeTab === 'membros'
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <span>📋</span> Cadastro de Membros
-                  </button>
-
-                  {/* Opção 2: Usuários */}
-                  <button
-                    onClick={() => {
-                      setActiveTab('usuarios');
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
-                      activeTab === 'usuarios'
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <span>👤</span> Cadastro de Usuários
-                  </button>
-
-                  {/* Opção 3: Fornecedores */}
-                  <button
-                    onClick={() => {
-                      setActiveTab('fornecedores');
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
-                      activeTab === 'fornecedores'
-                        ? 'bg-indigo-600 text-white'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <span>🚚</span> Cadastro de Fornecedores
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Rodapé do Menu Lateral */}
-            <div className="border-t border-slate-800 pt-4 text-xs text-slate-500 text-center">
-              Igreja: {loggedUser?.codigo_igreja}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* CONTEÚDO PRINCIPAL DA TELA */}
-      <main className="max-w-6xl w-full mx-auto p-6 space-y-6 flex-1">
+      <main className="max-w-7xl w-full mx-auto p-6 space-y-6 flex-1">
         
-        {/* OPÇÃO 1: MEMBROS */}
+        {/* ABA 1: MEMBROS */}
         {activeTab === 'membros' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">
                   Cadastro de Membros ({filteredMembers.length})
@@ -570,11 +612,11 @@ export default function App() {
                   placeholder="Buscar por nome ou CPF..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-64 rounded-lg border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500"
                 />
                 <button
                   onClick={() => setIsMemberModalOpen(true)}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                  className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
                 >
                   <span>+</span> Novo Membro
                 </button>
@@ -614,10 +656,10 @@ export default function App() {
           </div>
         )}
 
-        {/* OPÇÃO 2: USUÁRIOS */}
+        {/* ABA 2: USUÁRIOS */}
         {activeTab === 'usuarios' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">
                   Cadastro de Usuários ({usersList.length})
@@ -627,7 +669,7 @@ export default function App() {
 
               <button
                 onClick={() => setIsUserModalOpen(true)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span>+</span> Novo Usuário
               </button>
@@ -647,7 +689,7 @@ export default function App() {
                     usersList.map((u) => (
                       <tr key={u.id} className="hover:bg-slate-50">
                         <td className="py-3 px-4 font-medium text-slate-900">{u.nome_usuario || 'Não informado'}</td>
-                        <td className="py-3 px-4 font-mono text-indigo-600 font-semibold">{u.usuario}</td>
+                        <td className="py-3 px-4 font-mono text-blue-700 font-semibold">{u.usuario}</td>
                         <td className="py-3 px-4">
                           <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full">
                             Ativo
@@ -668,10 +710,10 @@ export default function App() {
           </div>
         )}
 
-        {/* OPÇÃO 3: FORNECEDORES */}
+        {/* ABA 3: FORNECEDORES */}
         {activeTab === 'fornecedores' && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">
                   Cadastro de Fornecedores
@@ -681,7 +723,7 @@ export default function App() {
 
               <button
                 onClick={() => alert('Módulo de fornecedores em breve!')}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-lg shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-1.5 whitespace-nowrap"
               >
                 <span>+</span> Novo Fornecedor
               </button>
@@ -689,7 +731,35 @@ export default function App() {
 
             <div className="py-12 text-center text-slate-400 space-y-2">
               <p className="text-lg font-semibold">Módulo de Fornecedores pronto para receber cadastros.</p>
-              <p className="text-xs">Podemos criar a tabela no Supabase para esse cadastro a qualquer momento!</p>
+            </div>
+          </div>
+        )}
+
+        {/* ABA 4: RELATÓRIOS */}
+        {activeTab === 'relatorios' && (
+          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
+            <div className="border-b border-slate-100 pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">
+                Relatórios e Estatísticas Gerais
+              </h2>
+              <p className="text-xs text-slate-500">Visão consolidada dos cadastros da igreja.</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl">
+                <p className="text-xs font-bold text-blue-600 uppercase">Total de Membros</p>
+                <p className="text-3xl font-extrabold text-blue-900 mt-2">{members.length}</p>
+              </div>
+
+              <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl">
+                <p className="text-xs font-bold text-indigo-600 uppercase">Usuários do Sistema</p>
+                <p className="text-3xl font-extrabold text-indigo-900 mt-2">{usersList.length}</p>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl">
+                <p className="text-xs font-bold text-emerald-600 uppercase">Status da Igreja</p>
+                <p className="text-lg font-bold text-emerald-900 mt-2">Ativa / Regular</p>
+              </div>
             </div>
           </div>
         )}
@@ -739,7 +809,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={startCamera}
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
+                          className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-1.5 rounded-md text-xs font-semibold"
                         >
                           Tirar Foto
                         </button>
@@ -769,7 +839,7 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
-                  <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                  <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Selecione...</option>
                     <option value="Membro">Membro</option>
                     <option value="Visitante">Visitante</option>
@@ -779,17 +849,17 @@ export default function App() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label>
-                  <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label>
-                  <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
-                  <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                  <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Selecione...</option>
                     <option value="Masculino">Masculino</option>
                     <option value="Feminino">Feminino</option>
@@ -798,32 +868,32 @@ export default function App() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label>
-                  <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Identificação</label>
-                  <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label>
-                  <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade - Cidade</label>
-                  <input type="text" name="naturalidade" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="naturalidade" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Escolaridade</label>
-                  <select name="escolaridade" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500">
+                  <select name="escolaridade" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500">
                     <option value="">Selecione...</option>
                     <option value="Fundamental">Ensino Fundamental</option>
                     <option value="Médio">Ensino Médio</option>
@@ -834,12 +904,12 @@ export default function App() {
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Profissão</label>
-                  <input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label>
-                  <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                  <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
 
@@ -848,22 +918,22 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Nome Contato</label>
-                    <input type="text" name="nome_contato" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                    <input type="text" name="nome_contato" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Celular Principal</label>
-                    <input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                    <input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Celular secundário</label>
-                    <input type="text" name="celular_secundario" placeholder="(00) 00000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                    <input type="text" name="celular_secundario" placeholder="(00) 00000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone Fixo</label>
-                    <input type="text" name="telefone_fixo" placeholder="(00) 0000-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                    <input type="text" name="telefone_fixo" placeholder="(00) 0000-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-md border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-500" />
                   </div>
                 </div>
               </div>
@@ -879,7 +949,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
+                  className="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
                 >
                   {loading ? 'Salvando...' : 'Salvar Cadastro'}
                 </button>
@@ -917,7 +987,7 @@ export default function App() {
                   placeholder="Ex: João da Silva"
                   value={userFormData.nome_usuario}
                   onChange={handleUserChange}
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -930,7 +1000,7 @@ export default function App() {
                   placeholder="Ex: joao"
                   value={userFormData.usuario}
                   onChange={handleUserChange}
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -943,7 +1013,7 @@ export default function App() {
                   placeholder="••••••••"
                   value={userFormData.senha}
                   onChange={handleUserChange}
-                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-indigo-500"
+                  className="w-full rounded-lg border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
@@ -958,7 +1028,7 @@ export default function App() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
+                  className="px-6 py-2 bg-blue-700 hover:bg-blue-800 text-white font-bold text-sm rounded-lg shadow disabled:opacity-50"
                 >
                   {loading ? 'Cadastrando...' : 'Cadastrar Usuário'}
                 </button>

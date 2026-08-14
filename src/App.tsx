@@ -2,35 +2,27 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase'; 
 
 export default function App() {
-// Estados de Autenticação e Navegação
 const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [loggedUser, setLoggedUser] = useState(null);
-const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros'); 
-
-// Estado para controlar qual menu suspenso está aberto no momento
+const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
 const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'agenda' | 'financeiro' | null>(null); 
 
-// Estados do Formulário de Login
 const [loginCodigo, setLoginCodigo] = useState('IGR-001');
 const [loginUsuario, setLoginUsuario] = useState('');
 const [loginSenha, setLoginSenha] = useState('');
 const [loginLoading, setLoginLoading] = useState(false); 
 
-// Estados do Módulo de Membros (Tabela: members)
 const [members, setMembers] = useState<any[]>([]);
 const [searchTerm, setSearchTerm] = useState('');
 const [loadingMembros, setLoadingMembros] = useState(false); 
 
-// Estados do Módulo da Agenda (Tabela: agenda_compromissos)
 const [compromissos, setCompromissos] = useState<any[]>([]);
 const [loadingAgenda, setLoadingAgenda] = useState(false); 
 
-// Estados do Módulo Financeiro (Tabelas: contas_financeiras e lancamentos_financeiros)
 const [contas, setContas] = useState<any[]>([]);
 const [lancamentos, setLancamentos] = useState<any[]>([]);
 const [loadingFinanceiro, setLoadingFinanceiro] = useState(false); 
 
-// --- FUNÇÃO DE LOGIN ---
 const handleLogin = async (e: React.FormEvent) => {
 e.preventDefault();
 setLoginLoading(true);
@@ -60,58 +52,37 @@ setLoginLoading(false);
 
 }; 
 
-// --- CARREGAMENTO DE DADOS DO BANCO (SUPABASE) ---
 useEffect(() => {
-if (!isLoggedIn || !loggedUser?.codigo_igreja) return; 
+if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
+const codigoIgreja = loggedUser.codigo_igreja; 
 
-const codigoIgreja = loggedUser.codigo_igreja;
-
-// Busca Membros
 async function fetchMembers() {
 setLoadingMembros(true);
-const { data, error } = await supabase
-.from('members')
-.select('*')
-.eq('codigo_igreja', codigoIgreja);
+const { data, error } = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
 if (!error) setMembers(data || []);
 setLoadingMembros(false);
 }
 
-// Busca Agenda
 async function fetchAgenda() {
 setLoadingAgenda(true);
-const { data, error } = await supabase
-.from('agenda_compromissos')
-.select('*')
-.eq('codigo_igreja', codigoIgreja)
-.order('data_compromisso', { ascending: true });
+const { data, error } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', codigoIgreja).order('data_compromisso', { ascending: true });
 if (!error) setCompromissos(data || []);
 setLoadingAgenda(false);
 }
 
-// Busca Financeiro
 async function fetchFinanceiro() {
 setLoadingFinanceiro(true);
 try {
-const { data: contasData } = await supabase
-.from('contas_financeiras')
-.select('*')
-.eq('codigo_igreja', codigoIgreja);
+const { data: contasData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
 setContas(contasData || []);
-const { data: lancsData } = await supabase
-  .from('lancamentos_financeiros')
-  .select('*')
-  .eq('codigo_igreja', codigoIgreja)
-  .order('data_lancamento', { ascending: false });
+const { data: lancsData } = await supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', codigoIgreja).order('data_lancamento', { ascending: false });
 setLancamentos(lancsData || []);
-
 } catch (err) {
-console.error("Erro no financeiro:", err);
+console.error(err);
 }
 setLoadingFinanceiro(false);
 }
 
-// Dispara a busca baseada na aba que o usuário clicou
 if (activeTab === 'membros') fetchMembers();
 if (activeTab === 'agenda') fetchAgenda();
 if (activeTab === 'financeiro') fetchFinanceiro();
@@ -122,16 +93,10 @@ const filteredMembers = members.filter(
 (m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
 ); 
 
-// Fecha menus abertos ao clicar fora
-const mudarAbaENeutralizar = (aba: 'membros' | 'agenda' | 'financeiro') => {
-setActiveTab(aba);
-setOpenDropdown(null);
-}; 
-
 if (!isLoggedIn) {
 return ( 
 
-;
+);
 } 
 
 return (

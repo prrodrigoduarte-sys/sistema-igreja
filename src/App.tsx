@@ -476,7 +476,7 @@ export default function App() {
     }
   };
 
-  // --- MEMBROS: MODAL COM 2 ABAS / SUBMENUS ---
+  // --- MEMBROS: MODAL COM ABAS CORRIGIDO ---
   const handleOpenNewMemberModal = (fromTab: 'membros' | 'relatorios' = 'membros') => {
     setEditSource(fromTab);
     setMemberModalSubTab('dados');
@@ -1593,18 +1593,18 @@ export default function App() {
 
       </main>
 
-      {/* --- MODAL DE MEMBRO DIVIDIDO EM 2 ABAS FLUIDAS --- */}
+      {/* --- MODAL DE MEMBRO DIVIDIDO EM 2 ABAS FLUIDAS (CORRIGIDO) --- */}
       {isMemberModalOpen && (
         <div
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
           onClick={handleCloseMemberModal}
         >
           <div
-            className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col"
+            className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* TOPO E CABEÇALHO */}
-            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
+            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
               <div>
                 <h3 className="text-lg font-bold">{editingMemberId ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}</h3>
                 <p className="text-xs text-blue-200">Igreja: {loggedIgreja?.nome_fantasia || loggedIgreja?.codigo_igreja}</p>
@@ -1612,8 +1612,8 @@ export default function App() {
               <button onClick={handleCloseMemberModal} className="text-slate-300 hover:text-white text-2xl font-bold">&times;</button>
             </div>
 
-            {/* BARRA DE SUBMENUS / ABAS FLUTUANTES DO MODAL */}
-            <div className="flex border-b border-slate-200 bg-slate-100 px-6 pt-3 gap-2">
+            {/* BARRA DE ABAS DO MODAL */}
+            <div className="flex border-b border-slate-200 bg-slate-100 px-6 pt-3 gap-2 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setMemberModalSubTab('dados')}
@@ -1623,7 +1623,7 @@ export default function App() {
                     : 'text-slate-600 hover:text-blue-900 border-transparent hover:bg-slate-200/50'
                 }`}
               >
-                📋 1. Dados Pessoais e Foto
+                📋 1. Dados Pessoais & Foto
               </button>
 
               <button
@@ -1635,184 +1635,187 @@ export default function App() {
                     : 'text-slate-600 hover:text-blue-900 border-transparent hover:bg-slate-200/50'
                 }`}
               >
-                🏠 2. Endereço, Contato e Profissão
+                🏠 2. Endereço & Contatos
               </button>
             </div>
 
-            {/* FORMULÁRIO DIVIDIDO EM 2 TAINAS */}
-            <form onSubmit={handleRegisterMember} className="p-6 space-y-6">
-              
-              {/* === ABA 1: DADOS PESSOAIS E FOTO === */}
-              {memberModalSubTab === 'dados' && (
-                <div className="space-y-6">
-                  {/* FOTO DO MEMBRO */}
-                  <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
-                    <div className="w-24 h-24 rounded-full border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden relative flex-shrink-0">
-                      {useCamera ? (
-                        <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                      ) : photoPreview ? (
-                        <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-[10px] text-slate-400 font-medium text-center px-2">Sem foto</span>
-                      )}
+            {/* FORMULÁRIO COM ROLAGEM DEDICADA */}
+            <form onSubmit={handleRegisterMember} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-6 overflow-y-auto max-h-[65vh]">
+                
+                {/* === ABA 1: DADOS PESSOAIS E FOTO === */}
+                {memberModalSubTab === 'dados' && (
+                  <div className="space-y-6">
+                    {/* FOTO DO MEMBRO */}
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
+                      <div className="w-24 h-24 rounded-full border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden relative flex-shrink-0">
+                        {useCamera ? (
+                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                        ) : photoPreview ? (
+                          <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium text-center px-2">Sem foto</span>
+                        )}
+                      </div>
+
+                      <canvas ref={canvasRef} className="hidden" />
+
+                      <div className="space-y-2 text-center sm:text-left">
+                        <h4 className="text-xs font-bold text-slate-700 uppercase">Foto do Membro</h4>
+                        <div className="flex flex-wrap gap-2 justify-center sm:justify-start pt-1">
+                          {!useCamera ? (
+                            <>
+                              <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                                Inspecionar / Arquivo
+                                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                              </label>
+                              <button type="button" onClick={startCamera} className="bg-blue-800 hover:bg-blue-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Tirar Foto</button>
+                            </>
+                          ) : (
+                            <>
+                              <button type="button" onClick={capturePhoto} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Capturar</button>
+                              <button type="button" onClick={stopCamera} className="bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Cancelar</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
-                    <canvas ref={canvasRef} className="hidden" />
+                    {/* DADOS BÁSICOS */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
+                        <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600">
+                          <option value="">Selecione...</option>
+                          <option value="Membro">Membro</option>
+                          <option value="Visitante">Visitante</option>
+                          <option value="Congregado">Congregado</option>
+                        </select>
+                      </div>
 
-                    <div className="space-y-2 text-center sm:text-left">
-                      <h4 className="text-xs font-bold text-slate-700 uppercase">Foto do Membro</h4>
-                      <div className="flex flex-wrap gap-2 justify-center sm:justify-start pt-1">
-                        {!useCamera ? (
-                          <>
-                            <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
-                              Inspecionar / Arquivo
-                              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-                            </label>
-                            <button type="button" onClick={startCamera} className="bg-blue-800 hover:bg-blue-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Tirar Foto</button>
-                          </>
-                        ) : (
-                          <>
-                            <button type="button" onClick={capturePhoto} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Capturar</button>
-                            <button type="button" onClick={stopCamera} className="bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Cancelar</button>
-                          </>
-                        )}
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label>
+                        <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label>
+                        <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
+                        <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600">
+                          <option value="">Selecione...</option>
+                          <option value="Masculino">Masculino</option>
+                          <option value="Feminino">Feminino</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Data de Nascimento *</label>
+                        <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Identificação / RG</label>
+                        <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label>
+                        <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade</label>
+                        <input type="text" name="naturalidade" placeholder="Ex: Teófilo Otoni" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
                       </div>
                     </div>
                   </div>
+                )}
 
-                  {/* DADOS BÁSICOS */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
-                      <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600">
-                        <option value="">Selecione...</option>
-                        <option value="Membro">Membro</option>
-                        <option value="Visitante">Visitante</option>
-                        <option value="Congregado">Congregado</option>
-                      </select>
+                {/* === ABA 2: ENDEREÇO, CONTATO E OUTROS === */}
+                {memberModalSubTab === 'endereco_outros' && (
+                  <div className="space-y-4">
+                    
+                    <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1">Endereço & Localização</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Rua / Logradouro</label>
+                        <input type="text" name="rua" placeholder="Ex: Rua Epaminondas Otoni" value={formData.rua} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Número</label>
+                        <input type="text" name="numero" placeholder="Ex: 123" value={formData.numero} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Bairro</label>
+                        <input type="text" name="bairro" placeholder="Ex: Centro" value={formData.bairro} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Cidade</label>
+                        <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">UF</label>
+                        <input type="text" name="uf" value={formData.uf} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
                     </div>
 
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label>
-                      <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                    <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1 pt-2">Telefones & Contatos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Celular / WhatsApp *</label>
+                        <input type="text" name="celular_principal" placeholder="(33) 90000-0000" value={formData.celular_principal} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Celular 2</label>
+                        <input type="text" name="celular_secundario" placeholder="(33) 90000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone Fixo</label>
+                        <input type="text" name="telefone_fixo" placeholder="(33) 3521-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label>
+                        <input type="email" name="email" placeholder="membro@email.com" value={formData.email} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label>
-                      <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
+                    <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1 pt-2">Dados Profissionais & Emergência</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Escolaridade</label>
+                        <input type="text" name="escolaridade" placeholder="Ex: Superior Completo" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Profissão</label>
+                        <input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label>
+                        <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Contato de Emergência (Nome / Parentesco)</label>
+                        <input type="text" name="nome_contato" placeholder="Ex: Maria (Esposa)" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
+                      </div>
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
-                      <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600">
-                        <option value="">Selecione...</option>
-                        <option value="Masculino">Masculino</option>
-                        <option value="Feminino">Feminino</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Data de Nascimento *</label>
-                      <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Identificação / RG</label>
-                      <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label>
-                      <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade</label>
-                      <input type="text" name="naturalidade" placeholder="Ex: Teófilo Otoni" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2.5 text-sm focus:ring-2 focus:ring-blue-600" />
-                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* === ABA 2: ENDEREÇO, CONTATO E OUTROS === */}
-              {memberModalSubTab === 'endereco_outros' && (
-                <div className="space-y-4">
-                  
-                  <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1">Endereço e Localização</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Rua / Logradouro</label>
-                      <input type="text" name="rua" placeholder="Ex: Rua Epaminondas Otoni" value={formData.rua} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Número</label>
-                      <input type="text" name="numero" placeholder="Ex: 123" value={formData.numero} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Bairro</label>
-                      <input type="text" name="bairro" placeholder="Ex: Centro" value={formData.bairro} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Cidade</label>
-                      <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">UF</label>
-                      <input type="text" name="uf" value={formData.uf} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                  </div>
+              </div>
 
-                  <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1 pt-2">Telefones e Comunicação</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Celular / WhatsApp *</label>
-                      <input type="text" name="celular_principal" placeholder="(33) 90000-0000" value={formData.celular_principal} onChange={handleChange} required className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Celular 2</label>
-                      <input type="text" name="celular_secundario" placeholder="(33) 90000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone Fixo</label>
-                      <input type="text" name="telefone_fixo" placeholder="(33) 3521-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label>
-                      <input type="email" name="email" placeholder="membro@email.com" value={formData.email} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider border-b pb-1 pt-2">Dados Profissionais e Emergência</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Escolaridade</label>
-                      <input type="text" name="escolaridade" placeholder="Ex: Superior Completo" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Profissão</label>
-                      <input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label>
-                      <input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                    <div className="sm:col-span-3">
-                      <label className="block text-xs font-semibold text-slate-600 mb-1">Contato de Emergência (Nome / Parentesco)</label>
-                      <input type="text" name="nome_contato" placeholder="Ex: Maria (Esposa)" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-xl border border-slate-300 p-2 text-sm" />
-                    </div>
-                  </div>
-
-                </div>
-              )}
-
-              {/* RODA PÉ DE BOTÕES DE NAVEGAÇÃO E SALVAR */}
-              <div className="flex items-center justify-between border-t pt-4">
+              {/* RODAPÉ DE AÇÕES FIXO */}
+              <div className="flex items-center justify-between border-t bg-slate-50 px-6 py-4 flex-shrink-0">
                 <div>
                   {memberModalSubTab === 'dados' ? (
                     <button
                       type="button"
                       onClick={() => setMemberModalSubTab('endereco_outros')}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl"
+                      className="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-900 font-bold text-xs rounded-xl transition-all"
                     >
                       Avançar para Endereço / Contatos →
                     </button>
@@ -1820,7 +1823,7 @@ export default function App() {
                     <button
                       type="button"
                       onClick={() => setMemberModalSubTab('dados')}
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl"
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-all"
                     >
                       ← Voltar para Dados Pessoais
                     </button>
@@ -1828,10 +1831,10 @@ export default function App() {
                 </div>
 
                 <div className="flex gap-3">
-                  <button type="button" onClick={handleCloseMemberModal} className="px-4 py-2 border rounded-xl text-slate-700 font-semibold text-xs">
+                  <button type="button" onClick={handleCloseMemberModal} className="px-4 py-2 border rounded-xl bg-white hover:bg-slate-100 text-slate-700 font-semibold text-xs">
                     {editSource === 'relatorios' ? 'Sair e Voltar ao Relatório' : 'Cancelar'}
                   </button>
-                  <button type="submit" disabled={loading} className="px-6 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-xs rounded-xl shadow">
+                  <button type="submit" disabled={loading} className="px-6 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-xs rounded-xl shadow hover:opacity-95 transition-all">
                     {loading ? 'Salvando...' : 'Salvar Cadastro'}
                   </button>
                 </div>

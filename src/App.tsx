@@ -13,8 +13,8 @@ export default function App() {
   // Sub-abas da Agenda
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
 
-  // Sub-abas do Financeiro
-  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas'>('extrato');
+  // Sub-abas do Financeiro (Adicionada a sub-aba 'relatorio')
+  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
 
   // Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -391,51 +391,21 @@ export default function App() {
     if (!file) return;
 
     try {
-      // Cria um nome único para o arquivo
-      const fileExt = file.name.split('.').pop() || 'jpg';
-      const fileName = `${loggedUser.codigo_igreja}_${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64Data = reader.result as string;
+        const { error } = await supabase
+          .from('lancamentos_financeiros')
+          .update({ comprovante_url: base64Data })
+          .eq('id', lancamentoId);
 
-      // Envia para o bucket do Supabase (certifique-se de ter um bucket chamado 'comprovantes')
-      const { error: uploadError } = await supabase.storage
-        .from('comprovantes')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        // Se o bucket não existir ou der erro de storage, salvamos em formato Base64 direto na tabela temporariamente
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = async () => {
-          const base64Data = reader.result as string;
-          await supabase
-            .from('lancamentos_financeiros')
-            .update({ comprovante_url: base64Data })
-            .eq('id', lancamentoId);
-          alert('Comprovante anexado com sucesso!');
-          carregarFinanceiro(loggedUser.codigo_igreja);
-        };
-        return;
-      }
-
-      // Pega a URL pública do arquivo enviado
-      const { data: publicUrlData } = supabase.storage
-        .from('comprovantes')
-        .getPublicUrl(filePath);
-
-      const urlFinal = publicUrlData.publicUrl;
-
-      // Atualiza o lançamento com a URL do comprovante
-      const { error: updateError } = await supabase
-        .from('lancamentos_financeiros')
-        .update({ comprovante_url: urlFinal })
-        .eq('id', lancamentoId);
-
-      if (updateError) throw updateError;
-
-      alert('Comprovante anexado com sucesso!');
-      carregarFinanceiro(loggedUser.codigo_igreja);
+        if (error) throw error;
+        alert('Comprovante anexado com sucesso!');
+        carregarFinanceiro(loggedUser.codigo_igreja);
+      };
     } catch (err: any) {
-      alert('Erro ao enviar comprovante: ' + err.message);
+      alert('Erro ao anexar comprovante: ' + err.message);
     }
   };
 
@@ -970,25 +940,36 @@ export default function App() {
           </div>
         )}
 
-        {/* --- MÓDULO FINANCEIRO REESTRUTURADO (CONTA CORRENTE & CADASTRO DE CONTAS) --- */}
+        {/* --- MÓDULO FINANCEIRO REESTRUTURADO (CONTA CORRENTE, CONTAS & RELATÓRIO) --- */}
         {activeTab === 'financeiro' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">💰 Módulo Financeiro — Conta Corrente</h2>
-                <p className="text-xs text-slate-500">Controle financeiro com extrato padrão e gestão de contas.</p>
+                <p className="text-xs text-slate-500">Controle financeiro com extrato padrão, gestão de contas e relatórios.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Conta Corrente</button>
-                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🏦 Cadastro de Contas</button>
+                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato</button>
+                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🏦 Contas</button>
+                  <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📊 Relatório</button>
                 </div>
-                {financeiroSubTab === 'extrato' ? (
+                {financeiroSubTab === 'extrato' && (
                   <button onClick={() => setShowLancamentoModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Lançamento</button>
-                ) : (
+                )}
+                {financeiroSubTab === 'contas' && (
                   <button onClick={() => setShowContaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Conta</button>
                 )}
+                {financeiroSubTab === 'relatorio' && (
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap flex items-center gap-1">🖨️ Imprimir Relatório</button>
+                )}
               </div>
+            </div>
+
+            {/* Cabeçalho exclusivo para impressão do relatório */}
+            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
+              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
+              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Relatório Financeiro — Extrato da Conta Corrente</p>
             </div>
 
             {financeiroSubTab === 'extrato' && (
@@ -1006,7 +987,7 @@ export default function App() {
                           <th className="p-3">Descrição / Conta</th>
                           <th className="p-3">Saldo</th>
                           <th className="p-3">Observação</th>
-                          <th className="p-3 text-center">Ações (Excluir / Anexar)</th>
+                          <th className="p-3 text-center print:hidden">Ações (Excluir / Anexar)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-700">
@@ -1029,7 +1010,7 @@ export default function App() {
                                 R$ {l.saldoAtual.toFixed(2)}
                               </td>
                               <td className="p-3 text-slate-500 italic">{l.descricao || '-'}</td>
-                              <td className="p-3 text-center">
+                              <td className="p-3 text-center print:hidden">
                                 <div className="flex items-center justify-center gap-2">
                                   {/* Botão de Excluir protegido por senha */}
                                   <button 
@@ -1052,7 +1033,7 @@ export default function App() {
                                     />
                                   </label>
 
-                                  {/* Se já houver comprovante, mostra um link rápido para abri-lo */}
+                                  {/* Link para abrir comprovante anexado */}
                                   {l.comprovante_url && (
                                     <a 
                                       href={l.comprovante_url} 
@@ -1107,6 +1088,50 @@ export default function App() {
                             </tr>
                           );
                         })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* NOVA SUB-ABA: RELATÓRIO FINANCEIRO */}
+            {financeiroSubTab === 'relatorio' && (
+              <div className="space-y-6">
+                <div className="p-4 bg-slate-50 border rounded-2xl flex justify-between items-center print:hidden">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base">Relatório Consolidado da Conta Corrente</h3>
+                    <p className="text-xs text-slate-500">Visualização pronta para conferência ou impressão oficial.</p>
+                  </div>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer">
+                    🖨️ Imprimir Relatório
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-100 border-b text-slate-700 font-bold">
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Débito (Saída)</th>
+                        <th className="p-3">Crédito (Entrada)</th>
+                        <th className="p-3">Descrição</th>
+                        <th className="p-3">Saldo Final</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {lancamentosComSaldo.length === 0 ? (
+                        <tr><td colSpan={5} className="py-8 text-center text-slate-400">Nenhum registro para exibir no relatório.</td></tr>
+                      ) : (
+                        lancamentosComSaldo.map((l: any) => (
+                          <tr key={l.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono">{l.data_lancamento}</td>
+                            <td className="p-3 font-mono text-rose-600 font-bold">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                            <td className="p-3 font-mono text-emerald-600 font-bold">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                            <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                            <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
+                          </tr>
+                        ))
                       )}
                     </tbody>
                   </table>

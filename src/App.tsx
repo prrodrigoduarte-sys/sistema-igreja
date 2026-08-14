@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { supabase } from './supabase';
-import MembrosView from './components/MembrosView';
-import FinanceiroView from './components/FinanceiroView';
-import AgendaView from './components/AgendaView';
-
+import MembrosView from './componentes/MembrosView';
+import FinanceiroView from './componentes/FinanceiroView';
+import AgendaView from './componentes/AgendaView';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);

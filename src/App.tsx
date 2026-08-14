@@ -7,6 +7,9 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [loggedUser, setLoggedUser] = useState(null);
 const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros'); 
 
+// Estado para controlar qual menu suspenso está aberto
+const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null); 
+
 // Estados do Formulário de Login
 const [loginCodigo, setLoginCodigo] = useState('IGR-001');
 const [loginUsuario, setLoginUsuario] = useState('');

@@ -242,11 +242,52 @@ export default function App() {
     setShowAgendaModal(true);
   };
 
-  const handleSaveAgenda = async (e: React.FormEvent) => {
+  cconst handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
       alert('Preencha pelo menos o Assunto e a Data do compromisso.');
       return;
+    }
+
+    let nomeMembroVinculado = '';
+    if (formAgendaMembroId) {
+      const membroEncontrado = members.find((m) => String(m.id) === String(formAgendaMembroId));
+      if (membroEncontrado) {
+        nomeMembroVinculado = membroEncontrado.nome;
+      }
+    }
+
+    const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Término: ${formAgendaHoraFim || 'N/A'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
+
+    // Construção do Payload com campos obrigatórios explícitos
+    const payload: any = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      titulo: formAgendaTitulo.trim(),
+      data_compromisso: formAgendaData,
+      hora_compromisso: formAgendaHoraInicio || '00:00',
+      descricao: descricaoCompleta,
+      dono_codigo: loggedUser.codigo_igreja, // Garantindo o dono
+      responsavel: loggedUser.nome_usuario || 'Administrador' // Adicionando responsável para evitar erro NOT NULL
+    };
+
+    try {
+      if (editingCompromisso) {
+        const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
+        if (error) throw error;
+        alert('Compromisso atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('agenda_compromissos').insert([payload]);
+        if (error) throw error;
+        alert('Compromisso cadastrado com sucesso!');
+      }
+
+      setShowAgendaModal(false);
+      carregarAgenda(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      console.error('Erro detalhado:', err); // Ajuda a identificar se há outro campo bloqueando
+      alert('Erro ao salvar compromisso: ' + err.message);
+    }
+  };
     }
 
     let nomeMembroVinculado = '';

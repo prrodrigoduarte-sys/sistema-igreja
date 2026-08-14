@@ -13,6 +13,9 @@ export default function App() {
   // Sub-abas da Agenda
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
 
+  // Sub-abas do Financeiro
+  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas'>('extrato');
+
   // Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
@@ -56,6 +59,24 @@ export default function App() {
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
   const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
 
+  // Financeiro (Conta Corrente Simples & Cadastro de Contas)
+  const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
+  const [lancamentosCorrente, setLancamentosCorrente] = useState<any[]>([]);
+  const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
+  const [showLancamentoModal, setShowLancamentoModal] = useState(false);
+  const [showContaModal, setShowContaModal] = useState(false);
+
+  // Formulário de Lançamento Financeiro
+  const [formLancData, setFormLancData] = useState('');
+  const [formLancTipo, setFormLancTipo] = useState<'debito' | 'credito'>('credito');
+  const [formLancValor, setFormLancValor] = useState('');
+  const [formLancContaId, setFormLancContaId] = useState('');
+  const [formLancObs, setFormLancObs] = useState('');
+
+  // Formulário de Nova Conta Financeira
+  const [formNomeConta, setFormNomeConta] = useState('');
+  const [formTipoConta, setFormTipoConta] = useState('Caixa Geral');
+
   // Aniversariantes
   const hoje = new Date();
   const diaAtual = String(hoje.getDate()).padStart(2, '0');
@@ -90,6 +111,15 @@ export default function App() {
     setLoadingAgenda(false);
   };
 
+  const carregarFinanceiro = async (cod: string) => {
+    setLoadingFinanceiro(true);
+    const { data: cData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
+    const { data: lData } = await supabase.from('lancamentos_financeiros').select('*, contas_financeiras(nome_conta)').eq('codigo_igreja', cod).order('data_lancamento', { ascending: true });
+    setContasFinanceiras(cData || []);
+    setLancamentosCorrente(lData || []);
+    setLoadingFinanceiro(false);
+  };
+
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
@@ -111,6 +141,9 @@ export default function App() {
       }
       if (activeTab === 'agenda') {
         carregarAgenda(cod);
+      }
+      if (activeTab === 'financeiro') {
+        carregarFinanceiro(cod);
       }
     }
     carregarDados();
@@ -224,14 +257,13 @@ export default function App() {
       }
     }
 
-    // Monta a string descritiva contendo todas as informações para salvar nas colunas padrão
-    const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
+    const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Término: ${formAgendaHoraFim || 'N/A'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
-      hora_compromisso: formAgendaHoraInicio ? `${formAgendaHoraInicio}${formAgendaHoraFim ? ' às ' + formAgendaHoraFim : ''}` : '00:00',
+      hora_compromisso: formAgendaHoraInicio ? formAgendaHoraInicio : '00:00',
       descricao: descricaoCompleta
     };
 
@@ -253,11 +285,77 @@ export default function App() {
     }
   };
 
+  const handleSaveConta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome_conta: formNomeConta.trim(),
+      codigo_conta: formTipoConta
+    };
+    try {
+      const { error } = await supabase.from('contas_financeiras').insert([payload]);
+      if (error) throw error;
+      alert('Conta cadastrada com sucesso!');
+      setShowContaModal(false);
+      setFormNomeConta('');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao cadastrar conta: ' + err.message);
+    }
+  };
+
+  const handleSaveLancamento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formLancData || !formLancValor) { alert('Preencha a data e o valor.'); return; }
+
+    const valorNum = parseFloat(formLancValor);
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      data_lancamento: formLancData,
+      tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
+      valor: valorNum,
+      conta_id: formLancContaId ? parseInt(formLancContaId) : null,
+      descricao: formLancObs.trim() || 'Lançamento em Conta Corrente'
+    };
+
+    try {
+      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+      if (error) throw error;
+      alert('Lançamento efetuado com sucesso!');
+      setShowLancamentoModal(false);
+      setFormLancData('');
+      setFormLancValor('');
+      setFormLancObs('');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar lançamento: ' + err.message);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
 
   const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // Cálculo progressivo do Saldo da Conta Corrente
+  let saldoAcumulado = 0;
+  const lancamentosComSaldo = lancamentosCorrente.map((l: any) => {
+    const valor = parseFloat(l.valor || 0);
+    const isCredito = l.tipo === 'entrada';
+    if (isCredito) {
+      saldoAcumulado += valor;
+    } else {
+      saldoAcumulado -= valor;
+    }
+    return {
+      ...l,
+      isCredito,
+      valorNum: valor,
+      saldoAtual: saldoAcumulado
+    };
+  });
 
   if (!isLoggedIn) {
     return (
@@ -317,6 +415,11 @@ export default function App() {
               
               <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Agenda <span className="text-xs text-slate-400">∨</span>
+              </button>
+
+              {/* Menu Financeiro Restaurado */}
+              <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+                Financeiro
               </button>
 
               <div className="relative">
@@ -762,58 +865,181 @@ export default function App() {
           </div>
         )}
 
+        {/* --- MÓDULO FINANCEIRO REESTRUTURADO (CONTA CORRENTE & CADASTRO DE CONTAS) --- */}
         {activeTab === 'financeiro' && (
-          <div className="space-y-6">
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-              <h2 className="text-2xl font-black text-blue-900">Módulo Financeiro Ativo</h2>
-              <p className="text-sm text-slate-500 mt-1">Igreja ID: {loggedUser?.codigo_igreja || 'IGR-001'}</p>
-            </div>
-            {loadingFinanceiro ? (
-              <div className="bg-white p-12 rounded-2xl text-center shadow-sm">
-                <p className="text-slate-600 font-bold">Carregando dados financeiros...</p>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">💰 Módulo Financeiro — Conta Corrente</h2>
+                <p className="text-xs text-slate-500">Controle financeiro com extrato padrão e gestão de contas.</p>
               </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <h3 className="text-lg font-bold text-slate-800 mb-4">Contas Cadastradas ({contas.length})</h3>
-                  {contas.length === 0 ? (
-                    <p className="text-sm text-slate-400">Nenhuma conta encontrada no banco.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {contas.map((c: any) => (
-                        <li key={c.id} className="p-3 bg-slate-50 rounded-xl border flex justify-between items-center">
-                          <span className="font-bold text-sm text-slate-700">{c.nome_conta}</span>
-                          <span className="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-1 rounded">{c.codigo_conta}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Conta Corrente</button>
+                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🏦 Cadastro de Contas</button>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                  <h3 className="text-lg font-bold text-slate-800 mb-4">Últimos Lançamentos ({lancamentos.length})</h3>
-                  {lancamentos.length === 0 ? (
-                    <p className="text-sm text-slate-400">Nenhum lançamento encontrado.</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {lancamentos.slice(0, 5).map((l: any) => (
-                        <li key={l.id} className="p-3 bg-slate-50 rounded-xl border flex justify-between items-center text-xs">
-                          <div>
-                            <p className="font-bold text-slate-700">{l.descricao || 'Sem descrição'}</p>
-                            <span className="text-slate-400">{l.data_lancamento}</span>
-                          </div>
-                          <span className={`font-bold text-sm ${l.tipo === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {l.tipo === 'entrada' ? '+' : '-'} R$ {parseFloat(l.valor || 0).toFixed(2)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                {financeiroSubTab === 'extrato' ? (
+                  <button onClick={() => setShowLancamentoModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Lançamento</button>
+                ) : (
+                  <button onClick={() => setShowContaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Conta</button>
+                )}
+              </div>
+            </div>
+
+            {financeiroSubTab === 'extrato' && (
+              <div className="space-y-4">
+                {loadingFinanceiro ? (
+                  <p className="text-center py-6 text-slate-500">Carregando extrato...</p>
+                ) : (
+                  <div className="overflow-x-auto border rounded-xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
+                          <th className="p-3">Data</th>
+                          <th className="p-3">Débito (Saída)</th>
+                          <th className="p-3">Crédito (Entrada)</th>
+                          <th className="p-3">Descrição / Conta</th>
+                          <th className="p-3">Saldo</th>
+                          <th className="p-3">Observação</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-slate-700">
+                        {lancamentosComSaldo.length === 0 ? (
+                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
+                        ) : (
+                          lancamentosComSaldo.map((l: any) => (
+                            <tr key={l.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono">{l.data_lancamento}</td>
+                              <td className="p-3 font-mono font-bold text-rose-600">
+                                {!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}
+                              </td>
+                              <td className="p-3 font-mono font-bold text-emerald-600">
+                                {l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}
+                              </td>
+                              <td className="p-3 font-bold text-slate-900">
+                                {l.contas_financeiras?.nome_conta ? `[${l.contas_financeiras.nome_conta}] ` : ''}{l.descricao}
+                              </td>
+                              <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>
+                                R$ {l.saldoAtual.toFixed(2)}
+                              </td>
+                              <td className="p-3 text-slate-500 italic">{l.descricao || '-'}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {financeiroSubTab === 'contas' && (
+              <div className="space-y-4">
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
+                        <th className="p-3">Nome da Conta</th>
+                        <th className="p-3">Tipo / Categoria</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {contasFinanceiras.length === 0 ? (
+                        <tr><td colSpan={2} className="py-8 text-center text-slate-400">Nenhuma conta cadastrada. Clique em "+ Nova Conta" acima.</td></tr>
+                      ) : (
+                        contasFinanceiras.map((c: any) => (
+                          <tr key={c.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold text-slate-900">{c.nome_conta}</td>
+                            <td className="p-3">{c.codigo_conta}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
           </div>
         )}
       </main>
+
+      {/* MODAL DE NOVO LANÇAMENTO NA CONTA CORRENTE */}
+      {showLancamentoModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Conta Corrente)</h3>
+              <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+            </div>
+            <form onSubmit={handleSaveLancamento} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
+                <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Lançamento *</label>
+                  <select value={formLancTipo} onChange={(e: any) => setFormLancTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm font-bold bg-white focus:outline-none focus:border-blue-900">
+                    <option value="credito">Crédito (Entrada)</option>
+                    <option value="debito">Débito (Saída)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
+                  <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Conta Financeira (In Box)</label>
+                <select value={formLancContaId} onChange={(e) => setFormLancContaId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                  <option value="">Selecione a conta cadastrada...</option>
+                  {contasFinanceiras.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Observação</label>
+                <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value)} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CADASTRO DE NOVA CONTA */}
+      {showContaModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Cadastrar Nova Conta</h3>
+              <button onClick={() => setShowContaModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+            </div>
+            <form onSubmit={handleSaveConta} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome da Conta *</label>
+                <input type="text" required value={formNomeConta} onChange={(e) => setFormNomeConta(e.target.value)} placeholder="Ex: Banco Sicoob, Caixa Geral, Dízimos" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Categoria / Tipo</label>
+                <select value={formTipoConta} onChange={(e) => setFormTipoConta(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                  <option value="Caixa Geral">Caixa Geral</option>
+                  <option value="Conta Bancária">Conta Bancária</option>
+                  <option value="Aplicação">Aplicação</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowContaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Conta</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL DE CADASTRO / EDIÇÃO DE COMPROMISSO NA AGENDA */}
       {showAgendaModal && (

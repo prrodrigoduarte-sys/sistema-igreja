@@ -18,7 +18,7 @@ export default function App() {
   const [lockUntil, setLockUntil] = useState<number | null>(null);
 
   // --- MENU SUPERIOR E DROPDOWNS ---
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios'>('membros');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'igreja'>('membros');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
   // --- MODAIS FLUTUANTES DE CADASTRO ---
@@ -94,6 +94,20 @@ export default function App() {
   };
   const [supplierFormData, setSupplierFormData] = useState(initialSupplierFormData);
 
+  // Formulário do Cadastro da Igreja
+  const [churchFormData, setChurchFormData] = useState({
+    nome_fantasia: '',
+    razao_social: '',
+    cnpj: '',
+    codigo_igreja: '',
+    endereco: '',
+    telefone: '',
+    email: '',
+    responsavel_nome: '',
+    tesoureiro_nome: '',
+    contador_nome: ''
+  });
+
   // --- CHECAGEM DE BLOQUEIO DE LOGIN LOCAL ---
   useEffect(() => {
     const savedLock = localStorage.getItem('login_lock_until');
@@ -111,6 +125,24 @@ export default function App() {
       setFailedAttempts(parseInt(savedAttempts, 10));
     }
   }, []);
+
+  // Sincroniza formulário da igreja quando loggedIgreja mudar
+  useEffect(() => {
+    if (loggedIgreja) {
+      setChurchFormData({
+        nome_fantasia: loggedIgreja.nome_fantasia || '',
+        razao_social: loggedIgreja.razao_social || '',
+        cnpj: loggedIgreja.cnpj || '',
+        codigo_igreja: loggedIgreja.codigo_igreja || '',
+        endereco: loggedIgreja.endereco || '',
+        telefone: loggedIgreja.telefone || '',
+        email: loggedIgreja.email || '',
+        responsavel_nome: loggedIgreja.responsavel_nome || '',
+        tesoureiro_nome: loggedIgreja.tesoureiro_nome || '',
+        contador_nome: loggedIgreja.contador_nome || ''
+      });
+    }
+  }, [loggedIgreja]);
 
   // --- LÓGICA DE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -227,6 +259,43 @@ export default function App() {
 
   const handleSupplierChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setSupplierFormData({ ...supplierFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleChurchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setChurchFormData({ ...churchFormData, [e.target.name]: e.target.value });
+  };
+
+  // --- ATUALIZAR CADASTRO DA IGREJA ---
+  const handleSaveChurch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('igrejas')
+        .update({
+          nome_fantasia: churchFormData.nome_fantasia,
+          razao_social: churchFormData.razao_social,
+          cnpj: churchFormData.cnpj,
+          endereco: churchFormData.endereco,
+          telefone: churchFormData.telefone,
+          email: churchFormData.email,
+          responsavel_nome: churchFormData.responsavel_nome,
+          tesoureiro_nome: churchFormData.tesoureiro_nome,
+          contador_nome: churchFormData.contador_nome
+        })
+        .eq('id', loggedIgreja.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      alert('Cadastro da igreja atualizado com sucesso!');
+      setLoggedIgreja(data);
+    } catch (err: any) {
+      alert('Erro ao atualizar cadastro da igreja: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- CÂMERA E FOTO ---
@@ -436,7 +505,6 @@ export default function App() {
     const isTargetAdmin = user.nome_usuario?.trim().toLowerCase() === 'administrador';
     const isCurrentAdmin = loggedUser?.nome_usuario?.trim().toLowerCase() === 'administrador';
 
-    // REGRA 1: Apenas o próprio operador Administrador pode alterar o cadastro Administrador
     if (isTargetAdmin && !isCurrentAdmin) {
       alert('Acesso negado! Apenas o operador Administrador master pode alterar o usuário Administrador.');
       return;
@@ -458,13 +526,11 @@ export default function App() {
     const isTargetAdmin = targetOperadorClean === 'administrador';
     const isCurrentAdmin = loggedUser?.nome_usuario?.trim().toLowerCase() === 'administrador';
 
-    // REGRA 2: Bloquear criação/renomeação para Administrador por outros operadores
     if (isTargetAdmin && !isCurrentAdmin) {
       alert('Ação não permitida! Você não tem permissão para atribuir o nome de operador Administrador.');
       return;
     }
 
-    // REGRA 3: Garantir unicidade do operador "Administrador"
     if (isTargetAdmin) {
       const existsAdmin = usersList.find(
         (u) => u.id !== editingUserId && u.nome_usuario?.trim().toLowerCase() === 'administrador'
@@ -781,6 +847,8 @@ export default function App() {
             </div>
 
             <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-blue-900">
+              
+              {/* DROPDOWN: CADASTROS */}
               <div className="relative">
                 <button
                   onClick={() => toggleDropdown('cadastros')}
@@ -823,7 +891,29 @@ export default function App() {
               <div className="relative"><button onClick={() => toggleDropdown('celulas')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Células</span><span className="text-xs">∨</span></button></div>
               <div className="relative"><button onClick={() => toggleDropdown('agenda')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Agenda</span><span className="text-xs">∨</span></button></div>
               <div className="relative"><button onClick={() => toggleDropdown('financeiro')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Financeiro</span><span className="text-xs">∨</span></button></div>
-              <div className="relative"><button onClick={() => toggleDropdown('controle')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Controle</span><span className="text-xs">∨</span></button></div>
+              
+              {/* DROPDOWN: CONTROLE */}
+              <div className="relative">
+                <button
+                  onClick={() => toggleDropdown('controle')}
+                  className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
+                >
+                  <span>Controle</span>
+                  <span className="text-xs">∨</span>
+                </button>
+
+                {openDropdown === 'controle' && (
+                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
+                    <button
+                      onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }}
+                      className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 font-semibold"
+                    >
+                      ⛪ Cadastro da Igreja
+                    </button>
+                  </div>
+                )}
+              </div>
+
             </nav>
           </div>
 
@@ -1118,6 +1208,155 @@ export default function App() {
                 <p className="text-lg font-bold text-emerald-900 mt-2">Ativa / Regular</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ABA 5: CADASTRO DA IGREJA (MENU CONTROLE) */}
+        {activeTab === 'igreja' && (
+          <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Cadastro da Igreja</h2>
+                <p className="text-xs text-slate-500">Informações cadastrais e diretoria responsável pela instituição.</p>
+              </div>
+              <span className="px-3 py-1 bg-blue-100 text-blue-900 font-mono font-bold text-xs rounded-lg">
+                Código: {loggedIgreja?.codigo_igreja}
+              </span>
+            </div>
+
+            <form onSubmit={handleSaveChurch} className="space-y-6">
+              
+              {/* DADOS CADASTRAIS */}
+              <div>
+                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider mb-3">1. Dados Cadastrais da Igreja</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Nome Fantasia / Nome da Igreja *</label>
+                    <input
+                      type="text"
+                      name="nome_fantasia"
+                      required
+                      value={churchFormData.nome_fantasia}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Razão Social</label>
+                    <input
+                      type="text"
+                      name="razao_social"
+                      placeholder="Ex: Igreja Evangélica ..."
+                      value={churchFormData.razao_social}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">CNPJ</label>
+                    <input
+                      type="text"
+                      name="cnpj"
+                      placeholder="00.000.000/0001-00"
+                      value={churchFormData.cnpj}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Endereço Completo</label>
+                    <input
+                      type="text"
+                      name="endereco"
+                      placeholder="Rua, número, bairro, cidade - UF"
+                      value={churchFormData.endereco}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone / WhatsApp</label>
+                    <input
+                      type="text"
+                      name="telefone"
+                      placeholder="(00) 00000-0000"
+                      value={churchFormData.telefone}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail Institucional</label>
+                    <input
+                      type="email"
+                      name="email"
+                      placeholder="contato@igreja.com"
+                      value={churchFormData.email}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* RESPONSÁVEIS */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider mb-3">2. Quadro de Responsáveis</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Responsável pela Igreja (Pastor / Presidente)</label>
+                    <input
+                      type="text"
+                      name="responsavel_nome"
+                      placeholder="Nome do Pastor / Presidente"
+                      value={churchFormData.responsavel_nome}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tesoureiro Principal</label>
+                    <input
+                      type="text"
+                      name="tesoureiro_nome"
+                      placeholder="Nome do Tesoureiro"
+                      value={churchFormData.tesoureiro_nome}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Contador Responsável</label>
+                    <input
+                      type="text"
+                      name="contador_nome"
+                      placeholder="Nome / Escritório de Contabilidade"
+                      value={churchFormData.contador_nome}
+                      onChange={handleChurchChange}
+                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end border-t pt-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-6 py-2.5 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all"
+                >
+                  {loading ? 'Salvando...' : 'Salvar Alterações da Igreja'}
+                </button>
+              </div>
+
+            </form>
           </div>
         )}
 

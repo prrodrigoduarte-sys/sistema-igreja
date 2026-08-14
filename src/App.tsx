@@ -22,9 +22,9 @@ export default function App() {
   const [loadingMembros, setLoadingMembros] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
-  const [formStep, setFormStep] = useState<1 | 2>(1); // Passo 1: Dados Básicos / Passo 2: Complementares
+  const [formStep, setFormStep] = useState<1 | 2>(1);
 
-  // Campos do Membro (Divididos em 2 telas/etapas)
+  // Campos do Membro
   const [formNome, setFormNome] = useState('');
   const [formTipo, setFormTipo] = useState('Membro');
   const [formCpf, setFormCpf] = useState('');
@@ -34,15 +34,21 @@ export default function App() {
   const [formEmail, setFormEmail] = useState('');
   const [formEstadoCivil, setFormEstadoCivil] = useState('Solteiro(a)');
   const [formEndereco, setFormEndereco] = useState('');
-  const [formFotoUrl, setFormFotoUrl] = useState(''); // URL da Foto
+  const [formFotoUrl, setFormFotoUrl] = useState('');
 
   // Usuários e Fornecedores
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
   const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
 
-  // Agenda
+  // Agenda & Compromissos
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
+  const [showAgendaModal, setShowAgendaModal] = useState(false);
+  const [formAgendaTitulo, setFormAgendaTitulo] = useState('');
+  const [formAgendaData, setFormAgendaData] = useState('');
+  const [formAgendaHoraInicio, setFormAgendaHoraInicio] = useState('');
+  const [formAgendaHoraFim, setFormAgendaHoraFim] = useState('');
+  const [formAgendaComentario, setFormAgendaComentario] = useState('');
 
   // Financeiro
   const [contas, setContas] = useState<any[]>([]);
@@ -57,6 +63,13 @@ export default function App() {
       if (error || !data) { alert('Usuário ou senha incorretos.'); return; }
       setLoggedUser(data); setIsLoggedIn(true); setActiveTab('membros'); 
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
+  };
+
+  const carregarAgenda = async (cod: string) => {
+    setLoadingAgenda(true);
+    const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true });
+    setCompromissos(data || []);
+    setLoadingAgenda(false);
   };
 
   useEffect(() => {
@@ -79,10 +92,7 @@ export default function App() {
         setFornecedoresList(data || []);
       }
       if (activeTab === 'agenda') {
-        setLoadingAgenda(true);
-        const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true });
-        setCompromissos(data || []);
-        setLoadingAgenda(false);
+        carregarAgenda(cod);
       }
       if (activeTab === 'financeiro') {
         setLoadingFinanceiro(true);
@@ -165,6 +175,44 @@ export default function App() {
     }
   };
 
+  // Salvar Novo Compromisso na Agenda
+  const handleSaveAgenda = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
+      alert('Preencha pelo menos o Assunto e a Data do compromisso.');
+      return;
+    }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      titulo: formAgendaTitulo.trim(),
+      data_compromisso: formAgendaData,
+      hora_compromisso: formAgendaHoraInicio || '00:00',
+      hora_fim: formAgendaHoraFim || null,
+      descricao: formAgendaComentario.trim()
+    };
+
+    try {
+      const { error } = await supabase.from('agenda_compromissos').insert([payload]);
+      if (error) throw error;
+      alert('Compromisso cadastrado com sucesso!');
+      setShowAgendaModal(false);
+      setFormAgendaTitulo('');
+      setFormAgendaData('');
+      setFormAgendaHoraInicio('');
+      setFormAgendaHoraFim('');
+      setFormAgendaComentario('');
+      carregarAgenda(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar compromisso: ' + err.message);
+    }
+  };
+
+  // Função de Impressão Padrão A4
+  const handlePrint = () => {
+    window.print();
+  };
+
   const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
 
   if (!isLoggedIn) {
@@ -199,7 +247,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50">
+      {/* Cabeçalho oculto na impressão */}
+      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-8">
             <div className="flex flex-col">
@@ -240,7 +289,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl w-full mx-auto p-6 flex-1">
+      <main className="max-w-7xl w-full mx-auto p-6 flex-1 print:p-0 print:max-w-none">
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -363,10 +412,10 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA RELATÓRIOS / DASHBOARD */}
+        {/* ABA RELATÓRIOS / DASHBOARD COM SUPORTE A IMPRESSÃO A4 */}
         {activeTab === 'relatorios' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios e Dashboard</h2>
                 <p className="text-xs text-slate-500">Selecione o relatório desejado abaixo.</p>
@@ -375,21 +424,30 @@ export default function App() {
                 <button onClick={() => setRelatorioSubTab('geral')} className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'geral' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Dashboard Geral</button>
                 <button onClick={() => setRelatorioSubTab('aniversariantes')} className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🎂 Aniversariantes</button>
                 <button onClick={() => setRelatorioSubTab('completa')} className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'completa' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📋 Lista Completa</button>
+                <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir A4</button>
               </div>
             </div>
 
+            {/* Cabeçalho exclusivo para impressão A4 */}
+            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
+              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
+              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">
+                {relatorioSubTab === 'aniversariantes' ? 'Relatório de Aniversariantes' : relatorioSubTab === 'completa' ? 'Relatório de Lista Completa de Membros' : 'Dashboard Geral'}
+              </p>
+            </div>
+
             {relatorioSubTab === 'geral' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
-                  <h4 className="font-bold text-blue-900">Total de Membros</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
+                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
+                  <h4 className="font-bold text-blue-950">Total de Membros</h4>
                   <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
                 </div>
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
-                  <h4 className="font-bold text-blue-900">Compromissos na Agenda</h4>
+                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
+                  <h4 className="font-bold text-blue-950">Compromissos na Agenda</h4>
                   <p className="text-3xl font-black text-slate-800 mt-2">{compromissos.length}</p>
                 </div>
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
-                  <h4 className="font-bold text-blue-900">Contas Financeiras</h4>
+                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
+                  <h4 className="font-bold text-blue-950">Contas Financeiras</h4>
                   <p className="text-3xl font-black text-slate-800 mt-2">{contas.length}</p>
                 </div>
               </div>
@@ -397,10 +455,10 @@ export default function App() {
 
             {relatorioSubTab === 'aniversariantes' && (
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg">Lista Simples de Aniversariantes</h3>
-                <div className="overflow-x-auto border rounded-xl">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b text-slate-600">
+                <h3 className="font-bold text-slate-800 text-lg print:hidden">Lista Simples de Aniversariantes</h3>
+                <div className="overflow-x-auto border rounded-xl print:border-none">
+                  <table className="w-full text-left text-sm print:text-xs">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
                       <tr>
                         <th className="p-3">Nome</th>
                         <th className="p-3">Data de Nascimento</th>
@@ -423,32 +481,32 @@ export default function App() {
 
             {relatorioSubTab === 'completa' && (
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg">Relatório de Lista Completa de Membros</h3>
-                <div className="overflow-x-auto border rounded-xl">
+                <h3 className="font-bold text-slate-800 text-lg print:hidden">Relatório de Lista Completa de Membros</h3>
+                <div className="overflow-x-auto border rounded-xl print:border-none">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
                       <tr>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3">Tipo</th>
-                        <th className="p-3">CPF</th>
-                        <th className="p-3">RG</th>
-                        <th className="p-3">Estado Civil</th>
-                        <th className="p-3">Celular</th>
-                        <th className="p-3">E-mail</th>
-                        <th className="p-3">Endereço</th>
+                        <th className="p-2">Nome</th>
+                        <th className="p-2">Tipo</th>
+                        <th className="p-2">CPF</th>
+                        <th className="p-2">RG</th>
+                        <th className="p-2">Estado Civil</th>
+                        <th className="p-2">Celular</th>
+                        <th className="p-2">E-mail</th>
+                        <th className="p-2">Endereço</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
                       {members.map((m: any) => (
                         <tr key={m.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold">{m.nome}</td>
-                          <td className="p-3">{m.tipo_cadastro}</td>
-                          <td className="p-3 font-mono">{m.cpf || '-'}</td>
-                          <td className="p-3 font-mono">{m.rg || '-'}</td>
-                          <td className="p-3">{m.estado_civil || '-'}</td>
-                          <td className="p-3">{m.celular_principal || '-'}</td>
-                          <td className="p-3">{m.email || '-'}</td>
-                          <td className="p-3">{m.endereco || '-'}</td>
+                          <td className="p-2 font-bold">{m.nome}</td>
+                          <td className="p-2">{m.tipo_cadastro}</td>
+                          <td className="p-2 font-mono">{m.cpf || '-'}</td>
+                          <td className="p-2 font-mono">{m.rg || '-'}</td>
+                          <td className="p-2">{m.estado_civil || '-'}</td>
+                          <td className="p-2">{m.celular_principal || '-'}</td>
+                          <td className="p-2">{m.email || '-'}</td>
+                          <td className="p-2">{m.endereco || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -459,12 +517,17 @@ export default function App() {
           </div>
         )}
 
+        {/* ABA AGENDA COM CADASTRO DE COMPROMISSOS */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">📅 Agenda de Compromissos</h2>
-              <p className="text-xs text-slate-500">Escala de eventos, cultos e atividades oficiais.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">📅 Agenda de Compromissos e Visitas</h2>
+                <p className="text-xs text-slate-500">Gerencie a escala de eventos e histórico de visitas.</p>
+              </div>
+              <button onClick={() => setShowAgendaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Compromisso</button>
             </div>
+
             {loadingAgenda ? (
               <p className="text-center py-6 text-slate-500">Carregando agenda...</p>
             ) : compromissos.length === 0 ? (
@@ -475,14 +538,17 @@ export default function App() {
                   <div key={c.id} className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 shadow-sm space-y-3">
                     <div className="flex justify-between items-start border-b pb-2">
                       <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
-                      <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Atividade</span>
+                      <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Compromisso</span>
                     </div>
-                    <p className="text-xs text-slate-600 min-h-[2rem]">{c.descricao || 'Sem observações adicionais.'}</p>
-                    <div className="text-xs text-slate-600 space-y-1 pt-2 border-t font-semibold">
+                    
+                    <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
                       <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
-                      <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span></div>
-                      <div>📍 Local: <span className="text-slate-700">{c.local || 'Sede'}</span></div>
-                      <div>👤 Responsável: <span className="text-slate-700">{c.responsavel || 'A definir'}</span></div>
+                      <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'} {c.hora_fim ? `às ${c.hora_fim}` : ''}</span></div>
+                    </div>
+
+                    <div className="pt-2 border-t text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-100">
+                      <strong className="text-slate-900 block mb-1">💬 Relatório / Comentário da Visita:</strong>
+                      <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado ainda.'}</p>
                     </div>
                   </div>
                 ))}
@@ -544,7 +610,52 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL DE CADASTRO COM 2 TELAS (PASSOS) E FOTO */}
+      {/* MODAL DE CADASTRO DE COMPROMISSO NA AGENDA */}
+      {showAgendaModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Novo Compromisso / Visita</h3>
+              <button onClick={() => setShowAgendaModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+            </div>
+
+            <form onSubmit={handleSaveAgenda} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Assunto / Título *</label>
+                <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value)} placeholder="Ex: Visita pastoral ou Reunião de Obreiros" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
+                <input type="date" required value={formAgendaData} onChange={(e) => setFormAgendaData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Horário Inicial</label>
+                  <input type="time" value={formAgendaHoraInicio} onChange={(e) => setFormAgendaHoraInicio(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Horário Final</label>
+                  <input type="time" value={formAgendaHoraFim} onChange={(e) => setFormAgendaHoraFim(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Comentário / Relatório de como foi</label>
+                <textarea rows={3} value={formAgendaComentario} onChange={(e) => setFormAgendaComentario(e.target.value)} placeholder="Registre os detalhes, observações ou como foi a visita..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowAgendaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Compromisso</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE MEMBRO (MANTIDO COMPLETO) */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
@@ -572,7 +683,6 @@ export default function App() {
                     <div className="flex-1">
                       <label className="text-xs font-bold text-slate-600 ml-1">URL da Foto do Membro</label>
                       <input type="url" value={formFotoUrl} onChange={(e) => setFormFotoUrl(e.target.value)} placeholder="https://exemplo.com/foto.jpg" className="w-full rounded-xl border p-2.5 text-sm mt-1 focus:outline-none focus:border-blue-900" />
-                      <p className="text-[10px] text-slate-400 mt-1">Cole o link direto da imagem do membro.</p>
                     </div>
                   </div>
 

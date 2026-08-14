@@ -157,7 +157,10 @@ export default function App() {
       setLoginLoading(false);
     }
   };
-
+  const fetchFinanceiro = async (codigoIgreja: string) => {
+    console.log("Tentando buscar financeiro para a igreja:", codigoIgreja); // Adicione esta linha
+    let { data: contas } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
+    // ... restante da função
   const handleLogout = () => {
     setIsLoggedIn(false);
     setLoggedUser(null);

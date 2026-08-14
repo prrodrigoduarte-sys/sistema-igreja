@@ -385,6 +385,60 @@ export default function App() {
     }
   };
 
+  // Função para anexar comprovante (Tirar foto ou carregar arquivo)
+  const handleAnexarComprovante = async (lancamentoId: any, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Cria um nome único para o arquivo
+      const fileExt = file.name.split('.').pop() || 'jpg';
+      const fileName = `${loggedUser.codigo_igreja}_${Date.now()}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Envia para o bucket do Supabase (certifique-se de ter um bucket chamado 'comprovantes')
+      const { error: uploadError } = await supabase.storage
+        .from('comprovantes')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        // Se o bucket não existir ou der erro de storage, salvamos em formato Base64 direto na tabela temporariamente
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = async () => {
+          const base64Data = reader.result as string;
+          await supabase
+            .from('lancamentos_financeiros')
+            .update({ comprovante_url: base64Data })
+            .eq('id', lancamentoId);
+          alert('Comprovante anexado com sucesso!');
+          carregarFinanceiro(loggedUser.codigo_igreja);
+        };
+        return;
+      }
+
+      // Pega a URL pública do arquivo enviado
+      const { data: publicUrlData } = supabase.storage
+        .from('comprovantes')
+        .getPublicUrl(filePath);
+
+      const urlFinal = publicUrlData.publicUrl;
+
+      // Atualiza o lançamento com a URL do comprovante
+      const { error: updateError } = await supabase
+        .from('lancamentos_financeiros')
+        .update({ comprovante_url: urlFinal })
+        .eq('id', lancamentoId);
+
+      if (updateError) throw updateError;
+
+      alert('Comprovante anexado com sucesso!');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao enviar comprovante: ' + err.message);
+    }
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -952,7 +1006,7 @@ export default function App() {
                           <th className="p-3">Descrição / Conta</th>
                           <th className="p-3">Saldo</th>
                           <th className="p-3">Observação</th>
-                          <th className="p-3 text-center">Ações</th>
+                          <th className="p-3 text-center">Ações (Excluir / Anexar)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-700">
@@ -976,13 +1030,40 @@ export default function App() {
                               </td>
                               <td className="p-3 text-slate-500 italic">{l.descricao || '-'}</td>
                               <td className="p-3 text-center">
-                                <button 
-                                  onClick={() => handleDeleteLancamento(l.id)}
-                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]"
-                                  title="Excluir lançamento"
-                                >
-                                  Excluir
-                                </button>
+                                <div className="flex items-center justify-center gap-2">
+                                  {/* Botão de Excluir protegido por senha */}
+                                  <button 
+                                    onClick={() => handleDeleteLancamento(l.id)}
+                                    className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]"
+                                    title="Excluir lançamento"
+                                  >
+                                    Excluir
+                                  </button>
+
+                                  {/* Botão / Input para Tirar Foto ou Carregar Comprovante */}
+                                  <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Tirar foto ou carregar comprovante">
+                                    📷 {l.comprovante_url ? 'Ver/Trocar' : 'Anexar'}
+                                    <input 
+                                      type="file" 
+                                      accept="image/*" 
+                                      capture="environment" 
+                                      className="hidden" 
+                                      onChange={(e) => handleAnexarComprovante(l.id, e)}
+                                    />
+                                  </label>
+
+                                  {/* Se já houver comprovante, mostra um link rápido para abri-lo */}
+                                  {l.comprovante_url && (
+                                    <a 
+                                      href={l.comprovante_url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer" 
+                                      className="text-emerald-700 font-bold text-[11px] underline"
+                                    >
+                                      Abrir
+                                    </a>
+                                  )}
+                                </div>
                               </td>
                             </tr>
                           ))

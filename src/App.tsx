@@ -21,6 +21,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'igreja'>('membros');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
+  // --- CONTROLADOR DE ORIGEM DA EDIÇÃO (Se abriu pelo Relatório ou pela Lista) ---
+  const [editSource, setEditSource] = useState<'membros' | 'relatorios'>('membros');
+
   // --- TIPOS DE RELATÓRIO ---
   const [reportType, setReportType] = useState<'aniversariantes' | 'completo'>('aniversariantes');
   const [filterMonth, setFilterMonth] = useState<string>('todos');
@@ -120,6 +123,37 @@ export default function App() {
   };
   const [churchFormData, setChurchFormData] = useState(initialChurchFormData);
 
+  // --- ATALHO ESC PARA RETORNAR AO MENU ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isMemberModalOpen) {
+          handleCloseMemberModal();
+        } else if (isUserModalOpen) {
+          setIsUserModalOpen(false);
+        } else if (isSupplierModalOpen) {
+          setIsSupplierModalOpen(false);
+        } else if (isChurchModalOpen) {
+          setIsChurchModalOpen(false);
+        } else if (isDeleteMemberModalOpen) {
+          setIsDeleteMemberModalOpen(false);
+        } else if (activeTab === 'relatorios') {
+          handleGoHome();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isMemberModalOpen,
+    isUserModalOpen,
+    isSupplierModalOpen,
+    isChurchModalOpen,
+    isDeleteMemberModalOpen,
+    activeTab,
+    editSource
+  ]);
+
   // --- CHECAGEM DE BLOQUEIO DE LOGIN LOCAL ---
   useEffect(() => {
     const savedLock = localStorage.getItem('login_lock_until');
@@ -138,7 +172,7 @@ export default function App() {
     }
   }, []);
 
-  // --- NAVEGAÇÃO HOME VIA LOGO ---
+  // --- NAVEGAÇÃO HOME VIA LOGO OU CLIQUE FORA ---
   const handleGoHome = () => {
     setActiveTab('membros');
     setOpenDropdown(null);
@@ -440,8 +474,9 @@ export default function App() {
     }
   };
 
-  // --- MEMBROS: MODAL / SUBMIT ---
-  const handleOpenNewMemberModal = () => {
+  // --- MEMBROS: MODAL / SUBMIT / FECHAMENTO COM RETORNO INTELIGENTE ---
+  const handleOpenNewMemberModal = (fromTab: 'membros' | 'relatorios' = 'membros') => {
+    setEditSource(fromTab);
     setEditingMemberId(null);
     setFormData(initialMemberFormData);
     setPhotoFile(null);
@@ -449,7 +484,8 @@ export default function App() {
     setIsMemberModalOpen(true);
   };
 
-  const handleOpenEditMemberModal = (member: any) => {
+  const handleOpenEditMemberModal = (member: any, fromTab: 'membros' | 'relatorios' = 'membros') => {
+    setEditSource(fromTab);
     setEditingMemberId(member.id);
     setFormData({
       tipo_cadastro: member.tipo_cadastro || '',
@@ -477,6 +513,16 @@ export default function App() {
     setPhotoPreview(member.foto_url || null);
     setPhotoFile(null);
     setIsMemberModalOpen(true);
+  };
+
+  const handleCloseMemberModal = () => {
+    setIsMemberModalOpen(false);
+    setEditingMemberId(null);
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (editSource === 'relatorios') {
+      setActiveTab('relatorios');
+    }
   };
 
   const handleRegisterMember = async (e: React.FormEvent) => {
@@ -509,10 +555,7 @@ export default function App() {
       }
 
       setFormData(initialMemberFormData);
-      setPhotoFile(null);
-      setPhotoPreview(null);
-      setEditingMemberId(null);
-      setIsMemberModalOpen(false);
+      handleCloseMemberModal();
       fetchMembers(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar membro: ' + err.message);
@@ -959,14 +1002,15 @@ export default function App() {
 
   // --- TELA 2: DASHBOARD PRINCIPAL ---
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col" onClick={() => openDropdown && setOpenDropdown(null)}>
       
       {/* CABEÇALHO SUPERIOR */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
           <div className="flex items-center gap-8">
-            <div onClick={handleGoHome} className="flex items-center gap-2.5 cursor-pointer group" title="Ir para a página inicial">
+            {/* RETORNO AO MENU PRINCIPAL AO CLICAR NA LOGO */}
+            <div onClick={handleGoHome} className="flex items-center gap-2.5 cursor-pointer group" title="Ir para o menu inicial">
               <div className="w-10 h-10 bg-gradient-to-tr from-blue-900 via-blue-700 to-indigo-600 rounded-xl shadow-md flex items-center justify-center text-white transform group-hover:scale-105 transition-transform">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -980,7 +1024,7 @@ export default function App() {
 
             <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-blue-900">
               
-              <div className="relative">
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => toggleDropdown('cadastros')}
                   className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
@@ -1023,7 +1067,7 @@ export default function App() {
               <div className="relative"><button onClick={() => toggleDropdown('agenda')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Agenda</span><span className="text-xs">∨</span></button></div>
               <div className="relative"><button onClick={() => toggleDropdown('financeiro')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Financeiro</span><span className="text-xs">∨</span></button></div>
               
-              <div className="relative">
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button
                   onClick={() => toggleDropdown('controle')}
                   className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2"
@@ -1091,7 +1135,7 @@ export default function App() {
                 />
 
                 {!showInactives && (
-                  <button onClick={handleOpenNewMemberModal} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all">
+                  <button onClick={() => handleOpenNewMemberModal('membros')} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all">
                     <span>+</span> Novo Membro
                   </button>
                 )}
@@ -1113,7 +1157,7 @@ export default function App() {
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {filteredMembers.length > 0 ? (
                     filteredMembers.map((m) => (
-                      <tr key={m.id} onClick={() => handleOpenEditMemberModal(m)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                      <tr key={m.id} onClick={() => handleOpenEditMemberModal(m, 'membros')} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
                         <td className="py-3 px-4">
                           <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border">
                             {m.foto_url ? <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" /> : <span className="text-[10px] text-slate-400 flex items-center justify-center h-full">Sem foto</span>}
@@ -1126,7 +1170,7 @@ export default function App() {
                         <td className="py-3 px-4 text-right">
                           {!showInactives ? (
                             <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => handleOpenEditMemberModal(m)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
+                              <button onClick={() => handleOpenEditMemberModal(m, 'membros')} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
                               <button onClick={(e) => handleOpenDeleteMemberModal(m, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
                             </div>
                           ) : (
@@ -1314,7 +1358,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA 4: RELATÓRIOS DIVERSOS */}
+        {/* ABA 4: RELATÓRIOS DIVERSOS (AO CLICAR EM UM MEMBRO, ABRE O CADASTRO E RETORNA) */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
             
@@ -1325,7 +1369,7 @@ export default function App() {
                   {reportType === 'aniversariantes' ? '🎂 Relatório de Aniversariantes & Contatos' : '📜 Relatório Cadastral Completo de Membros'}
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Igreja: <b className="text-blue-900">{loggedIgreja?.nome_fantasia}</b> ({loggedIgreja?.codigo_igreja})
+                  Igreja: <b className="text-blue-900">{loggedIgreja?.nome_fantasia}</b> ({loggedIgreja?.codigo_igreja}) • <span className="text-blue-700 font-semibold">Clique no nome para editar. Pressione ESC para sair.</span>
                 </p>
               </div>
 
@@ -1368,10 +1412,18 @@ export default function App() {
                 >
                   <span>🖨️</span> Imprimir Relatório
                 </button>
+
+                <button
+                  onClick={handleGoHome}
+                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all"
+                  title="Sair do Relatório"
+                >
+                  ✕ Sair
+                </button>
               </div>
             </div>
 
-            {/* TABELA TIPO 1: ANIVERSARIANTES (1 LINHA COMPLETA) */}
+            {/* TABELA TIPO 1: ANIVERSARIANTES (1 LINHA - CLICÁVEL PARA EDIÇÃO) */}
             {reportType === 'aniversariantes' && (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -1388,8 +1440,13 @@ export default function App() {
                       filteredMembers.map((m) => {
                         const bday = formatBirthday(m.nascimento);
                         return (
-                          <tr key={m.id} className="hover:bg-slate-50 font-medium">
-                            <td className="py-2.5 px-3 font-bold text-slate-900">{m.nome}</td>
+                          <tr
+                            key={m.id}
+                            onClick={() => handleOpenEditMemberModal(m, 'relatorios')}
+                            className="hover:bg-blue-50/80 cursor-pointer font-medium transition-colors"
+                            title="Clique para editar o cadastro deste membro"
+                          >
+                            <td className="py-2.5 px-3 font-bold text-slate-900 hover:underline hover:text-blue-900">{m.nome}</td>
                             <td className="py-2.5 px-3 font-mono">{m.celular_principal || m.celular_secundario || '-'}</td>
                             <td className="py-2.5 px-3">{buildAddress(m)}</td>
                             <td className="py-2.5 px-3 font-mono font-bold text-blue-900">{bday.formatted}</td>
@@ -1404,18 +1461,23 @@ export default function App() {
               </div>
             )}
 
-            {/* TABELA TIPO 2: RELATÓRIO COMPLETO DE DADOS */}
+            {/* TABELA TIPO 2: RELATÓRIO COMPLETO (CLICÁVEL PARA EDIÇÃO) */}
             {reportType === 'completo' && (
               <div className="space-y-6">
                 {filteredMembers.length > 0 ? (
                   filteredMembers.map((m) => (
-                    <div key={m.id} className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 print:break-inside-avoid">
+                    <div
+                      key={m.id}
+                      onClick={() => handleOpenEditMemberModal(m, 'relatorios')}
+                      className="p-4 border border-slate-200 rounded-xl bg-slate-50/50 space-y-3 hover:bg-blue-50/50 cursor-pointer transition-colors print:break-inside-avoid"
+                      title="Clique para editar este membro"
+                    >
                       <div className="flex items-center gap-4 border-b pb-2">
                         <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden border">
                           {m.foto_url ? <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" /> : <span className="text-[9px] text-slate-400 flex items-center justify-center h-full">Sem foto</span>}
                         </div>
                         <div>
-                          <h3 className="text-base font-bold text-slate-900">{m.nome}</h3>
+                          <h3 className="text-base font-bold text-slate-900 hover:underline hover:text-blue-900">{m.nome}</h3>
                           <p className="text-xs text-blue-800 font-semibold">{m.tipo_cadastro} • {m.sexo}</p>
                         </div>
                       </div>
@@ -1527,16 +1589,22 @@ export default function App() {
 
       </main>
 
-      {/* --- MODAL 1: CADASTRO / EDIÇÃO COMPLETO DE MEMBRO --- */}
+      {/* --- MODAL 1: CADASTRO / EDIÇÃO COMPLETO DE MEMBRO (CLIQUE FORA OU CANCELAR RETORNA AO ORIGEM) --- */}
       {isMemberModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-200 my-8 overflow-hidden">
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto"
+          onClick={handleCloseMemberModal}
+        >
+          <div
+            className="bg-white max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-200 my-8 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold">{editingMemberId ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}</h3>
                 <p className="text-xs text-blue-200">Igreja: {loggedIgreja?.nome_fantasia || loggedIgreja?.codigo_igreja}</p>
               </div>
-              <button onClick={() => setIsMemberModalOpen(false)} className="text-slate-300 hover:text-white text-2xl font-bold">&times;</button>
+              <button onClick={handleCloseMemberModal} className="text-slate-300 hover:text-white text-2xl font-bold">&times;</button>
             </div>
 
             <form onSubmit={handleRegisterMember} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
@@ -1640,9 +1708,11 @@ export default function App() {
               </div>
 
               <div className="flex justify-end gap-3 border-t pt-4">
-                <button type="button" onClick={() => setIsMemberModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button type="button" onClick={handleCloseMemberModal} className="px-4 py-2 border rounded-lg text-sm">
+                  {editSource === 'relatorios' ? 'Sair e Voltar ao Relatório' : 'Cancelar'}
+                </button>
                 <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
-                  {loading ? 'Salvando...' : editingMemberId ? 'Salvar Alterações' : 'Salvar Cadastro'}
+                  {loading ? 'Salvando...' : editingMemberId ? 'Salvar e Voltar ao Relatório' : 'Salvar Cadastro'}
                 </button>
               </div>
             </form>
@@ -1652,8 +1722,8 @@ export default function App() {
 
       {/* --- MODAL 2: CADASTRO / EDIÇÃO DE USUÁRIO --- */}
       {isUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsUserModalOpen(false)}>
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold">{editingUserId ? 'Alterar Usuário' : 'Novo Usuário do Sistema'}</h3>
@@ -1713,8 +1783,8 @@ export default function App() {
 
       {/* --- MODAL 3: CADASTRO / EDIÇÃO DE FORNECEDOR --- */}
       {isSupplierModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setIsSupplierModalOpen(false)}>
+          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8" onClick={(e) => e.stopPropagation()}>
             <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold">{editingSupplierId ? 'Alterar Fornecedor' : 'Novo Cadastro de Fornecedor'}</h3>
@@ -1777,8 +1847,8 @@ export default function App() {
 
       {/* --- MODAL 4: CADASTRO / EDIÇÃO DE IGREJA --- */}
       {isChurchModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setIsChurchModalOpen(false)}>
+          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8" onClick={(e) => e.stopPropagation()}>
             <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold">{editingChurchId ? 'Alterar Igreja' : 'Nova Igreja'}</h3>
@@ -1850,8 +1920,8 @@ export default function App() {
 
       {/* --- MODAL 5: INBOX DE MOTIVO DE EXCLUSÃO (MEMBROS) --- */}
       {isDeleteMemberModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsDeleteMemberModalOpen(false)}>
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-rose-700 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold">Desligamento de Membro</h3>

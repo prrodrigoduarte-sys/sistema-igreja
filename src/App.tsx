@@ -61,7 +61,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      {/* Topo do Sistema */}
       <header className="bg-blue-950 text-white px-6 py-4 shadow-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -78,7 +77,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* Barra de Abas / Módulos */}
+      {/* Abas de Navegação Direta */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
         <div className="max-w-7xl mx-auto flex gap-3">
           <button 
@@ -102,7 +101,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Área de Exibição do Conteúdo */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
         {loggedUser && activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
         {loggedUser && activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabase';
 
 export default function App() {
-  // --- ESTADOS DE AUTENTICAÇÃO E SESSÃO ---
+  // --- SESSÃO E AUTENTICAÇÃO ---
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   const [loggedIgreja, setLoggedIgreja] = useState<any>(null);
@@ -13,22 +13,19 @@ export default function App() {
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Segurança: 3 Tentativas e Bloqueio de 1 hora
+  // Bloqueio de Login
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockUntil, setLockUntil] = useState<number | null>(null);
 
-  // --- MENU SUPERIOR E DROPDOWNS ---
+  // --- NAVEGAÇÃO E TABS ---
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'igreja' | 'financeiro' | 'agenda'>('membros');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  // --- CONTROLADOR DE ORIGEM DA EDIÇÃO ---
-  const [editSource, setEditSource] = useState<'membros' | 'relatorios'>('membros');
-
-  // --- TIPOS DE RELATÓRIO ---
+  // Relatórios
   const [reportType, setReportType] = useState<'aniversariantes' | 'completo'>('aniversariantes');
   const [filterMonth, setFilterMonth] = useState<string>('todos');
 
-  // --- MODAIS DE CADASTRO ---
+  // --- MODAIS FLUTUANTES ---
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [memberModalSubTab, setMemberModalSubTab] = useState<'dados' | 'endereco_outros'>('dados');
 
@@ -44,7 +41,7 @@ export default function App() {
   // Modais Módulo Agenda
   const [isAgendaModalOpen, setIsAgendaModalOpen] = useState(false);
 
-  // --- ESTADOS DE EDIÇÃO ---
+  // --- ESTADOS DE EDIÇÃO E LISTAS ---
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
@@ -53,11 +50,9 @@ export default function App() {
   const [deletingMember, setDeletingMember] = useState<any>(null);
   const [showInactives, setShowInactives] = useState(false);
 
-  // Motivos de Exclusão para Membro
   const [motivoExclusao, setMotivoExclusao] = useState('');
   const [detalheExclusao, setDetalheExclusao] = useState('');
 
-  // --- LISTAS DE DADOS PRINCIPAIS ---
   const [members, setMembers] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
@@ -65,23 +60,23 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- DADOS FINANCEIROS ---
+  // Financeiro
   const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [filterConta, setFilterConta] = useState<string>('todas');
 
-  // --- DADOS DA AGENDA ---
+  // Agenda
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [agendaFilterDono, setAgendaFilterDono] = useState<string>('todos');
 
-  // Foto / Câmera
+  // Câmera / Foto
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [useCamera, setUseCamera] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // --- FORMULÁRIOS MEMBROS/USUÁRIOS/IGREJA ---
+  // --- FORMULÁRIOS ---
   const initialMemberFormData = {
     tipo_cadastro: '',
     nome: '',
@@ -137,7 +132,7 @@ export default function App() {
   };
   const [churchFormData, setChurchFormData] = useState(initialChurchFormData);
 
-  // --- FORMULÁRIOS FINANCEIRO E AGENDA ---
+  // Financeiro & Agenda Forms
   const initialLancamentoForm = {
     codigo_conta: '001',
     tipo: 'entrada',
@@ -188,7 +183,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // --- CHECAGEM DE BLOQUEIO LOCAL ---
+  // --- BLOQUEIO LOCAL DE TENTATIVAS DE LOGIN ---
   useEffect(() => {
     const savedLock = localStorage.getItem('login_lock_until');
     const savedAttempts = localStorage.getItem('login_failed_attempts');
@@ -210,7 +205,7 @@ export default function App() {
     setSearchTerm('');
   };
 
-  // --- LOGIN ---
+  // --- LOGIN E LOGOUT ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -240,7 +235,7 @@ export default function App() {
           const oneHour = Date.now() + 60 * 60 * 1000;
           setLockUntil(oneHour);
           localStorage.setItem('login_lock_until', oneHour.toString());
-          alert('Erro no login! 3 tentativas incorretas. Acesso bloqueado por 1 hora.');
+          alert('Erro no login! Você errou a senha 3 vezes. Seu acesso foi bloqueado por 1 hora.');
         } else {
           alert(`Usuário ou senha incorretos ou inativos. Tentativa ${newAttempts} de 3.`);
         }
@@ -256,7 +251,7 @@ export default function App() {
       setLoggedIgreja(data.igrejas);
       setIsLoggedIn(true);
 
-      // Carrega Módulos
+      // Carrega os Módulos
       fetchMembers(data.codigo_igreja);
       fetchUsers(data.codigo_igreja);
       fetchSuppliers(data.codigo_igreja);
@@ -276,66 +271,74 @@ export default function App() {
     setLoggedIgreja(null);
   };
 
-  // --- BUSCA DE DADOS MÓDULOS ---
+  // --- CARREGAMENTO DE DADOS DAS TABELAS DO SUPABASE ---
   const fetchMembers = async (codigoIgreja: string) => {
-    const { data } = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
-    setMembers(data || []);
+    try {
+      const { data } = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
+      setMembers(data || []);
+    } catch (err) { console.error(err); }
   };
 
   const fetchUsers = async (codigoIgreja: string) => {
-    const { data } = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
-    setUsersList(data || []);
+    try {
+      const { data } = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
+      setUsersList(data || []);
+    } catch (err) { console.error(err); }
   };
 
   const fetchSuppliers = async (codigoIgreja: string) => {
-    const { data } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', codigoIgreja);
-    setSuppliersList(data || []);
+    try {
+      const { data } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', codigoIgreja);
+      setSuppliersList(data || []);
+    } catch (err) { console.error(err); }
   };
 
   const fetchChurches = async () => {
-    const { data } = await supabase.from('igrejas').select('*');
-    setChurchesList(data || []);
+    try {
+      const { data } = await supabase.from('igrejas').select('*');
+      setChurchesList(data || []);
+    } catch (err) { console.error(err); }
   };
 
-  // Financeiro
   const fetchFinanceiro = async (codigoIgreja: string) => {
-    // Busca contas do caixa e bancos
-    let { data: contas } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
+    try {
+      let { data: contas } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
+      
+      // Cria a conta 001 Caixa Geral por padrão se não existir
+      if (!contas || contas.length === 0) {
+        const caixaDefault = {
+          codigo_igreja: codigoIgreja,
+          codigo_conta: '001',
+          nome_conta: 'Caixa Geral (Dinheiro em Espécie)',
+          saldo_inicial: 0
+        };
+        await supabase.from('contas_financeiras').insert([caixaDefault]);
+        const res = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
+        contas = res.data;
+      }
+      setContasFinanceiras(contas || []);
 
-    // Se não existir a conta 001 (Caixa), cria automaticamente
-    if (!contas || contas.length === 0) {
-      const caixaDefault = {
-        codigo_igreja: codigoIgreja,
-        codigo_conta: '001',
-        nome_conta: 'Caixa Geral (Dinheiro em Espécie)',
-        saldo_inicial: 0
-      };
-      await supabase.from('contas_financeiras').insert([caixaDefault]);
-      const res = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
-      contas = res.data;
-    }
-    setContasFinanceiras(contas || []);
-
-    // Busca lançamentos
-    const { data: lancs } = await supabase
-      .from('lancamentos_financeiros')
-      .select('*')
-      .eq('codigo_igreja', codigoIgreja)
-      .order('data_lancamento', { ascending: false });
-    setLancamentos(lancs || []);
+      const { data: lancs } = await supabase
+        .from('lancamentos_financeiros')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('data_lancamento', { ascending: false });
+      setLancamentos(lancs || []);
+    } catch (err) { console.error(err); }
   };
 
-  // Agenda
   const fetchAgenda = async (codigoIgreja: string) => {
-    const { data } = await supabase
-      .from('agenda_compromissos')
-      .select('*')
-      .eq('codigo_igreja', codigoIgreja)
-      .order('data_compromisso', { ascending: true });
-    setCompromissos(data || []);
+    try {
+      const { data } = await supabase
+        .from('agenda_compromissos')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('data_compromisso', { ascending: true });
+      setCompromissos(data || []);
+    } catch (err) { console.error(err); }
   };
 
-  // --- AÇÕES FINANCEIRAS ---
+  // --- OPERAÇÕES DO FINANCEIRO ---
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -357,7 +360,7 @@ export default function App() {
       setContaForm(initialContaForm);
       fetchFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) {
-      alert('Erro ao cadastrar conta: ' + err.message);
+      alert('Erro ao cadastrar banco: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -382,7 +385,7 @@ export default function App() {
       const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
       if (error) throw error;
 
-      alert('Lançamento realizado com sucesso!');
+      alert('Lançamento registrado com sucesso!');
       setIsLancamentoModalOpen(false);
       setLancamentoForm(initialLancamentoForm);
       fetchFinanceiro(loggedUser.codigo_igreja);
@@ -393,7 +396,6 @@ export default function App() {
     }
   };
 
-  // CÁLCULO DOS SALDOS DOS BANCOS E CAIXA
   const getSaldosProcessados = () => {
     const saldos: { [key: string]: number } = {};
 
@@ -414,7 +416,7 @@ export default function App() {
     return { saldos, saldoTotalConsolidado };
   };
 
-  // --- AÇÕES AGENDA ---
+  // --- OPERAÇÕES DA AGENDA ---
   const handleSaveCompromisso = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -452,26 +454,88 @@ export default function App() {
     }
     const cleanPhone = c.whatsapp_notificacao.replace(/\D/g, '');
     const mensagem = encodeURIComponent(
-      `Olá! 📅 Lembrete de Compromisso na Igreja:\n\n📌 *${c.titulo}*\n🗓️ Data: ${c.data_compromisso}\n⏰ Horário: ${c.hora_compromisso}\n📍 Local: ${c.local_evento || 'Igreja'}\n\n📝 Nota: ${c.descricao || 'Compareça!'}`
+      `Olá! 📅 Lembrete de Compromisso da Igreja:\n\n📌 *${c.titulo}*\n🗓️ Data: ${c.data_compromisso}\n⏰ Horário: ${c.hora_compromisso}\n📍 Local: ${c.local_evento || 'Templo/Igreja'}\n\n📝 Descrição: ${c.descricao || 'Presença confirmada!'}`
     );
     window.open(`https://wa.me/55${cleanPhone}?text=${mensagem}`, '_blank');
   };
 
-  // AUXILIARES MEMBRO/USUARIO
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  // --- CÂMERA E FOTOS ---
+  const startCamera = async () => {
+    setUseCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (err) {
+      alert('Não foi possível acessar a câmera.');
+      setUseCamera(false);
+    }
   };
 
+  const capturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth || 300;
+      canvas.height = video.videoHeight || 300;
+
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setPhotoPreview(dataUrl);
+
+        fetch(dataUrl)
+          .then((res) => res.blob())
+          .then((blob) => {
+            const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+            setPhotoFile(file);
+          });
+      }
+      stopCamera();
+    }
+  };
+
+  const stopCamera = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    setUseCamera(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const uploadPhoto = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from('membrosfotos').upload(fileName, file);
+      if (uploadError) throw uploadError;
+      const { data } = supabase.storage.from('membrosfotos').getPublicUrl(fileName);
+      return data.publicUrl;
+    } catch (err: any) {
+      console.error('Erro upload foto:', err.message);
+      return null;
+    }
+  };
+
+  // --- GERENCIAMENTO DE MEMBROS E MODAL COM 2 ABAS ---
   const handleOpenNewMemberModal = (fromTab: 'membros' | 'relatorios' = 'membros') => {
-    setEditSource(fromTab);
     setMemberModalSubTab('dados');
     setEditingMemberId(null);
     setFormData(initialMemberFormData);
+    setPhotoFile(null);
+    setPhotoPreview(null);
     setIsMemberModalOpen(true);
   };
 
   const handleOpenEditMemberModal = (member: any, fromTab: 'membros' | 'relatorios' = 'membros') => {
-    setEditSource(fromTab);
     setMemberModalSubTab('dados');
     setEditingMemberId(member.id);
     setFormData({
@@ -497,6 +561,8 @@ export default function App() {
       celular_secundario: member.celular_secundario || '',
       telefone_fixo: member.telefone_fixo || ''
     });
+    setPhotoPreview(member.foto_url || null);
+    setPhotoFile(null);
     setIsMemberModalOpen(true);
   };
 
@@ -504,24 +570,45 @@ export default function App() {
     e.preventDefault();
     setLoading(true);
     try {
-      const payload = { ...formData, codigo_igreja: loggedUser.codigo_igreja, ativo: true };
-      if (editingMemberId) {
-        await supabase.from('members').update(payload).eq('id', editingMemberId);
-      } else {
-        await supabase.from('members').insert([payload]);
+      let fotoUrl = photoPreview;
+      if (photoFile) {
+        const uploadedUrl = await uploadPhoto(photoFile);
+        if (uploadedUrl) fotoUrl = uploadedUrl;
       }
+
+      const payload = {
+        ...formData,
+        codigo_igreja: loggedUser.codigo_igreja,
+        foto_url: fotoUrl,
+        ativo: true
+      };
+
+      if (editingMemberId) {
+        const { error } = await supabase.from('members').update(payload).eq('id', editingMemberId);
+        if (error) throw error;
+        alert('Membro atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('members').insert([payload]);
+        if (error) throw error;
+        alert('Membro cadastrado com sucesso!');
+      }
+
       setIsMemberModalOpen(false);
       fetchMembers(loggedUser.codigo_igreja);
     } catch (err: any) {
-      alert('Erro: ' + err.message);
+      alert('Erro ao salvar membro: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
   const toggleDropdown = (name: string) => setOpenDropdown(openDropdown === name ? null : name);
 
-  // FILTRAGENS
+  // FILTROS DE LISTAGEM
   const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
   const filteredLancamentos = lancamentos.filter((l) => filterConta === 'todas' || l.codigo_conta === filterConta);
   const filteredCompromissos = compromissos.filter(
@@ -530,29 +617,31 @@ export default function App() {
 
   const { saldos, saldoTotalConsolidado } = getSaldosProcessados();
 
-  // --- TELA LOGIN ---
+  // --- TELA DE LOGIN ---
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6 border border-slate-100">
-          <div className="text-center space-y-3">
-            <span className="text-2xl font-black text-blue-900 tracking-tight block">BRSYSTEM</span>
-            <p className="text-xs text-slate-500 font-medium">Gestão Integrada para Igrejas e Instituições</p>
+          <div className="text-center space-y-2">
+            <span className="text-3xl font-black text-blue-900 tracking-tight block">BRSYSTEM</span>
+            <p className="text-xs text-slate-500 font-semibold">Gestão Integrada para Igrejas e Instituições</p>
           </div>
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Código da Igreja</label>
-              <input type="text" required value={loginCodigo} onChange={(e) => setLoginCodigo(e.target.value)} className="w-full rounded-xl border p-3 text-sm" />
+              <input type="text" required value={loginCodigo} onChange={(e) => setLoginCodigo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:ring-2 focus:ring-blue-600" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Usuário</label>
-              <input type="text" required value={loginUsuario} onChange={(e) => setLoginUsuario(e.target.value)} className="w-full rounded-xl border p-3 text-sm" />
+              <input type="text" required value={loginUsuario} onChange={(e) => setLoginUsuario(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:ring-2 focus:ring-blue-600" />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Senha</label>
-              <input type="password" required value={loginSenha} onChange={(e) => setLoginSenha(e.target.value)} className="w-full rounded-xl border p-3 text-sm" />
+              <input type="password" required value={loginSenha} onChange={(e) => setLoginSenha(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:ring-2 focus:ring-blue-600" />
             </div>
-            <button type="submit" disabled={loginLoading} className="w-full py-3.5 bg-blue-900 text-white font-bold rounded-xl shadow-lg">
+
+            <button type="submit" disabled={loginLoading} className="w-full py-3.5 bg-gradient-to-r from-blue-900 via-blue-800 to-indigo-700 text-white font-bold rounded-xl shadow-lg hover:opacity-95 transition-all">
               {loginLoading ? 'Acessando...' : 'Entrar no Sistema'}
             </button>
           </form>
@@ -561,35 +650,48 @@ export default function App() {
     );
   }
 
-  // --- DASHBOARD PRINCIPAL ---
+  // --- DASHBOARD PRINCIPAL DA APLICAÇÃO ---
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col" onClick={() => openDropdown && setOpenDropdown(null)}>
       
-      {/* CABEÇALHO */}
+      {/* NAVEGAÇÃO SUPERIOR */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
+          
           <div className="flex items-center gap-8">
-            <div onClick={handleGoHome} className="flex items-center gap-2.5 cursor-pointer">
+            <div onClick={handleGoHome} className="flex items-center gap-2 cursor-pointer">
               <span className="text-xl font-black text-blue-900 tracking-tight">BRSYSTEM</span>
             </div>
 
             <nav className="hidden md:flex items-center gap-6 text-sm font-bold text-blue-900">
+              
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => toggleDropdown('cadastros')} className="flex items-center gap-1 hover:text-indigo-600 py-2">
                   <span>Cadastros</span><span>∨</span>
                 </button>
                 {openDropdown === 'cadastros' && (
                   <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 font-semibold">📋 Membros</button>
-                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 font-semibold">👤 Usuários</button>
-                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 font-semibold">🚚 Fornecedores</button>
-                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 font-semibold border-t">📊 Relatórios</button>
+                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">📋 Membros</button>
+                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">👤 Usuários</button>
+                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">🚚 Fornecedores</button>
+                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold border-t">📊 Relatórios</button>
                   </div>
                 )}
               </div>
 
-              <button onClick={() => setActiveTab('agenda')} className={`hover:text-indigo-600 py-2 ${activeTab === 'agenda' ? 'text-indigo-600 font-extrabold border-b-2 border-indigo-600' : ''}`}>📅 Agenda</button>
-              <button onClick={() => setActiveTab('financeiro')} className={`hover:text-indigo-600 py-2 ${activeTab === 'financeiro' ? 'text-indigo-600 font-extrabold border-b-2 border-indigo-600' : ''}`}>💰 Financeiro</button>
+              <button
+                onClick={() => setActiveTab('agenda')}
+                className={`hover:text-indigo-600 py-2 transition-colors ${activeTab === 'agenda' ? 'text-indigo-600 font-extrabold border-b-2 border-indigo-600' : ''}`}
+              >
+                📅 Agenda
+              </button>
+
+              <button
+                onClick={() => setActiveTab('financeiro')}
+                className={`hover:text-indigo-600 py-2 transition-colors ${activeTab === 'financeiro' ? 'text-indigo-600 font-extrabold border-b-2 border-indigo-600' : ''}`}
+              >
+                💰 Financeiro
+              </button>
 
               <div className="relative" onClick={(e) => e.stopPropagation()}>
                 <button onClick={() => toggleDropdown('controle')} className="flex items-center gap-1 hover:text-indigo-600 py-2">
@@ -597,37 +699,56 @@ export default function App() {
                 </button>
                 {openDropdown === 'controle' && (
                   <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 text-sm hover:bg-blue-50 font-semibold">⛪ Cadastro da Igreja</button>
+                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">⛪ Cadastro da Igreja</button>
                   </div>
                 )}
               </div>
+
             </nav>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-bold text-slate-800">{loggedIgreja?.nome_fantasia}</p>
+              <p className="text-sm font-bold text-slate-800">{loggedIgreja?.nome_fantasia || 'Igreja'}</p>
               <p className="text-xs text-slate-500 font-medium">{loggedUser?.nome_usuario}</p>
             </div>
             <button onClick={handleLogout} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl">Sair</button>
           </div>
+
         </div>
       </header>
 
-      {/* MAIN CONTENT */}
+      {/* PAINEL PRINCIPAL */}
       <main className="max-w-7xl w-full mx-auto p-6 space-y-6 flex-1">
 
         {/* --- ABA MEMBROS --- */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
-            <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
-              <button onClick={() => handleOpenNewMemberModal('membros')} className="px-4 py-2 bg-blue-900 text-white font-bold text-sm rounded-xl shadow">+ Novo Membro</button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
+                <p className="text-xs text-slate-500">Gerencie todos os membros, congregados e visitantes da igreja.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Buscar por Nome..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600"
+                />
+                <button onClick={() => handleOpenNewMemberModal('membros')} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95">
+                  + Novo Membro
+                </button>
+              </div>
             </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b text-slate-600 text-sm font-semibold">
+                    <th className="py-3 px-4">Foto</th>
                     <th className="py-3 px-4">Nome</th>
                     <th className="py-3 px-4">Tipo</th>
                     <th className="py-3 px-4">CPF</th>
@@ -636,32 +757,42 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody className="divide-y text-sm text-slate-700">
-                  {filteredMembers.map((m) => (
-                    <tr key={m.id} onClick={() => handleOpenEditMemberModal(m, 'membros')} className="hover:bg-blue-50/50 cursor-pointer">
-                      <td className="py-3 px-4 font-bold text-slate-900">{m.nome}</td>
-                      <td className="py-3 px-4">{m.tipo_cadastro}</td>
-                      <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
-                      <td className="py-3 px-4">{m.celular_principal || '-'}</td>
-                      <td className="py-3 px-4 text-right">
-                        <button onClick={() => handleOpenEditMemberModal(m, 'membros')} className="px-3 py-1 bg-blue-100 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredMembers.length > 0 ? (
+                    filteredMembers.map((m) => (
+                      <tr key={m.id} onClick={() => handleOpenEditMemberModal(m, 'membros')} className="hover:bg-blue-50/50 cursor-pointer">
+                        <td className="py-3 px-4">
+                          <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border">
+                            {m.foto_url ? <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" /> : <span className="text-[10px] text-slate-400 flex items-center justify-center h-full">Sem foto</span>}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-slate-900">{m.nome}</td>
+                        <td className="py-3 px-4">{m.tipo_cadastro}</td>
+                        <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
+                        <td className="py-3 px-4">{m.celular_principal || '-'}</td>
+                        <td className="py-3 px-4 text-right">
+                          <button onClick={() => handleOpenEditMemberModal(m, 'membros')} className="px-3 py-1 bg-blue-100 text-blue-800 font-bold text-xs rounded-lg hover:bg-blue-200">Alterar</button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum membro cadastrado.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* --- ABA FINANCEIRO (CAIXA + BANCOS INTEGRADOS) --- */}
+        {/* --- ABA FINANCEIRO (CAIXA + BANCOS) --- */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6">
-            {/* CARDS DE SALDOS DAS CONTAS E BANCOS */}
+            
+            {/* CARDS DE SALDOS DAS CONTAS */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-gradient-to-br from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md">
                 <p className="text-xs font-bold text-blue-200 uppercase tracking-wider">Saldo Total Consolidado</p>
                 <h3 className="text-2xl font-black mt-1">R$ {saldoTotalConsolidado.toFixed(2)}</h3>
-                <span className="text-[10px] bg-blue-800 px-2 py-0.5 rounded-full mt-2 inline-block">Caixa + Todos os Bancos</span>
+                <span className="text-[10px] bg-blue-800 px-2 py-0.5 rounded-full mt-2 inline-block font-semibold">Caixa Geral + Bancos</span>
               </div>
 
               {contasFinanceiras.map((c) => {
@@ -686,17 +817,17 @@ export default function App() {
               })}
             </div>
 
-            {/* CONTROLES E BOTÕES DE AÇÃO */}
+            {/* PAINEL DE LANÇAMENTOS */}
             <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800">Lançamentos de Caixa e Bancos</h2>
-                  <p className="text-xs text-slate-500">Gestão de entradas, dízimos, ofertas e despesas institucionais</p>
+                  <p className="text-xs text-slate-500">Módulo de entradas (dízimos, ofertas) e saídas de recursos.</p>
                 </div>
 
                 <div className="flex flex-wrap gap-3">
                   <button onClick={() => setIsContaModalOpen(true)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border">
-                    + Adicionar Banco
+                    + Cadastrar Banco
                   </button>
                   <button onClick={() => setIsLancamentoModalOpen(true)} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-xs rounded-xl shadow">
                     + Novo Lançamento
@@ -704,7 +835,7 @@ export default function App() {
                 </div>
               </div>
 
-              {/* FILTRO POR CONTA */}
+              {/* FILTROS POR CONTA */}
               <div className="flex items-center gap-3">
                 <label className="text-xs font-bold text-slate-600 uppercase">Filtrar por Conta:</label>
                 <select value={filterConta} onChange={(e) => setFilterConta(e.target.value)} className="rounded-xl border p-2 text-xs font-bold bg-slate-50">
@@ -717,7 +848,7 @@ export default function App() {
                 </select>
               </div>
 
-              {/* TABELA DE LANÇAMENTOS */}
+              {/* TABELA DE REGISTROS */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
@@ -753,7 +884,7 @@ export default function App() {
                         </tr>
                       ))
                     ) : (
-                      <tr><td colSpan={7} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta.</td></tr>
+                      <tr><td colSpan={7} className="py-8 text-center text-slate-400">Nenhum lançamento registrado.</td></tr>
                     )}
                   </tbody>
                 </table>
@@ -762,30 +893,29 @@ export default function App() {
           </div>
         )}
 
-        {/* --- ABA AGENDA (LIMPA COM AVISO WHATSAPP E DONOS DE AGENDA) --- */}
+        {/* --- ABA AGENDA --- */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">📅 Agenda Integrada de Compromissos</h2>
-                <p className="text-xs text-slate-500">Acesse a agenda de pastores, membros ou agendas gerais da igreja</p>
+                <h2 className="text-2xl font-bold text-slate-800">📅 Agenda Integrada</h2>
+                <p className="text-xs text-slate-500">Agendamentos individuais e institucionais com envio de lembrete via WhatsApp.</p>
               </div>
 
               <div className="flex flex-wrap gap-3">
                 <input
                   type="text"
-                  placeholder="Buscar por Dono da Agenda..."
+                  placeholder="Filtrar por Dono..."
                   value={agendaFilterDono}
                   onChange={(e) => setAgendaFilterDono(e.target.value)}
                   className="rounded-xl border p-2 text-xs font-bold"
                 />
                 <button onClick={() => setIsAgendaModalOpen(true)} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-xs rounded-xl shadow">
-                  + Novo Agendamento
+                  + Novo Compromisso
                 </button>
               </div>
             </div>
 
-            {/* LISTA LIMPA DE COMPROMISSOS */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredCompromissos.length > 0 ? (
                 filteredCompromissos.map((c) => (
@@ -799,12 +929,12 @@ export default function App() {
 
                     <div>
                       <h4 className="text-base font-bold text-slate-900">{c.titulo}</h4>
-                      <p className="text-xs text-slate-600 mt-1">{c.descricao || 'Sem descrição.'}</p>
+                      <p className="text-xs text-slate-600 mt-1">{c.descricao || 'Sem pauta informada.'}</p>
                     </div>
 
                     <div className="text-xs text-slate-500 space-y-1 pt-2 border-t border-slate-200">
                       <p>🗓️ <b>Data:</b> {c.data_compromisso}</p>
-                      <p>📍 <b>Local:</b> {c.local_evento || 'Igreja'}</p>
+                      <p>📍 <b>Local:</b> {c.local_evento || 'Templo/Igreja'}</p>
                     </div>
 
                     {c.whatsapp_notificacao && (
@@ -819,7 +949,7 @@ export default function App() {
                 ))
               ) : (
                 <div className="col-span-full py-12 text-center text-slate-400">
-                  Nenhum compromisso agendado para o filtro selecionado.
+                  Nenhum compromisso encontrado na agenda.
                 </div>
               )}
             </div>
@@ -828,7 +958,206 @@ export default function App() {
 
       </main>
 
-      {/* --- MODAL DE LANÇAMENTO FINANCEIRO --- */}
+      {/* --- MODAL DE MEMBRO (DIVIDIDO EM 2 ABAS PERFEITAS) --- */}
+      {isMemberModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setIsMemberModalOpen(false)}>
+          <div className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto" onClick={(e) => e.stopPropagation()}>
+            
+            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+              <h3 className="text-lg font-bold">{editingMemberId ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}</h3>
+              <button onClick={() => setIsMemberModalOpen(false)} className="text-slate-300 hover:text-white text-2xl font-bold">&times;</button>
+            </div>
+
+            {/* BARRA DE SUB-ABAS */}
+            <div className="flex border-b border-slate-200 bg-slate-100 px-6 pt-3 gap-2 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setMemberModalSubTab('dados')}
+                className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-t border-x ${
+                  memberModalSubTab === 'dados' ? 'bg-white text-blue-900 border-slate-200 shadow-xs -mb-px' : 'text-slate-600 hover:text-blue-900 border-transparent'
+                }`}
+              >
+                📋 1. Dados Pessoais & Foto
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setMemberModalSubTab('endereco_outros')}
+                className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-t border-x ${
+                  memberModalSubTab === 'endereco_outros' ? 'bg-white text-blue-900 border-slate-200 shadow-xs -mb-px' : 'text-slate-600 hover:text-blue-900 border-transparent'
+                }`}
+              >
+                🏠 2. Endereço & Contatos
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterMember} className="flex flex-col flex-1 overflow-hidden">
+              <div className="p-6 space-y-6 overflow-y-auto max-h-[65vh]">
+                
+                {memberModalSubTab === 'dados' && (
+                  <div className="space-y-6">
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
+                      <div className="w-24 h-24 rounded-full border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden relative flex-shrink-0">
+                        {useCamera ? (
+                          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+                        ) : photoPreview ? (
+                          <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium text-center px-2">Sem foto</span>
+                        )}
+                      </div>
+
+                      <canvas ref={canvasRef} className="hidden" />
+
+                      <div className="space-y-2 text-center sm:text-left">
+                        <h4 className="text-xs font-bold text-slate-700 uppercase">Foto do Membro</h4>
+                        <div className="flex flex-wrap gap-2 justify-center sm:justify-start pt-1">
+                          {!useCamera ? (
+                            <>
+                              <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold">
+                                Inspecionar / Arquivo
+                                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+                              </label>
+                              <button type="button" onClick={startCamera} className="bg-blue-800 hover:bg-blue-900 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Tirar Foto</button>
+                            </>
+                          ) : (
+                            <>
+                              <button type="button" onClick={capturePhoto} className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Capturar</button>
+                              <button type="button" onClick={stopCamera} className="bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold">Cancelar</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
+                        <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-xl border p-2.5 text-sm">
+                          <option value="">Selecione...</option>
+                          <option value="Membro">Membro</option>
+                          <option value="Visitante">Visitante</option>
+                          <option value="Congregado">Congregado</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label>
+                        <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-xl border p-2.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label>
+                        <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-xl border p-2.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
+                        <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-xl border p-2.5 text-sm">
+                          <option value="">Selecione...</option>
+                          <option value="Masculino">Masculino</option>
+                          <option value="Feminino">Feminino</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Data de Nascimento *</label>
+                        <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-xl border p-2.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Identificação / RG</label>
+                        <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-xl border p-2.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label>
+                        <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-xl border p-2.5 text-sm" />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade</label>
+                        <input type="text" name="naturalidade" placeholder="Ex: Teófilo Otoni" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-xl border p-2.5 text-sm" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {memberModalSubTab === 'endereco_outros' && (
+                  <div className="space-y-4">
+                    <h4 className="text-xs font-bold text-blue-900 uppercase border-b pb-1">Endereço & Localização</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Rua / Logradouro</label>
+                        <input type="text" name="rua" placeholder="Rua Epaminondas Otoni" value={formData.rua} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Número</label>
+                        <input type="text" name="numero" placeholder="123" value={formData.numero} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Bairro</label>
+                        <input type="text" name="bairro" placeholder="Centro" value={formData.bairro} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Cidade</label>
+                        <input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">UF</label>
+                        <input type="text" name="uf" value={formData.uf} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                    </div>
+
+                    <h4 className="text-xs font-bold text-blue-900 uppercase border-b pb-1 pt-2">Telefones & Contatos</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Celular / WhatsApp *</label>
+                        <input type="text" name="celular_principal" placeholder="(33) 90000-0000" value={formData.celular_principal} onChange={handleChange} required className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Celular 2</label>
+                        <input type="text" name="celular_secundario" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone Fixo</label>
+                        <input type="text" name="telefone_fixo" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                      <div className="sm:col-span-3">
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label>
+                        <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              <div className="flex items-center justify-between border-t bg-slate-50 px-6 py-4 flex-shrink-0">
+                {memberModalSubTab === 'dados' ? (
+                  <button type="button" onClick={() => setMemberModalSubTab('endereco_outros')} className="px-4 py-2 bg-blue-100 text-blue-900 font-bold text-xs rounded-xl">
+                    Avançar para Endereço →
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => setMemberModalSubTab('dados')} className="px-4 py-2 bg-slate-200 text-slate-800 font-bold text-xs rounded-xl">
+                    ← Voltar para Dados Pessoais
+                  </button>
+                )}
+
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setIsMemberModalOpen(false)} className="px-4 py-2 border rounded-xl bg-white text-slate-700 font-semibold text-xs">Cancelar</button>
+                  <button type="submit" disabled={loading} className="px-6 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-xs rounded-xl shadow">
+                    {loading ? 'Salvando...' : 'Salvar Cadastro'}
+                  </button>
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL LANÇAMENTO FINANCEIRO --- */}
       {isLancamentoModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -851,7 +1180,7 @@ export default function App() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Tipo de Operação *</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Tipo *</label>
                   <select value={lancamentoForm.tipo} onChange={(e) => setLancamentoForm({ ...lancamentoForm, tipo: e.target.value })} required className="w-full rounded-lg border p-2 text-sm">
                     <option value="entrada">🟢 Entrada (Receita)</option>
                     <option value="saida">🔴 Saída (Despesa)</option>
@@ -874,7 +1203,7 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">Descrição / Histórico *</label>
-                <input type="text" required placeholder="Ex: Dízimo do Irmão João / Conta de Luz" value={lancamentoForm.descricao} onChange={(e) => setLancamentoForm({ ...lancamentoForm, descricao: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
+                <input type="text" required placeholder="Ex: Dízimo Irmão João / Conta de Luz" value={lancamentoForm.descricao} onChange={(e) => setLancamentoForm({ ...lancamentoForm, descricao: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -888,72 +1217,54 @@ export default function App() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Forma de Pagamento</label>
-                <select value={lancamentoForm.forma_pagamento} onChange={(e) => setLancamentoForm({ ...lancamentoForm, forma_pagamento: e.target.value })} className="w-full rounded-lg border p-2 text-sm">
-                  <option value="Dinheiro">Dinheiro (Espécie)</option>
-                  <option value="PIX">PIX</option>
-                  <option value="Boleto">Boleto Bancário</option>
-                  <option value="Cartão">Cartão Débito/Crédito</option>
-                </select>
-              </div>
-
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button type="button" onClick={() => setIsLancamentoModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
-                  {loading ? 'Salvando...' : 'Confirmar Lançamento'}
-                </button>
+                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">Confirmar Lançamento</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --- MODAL ADICIONAR BANCO --- */}
+      {/* --- MODAL NOVO BANCO --- */}
       {isContaModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
             <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-bold">Cadastrar Nova Conta Bancária</h3>
+              <h3 className="text-lg font-bold">Cadastrar Novo Banco</h3>
               <button onClick={() => setIsContaModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
             </div>
 
             <form onSubmit={handleSaveConta} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Código da Conta / Banco *</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Código do Banco *</label>
                 <input type="text" required placeholder="Ex: 002, 003, 004..." value={contaForm.codigo_conta} onChange={(e) => setContaForm({ ...contaForm, codigo_conta: e.target.value })} className="w-full rounded-lg border p-2 text-sm font-mono" />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Nome do Banco / Conta *</label>
-                <input type="text" required placeholder="Ex: Banco Sicoob, Itaú, Bradesco..." value={contaForm.nome_conta} onChange={(e) => setContaForm({ ...contaForm, nome_conta: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
+                <label className="block text-xs font-bold text-slate-600 mb-1">Nome da Conta / Banco *</label>
+                <input type="text" required placeholder="Ex: Banco Sicoob, Itaú..." value={contaForm.nome_conta} onChange={(e) => setContaForm({ ...contaForm, nome_conta: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Agência</label>
-                  <input type="text" placeholder="0000" value={contaForm.agencia} onChange={(e) => setContaForm({ ...contaForm, agencia: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
+                  <input type="text" value={contaForm.agencia} onChange={(e) => setContaForm({ ...contaForm, agencia: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Número Conta</label>
-                  <input type="text" placeholder="00000-0" value={contaForm.numero_conta} onChange={(e) => setContaForm({ ...contaForm, numero_conta: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Conta</label>
+                  <input type="text" value={contaForm.numero_conta} onChange={(e) => setContaForm({ ...contaForm, numero_conta: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Saldo Inicial (R$)</label>
-                <input type="number" step="0.01" placeholder="0.00" value={contaForm.saldo_inicial} onChange={(e) => setContaForm({ ...contaForm, saldo_inicial: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
               </div>
 
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button type="button" onClick={() => setIsContaModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
-                  {loading ? 'Salvando...' : 'Cadastrar Banco'}
-                </button>
+                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">Cadastrar Banco</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* --- MODAL NOVO COMPROMISSO AGENDA --- */}
+      {/* --- MODAL NOVO AGENDAMENTO AGENDA --- */}
       {isAgendaModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -969,7 +1280,7 @@ export default function App() {
                   <input type="text" required placeholder="Ex: Pastor, Membro João..." value={agendaForm.dono_codigo} onChange={(e) => setAgendaForm({ ...agendaForm, dono_codigo: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-600 mb-1">Tipo de Dono</label>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Tipo Dono</label>
                   <select value={agendaForm.dono_tipo} onChange={(e) => setAgendaForm({ ...agendaForm, dono_tipo: e.target.value })} className="w-full rounded-lg border p-2 text-sm">
                     <option value="pastor">Pastor</option>
                     <option value="membro">Membro</option>
@@ -981,7 +1292,7 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">Título do Evento *</label>
-                <input type="text" required placeholder="Ex: Reunião de Oração / Aconselhamento" value={agendaForm.titulo} onChange={(e) => setAgendaForm({ ...agendaForm, titulo: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
+                <input type="text" required placeholder="Ex: Reunião de Oração" value={agendaForm.titulo} onChange={(e) => setAgendaForm({ ...agendaForm, titulo: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -996,57 +1307,13 @@ export default function App() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Local</label>
-                <input type="text" placeholder="Ex: Gabinete Pastoral / Templo Principal" value={agendaForm.local_evento} onChange={(e) => setAgendaForm({ ...agendaForm, local_evento: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">WhatsApp para Notificação (com DDD)</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">WhatsApp para Notificação</label>
                 <input type="text" placeholder="(33) 90000-0000" value={agendaForm.whatsapp_notificacao} onChange={(e) => setAgendaForm({ ...agendaForm, whatsapp_notificacao: e.target.value })} className="w-full rounded-lg border p-2 text-sm" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">Descrição / Pauta</label>
-                <textarea rows={2} value={agendaForm.descricao} onChange={(e) => setAgendaForm({ ...agendaForm, descricao: e.target.value })} className="w-full rounded-lg border p-2 text-xs" />
               </div>
 
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button type="button" onClick={() => setIsAgendaModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
-                  {loading ? 'Salvando...' : 'Confirmar Agendamento'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE MEMBRO */}
-      {isMemberModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-3xl w-full rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
-              <h3 className="text-lg font-bold">{editingMemberId ? 'Alterar Membro' : 'Novo Membro'}</h3>
-              <button onClick={() => setIsMemberModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
-            </div>
-            <form onSubmit={handleRegisterMember} className="p-6 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo *</label>
-                  <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-xl border p-2 text-sm">
-                    <option value="">Selecione...</option>
-                    <option value="Membro">Membro</option>
-                    <option value="Visitante">Visitante</option>
-                    <option value="Congregado">Congregado</option>
-                  </select>
-                </div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nome *</label><input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-xl border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label><input type="text" name="cpf" value={formData.cpf} onChange={handleChange} className="w-full rounded-xl border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Celular *</label><input type="text" name="celular_principal" value={formData.celular_principal} onChange={handleChange} required className="w-full rounded-xl border p-2 text-sm" /></div>
-              </div>
-              <div className="flex justify-end gap-3 border-t pt-4">
-                <button type="button" onClick={() => setIsMemberModalOpen(false)} className="px-4 py-2 border rounded-xl text-xs">Cancelar</button>
-                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl shadow">Salvar</button>
+                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">Confirmar Agendamento</button>
               </div>
             </form>
           </div>

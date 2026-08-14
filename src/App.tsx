@@ -5,7 +5,7 @@ export default function App() {
   // Estados de Autenticação e Navegação Central
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'agenda' | 'financeiro'>('membros');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null);
 
   // Estados do Formulário de Login
@@ -14,17 +14,28 @@ export default function App() {
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Estados do Módulo de Membros (Tabela: members)
+  // Estados do Módulo de Membros
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingMembros, setLoadingMembros] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<any>(null); // Para edição/detalhes
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<any>(null);
 
-  // Estados do Módulo da Agenda (Tabela: agenda_compromissos)
+  // Estados do Formulário de Membro
+  const [formNome, setFormNome] = useState('');
+  const [formTipo, setFormTipo] = useState('Membro');
+  const [formCpf, setFormCpf] = useState('');
+  const [formCelular, setFormCelular] = useState('');
+
+  // Estados do Módulo de Usuários e Fornecedores
+  const [usuariosList, setUsuariosList] = useState<any[]>([]);
+  const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
+
+  // Estados do Módulo da Agenda
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
 
-  // Estados do Módulo Financeiro (Tabelas: contas_financeiras e lancamentos_financeiros)
+  // Estados do Módulo Financeiro
   const [contas, setContas] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
@@ -45,12 +56,20 @@ export default function App() {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
     
-    async function carregarTodosOsDados() {
+    async function carregarDados() {
       if (activeTab === 'membros') {
         setLoadingMembros(true);
         const { data } = await supabase.from('members').select('*').eq('codigo_igreja', cod);
         setMembers(data || []);
         setLoadingMembros(false);
+      }
+      if (activeTab === 'usuarios') {
+        const { data } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
+        setUsuariosList(data || []);
+      }
+      if (activeTab === 'fornecedores') {
+        const { data } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
+        setFornecedoresList(data || []);
       }
       if (activeTab === 'agenda') {
         setLoadingAgenda(true);
@@ -67,8 +86,61 @@ export default function App() {
         setLoadingFinanceiro(false);
       }
     }
-    carregarTodosOsDados();
+    carregarDados();
   }, [isLoggedIn, activeTab, loggedUser]);
+
+  // --- FUNÇÕES DE SALVAR E EDITAR MEMBRO ---
+  const handleOpenNewMember = () => {
+    setEditingMember(null);
+    setFormNome('');
+    setFormTipo('Membro');
+    setFormCpf('');
+    setFormCelular('');
+    setShowMemberModal(true);
+  };
+
+  const handleOpenEditMember = (m: any) => {
+    setEditingMember(m);
+    setFormNome(m.nome || '');
+    setFormTipo(m.tipo_cadastro || 'Membro');
+    setFormCpf(m.cpf || '');
+    setFormCelular(m.celular_principal || '');
+    setShowMemberModal(true);
+  };
+
+  const handleSaveMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formNome.trim()) { alert('O nome é obrigatório.'); return; }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formNome.trim(),
+      tipo_cadastro: formTipo,
+      cpf: formCpf.trim(),
+      celular_principal: formCelular.trim()
+    };
+
+    try {
+      if (editingMember) {
+        // Alteração
+        const { error } = await supabase.from('members').update(payload).eq('id', editingMember.id);
+        if (error) throw error;
+        alert('Membro atualizado com sucesso!');
+      } else {
+        // Inclusão
+        const { error } = await supabase.from('members').insert([payload]);
+        if (error) throw error;
+        alert('Membro cadastrado com sucesso!');
+      }
+
+      setShowMemberModal(false);
+      // Recarrega lista
+      const { data } = await supabase.from('members').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
+      setMembers(data || []);
+    } catch (err: any) {
+      alert('Erro ao salvar membro: ' + err.message);
+    }
+  };
 
   const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -119,9 +191,8 @@ export default function App() {
                 {openDropdown === 'cadastros' && (
                   <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
                     <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📁 Membros</button>
-                    <button className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-slate-400 cursor-not-allowed font-semibold">👤 Usuários</button>
-                    <button className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-slate-400 cursor-not-allowed font-semibold">🚚 Fornecedores</button>
-                    <button className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 text-slate-400 cursor-not-allowed font-semibold">📊 Relatórios</button>
+                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários</button>
+                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🚚 Fornecedores</button>
                   </div>
                 )}
               </div>
@@ -146,14 +217,18 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
+        {/* ABA MEMBROS */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
-                <p className="text-xs text-slate-500">Clique na linha do membro para ver os detalhes completos.</p>
+                <p className="text-xs text-slate-500">Clique na linha do membro para alterar os dados ou cadastre um novo.</p>
               </div>
-              <input type="text" placeholder="Buscar por Nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:outline-none focus:border-blue-900" />
+              <div className="flex items-center gap-3">
+                <input type="text" placeholder="Buscar por Nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:outline-none focus:border-blue-900" />
+                <button onClick={handleOpenNewMember} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
+              </div>
             </div>
             
             {loadingMembros ? (
@@ -174,7 +249,7 @@ export default function App() {
                       <tr><td colSpan={4} className="py-6 text-center text-slate-400">Nenhum membro encontrado.</td></tr>
                     ) : (
                       filteredMembers.map((m: any) => (
-                        <tr key={m.id} onClick={() => setSelectedMember(m)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                        <tr key={m.id} onClick={() => handleOpenEditMember(m)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
                           <td className="py-3 px-4 font-bold text-slate-900">{m.nome}</td>
                           <td className="py-3 px-4">{m.tipo_cadastro}</td>
                           <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
@@ -189,6 +264,73 @@ export default function App() {
           </div>
         )}
 
+        {/* ABA USUÁRIOS */}
+        {activeTab === 'usuarios' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">👤 Usuários do Sistema ({usuariosList.length})</h2>
+              <p className="text-xs text-slate-500">Credenciais de acesso vinculadas a esta igreja.</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b text-slate-600 text-sm font-semibold">
+                    <th className="py-3 px-4">Nome de Usuário</th>
+                    <th className="py-3 px-4">Login</th>
+                    <th className="py-3 px-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm text-slate-700">
+                  {usuariosList.map((u: any) => (
+                    <tr key={u.id} className="hover:bg-slate-50">
+                      <td className="py-3 px-4 font-bold text-slate-900">{u.nome_usuario}</td>
+                      <td className="py-3 px-4 font-mono">{u.usuario}</td>
+                      <td className="py-3 px-4">
+                        <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${u.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                          {u.ativo ? 'Ativo' : 'Inativo'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* ABA FORNECEDORES */}
+        {activeTab === 'fornecedores' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">🚚 Fornecedores ({fornecedoresList.length})</h2>
+              <p className="text-xs text-slate-500">Parceiros e fornecedores cadastrados.</p>
+            </div>
+            {fornecedoresList.length === 0 ? (
+              <p className="py-6 text-center text-slate-400">Nenhum fornecedor cadastrado no momento.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b text-slate-600 text-sm font-semibold">
+                      <th className="py-3 px-4">Nome / Razão Social</th>
+                      <th className="py-3 px-4">Contato</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-sm text-slate-700">
+                    {fornecedoresList.map((f: any) => (
+                      <tr key={f.id} className="hover:bg-slate-50">
+                        <td className="py-3 px-4 font-bold text-slate-900">{f.nome}</td>
+                        <td className="py-3 px-4">{f.contato || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA AGENDA */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4">
@@ -221,6 +363,7 @@ export default function App() {
           </div>
         )}
 
+        {/* ABA FINANCEIRO */}
         {activeTab === 'financeiro' && (
           <div className="space-y-6">
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -274,20 +417,49 @@ export default function App() {
         )}
       </main>
 
-      {/* Modal de Detalhes do Membro */}
-      {selectedMember && (
+      {/* MODAL DE INCLUSÃO / ALTERAÇÃO DE MEMBRO */}
+      {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 space-y-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-black text-blue-900">Detalhes do Membro</h3>
-              <button onClick={() => setSelectedMember(null)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">
+                {editingMember ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}
+              </h3>
+              <button onClick={() => setShowMemberModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
             </div>
-            <div className="space-y-2 text-sm text-slate-700">
-              <p><strong>Nome:</strong> {selectedMember.nome}</p>
-              <p><strong>Tipo de Cadastro:</strong> {selectedMember.tipo_cadastro}</p>
-              <p><strong>CPF:</strong> {selectedMember.cpf || 'Não informado'}</p>
-              <p><strong>Celular:</strong> {selectedMember.celular_principal || 'Não informado'}</p>
-            </div>
+
+            <form onSubmit={handleSaveMember} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
+                <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
+                  <select value={formTipo} onChange={(e) => setFormTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                    <option value="Membro">Membro</option>
+                    <option value="Congregado">Congregado</option>
+                    <option value="Visitante">Visitante</option>
+                    <option value="Liderança">Liderança</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
+                  <input type="text" value={formCpf} onChange={(e) => setFormCpf(e.target.value)} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
+                <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
+                  {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

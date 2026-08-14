@@ -77,7 +77,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Abas de Navegação Direta */}
       <div className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
         <div className="max-w-7xl mx-auto flex gap-3">
           <button 
@@ -105,26 +104,7 @@ export default function App() {
         {loggedUser && activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
         {loggedUser && activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
         {loggedUser && activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
-        <main className="max-w-7xl w-full mx-auto p-6 flex-1">
-        {loggedUser && activeTab === 'membros' && (
-          <MembrosView codigoIgreja={loggedUser.codigo_igreja} />
-        )}
-        
-        {loggedUser && activeTab === 'agenda' && (
-          <div className="bg-white p-10 rounded-2xl shadow-xl text-center">
-            <h1 className="text-4xl font-black text-blue-900">TELA DE AGENDA ABERTA!</h1>
-            <p className="mt-4 text-slate-500">Se você está vendo isso, o menu de abas está 100% perfeito.</p>
-          </div>
-        )}
-        
-        {loggedUser && activeTab === 'financeiro' && (
-          <div className="bg-white p-10 rounded-2xl shadow-xl text-center">
-            <h1 className="text-4xl font-black text-emerald-600">TELA DE FINANCEIRO ABERTA!</h1>
-            <p className="mt-4 text-slate-500">Se você está vendo isso, o erro estava no arquivo FinanceiroView.tsx.</p>
-          </div>
-        )}
       </main>
-
     </div>
   );
 }

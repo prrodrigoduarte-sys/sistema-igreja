@@ -56,11 +56,6 @@ export default function App() {
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
   const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
 
-  // Financeiro
-  const [contas, setContas] = useState<any[]>([]);
-  const [lancamentos, setLancamentos] = useState<any[]>([]);
-  const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
-
   // Aniversariantes
   const hoje = new Date();
   const diaAtual = String(hoje.getDate()).padStart(2, '0');
@@ -90,7 +85,7 @@ export default function App() {
 
   const carregarAgenda = async (cod: string) => {
     setLoadingAgenda(true);
-    const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true }).order('hora_compromisso', { ascending: true });
+    const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true });
     setCompromissos(data || []);
     setLoadingAgenda(false);
   };
@@ -116,14 +111,6 @@ export default function App() {
       }
       if (activeTab === 'agenda') {
         carregarAgenda(cod);
-      }
-      if (activeTab === 'financeiro') {
-        setLoadingFinanceiro(true);
-        const { data: c } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
-        const { data: l } = await supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', cod).order('data_lancamento', { ascending: false });
-        setContas(c || []);
-        setLancamentos(l || []);
-        setLoadingFinanceiro(false);
       }
     }
     carregarDados();
@@ -215,10 +202,10 @@ export default function App() {
     setFormAgendaTitulo(c.titulo || '');
     setFormAgendaData(c.data_compromisso || '');
     setFormAgendaHoraInicio(c.hora_compromisso || '');
-    setFormAgendaHoraFim(c.hora_fim || '');
+    setFormAgendaHoraFim('');
     setFormAgendaComentario(c.descricao || '');
     setFormAgendaMembroId('');
-    setFormAgendaStatus(c.status || 'Pendente');
+    setFormAgendaStatus('Pendente');
     setShowAgendaModal(true);
   };
 
@@ -237,15 +224,14 @@ export default function App() {
       }
     }
 
+    // Payload compatível estritamente com as colunas padrão do banco
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
-      hora_compromisso: formAgendaHoraInicio || '00:00',
-      hora_fim: formAgendaHoraFim || null,
-      descricao: formAgendaComentario.trim(),
-      responsavel: nomeMembroVinculado,
-      status: formAgendaStatus
+      hora_compromisso: formAgendaHoraInicio ? `${formAgendaHoraInicio}${formAgendaHoraFim ? ' às ' + formAgendaHoraFim : ''}` : '00:00',
+      descricao: `${formAgendaComentario.trim()}${formAgendaStatus === 'Cumprido' ? ' [Status: Cumprido]' : ''}`,
+      responsavel: nomeMembroVinculado
     };
 
     try {
@@ -330,10 +316,6 @@ export default function App() {
               
               <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Agenda <span className="text-xs text-slate-400">∨</span>
-              </button>
-              
-              <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                Financeiro <span className="text-xs text-slate-400">∨</span>
               </button>
 
               <div className="relative">
@@ -481,7 +463,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA CADASTRO DA IGREJA COMPLETA */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
             <div className="border-b pb-4">
@@ -513,7 +494,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA RELATÓRIOS / DASHBOARD */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -539,7 +519,7 @@ export default function App() {
 
             {relatorioSubTab === 'geral' && (
               <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 print:grid-cols-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
                   <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
                     <h4 className="font-bold text-blue-950">Total de Membros</h4>
                     <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
@@ -558,10 +538,6 @@ export default function App() {
                   <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
                     <h4 className="font-bold text-blue-950">Compromissos na Agenda</h4>
                     <p className="text-3xl font-black text-slate-800 mt-2">{compromissos.length}</p>
-                  </div>
-                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
-                    <h4 className="font-bold text-blue-950">Contas Financeiras</h4>
-                    <p className="text-3xl font-black text-slate-800 mt-2">{contas.length}</p>
                   </div>
                 </div>
               </div>
@@ -665,7 +641,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- ABA AGENDA COM EDIÇÃO E INDICADOR DE STATUS --- */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -700,18 +675,18 @@ export default function App() {
                       <div 
                         key={c.id} 
                         onClick={() => handleOpenEditAgenda(c)}
-                        className={`p-5 border rounded-2xl shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-all bg-white ${c.status === 'Cumprido' ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'}`}
+                        className="p-5 border rounded-2xl shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-all bg-white border-slate-200"
                       >
                         <div className="flex justify-between items-start border-b pb-2">
                           <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
-                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${c.status === 'Cumprido' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                            {c.status || 'Pendente'}
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-800">
+                            Compromisso
                           </span>
                         </div>
                         
                         <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
                           <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
-                          <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'} {c.hora_fim ? `às ${c.hora_fim}` : ''}</span></div>
+                          <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span></div>
                           <div>👤 Membro: <span className="text-blue-800 font-bold">{c.responsavel || 'Não vinculado'}</span></div>
                         </div>
 
@@ -740,10 +715,9 @@ export default function App() {
                   
                   <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                     {compromissos.map((c: any) => (
-                      <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className={`p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 ${c.status === 'Cumprido' ? 'border-l-emerald-600' : 'border-l-blue-900'}`}>
+                      <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900">
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-mono font-bold bg-blue-50 text-blue-900 px-2 py-0.5 rounded">{c.data_compromisso}</span>
-                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${c.status === 'Cumprido' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{c.status || 'Pendente'}</span>
                         </div>
                         <h4 className="font-bold text-slate-800 text-sm">{c.titulo}</h4>
                         <p className="text-xs text-slate-600">👤 {c.responsavel || 'Sem vínculo'}</p>
@@ -769,7 +743,6 @@ export default function App() {
                         <th className="p-3">Horário</th>
                         <th className="p-3">Assunto</th>
                         <th className="p-3">Membro</th>
-                        <th className="p-3">Status</th>
                         <th className="p-3">Relatório / Comentário</th>
                       </tr>
                     </thead>
@@ -777,10 +750,9 @@ export default function App() {
                       {compromissos.map((c: any) => (
                         <tr key={c.id} className="hover:bg-slate-50">
                           <td className="p-3 font-mono font-bold">{c.data_compromisso}</td>
-                          <td className="p-3 font-mono">{c.hora_compromisso} {c.hora_fim ? `- ${c.hora_fim}` : ''}</td>
+                          <td className="p-3 font-mono">{c.hora_compromisso}</td>
                           <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
                           <td className="p-3">{c.responsavel || '-'}</td>
-                          <td className="p-3 font-semibold">{c.status || 'Pendente'}</td>
                           <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
                         </tr>
                       ))}

@@ -16,6 +16,22 @@ export default function App() {
   // --- NAVEGAÇÃO E TABS ---
   const [activeTab, setActiveTab] = useState<'membros' | 'financeiro' | 'agenda'>('membros');
 
+  // --- DADOS ---
+  const [members, setMembers] = useState<any[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // --- BUSCAR MEMBROS DO SUPABASE ---
+  const fetchMembers = async (codigoIgreja: string) => {
+    const { data, error } = await supabase
+      .from('members')
+      .select('*')
+      .eq('codigo_igreja', codigoIgreja);
+    
+    if (!error) {
+      setMembers(data || []);
+    }
+  };
+
   // --- LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +54,9 @@ export default function App() {
       setLoggedUser(data);
       setLoggedIgreja(data.igrejas);
       setIsLoggedIn(true);
+
+      // Busca os membros logo após logar
+      fetchMembers(data.codigo_igreja);
     } catch (err: any) {
       alert('Erro no login: ' + err.message);
     } finally {
@@ -49,9 +68,19 @@ export default function App() {
     setIsLoggedIn(false);
     setLoggedUser(null);
     setLoggedIgreja(null);
+    setMembers([]);
   };
 
-  // Se não estiver logado, mostra a tela de login
+  // Atualiza membros ao mudar de aba se estiver logado
+  useEffect(() => {
+    if (isLoggedIn && loggedUser?.codigo_igreja && activeTab === 'membros') {
+      fetchMembers(loggedUser.codigo_igreja);
+    }
+  }, [activeTab, isLoggedIn]);
+
+  const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+  // Se não estiver logado
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -82,10 +111,9 @@ export default function App() {
     );
   }
 
-  // Tela Principal após o Login
+  // Tela Principal
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* BARRA SUPERIOR */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -122,26 +150,66 @@ export default function App() {
         </div>
       </header>
 
-      {/* ÁREA DE CONTEÚDO */}
-      <main className="max-w-7xl w-full mx-auto p-6 flex-1">
+      <main className="max-w-7xl w-full mx-auto p-6 flex-1 space-y-6">
         {activeTab === 'membros' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-            <h2 className="text-xl font-bold text-slate-800">Módulo de Membros</h2>
-            <p className="text-sm text-slate-500 mt-2">Tela de membros carregada com sucesso!</p>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
+                <p className="text-xs text-slate-500">Lista de membros cadastrados na instituição.</p>
+              </div>
+
+              <input
+                type="text"
+                placeholder="Buscar por Nome..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm"
+              />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b text-slate-600 text-sm font-semibold">
+                    <th className="py-3 px-4">Nome</th>
+                    <th className="py-3 px-4">Tipo</th>
+                    <th className="py-3 px-4">CPF</th>
+                    <th className="py-3 px-4">Celular</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm text-slate-700">
+                  {filteredMembers.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="py-4 text-center text-slate-400">Nenhum membro encontrado.</td>
+                    </tr>
+                  ) : (
+                    filteredMembers.map((m) => (
+                      <tr key={m.id} className="hover:bg-blue-50/50">
+                        <td className="py-3 px-4 font-bold text-slate-900">{m.nome}</td>
+                        <td className="py-3 px-4">{m.tipo_cadastro}</td>
+                        <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
+                        <td className="py-3 px-4">{m.celular_principal || '-'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800">Módulo Financeiro</h2>
-            <p className="text-sm text-slate-500 mt-2">Tela financeira pronta para receber os dados.</p>
+            <p className="text-sm text-slate-500 mt-2">Próximo passo: vamos conectar os dados financeiros aqui.</p>
           </div>
         )}
 
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <h2 className="text-xl font-bold text-slate-800">Módulo de Agenda</h2>
-            <p className="text-sm text-slate-500 mt-2">Tela de agenda pronta para receber os dados.</p>
+            <p className="text-sm text-slate-500 mt-2">Próximo passo: vamos conectar os compromissos aqui.</p>
           </div>
         )}
       </main>

@@ -2,27 +2,33 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
 export default function App() {
+  // Estados de Autenticação e Navegação Central
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null);
 
+  // Estados do Formulário de Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // Estados do Módulo de Membros (Tabela: members)
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingMembros, setLoadingMembros] = useState(false);
 
+  // Estados do Módulo da Agenda (Tabela: agenda_compromissos)
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
 
+  // Estados do Módulo Financeiro (Tabelas: contas_financeiras e lancamentos_financeiros)
   const [contas, setContas] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
 
+  // --- FUNÇÃO DE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -32,7 +38,7 @@ export default function App() {
       setLoggedUser(data); setIsLoggedIn(true); setActiveTab('membros'); 
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
-
+  // --- CARREGAMENTO DE DADOS DO BANCO (SUPABASE) ---
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
@@ -137,14 +143,25 @@ export default function App() {
         )}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <h2 className="text-2xl font-bold text-slate-800">📅 Agenda de Compromissos</h2>
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">📅 Agenda de Compromissos</h2>
+              <p className="text-xs text-slate-500">Escala de eventos, cultos e atividades oficiais.</p>
+            </div>
             {loadingAgenda ? (<p className="text-center py-6 text-slate-500">Carregando agenda...</p>) : compromissos.length === 0 ? (<p className="text-center py-6 text-slate-400">Nenhum compromisso agendado para esta igreja.</p>) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {compromissos.map((c: any) => (
-                  <div key={c.id} className="p-4 border border-slate-200 rounded-2xl bg-slate-50 space-y-2">
-                    <h4 className="font-bold text-slate-900">{c.titulo}</h4>
-                    <p className="text-xs text-slate-600">{c.descricao || 'Sem descrição.'}</p>
-                    <div className="text-xs text-slate-500 font-mono pt-2 border-t">🗓️ {c.data_compromisso} às {c.hora_compromisso || '00:00'}</div>
+                  <div key={c.id} className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 shadow-sm space-y-3">
+                    <div className="flex justify-between items-start border-b pb-2">
+                      <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
+                      <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Atividade</span>
+                    </div>
+                    <p className="text-xs text-slate-600 min-h-[2rem]">{c.descricao || 'Sem observações adicionais.'}</p>
+                    <div className="text-xs text-slate-600 space-y-1 pt-2 border-t font-semibold">
+                      <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
+                      <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span></div>
+                      <div>📍 Local: <span className="text-slate-700">{c.local || 'Sede'}</span></div>
+                      <div>👤 Responsável: <span className="text-slate-700">{c.responsavel || 'A definir'}</span></div>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -176,14 +193,3 @@ export default function App() {
                           <span className={`font-bold text-sm ${l.tipo === 'entrada' ? 'text-emerald-600' : 'text-rose-600'}`}>{l.tipo === 'entrada' ? '+' : '-'} R$ {parseFloat(l.valor || 0).toFixed(2)}</span>
                         </li>
                       ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}

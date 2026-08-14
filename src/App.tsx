@@ -62,27 +62,24 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* BARRA SUPERIOR COM OS BOTÕES REAIS DO SEU MENU */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-8">
             <span className="text-xl font-black text-blue-900">BRSYSTEM</span>
             
-            <nav className="hidden md:flex items-center gap-6 text-sm font-bold">
+            <nav className="flex items-center gap-6 text-sm font-bold">
               <button 
                 onClick={() => setActiveTab('membros')} 
                 className={`py-2 transition-colors ${activeTab === 'membros' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
               >
-                Cadastros (Membros)
+                Cadastros
               </button>
-              
               <button 
                 onClick={() => setActiveTab('agenda')} 
                 className={`py-2 transition-colors ${activeTab === 'agenda' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
               >
                 Agenda
               </button>
-              
               <button 
                 onClick={() => setActiveTab('financeiro')} 
                 className={`py-2 transition-colors ${activeTab === 'financeiro' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
@@ -102,11 +99,17 @@ export default function App() {
         </div>
       </header>
 
-      {/* CONTEÚDO DINÂMICO DOS MÓDULOS SEPARADOS */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
-        {activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
-        {activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
-        {activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
+        {/* Renderização condicional garantindo que o usuário está carregado */}
+        {loggedUser ? (
+          <>
+            {activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
+            {activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
+            {activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
+          </>
+        ) : (
+          <p className="text-center text-slate-500">Carregando dados...</p>
+        )}
       </main>
     </div>
   );

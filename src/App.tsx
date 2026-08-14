@@ -22,23 +22,28 @@ export default function App() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // --- MODAIS FLUTUANTES ---
+  // --- MODAIS FLUTUANTES DE CADASTRO ---
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [isDeleteMemberModalOpen, setIsDeleteMemberModalOpen] = useState(false);
 
-  // --- ESTADOS DE MEMBRO (EDIÇÃO / EXCLUSÃO) ---
+  // --- ESTADOS DE EDIÇÃO ---
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+
   const [deletingMember, setDeletingMember] = useState<any>(null);
   const [showInactives, setShowInactives] = useState(false);
 
-  // Motivos de Exclusão
+  // Motivos de Exclusão para Membro
   const [motivoExclusao, setMotivoExclusao] = useState('');
   const [detalheExclusao, setDetalheExclusao] = useState('');
 
   // --- LISTAS DE DADOS ---
   const [members, setMembers] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -49,8 +54,8 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Formulário de Membro
-  const initialFormData = {
+  // --- FORMULÁRIOS ---
+  const initialMemberFormData = {
     tipo_cadastro: '',
     nome: '',
     cpf: '',
@@ -68,14 +73,27 @@ export default function App() {
     celular_secundario: '',
     telefone_fixo: ''
   };
-  const [formData, setFormData] = useState(initialFormData);
+  const [formData, setFormData] = useState(initialMemberFormData);
 
-  // Formulário de Usuário
-  const [userFormData, setUserFormData] = useState({
+  const initialUserFormData = {
     nome_usuario: '',
     usuario: '',
     senha: ''
-  });
+  };
+  const [userFormData, setUserFormData] = useState(initialUserFormData);
+
+  const initialSupplierFormData = {
+    razao_social: '',
+    nome_fantasia: '',
+    cnpj_cpf: '',
+    categoria: '',
+    telefone: '',
+    email: '',
+    contato_responsavel: '',
+    cidade_uf: '',
+    observacoes: ''
+  };
+  const [supplierFormData, setSupplierFormData] = useState(initialSupplierFormData);
 
   // --- CHECAGEM DE BLOQUEIO DE LOGIN LOCAL ---
   useEffect(() => {
@@ -113,6 +131,7 @@ export default function App() {
         .eq('codigo_igreja', loginCodigo.trim())
         .eq('usuario', loginUsuario.trim())
         .eq('senha', loginSenha.trim())
+        .eq('ativo', true)
         .single();
 
       if (error || !data) {
@@ -126,7 +145,7 @@ export default function App() {
           localStorage.setItem('login_lock_until', oneHour.toString());
           alert('Erro no login! Você errou a senha 3 vezes. Seu acesso foi bloqueado por 1 hora.');
         } else {
-          alert(`Usuário ou senha incorretos. Tentativa ${newAttempts} de 3.`);
+          alert(`Usuário ou senha incorretos ou inativos. Tentativa ${newAttempts} de 3.`);
         }
         return;
       }
@@ -142,6 +161,7 @@ export default function App() {
 
       fetchMembers(data.codigo_igreja);
       fetchUsers(data.codigo_igreja);
+      fetchSuppliers(data.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao realizar login: ' + err.message);
     } finally {
@@ -155,6 +175,7 @@ export default function App() {
     setLoggedIgreja(null);
     setIsMemberModalOpen(false);
     setIsUserModalOpen(false);
+    setIsSupplierModalOpen(false);
   };
 
   // --- BUSCA DE DADOS ---
@@ -184,12 +205,29 @@ export default function App() {
     }
   };
 
+  const fetchSuppliers = async (codigoIgreja: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('fornecedores')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+      if (error) throw error;
+      setSuppliersList(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar fornecedores:', err);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleUserChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUserFormData({ ...userFormData, [e.target.name]: e.target.value });
+  };
+
+  const handleSupplierChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setSupplierFormData({ ...supplierFormData, [e.target.name]: e.target.value });
   };
 
   // --- CÂMERA E FOTO ---
@@ -268,16 +306,15 @@ export default function App() {
     }
   };
 
-  // --- ABRIR MODAL PARA NOVO MEMBRO ---
+  // --- MEMBROS: ABRIR MODAL / SUBMIT ---
   const handleOpenNewMemberModal = () => {
     setEditingMemberId(null);
-    setFormData(initialFormData);
+    setFormData(initialMemberFormData);
     setPhotoFile(null);
     setPhotoPreview(null);
     setIsMemberModalOpen(true);
   };
 
-  // --- ABRIR MODAL PARA EDITAR MEMBRO ---
   const handleOpenEditMemberModal = (member: any) => {
     setEditingMemberId(member.id);
     setFormData({
@@ -303,7 +340,6 @@ export default function App() {
     setIsMemberModalOpen(true);
   };
 
-  // --- SUBMIT: SALVAR / ATUALIZAR MEMBRO ---
   const handleRegisterMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -324,26 +360,20 @@ export default function App() {
       };
 
       if (editingMemberId) {
-        // Atualiza membro existente
-        const { error } = await supabase
-          .from('members')
-          .update(payload)
-          .eq('id', editingMemberId);
+        const { error } = await supabase.from('members').update(payload).eq('id', editingMemberId);
         if (error) throw error;
         alert('Cadastro do membro atualizado com sucesso!');
       } else {
-        // Insere novo membro
         const { error } = await supabase.from('members').insert([payload]);
         if (error) throw error;
         alert('Membro cadastrado com sucesso!');
       }
 
-      setFormData(initialFormData);
+      setFormData(initialMemberFormData);
       setPhotoFile(null);
       setPhotoPreview(null);
       setEditingMemberId(null);
       setIsMemberModalOpen(false);
-
       fetchMembers(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar membro: ' + err.message);
@@ -352,16 +382,16 @@ export default function App() {
     }
   };
 
-  // --- INATIVAR MEMBRO (EXCLUSÃO LÓGICA COM MOTIVO) ---
-  const handleOpenDeleteModal = (member: any, e: React.MouseEvent) => {
+  // --- EXCLUSÃO DE MEMBRO (COM INBOX) ---
+  const handleOpenDeleteMemberModal = (member: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeletingMember(member);
     setMotivoExclusao('');
     setDetalheExclusao('');
-    setIsDeleteModalOpen(true);
+    setIsDeleteMemberModalOpen(true);
   };
 
-  const handleConfirmDelete = async () => {
+  const handleConfirmDeleteMember = async () => {
     if (!motivoExclusao) {
       alert('Selecione o motivo da exclusão.');
       return;
@@ -386,7 +416,7 @@ export default function App() {
       if (error) throw error;
 
       alert('Membro inativado/desligado com sucesso!');
-      setIsDeleteModalOpen(false);
+      setIsDeleteMemberModalOpen(false);
       setDeletingMember(null);
       fetchMembers(loggedUser.codigo_igreja);
     } catch (err: any) {
@@ -396,32 +426,23 @@ export default function App() {
     }
   };
 
-  // --- RESTAURAR MEMBRO ---
-  const handleRestoreMember = async (memberId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm('Deseja reativar este membro no sistema?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('members')
-        .update({
-          ativo: true,
-          motivo_exclusao: null,
-          detalhe_exclusao: null,
-          data_exclusao: null
-        })
-        .eq('id', memberId);
-
-      if (error) throw error;
-
-      alert('Membro restaurado e reativado com sucesso!');
-      fetchMembers(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao restaurar membro: ' + err.message);
-    }
+  // --- USUÁRIOS: ABRIR MODAL / SUBMIT / EXCLUSÃO DIRETA ---
+  const handleOpenNewUserModal = () => {
+    setEditingUserId(null);
+    setUserFormData(initialUserFormData);
+    setIsUserModalOpen(true);
   };
 
-  // --- SUBMIT: USUÁRIO ---
+  const handleOpenEditUserModal = (user: any) => {
+    setEditingUserId(user.id);
+    setUserFormData({
+      nome_usuario: user.nome_usuario || '',
+      usuario: user.usuario || '',
+      senha: user.senha || ''
+    });
+    setIsUserModalOpen(true);
+  };
+
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -434,27 +455,150 @@ export default function App() {
         ativo: true
       };
 
-      const { error } = await supabase.from('usuarios').insert([payload]);
-      if (error) throw error;
+      if (editingUserId) {
+        const { error } = await supabase.from('usuarios').update(payload).eq('id', editingUserId);
+        if (error) throw error;
+        alert('Usuário atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('usuarios').insert([payload]);
+        if (error) throw error;
+        alert('Usuário cadastrado com sucesso!');
+      }
 
-      alert('Usuário cadastrado com sucesso! Já pode realizar login.');
-
-      setUserFormData({
-        nome_usuario: '',
-        usuario: '',
-        senha: ''
-      });
+      setUserFormData(initialUserFormData);
+      setEditingUserId(null);
       setIsUserModalOpen(false);
-
       fetchUsers(loggedUser.codigo_igreja);
     } catch (err: any) {
-      alert('Erro ao cadastrar usuário: ' + err.message);
+      alert('Erro ao salvar usuário: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // --- FILTRAGEM INTELIGENTE (NOME OU CPF) E STATUS ---
+  const handleDeleteUserDirect = async (user: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Tem certeza que deseja inativar o usuário "${user.nome_usuario || user.usuario}"?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ ativo: false, data_exclusao: new Date().toISOString() })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      alert('Usuário inativado com sucesso!');
+      fetchUsers(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao inativar usuário: ' + err.message);
+    }
+  };
+
+  // --- FORNECEDORES: ABRIR MODAL / SUBMIT / EXCLUSÃO DIRETA ---
+  const handleOpenNewSupplierModal = () => {
+    setEditingSupplierId(null);
+    setSupplierFormData(initialSupplierFormData);
+    setIsSupplierModalOpen(true);
+  };
+
+  const handleOpenEditSupplierModal = (supplier: any) => {
+    setEditingSupplierId(supplier.id);
+    setSupplierFormData({
+      razao_social: supplier.razao_social || '',
+      nome_fantasia: supplier.nome_fantasia || '',
+      cnpj_cpf: supplier.cnpj_cpf || '',
+      categoria: supplier.categoria || '',
+      telefone: supplier.telefone || '',
+      email: supplier.email || '',
+      contato_responsavel: supplier.contato_responsavel || '',
+      cidade_uf: supplier.cidade_uf || '',
+      observacoes: supplier.observacoes || ''
+    });
+    setIsSupplierModalOpen(true);
+  };
+
+  const handleRegisterSupplier = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const payload = {
+        ...supplierFormData,
+        codigo_igreja: loggedUser.codigo_igreja,
+        ativo: true
+      };
+
+      if (editingSupplierId) {
+        const { error } = await supabase.from('fornecedores').update(payload).eq('id', editingSupplierId);
+        if (error) throw error;
+        alert('Fornecedor atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('fornecedores').insert([payload]);
+        if (error) throw error;
+        alert('Fornecedor cadastrado com sucesso!');
+      }
+
+      setSupplierFormData(initialSupplierFormData);
+      setEditingSupplierId(null);
+      setIsSupplierModalOpen(false);
+      fetchSuppliers(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar fornecedor: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteSupplierDirect = async (supplier: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Tem certeza que deseja inativar o fornecedor "${supplier.razao_social}"?`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('fornecedores')
+        .update({ ativo: false, data_exclusao: new Date().toISOString() })
+        .eq('id', supplier.id);
+
+      if (error) throw error;
+
+      alert('Fornecedor inativado com sucesso!');
+      fetchSuppliers(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao inativar fornecedor: ' + err.message);
+    }
+  };
+
+  // --- RESTAURAR REGISTRO INATIVO ---
+  const handleRestoreItem = async (id: string, type: 'membro' | 'usuario' | 'fornecedor', e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Deseja reativar este registro no sistema?')) return;
+
+    try {
+      const tableName =
+        type === 'membro' ? 'members' : type === 'usuario' ? 'usuarios' : 'fornecedores';
+
+      const { error } = await supabase
+        .from(tableName)
+        .update({
+          ativo: true,
+          motivo_exclusao: null,
+          detalhe_exclusao: null,
+          data_exclusao: null
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      alert('Registro restaurado e reativado com sucesso!');
+      if (type === 'membro') fetchMembers(loggedUser.codigo_igreja);
+      if (type === 'usuario') fetchUsers(loggedUser.codigo_igreja);
+      if (type === 'fornecedor') fetchSuppliers(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao restaurar registro: ' + err.message);
+    }
+  };
+
+  // --- FILTRAGENS INTELIGENTES ---
   const filteredMembers = members.filter((m) => {
     const isStatusMatch = showInactives ? m.ativo === false : m.ativo !== false;
     const term = searchTerm.toLowerCase().trim();
@@ -462,7 +606,27 @@ export default function App() {
       !term ||
       m.nome?.toLowerCase().includes(term) ||
       m.cpf?.replaceAll('.', '').replaceAll('-', '').includes(term.replaceAll('.', '').replaceAll('-', ''));
+    return isStatusMatch && isSearchMatch;
+  });
 
+  const filteredUsers = usersList.filter((u) => {
+    const isStatusMatch = showInactives ? u.ativo === false : u.ativo !== false;
+    const term = searchTerm.toLowerCase().trim();
+    const isSearchMatch =
+      !term ||
+      u.nome_usuario?.toLowerCase().includes(term) ||
+      u.usuario?.toLowerCase().includes(term);
+    return isStatusMatch && isSearchMatch;
+  });
+
+  const filteredSuppliers = suppliersList.filter((s) => {
+    const isStatusMatch = showInactives ? s.ativo === false : s.ativo !== false;
+    const term = searchTerm.toLowerCase().trim();
+    const isSearchMatch =
+      !term ||
+      s.razao_social?.toLowerCase().includes(term) ||
+      s.nome_fantasia?.toLowerCase().includes(term) ||
+      s.cnpj_cpf?.replaceAll('.', '').replaceAll('-', '').replaceAll('/', '').includes(term.replaceAll('.', '').replaceAll('-', '').replaceAll('/', ''));
     return isStatusMatch && isSearchMatch;
   });
 
@@ -619,33 +783,10 @@ export default function App() {
                 )}
               </div>
 
-              <div className="relative">
-                <button onClick={() => toggleDropdown('celulas')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2">
-                  <span>Células</span>
-                  <span className="text-xs">∨</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <button onClick={() => toggleDropdown('agenda')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2">
-                  <span>Agenda</span>
-                  <span className="text-xs">∨</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <button onClick={() => toggleDropdown('financeiro')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2">
-                  <span>Financeiro</span>
-                  <span className="text-xs">∨</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <button onClick={() => toggleDropdown('controle')} className="flex items-center gap-1 hover:text-indigo-600 transition-colors py-2">
-                  <span>Controle</span>
-                  <span className="text-xs">∨</span>
-                </button>
-              </div>
+              <div className="relative"><button onClick={() => toggleDropdown('celulas')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Células</span><span className="text-xs">∨</span></button></div>
+              <div className="relative"><button onClick={() => toggleDropdown('agenda')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Agenda</span><span className="text-xs">∨</span></button></div>
+              <div className="relative"><button onClick={() => toggleDropdown('financeiro')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Financeiro</span><span className="text-xs">∨</span></button></div>
+              <div className="relative"><button onClick={() => toggleDropdown('controle')} className="flex items-center gap-1 hover:text-indigo-600 py-2"><span>Controle</span><span className="text-xs">∨</span></button></div>
             </nav>
           </div>
 
@@ -654,12 +795,7 @@ export default function App() {
               <p className="text-sm font-bold text-slate-800">{loggedIgreja?.nome_fantasia || 'Igreja'}</p>
               <p className="text-xs text-slate-500 font-medium">{loggedUser?.nome_usuario}</p>
             </div>
-            <button
-              onClick={handleLogout}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors"
-            >
-              Sair
-            </button>
+            <button onClick={handleLogout} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition-colors">Sair</button>
           </div>
 
         </div>
@@ -680,19 +816,15 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
-                {/* BOTÃO ALTERNAR ATIVOS / INATIVOS */}
                 <button
                   onClick={() => setShowInactives(!showInactives)}
                   className={`px-3 py-2 text-xs font-bold rounded-xl border transition-colors ${
-                    showInactives
-                      ? 'bg-amber-100 border-amber-300 text-amber-800'
-                      : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                    showInactives ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
                   }`}
                 >
                   {showInactives ? '← Ver Membros Ativos' : '📂 Ver Desligados'}
                 </button>
 
-                {/* CAMPO DE PESQUISA POR NOME OU CPF */}
                 <input
                   type="text"
                   placeholder="Buscar por Nome ou CPF..."
@@ -702,10 +834,7 @@ export default function App() {
                 />
 
                 {!showInactives && (
-                  <button
-                    onClick={handleOpenNewMemberModal}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-xl shadow transition-all flex items-center gap-1.5 whitespace-nowrap"
-                  >
+                  <button onClick={handleOpenNewMemberModal} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all">
                     <span>+</span> Novo Membro
                   </button>
                 )}
@@ -727,18 +856,10 @@ export default function App() {
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {filteredMembers.length > 0 ? (
                     filteredMembers.map((m) => (
-                      <tr
-                        key={m.id}
-                        onClick={() => handleOpenEditMemberModal(m)}
-                        className="hover:bg-blue-50/50 cursor-pointer transition-colors"
-                      >
+                      <tr key={m.id} onClick={() => handleOpenEditMemberModal(m)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
                         <td className="py-3 px-4">
                           <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border">
-                            {m.foto_url ? (
-                              <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-[10px] text-slate-400 flex items-center justify-center h-full">Sem foto</span>
-                            )}
+                            {m.foto_url ? <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" /> : <span className="text-[10px] text-slate-400 flex items-center justify-center h-full">Sem foto</span>}
                           </div>
                         </td>
                         <td className="py-3 px-4 font-bold text-slate-900">{m.nome}</td>
@@ -748,36 +869,17 @@ export default function App() {
                         <td className="py-3 px-4 text-right">
                           {!showInactives ? (
                             <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                onClick={() => handleOpenEditMemberModal(m)}
-                                className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg"
-                              >
-                                Alterar
-                              </button>
-                              <button
-                                onClick={(e) => handleOpenDeleteModal(m, e)}
-                                className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg"
-                              >
-                                Excluir
-                              </button>
+                              <button onClick={() => handleOpenEditMemberModal(m)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
+                              <button onClick={(e) => handleOpenDeleteMemberModal(m, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
                             </div>
                           ) : (
-                            <button
-                              onClick={(e) => handleRestoreMember(m.id, e)}
-                              className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg"
-                            >
-                              ♻️ Restaurar
-                            </button>
+                            <button onClick={(e) => handleRestoreItem(m.id, 'membro', e)} className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg">♻️ Restaurar</button>
                           )}
                         </td>
                       </tr>
                     ))
                   ) : (
-                    <tr>
-                      <td colSpan={6} className="py-8 text-center text-slate-400">
-                        {showInactives ? 'Nenhum membro desligado encontrado.' : 'Nenhum membro cadastrado.'}
-                      </td>
-                    </tr>
+                    <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum membro encontrado.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -791,17 +893,35 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">
-                  Cadastro de Usuários ({usersList.length})
+                  {showInactives ? 'Usuários Inativos' : 'Cadastro de Usuários'} ({filteredUsers.length})
                 </h2>
-                <p className="text-xs text-slate-500">Usuários autorizados a acessar o sistema desta igreja.</p>
+                <p className="text-xs text-slate-500">Clique na linha do usuário para editar suas credenciais de operador.</p>
               </div>
 
-              <button
-                onClick={() => setIsUserModalOpen(true)}
-                className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 hover:opacity-95 text-white font-bold text-sm rounded-xl shadow transition-all flex items-center gap-1.5 whitespace-nowrap"
-              >
-                <span>+</span> Novo Usuário
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => setShowInactives(!showInactives)}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl border transition-colors ${
+                    showInactives ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {showInactives ? '← Ver Usuários Ativos' : '📂 Ver Inativos'}
+                </button>
+
+                <input
+                  type="text"
+                  placeholder="Buscar por Nome ou Login..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600"
+                />
+
+                {!showInactives && (
+                  <button onClick={handleOpenNewUserModal} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all">
+                    <span>+</span> Novo Usuário
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -811,27 +931,34 @@ export default function App() {
                     <th className="py-3 px-4">Nome Operador</th>
                     <th className="py-3 px-4">Login (Usuário)</th>
                     <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
-                  {usersList.length > 0 ? (
-                    usersList.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-50">
-                        <td className="py-3 px-4 font-semibold text-slate-900">{u.nome_usuario || 'Não informado'}</td>
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((u) => (
+                      <tr key={u.id} onClick={() => handleOpenEditUserModal(u)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-900">{u.nome_usuario || 'Não informado'}</td>
                         <td className="py-3 px-4 font-mono text-blue-800 font-bold">{u.usuario}</td>
                         <td className="py-3 px-4">
-                          <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold text-xs rounded-full">
-                            Ativo
+                          <span className={`px-2.5 py-1 font-bold text-xs rounded-full ${u.ativo !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                            {u.ativo !== false ? 'Ativo' : 'Inativo'}
                           </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          {!showInactives ? (
+                            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => handleOpenEditUserModal(u)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
+                              <button onClick={(e) => handleDeleteUserDirect(u, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
+                            </div>
+                          ) : (
+                            <button onClick={(e) => handleRestoreItem(u.id, 'usuario', e)} className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg">♻️ Restaurar</button>
+                          )}
                         </td>
                       </tr>
                     ))
                   ) : (
-                    <tr>
-                      <td colSpan={3} className="py-8 text-center text-slate-400">
-                        Nenhum usuário cadastrado.
-                      </td>
-                    </tr>
+                    <tr><td colSpan={4} className="py-8 text-center text-slate-400">Nenhum usuário encontrado.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -842,13 +969,79 @@ export default function App() {
         {/* ABA 3: FORNECEDORES */}
         {activeTab === 'fornecedores' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
-            <div className="flex justify-between items-center border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">Cadastro de Fornecedores</h2>
-              <button onClick={() => alert('Módulo em breve!')} className="px-4 py-2 bg-blue-800 text-white font-bold text-sm rounded-xl">
-                + Novo Fornecedor
-              </button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">
+                  {showInactives ? 'Fornecedores Inativos' : 'Cadastro de Fornecedores'} ({filteredSuppliers.length})
+                </h2>
+                <p className="text-xs text-slate-500">Gestão de parceiros comerciais e prestadores de serviço.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => setShowInactives(!showInactives)}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl border transition-colors ${
+                    showInactives ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {showInactives ? '← Ver Fornecedores Ativos' : '📂 Ver Inativos'}
+                </button>
+
+                <input
+                  type="text"
+                  placeholder="Buscar por Nome ou CNPJ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600"
+                />
+
+                {!showInactives && (
+                  <button onClick={handleOpenNewSupplierModal} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all">
+                    <span>+</span> Novo Fornecedor
+                  </button>
+                )}
+              </div>
             </div>
-            <p className="text-center py-8 text-slate-400">Módulo de Fornecedores em breve...</p>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 text-sm font-semibold">
+                    <th className="py-3 px-4">Razão Social</th>
+                    <th className="py-3 px-4">Nome Fantasia</th>
+                    <th className="py-3 px-4">CNPJ/CPF</th>
+                    <th className="py-3 px-4">Telefone</th>
+                    <th className="py-3 px-4">Categoria</th>
+                    <th className="py-3 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                  {filteredSuppliers.length > 0 ? (
+                    filteredSuppliers.map((s) => (
+                      <tr key={s.id} onClick={() => handleOpenEditSupplierModal(s)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                        <td className="py-3 px-4 font-bold text-slate-900">{s.razao_social}</td>
+                        <td className="py-3 px-4">{s.nome_fantasia || '-'}</td>
+                        <td className="py-3 px-4 font-mono">{s.cnpj_cpf || '-'}</td>
+                        <td className="py-3 px-4">{s.telefone || '-'}</td>
+                        <td className="py-3 px-4">{s.categoria || '-'}</td>
+                        <td className="py-3 px-4 text-right">
+                          {!showInactives ? (
+                            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => handleOpenEditSupplierModal(s)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
+                              <button onClick={(e) => handleDeleteSupplierDirect(s, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
+                            </div>
+                          ) : (
+                            <button onClick={(e) => handleRestoreItem(s.id, 'fornecedor', e)} className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg">♻️ Restaurar</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum fornecedor encontrado.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -858,18 +1051,22 @@ export default function App() {
             <div className="border-b border-slate-100 pb-4">
               <h2 className="text-2xl font-bold text-slate-800">Relatórios e Estatísticas Gerais</h2>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
               <div className="bg-blue-50 border border-blue-100 p-6 rounded-2xl">
                 <p className="text-xs font-bold text-blue-600 uppercase">Membros Ativos</p>
                 <p className="text-3xl font-extrabold text-blue-900 mt-2">{members.filter(m => m.ativo !== false).length}</p>
               </div>
-              <div className="bg-amber-50 border border-amber-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-amber-600 uppercase">Membros Desligados</p>
-                <p className="text-3xl font-extrabold text-amber-900 mt-2">{members.filter(m => m.ativo === false).length}</p>
-              </div>
               <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-indigo-600 uppercase">Usuários no Sistema</p>
-                <p className="text-3xl font-extrabold text-indigo-900 mt-2">{usersList.length}</p>
+                <p className="text-xs font-bold text-indigo-600 uppercase">Usuários Ativos</p>
+                <p className="text-3xl font-extrabold text-indigo-900 mt-2">{usersList.filter(u => u.ativo !== false).length}</p>
+              </div>
+              <div className="bg-purple-50 border border-purple-100 p-6 rounded-2xl">
+                <p className="text-xs font-bold text-purple-600 uppercase">Fornecedores Ativos</p>
+                <p className="text-3xl font-extrabold text-purple-900 mt-2">{suppliersList.filter(s => s.ativo !== false).length}</p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl">
+                <p className="text-xs font-bold text-emerald-600 uppercase">Status da Igreja</p>
+                <p className="text-lg font-bold text-emerald-900 mt-2">Ativa / Regular</p>
               </div>
             </div>
           </div>
@@ -934,17 +1131,8 @@ export default function App() {
                     <option value="Congregado">Congregado</option>
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label>
-                  <input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label>
-                  <input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                </div>
-
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label><input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label><input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
                   <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm">
@@ -953,53 +1141,8 @@ export default function App() {
                     <option value="Feminino">Feminino</option>
                   </select>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label>
-                  <input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Identificação</label>
-                  <input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label>
-                  <input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade - Cidade</label>
-                  <input type="text" name="naturalidade" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
-                  <input type="email" name="email" value={formData.email} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                </div>
-              </div>
-
-              <div className="border-t pt-4">
-                <h4 className="text-sm font-bold text-slate-800 mb-3">Contatos</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Nome Contato</label>
-                    <input type="text" name="nome_contato" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Celular Principal</label>
-                    <input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Celular secundário</label>
-                    <input type="text" name="celular_secundario" placeholder="(00) 00000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone Fixo</label>
-                    <input type="text" name="telefone_fixo" placeholder="(00) 0000-0000" value={formData.telefone_fixo} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" />
-                  </div>
-                </div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label><input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Identificação</label><input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
               </div>
 
               <div className="flex justify-end gap-3 border-t pt-4">
@@ -1008,14 +1151,113 @@ export default function App() {
                   {loading ? 'Salvando...' : editingMemberId ? 'Salvar Alterações' : 'Salvar Cadastro'}
                 </button>
               </div>
-
             </form>
           </div>
         </div>
       )}
 
-      {/* --- MODAL 2: INBOX DE MOTIVO DE EXCLUSÃO --- */}
-      {isDeleteModalOpen && (
+      {/* --- MODAL 2: CADASTRO / EDIÇÃO DE USUÁRIO --- */}
+      {isUserModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold">{editingUserId ? 'Alterar Usuário' : 'Novo Usuário do Sistema'}</h3>
+                <p className="text-xs text-blue-200">Vincular a: {loggedIgreja?.codigo_igreja}</p>
+              </div>
+              <button onClick={() => setIsUserModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
+            </div>
+
+            <form onSubmit={handleRegisterUser} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Nome do Operador *</label>
+                <input type="text" name="nome_usuario" required placeholder="Ex: João da Silva" value={userFormData.nome_usuario} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Usuário (Login) *</label>
+                <input type="text" name="usuario" required placeholder="Ex: joao" value={userFormData.usuario} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Senha de Acesso *</label>
+                <input type="password" name="senha" required placeholder="••••••••" value={userFormData.senha} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
+              </div>
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
+                  {loading ? 'Cadastrando...' : editingUserId ? 'Salvar Alterações' : 'Cadastrar Usuário'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 3: CADASTRO / EDIÇÃO DE FORNECEDOR (10 CAMPOS PADRÃO) --- */}
+      {isSupplierModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold">{editingSupplierId ? 'Alterar Fornecedor' : 'Novo Cadastro de Fornecedor'}</h3>
+                <p className="text-xs text-blue-200">Gestão de parceiros comerciais e prestadores</p>
+              </div>
+              <button onClick={() => setIsSupplierModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
+            </div>
+
+            <form onSubmit={handleRegisterSupplier} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">1. Razão Social *</label>
+                  <input type="text" name="razao_social" required value={supplierFormData.razao_social} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">2. Nome Fantasia</label>
+                  <input type="text" name="nome_fantasia" value={supplierFormData.nome_fantasia} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">3. CNPJ ou CPF</label>
+                  <input type="text" name="cnpj_cpf" placeholder="00.000.000/0001-00" value={supplierFormData.cnpj_cpf} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">4. Categoria / Ramo</label>
+                  <input type="text" name="categoria" placeholder="Ex: Gráfica, Som, Limpeza..." value={supplierFormData.categoria} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">5. Telefone / WhatsApp</label>
+                  <input type="text" name="telefone" placeholder="(00) 00000-0000" value={supplierFormData.telefone} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">6. E-mail de Contato</label>
+                  <input type="email" name="email" value={supplierFormData.email} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">7. Nome do Responsável</label>
+                  <input type="text" name="contato_responsavel" value={supplierFormData.contato_responsavel} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">8. Cidade / UF</label>
+                  <input type="text" name="cidade_uf" placeholder="Ex: Teófilo Otoni - MG" value={supplierFormData.cidade_uf} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">9. Observações Gerais</label>
+                <textarea rows={2} name="observacoes" value={supplierFormData.observacoes} onChange={handleSupplierChange} className="w-full rounded-lg border p-2 text-xs" />
+              </div>
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onClick={() => setIsSupplierModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
+                  {loading ? 'Salvando...' : editingSupplierId ? 'Salvar Alterações' : 'Salvar Fornecedor'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 4: INBOX DE MOTIVO DE EXCLUSÃO (EXCLUSIVO PARA MEMBROS) --- */}
+      {isDeleteMemberModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
             <div className="bg-rose-700 text-white px-6 py-4 flex justify-between items-center">
@@ -1023,7 +1265,7 @@ export default function App() {
                 <h3 className="text-lg font-bold">Desligamento de Membro</h3>
                 <p className="text-xs text-rose-200">Informe o motivo da exclusão/desligamento</p>
               </div>
-              <button onClick={() => setIsDeleteModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
+              <button onClick={() => setIsDeleteMemberModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
             </div>
 
             <div className="p-6 space-y-4">
@@ -1068,7 +1310,6 @@ export default function App() {
                 </label>
               </div>
 
-              {/* CAMPO LIVRE PARA MOTIVO OUTROS */}
               {motivoExclusao === 'outros' && (
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Especifique o Motivo *</label>
@@ -1085,14 +1326,14 @@ export default function App() {
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button
                   type="button"
-                  onClick={() => setIsDeleteModalOpen(false)}
+                  onClick={() => setIsDeleteMemberModalOpen(false)}
                   className="px-4 py-2 border rounded-lg text-slate-700 font-medium text-xs hover:bg-slate-100"
                 >
                   Cancelar
                 </button>
                 <button
                   type="button"
-                  onClick={handleConfirmDelete}
+                  onClick={handleConfirmDeleteMember}
                   disabled={loading}
                   className="px-6 py-2 bg-rose-700 hover:bg-rose-800 text-white font-bold text-xs rounded-lg shadow"
                 >
@@ -1100,42 +1341,6 @@ export default function App() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* --- MODAL 3: CADASTRO DE USUÁRIO --- */}
-      {isUserModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
-              <div>
-                <h3 className="text-lg font-bold">Novo Usuário do Sistema</h3>
-                <p className="text-xs text-slate-300">Vincular a: {loggedIgreja?.codigo_igreja}</p>
-              </div>
-              <button onClick={() => setIsUserModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
-            </div>
-
-            <form onSubmit={handleRegisterUser} className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Nome do Operador *</label>
-                <input type="text" name="nome_usuario" required placeholder="Ex: João da Silva" value={userFormData.nome_usuario} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Usuário (Login) *</label>
-                <input type="text" name="usuario" required placeholder="Ex: joao" value={userFormData.usuario} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Senha de Acesso *</label>
-                <input type="password" name="senha" required placeholder="••••••••" value={userFormData.senha} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
-              </div>
-              <div className="flex justify-end gap-3 border-t pt-4">
-                <button type="button" onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
-                  {loading ? 'Cadastrando...' : 'Cadastrar Usuário'}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

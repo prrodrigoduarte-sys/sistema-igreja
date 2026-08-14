@@ -3,12 +3,12 @@ import { supabase } from './supabase';
 import MembrosView from './componentes/MembrosView';
 import FinanceiroView from './componentes/FinanceiroView';
 import AgendaView from './componentes/AgendaView';
+
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
 
-  // Campos do Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');

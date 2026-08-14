@@ -11,18 +11,18 @@ export default function MembrosView({ codigoIgreja }: MembrosViewProps) {
 
   const fetchMembers = async () => {
     setLoading(true);
-    console.log("Buscando membros para a igreja:", codigoIgreja);
-    
-    // Ajuste o nome da coluna aqui (ex: 'codigo_igreja' ou 'igreja_id')
+    console.log("Tentando buscar membros...");
+
+    // Buscando tudo sem filtro para testar a tabela
     const { data, error } = await supabase
       .from('members')
-      .select('*')
-      .eq('codigo_igreja', codigoIgreja);
+      .select('*');
 
     if (error) {
-      console.error("Erro ao buscar membros:", error.message);
+      console.error("ERRO DO SUPABASE:", error);
+      alert("Erro ao buscar dados: " + error.message);
     } else {
-      console.log("Dados recebidos:", data);
+      console.log("DADOS RECEBIDOS:", data);
       setMembers(data || []);
     }
     
@@ -30,45 +30,31 @@ export default function MembrosView({ codigoIgreja }: MembrosViewProps) {
   };
 
   useEffect(() => {
-    if (codigoIgreja) {
-      fetchMembers();
-    }
-  }, [codigoIgreja]);
+    fetchMembers();
+  }, []);
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-      <div className="border-b pb-4 flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({members.length})</h2>
-      </div>
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <h2 className="text-2xl font-bold text-slate-800 mb-4">Cadastro de Membros</h2>
       
       {loading ? (
-        <div className="text-center py-10 text-slate-500">Carregando dados da igreja...</div>
+        <p className="text-center">Carregando...</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left">
             <thead>
-              <tr className="border-b text-slate-600 text-sm font-semibold">
-                <th className="py-3 px-4">Nome</th>
-                <th className="py-3 px-4">Tipo</th>
-                <th className="py-3 px-4">CPF</th>
-                <th className="py-3 px-4">Celular</th>
+              <tr className="border-b text-slate-600 text-sm">
+                <th className="py-2">Nome</th>
+                <th className="py-2">CPF</th>
               </tr>
             </thead>
-            <tbody className="divide-y text-sm text-slate-700">
-              {members.length > 0 ? (
-                members.map((m) => (
-                  <tr key={m.id} className="hover:bg-blue-50/50 transition-colors">
-                    <td className="py-3 px-4 font-bold text-slate-900">{m.nome || 'Sem nome'}</td>
-                    <td className="py-3 px-4">{m.tipo_cadastro || '-'}</td>
-                    <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
-                    <td className="py-3 px-4">{m.celular_principal || '-'}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center text-slate-400">Nenhum membro encontrado para esta igreja.</td>
+            <tbody className="text-sm text-slate-700">
+              {members.map((m) => (
+                <tr key={m.id} className="border-b">
+                  <td className="py-2 font-bold">{m.nome || 'Sem nome'}</td>
+                  <td className="py-2">{m.cpf || '-'}</td>
                 </tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>

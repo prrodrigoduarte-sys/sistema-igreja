@@ -13,7 +13,6 @@ export default function FinanceiroView({ codigoIgreja }: FinanceiroViewProps) {
   const fetchFinanceiro = async () => {
     setLoading(true);
     
-    // Busca as contas financeiras da igreja
     const { data: contasData } = await supabase
       .from('contas_financeiras')
       .select('*')
@@ -21,7 +20,6 @@ export default function FinanceiroView({ codigoIgreja }: FinanceiroViewProps) {
 
     setContas(contasData || []);
 
-    // Busca os lançamentos financeiros da igreja
     const { data: lancsData } = await supabase
       .from('lancamentos_financeiros')
       .select('*')
@@ -38,7 +36,6 @@ export default function FinanceiroView({ codigoIgreja }: FinanceiroViewProps) {
     }
   }, [codigoIgreja]);
 
-  // Cálculo de Saldos por Conta e Consolidado
   const getSaldosProcessados = () => {
     const saldos: { [key: string]: number } = {};
     contas.forEach((c) => {
@@ -60,7 +57,6 @@ export default function FinanceiroView({ codigoIgreja }: FinanceiroViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Cards de Resumo de Saldos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gradient-to-br from-blue-900 to-indigo-900 text-white p-5 rounded-2xl shadow-md">
           <p className="text-xs font-bold text-blue-200 uppercase">Saldo Consolidado</p>
@@ -78,7 +74,6 @@ export default function FinanceiroView({ codigoIgreja }: FinanceiroViewProps) {
         })}
       </div>
 
-      {/* Tabela de Lançamentos */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
         <div className="flex justify-between items-center border-b pb-4">
           <div>

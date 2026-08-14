@@ -351,14 +351,32 @@ export default function App() {
     if (!formLancData || !formLancValor) { alert('Preencha a data e o valor.'); return; }
 
     const valorNum = parseFloat(formLancValor);
-    const payload = {
+    const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
       data_lancamento: formLancData,
       tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
       valor: valorNum,
-      conta_id: formLancContaId ? parseInt(formLancContaId) : null,
       descricao: formLancObs.trim() || 'Lançamento em Conta Corrente'
     };
+
+    // Só envia o conta_id se você já tiver rodado o comando SQL acima
+    if (formLancContaId) {
+      payload.conta_id = parseInt(formLancContaId);
+    }
+
+    try {
+      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+      if (error) throw error;
+      alert('Lançamento efetuado com sucesso!');
+      setShowLancamentoModal(false);
+      setFormLancData('');
+      setFormLancValor('');
+      setFormLancObs('');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar lançamento: ' + err.message);
+    }
+  };
 
     try {
       const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);

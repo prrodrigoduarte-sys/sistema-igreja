@@ -149,6 +149,26 @@ export default function App() {
           </div>
         </div>
       </header>
+      <nav className="flex items-center gap-6 text-sm font-bold text-blue-950">
+              <button 
+                onClick={() => setActiveTab('membros')} 
+                className={`py-2 ${activeTab === 'membros' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'hover:text-indigo-600'}`}
+              >
+                📋 Membros
+              </button>
+              <button 
+                onClick={() => setActiveTab('financeiro')} 
+                className={`py-2 ${activeTab === 'financeiro' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'hover:text-indigo-600'}`}
+              >
+                💰 Financeiro
+              </button>
+              <button 
+                onClick={() => setActiveTab('agenda')} 
+                className={`py-2 ${activeTab === 'agenda' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'hover:text-indigo-600'}`}
+              >
+                📅 Agenda
+              </button>
+            </nav>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 space-y-6">
         {activeTab === 'membros' && (

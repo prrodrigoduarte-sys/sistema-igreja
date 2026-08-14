@@ -7,7 +7,7 @@ import AgendaView from './components/AgendaView';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'membros' | 'financeiro' | 'agenda'>('membros');
+  const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
 
   // Campos do Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -102,15 +102,9 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
-        {loggedUser ? (
-          <>
-            {activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
-            {activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
-            {activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
-          </>
-        ) : (
-          <p className="text-center text-slate-500">Carregando dados...</p>
-        )}
+        {loggedUser && activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
+        {loggedUser && activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
+        {loggedUser && activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
       </main>
     </div>
   );

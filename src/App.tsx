@@ -7,7 +7,9 @@ import AgendaView from './componentes/AgendaView';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
+  
+  // Usamos um modal ativo ('nenhum' | 'agenda' | 'financeiro') para garantir abertura imediata
+  const [modalAtivo, setModalAtivo] = useState<'nenhum' | 'agenda' | 'financeiro'>('nenhum');
 
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
@@ -72,7 +74,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col relative">
       {/* Cabeçalho Principal */}
       <header className="bg-white border-b border-slate-200 px-6 py-3.5 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -82,27 +84,27 @@ export default function App() {
               <span className="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded-md">TECNOLOGIA</span>
             </div>
             
-            {/* Menu de Abas Limpo e Profissional */}
+            {/* Menu com Gatilhos Diretos */}
             <nav className="flex items-center gap-2 text-sm font-bold">
               <button 
-                onClick={() => setActiveTab('membros')} 
-                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${activeTab === 'membros' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                onClick={() => setModalAtivo('nenhum')} 
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${modalAtivo === 'nenhum' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
               >
-                Cadastros
+                Cadastros (Membros)
               </button>
 
               <button 
-                onClick={() => setActiveTab('agenda')} 
-                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                onClick={() => setModalAtivo('agenda')} 
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${modalAtivo === 'agenda' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
               >
-                Agenda
+                📅 Abrir Agenda
               </button>
 
               <button 
-                onClick={() => setActiveTab('financeiro')} 
-                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
+                onClick={() => setModalAtivo('financeiro')} 
+                className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${modalAtivo === 'financeiro' ? 'bg-blue-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}
               >
-                Financeiro
+                💰 Abrir Financeiro
               </button>
             </nav>
           </div>
@@ -117,12 +119,55 @@ export default function App() {
         </div>
       </header>
 
-      {/* Conteúdo Dinâmico */}
+      {/* Tela Principal (Membros) */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
-        {loggedUser && activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
-        {loggedUser && activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
-        {loggedUser && activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
+        {loggedUser && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
       </main>
+
+      {/* Painel Sobreposto da Agenda */}
+      {modalAtivo === 'agenda' && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-6xl h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-blue-950 text-white px-6 py-4 flex justify-between items-center">
+              <h2 className="text-lg font-black flex items-center gap-2">📅 Módulo de Agenda</h2>
+              <button 
+                onClick={() => setModalAtivo('nenhum')} 
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                ✕ Fechar Agenda
+              </button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto bg-slate-50">
+              <AgendaView codigoIgreja={loggedUser.codigo_igreja} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Painel Sobreposto do Financeiro */}
+      {modalAtivo === 'financeiro' && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-6xl h-[90vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="bg-blue-950 text-white px-6 py-4 flex justify-between items-center">
+              <h2 className="text-lg font-black flex items-center gap-2">💰 Módulo Financeiro</h2>
+              <button 
+                onClick={() => setModalAtivo('nenhum')} 
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+              >
+                ✕ Fechar Financeiro
+              </button>
+            </div>
+            <div className="p-6 flex-1 overflow-y-auto bg-slate-50">
+              <FinanceiroValueContainer codigoIgreja={loggedUser.codigo_igreja} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+// Componente auxiliar interno para garantir a chamada limpa do FinanceiroView
+function FinanceiroValueContainer({ codigoIgreja }: { codigoIgreja: string }) {
+  return <FinanceiroView codigoIgreja={codigoIgreja} />;
 }

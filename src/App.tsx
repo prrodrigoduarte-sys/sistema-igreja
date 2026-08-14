@@ -70,6 +70,11 @@ export default function App() {
     identificacao: '',
     nacionalidade: 'Brasileira',
     naturalidade: '',
+    rua: '',
+    numero: '',
+    bairro: '',
+    cidade: 'Teófilo Otoni',
+    uf: 'MG',
     email: '',
     escolaridade: '',
     profissao: '',
@@ -455,6 +460,11 @@ export default function App() {
       identificacao: member.identificacao || '',
       nacionalidade: member.nacionalidade || 'Brasileira',
       naturalidade: member.naturalidade || '',
+      rua: member.rua || '',
+      numero: member.numero || '',
+      bairro: member.bairro || '',
+      cidade: member.cidade || 'Teófilo Otoni',
+      uf: member.uf || 'MG',
       email: member.email || '',
       escolaridade: member.escolaridade || '',
       profissao: member.profissao || '',
@@ -769,7 +779,7 @@ export default function App() {
     }
   };
 
-  // --- FUNÇÃO AUXILIAR DE DATA DE ANIVERSÁRIO ---
+  // --- FUNÇÕES AUXILIARES DE DATA E ENDEREÇO ---
   const formatBirthday = (dateStr: string) => {
     if (!dateStr) return { formatted: '-', monthNum: 0 };
     const parts = dateStr.split('-');
@@ -789,6 +799,15 @@ export default function App() {
       formatted: `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')} (${age} anos)`,
       monthNum: month
     };
+  };
+
+  const buildAddress = (m: any) => {
+    const parts = [];
+    if (m.rua) parts.push(m.rua);
+    if (m.numero) parts.push(`Nº ${m.numero}`);
+    if (m.bairro) parts.push(m.bairro);
+    if (m.cidade) parts.push(`${m.cidade}${m.uf ? '-' + m.uf : ''}`);
+    return parts.length > 0 ? parts.join(', ') : m.naturalidade || 'Endereço não informado';
   };
 
   // --- FILTRAGENS INTELIGENTES ---
@@ -846,7 +865,6 @@ export default function App() {
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  // IMPRESSÃO DE RELATÓRIO
   const handlePrintReport = () => {
     window.print();
   };
@@ -943,7 +961,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       
-      {/* CABEÇALHO SUPERIOR (Oculto na impressão) */}
+      {/* CABEÇALHO SUPERIOR */}
       <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs relative z-30 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
@@ -1296,7 +1314,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA 4: RELATÓRIOS DIVERSOS (NOVA SEÇÃO DE RELATÓRIOS COMPACTOS E COMPLETOS) */}
+        {/* ABA 4: RELATÓRIOS DIVERSOS */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
             
@@ -1311,7 +1329,7 @@ export default function App() {
                 </p>
               </div>
 
-              {/* CONTROLES DE FILTRO E IMPRESSÃO (OCULTOS NA IMPRESSÃO) */}
+              {/* CONTROLES DE FILTRO E IMPRESSÃO */}
               <div className="flex flex-wrap items-center gap-3 print:hidden">
                 <select
                   value={reportType}
@@ -1353,7 +1371,7 @@ export default function App() {
               </div>
             </div>
 
-            {/* TABELA TIPO 1: ANIVERSARIANTES (LAYOUT 1 LINHA COMPACTO) */}
+            {/* TABELA TIPO 1: ANIVERSARIANTES (1 LINHA COMPLETA) */}
             {reportType === 'aniversariantes' && (
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -1361,8 +1379,8 @@ export default function App() {
                     <tr className="border-b-2 border-slate-200 text-slate-700 text-xs font-bold uppercase tracking-wider">
                       <th className="py-2 px-3">Nome do Membro</th>
                       <th className="py-2 px-3">Celular / WhatsApp</th>
-                      <th className="py-2 px-3">Endereço</th>
-                      <th className="py-2 px-3">Data de Aniversário</th>
+                      <th className="py-2 px-3">Endereço Completo</th>
+                      <th className="py-2 px-3">Aniversário</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
@@ -1373,7 +1391,7 @@ export default function App() {
                           <tr key={m.id} className="hover:bg-slate-50 font-medium">
                             <td className="py-2.5 px-3 font-bold text-slate-900">{m.nome}</td>
                             <td className="py-2.5 px-3 font-mono">{m.celular_principal || m.celular_secundario || '-'}</td>
-                            <td className="py-2.5 px-3">{m.naturalidade || 'Não informado'}</td>
+                            <td className="py-2.5 px-3">{buildAddress(m)}</td>
                             <td className="py-2.5 px-3 font-mono font-bold text-blue-900">{bday.formatted}</td>
                           </tr>
                         );
@@ -1407,7 +1425,8 @@ export default function App() {
                         <div><span className="font-bold text-slate-500">Nascimento:</span> {m.nascimento || '-'}</div>
                         <div><span className="font-bold text-slate-500">RG/Identificação:</span> {m.identificacao || '-'}</div>
                         <div><span className="font-bold text-slate-500">Nacionalidade:</span> {m.nacionalidade || '-'}</div>
-                        <div><span className="font-bold text-slate-500">Naturalidade/Endereço:</span> {m.naturalidade || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Naturalidade:</span> {m.naturalidade || '-'}</div>
+                        <div><span className="font-bold text-slate-500">Endereço:</span> {buildAddress(m)}</div>
                         <div><span className="font-bold text-slate-500">Escolaridade:</span> {m.escolaridade || '-'}</div>
                         <div><span className="font-bold text-slate-500">Profissão:</span> {m.profissao || '-'}</div>
                         <div><span className="font-bold text-slate-500">Empresa:</span> {m.empresa || '-'}</div>
@@ -1577,6 +1596,14 @@ export default function App() {
                 </div>
                 <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label><input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
                 <div><label className="block text-xs font-semibold text-slate-600 mb-1">Identificação</label><input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                
+                {/* CAMPOS DE ENDEREÇO COMPLETO */}
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Rua / Logradouro</label><input type="text" name="rua" value={formData.rua} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Número</label><input type="text" name="numero" value={formData.numero} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Bairro</label><input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Cidade</label><input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">UF</label><input type="text" name="uf" value={formData.uf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Celular / WhatsApp *</label><input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
               </div>
 
               <div className="flex justify-end gap-3 border-t pt-4">

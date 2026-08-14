@@ -13,25 +13,13 @@ export default function App() {
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Bloqueio de Login
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockUntil, setLockUntil] = useState<number | null>(null);
-
   // --- NAVEGAÇÃO E TABS ---
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'igreja' | 'financeiro' | 'agenda'>('membros');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
 
-  // Relatórios
-  const [reportType, setReportType] = useState<'aniversariantes' | 'completo'>('aniversariantes');
-  const [filterMonth, setFilterMonth] = useState<string>('todos');
-
   // --- MODAIS FLUTUANTES ---
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [memberModalSubTab, setMemberModalSubTab] = useState<'dados' | 'endereco_outros'>('dados');
-
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
-  const [isChurchModalOpen, setIsChurchModalOpen] = useState(false);
 
   // Modais Financeiro e Agenda
   const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
@@ -41,9 +29,6 @@ export default function App() {
   // --- ESTADOS DE EDIÇÃO E LISTAS ---
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [members, setMembers] = useState<any[]>([]);
-  const [usersList, setUsersList] = useState<any[]>([]);
-  const [suppliersList, setSuppliersList] = useState<any[]>([]);
-  const [churchesList, setChurchesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -55,13 +40,6 @@ export default function App() {
   // Agenda
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [agendaFilterDono, setAgendaFilterDono] = useState<string>('todos');
-
-  // Câmera / Foto
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [useCamera, setUseCamera] = useState(false);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // --- FORMULÁRIOS ---
   const initialMemberFormData = {
@@ -126,9 +104,6 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsMemberModalOpen(false);
-        setIsUserModalOpen(false);
-        setIsSupplierModalOpen(false);
-        setIsChurchModalOpen(false);
         setIsLancamentoModalOpen(false);
         setIsContaModalOpen(false);
         setIsAgendaModalOpen(false);
@@ -162,9 +137,6 @@ export default function App() {
       setIsLoggedIn(true);
 
       fetchMembers(data.codigo_igreja);
-      fetchUsers(data.codigo_igreja);
-      fetchSuppliers(data.codigo_igreja);
-      fetchChurches();
       fetchFinanceiro(data.codigo_igreja);
       fetchAgenda(data.codigo_igreja);
     } catch (err: any) {
@@ -184,21 +156,6 @@ export default function App() {
   const fetchMembers = async (codigoIgreja: string) => {
     const { data } = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
     setMembers(data || []);
-  };
-
-  const fetchUsers = async (codigoIgreja: string) => {
-    const { data } = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
-    setUsersList(data || []);
-  };
-
-  const fetchSuppliers = async (codigoIgreja: string) => {
-    const { data } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', codigoIgreja);
-    setSuppliersList(data || []);
-  };
-
-  const fetchChurches = async () => {
-    const { data } = await supabase.from('igrejas').select('*');
-    setChurchesList(data || []);
   };
 
   const fetchFinanceiro = async (codigoIgreja: string) => {
@@ -409,7 +366,7 @@ export default function App() {
 
   const { saldos, saldoTotalConsolidado } = getSaldosProcessados();
 
-  // --- LOGIN ---
+  // --- TELA DE LOGIN ---
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -463,9 +420,6 @@ export default function App() {
                 {openDropdown === 'cadastros' && (
                   <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
                     <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">📋 Membros</button>
-                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">👤 Usuários</button>
-                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">🚚 Fornecedores</button>
-                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold border-t">📊 Relatórios</button>
                   </div>
                 )}
               </div>
@@ -487,18 +441,6 @@ export default function App() {
               >
                 💰 Financeiro
               </button>
-
-              {/* DROPDOWN CONTROLE */}
-              <div className="relative" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => toggleDropdown('controle')} className="flex items-center gap-1 hover:text-indigo-600 py-2">
-                  <span>Controle</span><span>∨</span>
-                </button>
-                {openDropdown === 'controle' && (
-                  <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-2xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-sm hover:bg-blue-50 font-semibold">⛪ Cadastro da Igreja</button>
-                  </div>
-                )}
-              </div>
 
             </nav>
           </div>

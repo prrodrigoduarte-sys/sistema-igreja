@@ -1,22 +1,34 @@
-import React, { useState } from 'react';
-import { supabase } from './supabase';
-import MembrosView from './componentes/MembrosView';
-import AgendaView from './componentes/AgendaView';
-import FinanceiroView from './componentes/FinanceiroView'; 
+import React, { useEffect, useState } from 'react';
+import { supabase } from './supabase'; 
 
 export default function App() {
+// Estados de Autenticação e Navegação
 const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [loggedUser, setLoggedUser] = useState(null);
-const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros'); 
-
-// Estados para controlar a abertura dos menus suspensos (dropdowns)
+const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
 const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'agenda' | 'financeiro' | 'controle' | null>(null); 
 
+// Estados do Formulário de Login
 const [loginCodigo, setLoginCodigo] = useState('IGR-001');
 const [loginUsuario, setLoginUsuario] = useState('');
 const [loginSenha, setLoginSenha] = useState('');
 const [loginLoading, setLoginLoading] = useState(false); 
 
+// Estados do Módulo de Membros
+const [members, setMembers] = useState<any[]>([]);
+const [searchTerm, setSearchTerm] = useState('');
+const [loadingMembros, setLoadingMembros] = useState(false); 
+
+// Estados do Módulo da Agenda
+const [compromissos, setCompromissos] = useState<any[]>([]);
+const [loadingAgenda, setLoadingAgenda] = useState(false); 
+
+// Estados do Módulo Financeiro
+const [contas, setContas] = useState<any[]>([]);
+const [lancamentos, setLancamentos] = useState<any[]>([]);
+const [loadingFinanceiro, setLoadingFinanceiro] = useState(false); 
+
+// --- FUNÇÃO DE LOGIN ---
 const handleLogin = async (e: React.FormEvent) => {
 e.preventDefault();
 setLoginLoading(true);
@@ -37,6 +49,7 @@ return;
 
 setLoggedUser(data);
 setIsLoggedIn(true);
+setActiveTab('membros'); // Inicia na aba de membros após logar
 } catch (err: any) {
 alert('Erro no login: ' + err.message);
 } finally {
@@ -45,21 +58,79 @@ setLoginLoading(false);
 
 }; 
 
-const toggleDropdown = (menu: 'cadastros' | 'agenda' | 'financeiro' | 'controle') => {
-if (openDropdown === menu) {
-setOpenDropdown(null);
-} else {
-setOpenDropdown(menu);
+// --- CARREGAMENTO DE DADOS (EFEITO CENTRAL) ---
+useEffect(() => {
+if (!isLoggedIn || !loggedUser?.codigo_igreja) return; 
+
+const codigoIgreja = loggedUser.codigo_igreja;
+
+// Busca Membros
+async function fetchMembers() {
+setLoadingMembros(true);
+const { data, error } = await supabase
+.from('members')
+.select('*')
+.eq('codigo_igreja', codigoIgreja);
+if (!error) setMembers(data || []);
+setLoadingMembros(false);
 }
+
+// Busca Agenda
+async function fetchAgenda() {
+setLoadingAgenda(true);
+const { data, error } = await supabase
+.from('agenda_compromissos')
+.select('*')
+.eq('codigo_igreja', codigoIgreja)
+.order('data_compromisso', { ascending: true });
+if (!error) setCompromissos(data || []);
+setLoadingAgenda(false);
+}
+
+// Busca Financeiro
+async function fetchFinanceiro() {
+setLoadingFinanceiro(true);
+try {
+const { data: contasData } = await supabase
+.from('contas_financeiras')
+.select('*')
+.eq('codigo_igreja', codigoIgreja);
+setContas(contasData || []);
+const { data: lancsData } = await supabase
+  .from('lancamentos_financeiros')
+  .select('*')
+  .eq('codigo_igreja', codigoIgreja)
+  .order('data_lancamento', { ascending: false });
+setLancamentos(lancsData || []);
+
+} catch (err) {
+console.error(err);
+}
+setLoadingFinanceiro(false);
+}
+
+// Executa as buscas de acordo com a aba ativa para economizar processamento
+if (activeTab === 'membros') fetchMembers();
+if (activeTab === 'agenda') fetchAgenda();
+if (activeTab === 'financeiro') fetchFinanceiro();
+
+}, [isLoggedIn, activeTab, loggedUser]); 
+
+// Filtro de busca de membros por nome
+const filteredMembers = members.filter(
+(m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+); 
+
+const toggleDropdown = (menu: 'cadastros' | 'agenda' | 'financeiro' | 'controle') => {
+setOpenDropdown(openDropdown === menu ? null : menu);
 }; 
 
+// --- TELA DE LOGIN ---
 if (!isLoggedIn) {
 return ( 
 
 );
 } 
 
-return ( 
-
-);
-}
+// --- DASHBOARD PRINCIPAL ---
+return (

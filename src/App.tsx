@@ -216,7 +216,7 @@ export default function App() {
       return;
     }
 
-    let nomeMembroVinculado = editingCompromisso?.responsavel || 'A definir';
+    let nomeMembroVinculado = '';
     if (formAgendaMembroId) {
       const membroEncontrado = members.find((m) => String(m.id) === String(formAgendaMembroId));
       if (membroEncontrado) {
@@ -224,14 +224,15 @@ export default function App() {
       }
     }
 
-    // Payload compatível estritamente com as colunas padrão do banco
+    // Monta a string descritiva contendo todas as informações para salvar nas colunas padrão
+    const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
+
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio ? `${formAgendaHoraInicio}${formAgendaHoraFim ? ' às ' + formAgendaHoraFim : ''}` : '00:00',
-      descricao: `${formAgendaComentario.trim()}${formAgendaStatus === 'Cumprido' ? ' [Status: Cumprido]' : ''}`,
-      responsavel: nomeMembroVinculado
+      descricao: descricaoCompleta
     };
 
     try {
@@ -687,11 +688,10 @@ export default function App() {
                         <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
                           <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
                           <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span></div>
-                          <div>👤 Membro: <span className="text-blue-800 font-bold">{c.responsavel || 'Não vinculado'}</span></div>
                         </div>
 
                         <div className="pt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                          <strong className="text-slate-900 block mb-1">💬 Relatório / Comentário:</strong>
+                          <strong className="text-slate-900 block mb-1">💬 Detalhes / Comentário:</strong>
                           <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado. Clique para editar.'}</p>
                         </div>
                       </div>
@@ -720,7 +720,7 @@ export default function App() {
                           <span className="text-xs font-mono font-bold bg-blue-50 text-blue-900 px-2 py-0.5 rounded">{c.data_compromisso}</span>
                         </div>
                         <h4 className="font-bold text-slate-800 text-sm">{c.titulo}</h4>
-                        <p className="text-xs text-slate-600">👤 {c.responsavel || 'Sem vínculo'}</p>
+                        <p className="text-xs text-slate-600 truncate">{c.descricao}</p>
                       </div>
                     ))}
                   </div>
@@ -742,7 +742,6 @@ export default function App() {
                         <th className="p-3">Data</th>
                         <th className="p-3">Horário</th>
                         <th className="p-3">Assunto</th>
-                        <th className="p-3">Membro</th>
                         <th className="p-3">Relatório / Comentário</th>
                       </tr>
                     </thead>
@@ -752,7 +751,6 @@ export default function App() {
                           <td className="p-3 font-mono font-bold">{c.data_compromisso}</td>
                           <td className="p-3 font-mono">{c.hora_compromisso}</td>
                           <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
-                          <td className="p-3">{c.responsavel || '-'}</td>
                           <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
                         </tr>
                       ))}

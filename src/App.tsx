@@ -4,11 +4,11 @@ import { supabase } from './supabase';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro'>('membros');
-  const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null);
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro' | 'igreja'>('membros');
+  const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
   // Sub-aba interna para Relatórios de Membros
-  const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes' | 'completa'>('geral');
+  const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
 
   // Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -54,6 +54,29 @@ export default function App() {
   const [contas, setContas] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
+
+  // --- LÓGICA DE ANIVERSARIANTES ---
+  const hoje = new Date();
+  const diaAtual = String(hoje.getDate()).padStart(2, '0');
+  const mesAtual = String(hoje.getMonth() + 1).padStart(2, '0');
+
+  const aniversariantesDoDia = members.filter((m) => {
+    if (!m.data_nascimento) return false;
+    const partes = m.data_nascimento.split('-');
+    if (partes.length === 3) {
+      return partes[2] === diaAtual && partes[1] === mesAtual;
+    }
+    return false;
+  });
+
+  const aniversariantesDoMes = members.filter((m) => {
+    if (!m.data_nascimento) return false;
+    const partes = m.data_nascimento.split('-');
+    if (partes.length === 3) {
+      return partes[1] === mesAtual;
+    }
+    return false;
+  });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -175,7 +198,6 @@ export default function App() {
     }
   };
 
-  // Salvar Novo Compromisso na Agenda
   const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
@@ -208,7 +230,6 @@ export default function App() {
     }
   };
 
-  // Função de Impressão Padrão A4
   const handlePrint = () => {
     window.print();
   };
@@ -247,7 +268,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col">
-      {/* Cabeçalho oculto na impressão */}
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -256,6 +276,7 @@ export default function App() {
               <span className="text-[10px] tracking-widest text-blue-500 font-bold">TECNOLOGIA</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
+              {/* Menu Cadastros */}
               <div className="relative">
                 <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
                   Cadastros <span className="text-xs text-slate-400">∨</span>
@@ -269,14 +290,28 @@ export default function App() {
                   </div>
                 )}
               </div>
+
               <button className="hover:text-blue-900 cursor-pointer flex items-center gap-1">Células <span className="text-xs text-slate-400">∨</span></button>
+              
               <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Agenda <span className="text-xs text-slate-400">∨</span>
               </button>
+              
               <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Financeiro <span className="text-xs text-slate-400">∨</span>
               </button>
-              <button className="hover:text-blue-900 cursor-pointer flex items-center gap-1">Controle <span className="text-xs text-slate-400">∨</span></button>
+
+              {/* Menu Controle Restaurado */}
+              <div className="relative">
+                <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+                  Controle <span className="text-xs text-slate-400">∨</span>
+                </button>
+                {openDropdown === 'controle' && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
+                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🏛️ Cadastro da Igreja</button>
+                  </div>
+                )}
+              </div>
             </nav>
           </div>
           <div className="flex items-center gap-4">
@@ -412,7 +447,27 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA RELATÓRIOS / DASHBOARD COM SUPORTE A IMPRESSÃO A4 */}
+        {/* ABA CADASTRO DA IGREJA (CONTROLE) */}
+        {activeTab === 'igreja' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-2xl mx-auto">
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">🏛️ Cadastro da Instituição (Igreja)</h2>
+              <p className="text-xs text-slate-500">Dados oficiais registrados no sistema.</p>
+            </div>
+            <div className="space-y-4 text-sm text-slate-700">
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">Código da Igreja</span>
+                <span className="font-mono text-base font-bold text-blue-900">{loggedUser?.igrejas?.codigo_igreja}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">Nome / Razão Social</span>
+                <span className="font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ABA RELATÓRIOS / DASHBOARD */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -420,42 +475,55 @@ export default function App() {
                 <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios e Dashboard</h2>
                 <p className="text-xs text-slate-500">Selecione o relatório desejado abaixo.</p>
               </div>
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-                <button onClick={() => setRelatorioSubTab('geral')} className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'geral' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Dashboard Geral</button>
-                <button onClick={() => setRelatorioSubTab('aniversariantes')} className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🎂 Aniversariantes</button>
-                <button onClick={() => setRelatorioSubTab('completa')} className={`px-4 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'completa' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📋 Lista Completa</button>
-                <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir A4</button>
+              <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                <button onClick={() => setRelatorioSubTab('geral')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'geral' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Dashboard Geral</button>
+                <button onClick={() => setRelatorioSubTab('aniversariantes_dia')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_dia' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🎂 Aniversariantes do Dia</button>
+                <button onClick={() => setRelatorioSubTab('aniversariantes_mes')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_mes' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📅 Aniversariantes do Mês</button>
+                <button onClick={() => setRelatorioSubTab('completa')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'completa' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📋 Lista Completa</button>
+                <button onClick={handlePrint} className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir A4</button>
               </div>
             </div>
 
-            {/* Cabeçalho exclusivo para impressão A4 */}
             <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
               <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
               <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">
-                {relatorioSubTab === 'aniversariantes' ? 'Relatório de Aniversariantes' : relatorioSubTab === 'completa' ? 'Relatório de Lista Completa de Membros' : 'Dashboard Geral'}
+                {relatorioSubTab === 'aniversariantes_dia' ? 'Relatório de Aniversariantes do Dia' : relatorioSubTab === 'aniversariantes_mes' ? 'Relatório de Aniversariantes do Mês' : relatorioSubTab === 'completa' ? 'Relatório de Lista Completa de Membros' : 'Dashboard Geral'}
               </p>
             </div>
 
             {relatorioSubTab === 'geral' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
-                  <h4 className="font-bold text-blue-950">Total de Membros</h4>
-                  <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
-                </div>
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
-                  <h4 className="font-bold text-blue-950">Compromissos na Agenda</h4>
-                  <p className="text-3xl font-black text-slate-800 mt-2">{compromissos.length}</p>
-                </div>
-                <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
-                  <h4 className="font-bold text-blue-950">Contas Financeiras</h4>
-                  <p className="text-3xl font-black text-slate-800 mt-2">{contas.length}</p>
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 print:grid-cols-4">
+                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
+                    <h4 className="font-bold text-blue-950">Total de Membros</h4>
+                    <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
+                  </div>
+                  <div 
+                    onClick={() => setRelatorioSubTab('aniversariantes_dia')}
+                    className="p-5 bg-blue-50 border border-blue-200 rounded-2xl cursor-pointer hover:bg-blue-100 transition-all shadow-sm print:border-slate-400"
+                  >
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-blue-900">🎂 Aniversariantes Hoje</h4>
+                      <span className="text-xs font-bold bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full">Ver Lista</span>
+                    </div>
+                    <p className="text-3xl font-black text-blue-950 mt-2">{aniversariantesDoDia.length}</p>
+                    <p className="text-[11px] text-blue-700 mt-1">Clique para abrir a listagem do dia.</p>
+                  </div>
+                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
+                    <h4 className="font-bold text-blue-950">Compromissos na Agenda</h4>
+                    <p className="text-3xl font-black text-slate-800 mt-2">{compromissos.length}</p>
+                  </div>
+                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
+                    <h4 className="font-bold text-blue-950">Contas Financeiras</h4>
+                    <p className="text-3xl font-black text-slate-800 mt-2">{contas.length}</p>
+                  </div>
                 </div>
               </div>
             )}
 
-            {relatorioSubTab === 'aniversariantes' && (
+            {relatorioSubTab === 'aniversariantes_dia' && (
               <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg print:hidden">Lista Simples de Aniversariantes</h3>
+                <h3 className="font-bold text-slate-800 text-lg print:hidden">🎂 Aniversariantes do Dia ({aniversariantesDoDia.length})</h3>
                 <div className="overflow-x-auto border rounded-xl print:border-none">
                   <table className="w-full text-left text-sm print:text-xs">
                     <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
@@ -466,13 +534,47 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
-                      {members.map((m: any) => (
-                        <tr key={m.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-bold">{m.nome}</td>
-                          <td className="p-3 font-mono">{m.data_nascimento ? new Date(m.data_nascimento).toLocaleDateString('pt-BR') : 'Não informada'}</td>
-                          <td className="p-3">{m.celular_principal || '-'}</td>
-                        </tr>
-                      ))}
+                      {aniversariantesDoDia.length === 0 ? (
+                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante encontrado para hoje.</td></tr>
+                      ) : (
+                        aniversariantesDoDia.map((m: any) => (
+                          <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold">{m.nome}</td>
+                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                            <td className="p-3">{m.celular_principal || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {relatorioSubTab === 'aniversariantes_mes' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 text-lg print:hidden">📅 Aniversariantes do Mês ({aniversariantesDoMes.length})</h3>
+                <div className="overflow-x-auto border rounded-xl print:border-none">
+                  <table className="w-full text-left text-sm print:text-xs">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                      <tr>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Data de Nascimento</th>
+                        <th className="p-3">Celular</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {aniversariantesDoMes.length === 0 ? (
+                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante cadastrado para este mês.</td></tr>
+                      ) : (
+                        aniversariantesDoMes.map((m: any) => (
+                          <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold">{m.nome}</td>
+                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                            <td className="p-3">{m.celular_principal || '-'}</td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -517,7 +619,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA AGENDA COM CADASTRO DE COMPROMISSOS */}
+        {/* ABA AGENDA COM COMPROMISSO E DADOS COMPLETOS */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -655,7 +757,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE MEMBRO (MANTIDO COMPLETO) */}
+      {/* MODAL DE MEMBRO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">

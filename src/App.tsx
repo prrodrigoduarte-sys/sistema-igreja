@@ -111,7 +111,7 @@ export default function App() {
     setLoadingAgenda(false);
   };
 
-  cconst carregarFinanceiro = async (cod: string) => {
+  const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
     try {
       // 1. Busca as contas cadastradas

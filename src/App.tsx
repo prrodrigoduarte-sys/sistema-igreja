@@ -356,10 +356,11 @@ export default function App() {
       data_lancamento: formLancData,
       tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
       valor: valorNum,
-      descricao: formLancObs.trim() || 'Lançamento em Conta Corrente'
+      descricao: formLancObs.trim() || 'Lançamento em Conta Corrente',
+      categoria: 'Geral', // <--- ADICIONE ESTA LINHA PARA ATENDER A EXIGÊNCIA DO BANCO
+      codigo_conta: 'Geral' // <--- E ESTA CASO O BANCO TAMBÉM EXIJA
     };
 
-    // Só envia o conta_id se você já tiver rodado o comando SQL acima
     if (formLancContaId) {
       payload.conta_id = parseInt(formLancContaId);
     }

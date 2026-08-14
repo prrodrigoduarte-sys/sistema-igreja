@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
 export default function App() {
@@ -99,74 +99,6 @@ export default function App() {
   };
   const [agendaForm, setAgendaForm] = useState(initialAgendaForm);
 
-  // --- ATALHO ESC ---
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setIsMemberModalOpen(false);
-        setIsLancamentoModalOpen(false);
-        setIsContaModalOpen(false);
-        setIsAgendaModalOpen(false);
-      }
-    };
-    // --- CARREGAR DADOS AUTOMATICAMENTE AO MUDAR DE ABA ---
-  useEffect(() => {
-    if (isLoggedIn && loggedUser?.codigo_igreja) {
-      if (activeTab === 'financeiro') {
-        fetchFinanceiro(loggedUser.codigo_igreja);
-      } else if (activeTab === 'agenda') {
-        fetchAgenda(loggedUser.codigo_igreja);
-      } else if (activeTab === 'membros') {
-        fetchMembers(loggedUser.codigo_igreja);
-      }
-    }
-  }, [activeTab]);
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
-
-  // --- LOGIN E SESSÃO ---
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from('usuarios')
-        .select('*, igrejas(*)')
-        .eq('codigo_igreja', loginCodigo.trim())
-        .eq('usuario', loginUsuario.trim())
-        .eq('senha', loginSenha.trim())
-        .eq('ativo', true)
-        .single();
-
-      if (error || !data) {
-        alert('Usuário ou senha incorretos.');
-        return;
-      }
-
-      setLoggedUser(data);
-      setLoggedIgreja(data.igrejas);
-      setIsLoggedIn(true);
-
-      fetchMembers(data.codigo_igreja);
-      fetchFinanceiro(data.codigo_igreja);
-      fetchAgenda(data.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro no login: ' + err.message);
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-  const fetchFinanceiro = async (codigoIgreja: string) => {
-    console.log("Tentando buscar financeiro para a igreja:", codigoIgreja); // Adicione esta linha
-    let { data: contas } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja);
-    // ... restante da função
-  const handleLogout = () => {
-    setIsLoggedIn(false);
-    setLoggedUser(null);
-    setLoggedIgreja(null);
-  };
-
   // --- BUSCA NO SUPABASE ---
   const fetchMembers = async (codigoIgreja: string) => {
     const { data } = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
@@ -203,6 +135,71 @@ export default function App() {
       .eq('codigo_igreja', codigoIgreja)
       .order('data_compromisso', { ascending: true });
     setCompromissos(data || []);
+  };
+
+  // --- ATALHO ESC E CARREGAMENTO AUTOMÁTICO POR ABA ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMemberModalOpen(false);
+        setIsLancamentoModalOpen(false);
+        setIsContaModalOpen(false);
+        setIsAgendaModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn && loggedUser?.codigo_igreja) {
+      if (activeTab === 'financeiro') {
+        fetchFinanceiro(loggedUser.codigo_igreja);
+      } else if (activeTab === 'agenda') {
+        fetchAgenda(loggedUser.codigo_igreja);
+      } else if (activeTab === 'membros') {
+        fetchMembers(loggedUser.codigo_igreja);
+      }
+    }
+  }, [activeTab, isLoggedIn, loggedUser]);
+
+  // --- LOGIN E SESSÃO ---
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*, igrejas(*)')
+        .eq('codigo_igreja', loginCodigo.trim())
+        .eq('usuario', loginUsuario.trim())
+        .eq('senha', loginSenha.trim())
+        .eq('ativo', true)
+        .single();
+
+      if (error || !data) {
+        alert('Usuário ou senha incorretos.');
+        return;
+      }
+
+      setLoggedUser(data);
+      setLoggedIgreja(data.igrejas);
+      setIsLoggedIn(true);
+
+      fetchMembers(data.codigo_igreja);
+      fetchFinanceiro(data.codigo_igreja);
+      fetchAgenda(data.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro no login: ' + err.message);
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setLoggedUser(null);
+    setLoggedIgreja(null);
   };
 
   // --- AÇÕES DO FINANCEIRO ---
@@ -347,29 +344,6 @@ export default function App() {
       telefone_fixo: member.telefone_fixo || ''
     });
     setIsMemberModalOpen(true);
-  };
-
-  const handleRegisterMember = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const payload = { ...formData, codigo_igreja: loggedUser.codigo_igreja, ativo: true };
-      if (editingMemberId) {
-        await supabase.from('members').update(payload).eq('id', editingMemberId);
-      } else {
-        await supabase.from('members').insert([payload]);
-      }
-      setIsMemberModalOpen(false);
-      fetchMembers(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const toggleDropdown = (name: string) => setOpenDropdown(openDropdown === name ? null : name);

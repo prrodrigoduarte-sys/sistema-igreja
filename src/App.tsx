@@ -131,7 +131,7 @@ setOpenDropdown(null);
 if (!isLoggedIn) {
 return ( 
 
-);
+;
 } 
 
 return (

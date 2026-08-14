@@ -102,7 +102,6 @@ export default function App() {
       if (error || !data) { alert('Usuário ou senha incorretos.'); return; }
       setLoggedUser(data); 
       setIsLoggedIn(true); 
-      // Removido o setActiveTab automático para você navegar pelo menu principal
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
 
@@ -358,6 +357,31 @@ export default function App() {
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar lançamento: ' + err.message);
+    }
+  };
+
+  // Função para deletar lançamento financeiro com senha de administrador
+  const handleDeleteLancamento = async (lancamentoId: any) => {
+    const senhaInformada = prompt('Digite a senha de administrador para excluir este lançamento:');
+    if (!senhaInformada) return;
+
+    if (senhaInformada !== loggedUser.senha) {
+      alert('Senha de administrador incorreta. Exclusão cancelada.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('lancamentos_financeiros')
+        .delete()
+        .eq('id', lancamentoId);
+
+      if (error) throw error;
+
+      alert('Lançamento excluído com sucesso!');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao excluir lançamento: ' + err.message);
     }
   };
 
@@ -928,11 +952,12 @@ export default function App() {
                           <th className="p-3">Descrição / Conta</th>
                           <th className="p-3">Saldo</th>
                           <th className="p-3">Observação</th>
+                          <th className="p-3 text-center">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-700">
                         {lancamentosComSaldo.length === 0 ? (
-                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
+                          <tr><td colSpan={7} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
                         ) : (
                           lancamentosComSaldo.map((l: any) => (
                             <tr key={l.id} className="hover:bg-slate-50">
@@ -950,6 +975,15 @@ export default function App() {
                                 R$ {l.saldoAtual.toFixed(2)}
                               </td>
                               <td className="p-3 text-slate-500 italic">{l.descricao || '-'}</td>
+                              <td className="p-3 text-center">
+                                <button 
+                                  onClick={() => handleDeleteLancamento(l.id)}
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]"
+                                  title="Excluir lançamento"
+                                >
+                                  Excluir
+                                </button>
+                              </td>
                             </tr>
                           ))
                         )}

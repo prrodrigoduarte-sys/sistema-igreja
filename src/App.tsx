@@ -113,8 +113,19 @@ export default function App() {
 
   const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
+    
+    // Busca as contas
     const { data: cData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
-    const { data: lData } = await supabase.from('lancamentos_financeiros').select('*, contas_financeiras(nome_conta)').eq('codigo_igreja', cod).order('data_lancamento', { ascending: true });
+    
+    // Busca os lançamentos forçando a ordenação mais recente (data_lancamento)
+    const { data: lData, error } = await supabase
+      .from('lancamentos_financeiros')
+      .select('*, contas_financeiras(nome_conta)')
+      .eq('codigo_igreja', cod)
+      .order('data_lancamento', { ascending: false }); // Mude para false para ver o último primeiro
+
+    if (error) console.error("Erro ao carregar:", error);
+
     setContasFinanceiras(cData || []);
     setLancamentosCorrente(lData || []);
     setLoadingFinanceiro(false);

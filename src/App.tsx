@@ -7,8 +7,8 @@ const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [loggedUser, setLoggedUser] = useState(null);
 const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros'); 
 
-// Estado para controlar qual menu suspenso está aberto
-const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null); 
+// Estado para controlar qual menu suspenso está aberto no momento
+const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'agenda' | 'financeiro' | null>(null); 
 
 // Estados do Formulário de Login
 const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -16,16 +16,16 @@ const [loginUsuario, setLoginUsuario] = useState('');
 const [loginSenha, setLoginSenha] = useState('');
 const [loginLoading, setLoginLoading] = useState(false); 
 
-// Estados do Módulo de Membros
+// Estados do Módulo de Membros (Tabela: members)
 const [members, setMembers] = useState<any[]>([]);
 const [searchTerm, setSearchTerm] = useState('');
 const [loadingMembros, setLoadingMembros] = useState(false); 
 
-// Estados do Módulo da Agenda
+// Estados do Módulo da Agenda (Tabela: agenda_compromissos)
 const [compromissos, setCompromissos] = useState<any[]>([]);
 const [loadingAgenda, setLoadingAgenda] = useState(false); 
 
-// Estados do Módulo Financeiro
+// Estados do Módulo Financeiro (Tabelas: contas_financeiras e lancamentos_financeiros)
 const [contas, setContas] = useState<any[]>([]);
 const [lancamentos, setLancamentos] = useState<any[]>([]);
 const [loadingFinanceiro, setLoadingFinanceiro] = useState(false); 
@@ -60,7 +60,7 @@ setLoginLoading(false);
 
 }; 
 
-// --- CARREGAMENTO DE DADOS (EFEITO CENTRAL) ---
+// --- CARREGAMENTO DE DADOS DO BANCO (SUPABASE) ---
 useEffect(() => {
 if (!isLoggedIn || !loggedUser?.codigo_igreja) return; 
 
@@ -106,11 +106,12 @@ const { data: lancsData } = await supabase
 setLancamentos(lancsData || []);
 
 } catch (err) {
-console.error(err);
+console.error("Erro no financeiro:", err);
 }
 setLoadingFinanceiro(false);
 }
 
+// Dispara a busca baseada na aba que o usuário clicou
 if (activeTab === 'membros') fetchMembers();
 if (activeTab === 'agenda') fetchAgenda();
 if (activeTab === 'financeiro') fetchFinanceiro();
@@ -121,12 +122,16 @@ const filteredMembers = members.filter(
 (m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
 ); 
 
-// --- TELA DE LOGIN ---
+// Fecha menus abertos ao clicar fora
+const mudarAbaENeutralizar = (aba: 'membros' | 'agenda' | 'financeiro') => {
+setActiveTab(aba);
+setOpenDropdown(null);
+}; 
+
 if (!isLoggedIn) {
 return ( 
 
 );
 } 
 
-// --- DASHBOARD PRINCIPAL ---
 return (

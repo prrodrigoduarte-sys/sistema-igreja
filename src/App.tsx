@@ -1527,10 +1527,10 @@ export default function App() {
 
       </main>
 
-      {/* --- MODAL 1: CADASTRO / EDIÇÃO DE MEMBRO --- */}
+      {/* --- MODAL 1: CADASTRO / EDIÇÃO COMPLETO DE MEMBRO --- */}
       {isMemberModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-3xl w-full rounded-2xl shadow-2xl border border-slate-200 my-8 overflow-hidden">
+          <div className="bg-white max-w-4xl w-full rounded-2xl shadow-2xl border border-slate-200 my-8 overflow-hidden">
             <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
               <div>
                 <h3 className="text-lg font-bold">{editingMemberId ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}</h3>
@@ -1540,6 +1540,8 @@ export default function App() {
             </div>
 
             <form onSubmit={handleRegisterMember} className="p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+              
+              {/* FOTO */}
               <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex flex-col sm:flex-row items-center gap-6">
                 <div className="w-28 h-28 rounded-full border-2 border-dashed border-slate-300 bg-white flex items-center justify-center overflow-hidden relative flex-shrink-0">
                   {useCamera ? (
@@ -1574,36 +1576,67 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
-                  <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm">
-                    <option value="">Selecione...</option>
-                    <option value="Membro">Membro</option>
-                    <option value="Visitante">Visitante</option>
-                    <option value="Congregado">Congregado</option>
-                  </select>
+              {/* DADOS PESSOAIS */}
+              <div>
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-3 border-b pb-1">1. Dados Pessoais Principais</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo Cadastro *</label>
+                    <select name="tipo_cadastro" value={formData.tipo_cadastro} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm">
+                      <option value="">Selecione...</option>
+                      <option value="Membro">Membro</option>
+                      <option value="Visitante">Visitante</option>
+                      <option value="Congregado">Congregado</option>
+                    </select>
+                  </div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label><input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label><input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
+                    <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm">
+                      <option value="">Selecione...</option>
+                      <option value="Masculino">Masculino</option>
+                      <option value="Feminino">Feminino</option>
+                    </select>
+                  </div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label><input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Identificação / RG</label><input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nacionalidade</label><input type="text" name="nacionalidade" value={formData.nacionalidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Naturalidade</label><input type="text" name="naturalidade" placeholder="Ex: Teófilo Otoni" value={formData.naturalidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
                 </div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nome completo *</label><input type="text" name="nome" value={formData.nome} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">CPF</label><input type="text" name="cpf" placeholder="000.000.000-00" value={formData.cpf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Sexo *</label>
-                  <select name="sexo" value={formData.sexo} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm">
-                    <option value="">Selecione...</option>
-                    <option value="Masculino">Masculino</option>
-                    <option value="Feminino">Feminino</option>
-                  </select>
+              </div>
+
+              {/* ENDEREÇO */}
+              <div>
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-3 border-b pb-1">2. Endereço e Localização</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2"><label className="block text-xs font-semibold text-slate-600 mb-1">Rua / Logradouro</label><input type="text" name="rua" placeholder="Ex: Rua Epaminondas Otoni" value={formData.rua} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Número</label><input type="text" name="numero" placeholder="Ex: 123" value={formData.numero} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Bairro</label><input type="text" name="bairro" placeholder="Ex: Centro" value={formData.bairro} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Cidade</label><input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">UF</label><input type="text" name="uf" value={formData.uf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
                 </div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Nascimento *</label><input type="date" name="nascimento" value={formData.nascimento} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Identificação</label><input type="text" name="identificacao" placeholder="RG / RGM" value={formData.identificacao} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                
-                {/* CAMPOS DE ENDEREÇO COMPLETO */}
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Rua / Logradouro</label><input type="text" name="rua" value={formData.rua} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Número</label><input type="text" name="numero" value={formData.numero} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Bairro</label><input type="text" name="bairro" value={formData.bairro} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Cidade</label><input type="text" name="cidade" value={formData.cidade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">UF</label><input type="text" name="uf" value={formData.uf} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
-                <div><label className="block text-xs font-semibold text-slate-600 mb-1">Celular / WhatsApp *</label><input type="text" name="celular_principal" placeholder="(00) 00000-0000" value={formData.celular_principal} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+              </div>
+
+              {/* CONTATOS */}
+              <div>
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-3 border-b pb-1">3. Telefone e Contatos</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Celular / WhatsApp *</label><input type="text" name="celular_principal" placeholder="(33) 90000-0000" value={formData.celular_principal} onChange={handleChange} required className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Celular Secundário</label><input type="text" name="celular_secundario" placeholder="(33) 90000-0000" value={formData.celular_secundario} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">E-mail</label><input type="email" name="email" placeholder="membro@email.com" value={formData.email} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                </div>
+              </div>
+
+              {/* PROFISSIONAL E EMERGÊNCIA */}
+              <div>
+                <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-3 border-b pb-1">4. Dados Profissionais & Emergência</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Escolaridade</label><input type="text" name="escolaridade" placeholder="Ex: Superior Completo" value={formData.escolaridade} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Profissão</label><input type="text" name="profissao" value={formData.profissao} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div><label className="block text-xs font-semibold text-slate-600 mb-1">Empresa</label><input type="text" name="empresa" value={formData.empresa} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                  <div className="sm:col-span-2"><label className="block text-xs font-semibold text-slate-600 mb-1">Nome do Contato de Emergência</label><input type="text" name="nome_contato" placeholder="Nome e parentesco" value={formData.nome_contato} onChange={handleChange} className="w-full rounded-md border p-2 text-sm" /></div>
+                </div>
               </div>
 
               <div className="flex justify-end gap-3 border-t pt-4">

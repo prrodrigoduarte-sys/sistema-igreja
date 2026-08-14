@@ -100,7 +100,9 @@ export default function App() {
     try {
       const { data, error } = await supabase.from('usuarios').select('*, igrejas(*)').eq('codigo_igreja', loginCodigo.trim()).eq('usuario', loginUsuario.trim()).eq('senha', loginSenha.trim()).eq('ativo', true).single();
       if (error || !data) { alert('Usuário ou senha incorretos.'); return; }
-      setLoggedUser(data); setIsLoggedIn(true); setActiveTab('membros'); 
+      setLoggedUser(data); 
+      setIsLoggedIn(true); 
+      // Removido o setActiveTab automático para você navegar pelo menu principal
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
 
@@ -114,13 +116,11 @@ export default function App() {
   const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
     try {
-      // 1. Busca todas as contas da igreja
       const { data: cData } = await supabase
         .from('contas_financeiras')
         .select('*')
         .eq('codigo_igreja', cod);
 
-      // 2. Busca todos os lançamentos da igreja sem travar em relacionamento de tabelas
       const { data: lData, error } = await supabase
         .from('lancamentos_financeiros')
         .select('*')
@@ -139,6 +139,7 @@ export default function App() {
       setLoadingFinanceiro(false);
     }
   };
+
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
@@ -261,7 +262,7 @@ export default function App() {
     setShowAgendaModal(true);
   };
 
-  cconst handleSaveAgenda = async (e: React.FormEvent) => {
+  const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
       alert('Preencha pelo menos o Assunto e a Data do compromisso.');
@@ -278,15 +279,14 @@ export default function App() {
 
     const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Término: ${formAgendaHoraFim || 'N/A'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
 
-    // Construção do Payload com campos obrigatórios explícitos
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio || '00:00',
       descricao: descricaoCompleta,
-      dono_codigo: loggedUser.codigo_igreja, // Garantindo o dono
-      responsavel: loggedUser.nome_usuario || 'Administrador' // Adicionando responsável para evitar erro NOT NULL
+      dono_codigo: loggedUser.codigo_igreja,
+      responsavel: loggedUser.nome_usuario || 'Administrador'
     };
 
     try {
@@ -303,44 +303,7 @@ export default function App() {
       setShowAgendaModal(false);
       carregarAgenda(loggedUser.codigo_igreja);
     } catch (err: any) {
-      console.error('Erro detalhado:', err); // Ajuda a identificar se há outro campo bloqueando
-      alert('Erro ao salvar compromisso: ' + err.message);
-    }
-  };
-    }
-
-    let nomeMembroVinculado = '';
-    if (formAgendaMembroId) {
-      const membroEncontrado = members.find((m) => String(m.id) === String(formAgendaMembroId));
-      if (membroEncontrado) {
-        nomeMembroVinculado = membroEncontrado.nome;
-      }
-    }
-
-    const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Término: ${formAgendaHoraFim || 'N/A'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
-
-    const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      titulo: formAgendaTitulo.trim(),
-      data_compromisso: formAgendaData,
-      hora_compromisso: formAgendaHoraInicio ? formAgendaHoraInicio : '00:00',
-      descricao: descricaoCompleta
-    };
-
-    try {
-      if (editingCompromisso) {
-        const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
-        if (error) throw error;
-        alert('Compromisso atualizado com sucesso!');
-      } else {
-        const { error } = await supabase.from('agenda_compromissos').insert([payload]);
-        if (error) throw error;
-        alert('Compromisso cadastrado com sucesso!');
-      }
-
-      setShowAgendaModal(false);
-      carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) {
+      console.error('Erro detalhado:', err);
       alert('Erro ao salvar compromisso: ' + err.message);
     }
   };
@@ -376,27 +339,13 @@ export default function App() {
       tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
       valor: valorNum,
       descricao: formLancObs.trim() || 'Lançamento em Conta Corrente',
-      categoria: 'Geral', // <--- ADICIONE ESTA LINHA PARA ATENDER A EXIGÊNCIA DO BANCO
-      codigo_conta: 'Geral' // <--- E ESTA CASO O BANCO TAMBÉM EXIJA
+      categoria: 'Geral',
+      codigo_conta: 'Geral'
     };
 
     if (formLancContaId) {
       payload.conta_id = parseInt(formLancContaId);
     }
-
-    try {
-      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-      if (error) throw error;
-      alert('Lançamento efetuado com sucesso!');
-      setShowLancamentoModal(false);
-      setFormLancData('');
-      setFormLancValor('');
-      setFormLancObs('');
-      carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
-    }
-  };
 
     try {
       const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
@@ -496,7 +445,6 @@ export default function App() {
                 Agenda <span className="text-xs text-slate-400">∨</span>
               </button>
 
-              {/* Menu Financeiro Restaurado */}
               <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Financeiro
               </button>
@@ -996,7 +944,7 @@ export default function App() {
                                 {l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}
                               </td>
                               <td className="p-3 font-bold text-slate-900">
-                                {l.contas_financeiras?.nome_conta ? `[${l.contas_financeiras.nome_conta}] ` : ''}{l.descricao}
+                                {l.descricao}
                               </td>
                               <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>
                                 R$ {l.saldoAtual.toFixed(2)}
@@ -1020,18 +968,30 @@ export default function App() {
                       <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
                         <th className="p-3">Nome da Conta</th>
                         <th className="p-3">Tipo / Categoria</th>
+                        <th className="p-3">Saldo Atual (Crédito - Débito)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
                       {contasFinanceiras.length === 0 ? (
-                        <tr><td colSpan={2} className="py-8 text-center text-slate-400">Nenhuma conta cadastrada. Clique em "+ Nova Conta" acima.</td></tr>
+                        <tr><td colSpan={3} className="py-8 text-center text-slate-400">Nenhuma conta cadastrada. Clique em "+ Nova Conta" acima.</td></tr>
                       ) : (
-                        contasFinanceiras.map((c: any) => (
-                          <tr key={c.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-bold text-slate-900">{c.nome_conta}</td>
-                            <td className="p-3">{c.codigo_conta}</td>
-                          </tr>
-                        ))
+                        contasFinanceiras.map((c: any) => {
+                          const lancamentosDaConta = lancamentosCorrente.filter((l: any) => String(l.conta_id) === String(c.id));
+                          const saldoConta = lancamentosDaConta.reduce((acc, l: any) => {
+                            const val = parseFloat(l.valor || 0);
+                            return l.tipo === 'entrada' ? acc + val : acc - val;
+                          }, 0);
+
+                          return (
+                            <tr key={c.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-bold text-slate-900">{c.nome_conta}</td>
+                              <td className="p-3">{c.codigo_conta}</td>
+                              <td className="p-3 font-mono font-bold">
+                                ({saldoConta >= 0 ? `R$ ${saldoConta.toFixed(2)}` : `-R$ ${Math.abs(saldoConta).toFixed(2)}`})
+                              </td>
+                            </tr>
+                          );
+                        })
                       )}
                     </tbody>
                   </table>

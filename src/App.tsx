@@ -25,12 +25,14 @@ export default function App() {
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
+  const [isChurchModalOpen, setIsChurchModalOpen] = useState(false);
   const [isDeleteMemberModalOpen, setIsDeleteMemberModalOpen] = useState(false);
 
   // --- ESTADOS DE EDIÇÃO ---
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editingSupplierId, setEditingSupplierId] = useState<string | null>(null);
+  const [editingChurchId, setEditingChurchId] = useState<string | null>(null);
 
   const [deletingMember, setDeletingMember] = useState<any>(null);
   const [showInactives, setShowInactives] = useState(false);
@@ -43,6 +45,7 @@ export default function App() {
   const [members, setMembers] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
+  const [churchesList, setChurchesList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -94,8 +97,7 @@ export default function App() {
   };
   const [supplierFormData, setSupplierFormData] = useState(initialSupplierFormData);
 
-  // Formulário do Cadastro da Igreja
-  const [churchFormData, setChurchFormData] = useState({
+  const initialChurchFormData = {
     nome_fantasia: '',
     razao_social: '',
     cnpj: '',
@@ -106,7 +108,8 @@ export default function App() {
     responsavel_nome: '',
     tesoureiro_nome: '',
     contador_nome: ''
-  });
+  };
+  const [churchFormData, setChurchFormData] = useState(initialChurchFormData);
 
   // --- CHECAGEM DE BLOQUEIO DE LOGIN LOCAL ---
   useEffect(() => {
@@ -126,23 +129,13 @@ export default function App() {
     }
   }, []);
 
-  // Sincroniza formulário da igreja quando loggedIgreja mudar
-  useEffect(() => {
-    if (loggedIgreja) {
-      setChurchFormData({
-        nome_fantasia: loggedIgreja.nome_fantasia || '',
-        razao_social: loggedIgreja.razao_social || '',
-        cnpj: loggedIgreja.cnpj || '',
-        codigo_igreja: loggedIgreja.codigo_igreja || '',
-        endereco: loggedIgreja.endereco || '',
-        telefone: loggedIgreja.telefone || '',
-        email: loggedIgreja.email || '',
-        responsavel_nome: loggedIgreja.responsavel_nome || '',
-        tesoureiro_nome: loggedIgreja.tesoureiro_nome || '',
-        contador_nome: loggedIgreja.contador_nome || ''
-      });
-    }
-  }, [loggedIgreja]);
+  // --- NAVEGAÇÃO HOME VIA LOGO ---
+  const handleGoHome = () => {
+    setActiveTab('membros');
+    setOpenDropdown(null);
+    setShowInactives(false);
+    setSearchTerm('');
+  };
 
   // --- LÓGICA DE LOGIN ---
   const handleLogin = async (e: React.FormEvent) => {
@@ -190,9 +183,11 @@ export default function App() {
       setLoggedIgreja(data.igrejas);
       setIsLoggedIn(true);
 
+      // Carrega exclusivamente os dados da igreja logada
       fetchMembers(data.codigo_igreja);
       fetchUsers(data.codigo_igreja);
       fetchSuppliers(data.codigo_igreja);
+      fetchChurches();
     } catch (err: any) {
       alert('Erro ao realizar login: ' + err.message);
     } finally {
@@ -207,9 +202,10 @@ export default function App() {
     setIsMemberModalOpen(false);
     setIsUserModalOpen(false);
     setIsSupplierModalOpen(false);
+    setIsChurchModalOpen(false);
   };
 
-  // --- BUSCA DE DADOS ---
+  // --- BUSCA DE DADOS FILTRADOS PELO CÓDIGO DA IGREJA ---
   const fetchMembers = async (codigoIgreja: string) => {
     try {
       const { data, error } = await supabase
@@ -249,6 +245,16 @@ export default function App() {
     }
   };
 
+  const fetchChurches = async () => {
+    try {
+      const { data, error } = await supabase.from('igrejas').select('*');
+      if (error) throw error;
+      setChurchesList(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar igrejas:', err);
+    }
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -265,36 +271,88 @@ export default function App() {
     setChurchFormData({ ...churchFormData, [e.target.name]: e.target.value });
   };
 
-  // --- ATUALIZAR CADASTRO DA IGREJA ---
-  const handleSaveChurch = async (e: React.FormEvent) => {
+  // --- IGREJA: MODAL / SUBMIT / EXCLUSÃO ---
+  const generateChurchCode = () => {
+    const count = churchesList.length + 1;
+    return `IGR-${count.toString().padStart(3, '0')}`;
+  };
+
+  const handleOpenNewChurchModal = () => {
+    setEditingChurchId(null);
+    setChurchFormData({
+      ...initialChurchFormData,
+      codigo_igreja: generateChurchCode()
+    });
+    setIsChurchModalOpen(true);
+  };
+
+  const handleOpenEditChurchModal = (church: any) => {
+    setEditingChurchId(church.id);
+    setChurchFormData({
+      nome_fantasia: church.nome_fantasia || '',
+      razao_social: church.razao_social || '',
+      cnpj: church.cnpj || '',
+      codigo_igreja: church.codigo_igreja || '',
+      endereco: church.endereco || '',
+      telefone: church.telefone || '',
+      email: church.email || '',
+      responsavel_nome: church.responsavel_nome || '',
+      tesoureiro_nome: church.tesoureiro_nome || '',
+      contador_nome: church.contador_nome || ''
+    });
+    setIsChurchModalOpen(true);
+  };
+
+  const handleRegisterChurch = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const payload = {
+        ...churchFormData,
+        ativo: true
+      };
+
+      if (editingChurchId) {
+        const { error } = await supabase.from('igrejas').update(payload).eq('id', editingChurchId);
+        if (error) throw error;
+        alert('Cadastro da igreja atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('igrejas').insert([payload]);
+        if (error) throw error;
+        alert('Igreja cadastrada com sucesso! Código gerado: ' + payload.codigo_igreja);
+      }
+
+      setChurchFormData(initialChurchFormData);
+      setEditingChurchId(null);
+      setIsChurchModalOpen(false);
+      fetchChurches();
+    } catch (err: any) {
+      alert('Erro ao salvar igreja: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteChurchDirect = async (church: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (church.codigo_igreja === loggedIgreja?.codigo_igreja) {
+      alert('Ação negada! Não é possível inativar a igreja que está logada no momento.');
+      return;
+    }
+    if (!confirm(`Tem certeza que deseja inativar a igreja "${church.nome_fantasia}" (${church.codigo_igreja})?`)) return;
+
+    try {
+      const { error } = await supabase
         .from('igrejas')
-        .update({
-          nome_fantasia: churchFormData.nome_fantasia,
-          razao_social: churchFormData.razao_social,
-          cnpj: churchFormData.cnpj,
-          endereco: churchFormData.endereco,
-          telefone: churchFormData.telefone,
-          email: churchFormData.email,
-          responsavel_nome: churchFormData.responsavel_nome,
-          tesoureiro_nome: churchFormData.tesoureiro_nome,
-          contador_nome: churchFormData.contador_nome
-        })
-        .eq('id', loggedIgreja.id)
-        .select()
-        .single();
+        .update({ ativo: false, data_exclusao: new Date().toISOString() })
+        .eq('id', church.id);
 
       if (error) throw error;
 
-      alert('Cadastro da igreja atualizado com sucesso!');
-      setLoggedIgreja(data);
+      alert('Igreja inativada com sucesso!');
+      fetchChurches();
     } catch (err: any) {
-      alert('Erro ao atualizar cadastro da igreja: ' + err.message);
-    } finally {
-      setLoading(false);
+      alert('Erro ao inativar igreja: ' + err.message);
     }
   };
 
@@ -494,7 +552,7 @@ export default function App() {
     }
   };
 
-  // --- USUÁRIOS: MODAL / SUBMIT / EXCLUSÃO PROTEGIDA ---
+  // --- USUÁRIOS: MODAL / SUBMIT / EXCLUSÃO ---
   const handleOpenNewUserModal = () => {
     setEditingUserId(null);
     setUserFormData(initialUserFormData);
@@ -672,13 +730,19 @@ export default function App() {
   };
 
   // --- RESTAURAR REGISTRO INATIVO ---
-  const handleRestoreItem = async (id: string, type: 'membro' | 'usuario' | 'fornecedor', e: React.MouseEvent) => {
+  const handleRestoreItem = async (id: string, type: 'membro' | 'usuario' | 'fornecedor' | 'igreja', e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm('Deseja reativar este registro no sistema?')) return;
 
     try {
       const tableName =
-        type === 'membro' ? 'members' : type === 'usuario' ? 'usuarios' : 'fornecedores';
+        type === 'membro'
+          ? 'members'
+          : type === 'usuario'
+          ? 'usuarios'
+          : type === 'fornecedor'
+          ? 'fornecedores'
+          : 'igrejas';
 
       const { error } = await supabase
         .from(tableName)
@@ -696,6 +760,7 @@ export default function App() {
       if (type === 'membro') fetchMembers(loggedUser.codigo_igreja);
       if (type === 'usuario') fetchUsers(loggedUser.codigo_igreja);
       if (type === 'fornecedor') fetchSuppliers(loggedUser.codigo_igreja);
+      if (type === 'igreja') fetchChurches();
     } catch (err: any) {
       alert('Erro ao restaurar registro: ' + err.message);
     }
@@ -730,6 +795,17 @@ export default function App() {
       s.razao_social?.toLowerCase().includes(term) ||
       s.nome_fantasia?.toLowerCase().includes(term) ||
       s.cnpj_cpf?.replaceAll('.', '').replaceAll('-', '').replaceAll('/', '').includes(term.replaceAll('.', '').replaceAll('-', '').replaceAll('/', ''));
+    return isStatusMatch && isSearchMatch;
+  });
+
+  const filteredChurches = churchesList.filter((c) => {
+    const isStatusMatch = showInactives ? c.ativo === false : c.ativo !== false;
+    const term = searchTerm.toLowerCase().trim();
+    const isSearchMatch =
+      !term ||
+      c.nome_fantasia?.toLowerCase().includes(term) ||
+      c.codigo_igreja?.toLowerCase().includes(term) ||
+      c.cnpj?.replaceAll('.', '').replaceAll('-', '').replaceAll('/', '').includes(term.replaceAll('.', '').replaceAll('-', '').replaceAll('/', ''));
     return isStatusMatch && isSearchMatch;
   });
 
@@ -834,7 +910,8 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           
           <div className="flex items-center gap-8">
-            <div className="flex items-center gap-2.5 cursor-pointer group">
+            {/* LOGOMARCA BRSYSTEM (CLIQUE VOLTA PARA HOME) */}
+            <div onClick={handleGoHome} className="flex items-center gap-2.5 cursor-pointer group" title="Ir para a página inicial">
               <div className="w-10 h-10 bg-gradient-to-tr from-blue-900 via-blue-700 to-indigo-600 rounded-xl shadow-md flex items-center justify-center text-white transform group-hover:scale-105 transition-transform">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -1204,159 +1281,89 @@ export default function App() {
                 <p className="text-3xl font-extrabold text-purple-900 mt-2">{suppliersList.filter(s => s.ativo !== false).length}</p>
               </div>
               <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl">
-                <p className="text-xs font-bold text-emerald-600 uppercase">Status da Igreja</p>
-                <p className="text-lg font-bold text-emerald-900 mt-2">Ativa / Regular</p>
+                <p className="text-xs font-bold text-emerald-600 uppercase">Status da Igreja Logada</p>
+                <p className="text-lg font-bold text-emerald-900 mt-2">{loggedIgreja?.nome_fantasia} ({loggedIgreja?.codigo_igreja})</p>
               </div>
             </div>
           </div>
         )}
 
-        {/* ABA 5: CADASTRO DA IGREJA (MENU CONTROLE) */}
+        {/* ABA 5: CADASTRO DA IGREJA (MODULAR DE CONSULTA, EDIÇÃO E EXCLUSÃO) */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-xs border border-slate-200 space-y-6">
-            <div className="border-b border-slate-100 pb-4 flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">Cadastro da Igreja</h2>
-                <p className="text-xs text-slate-500">Informações cadastrais e diretoria responsável pela instituição.</p>
+                <h2 className="text-2xl font-bold text-slate-800">
+                  {showInactives ? 'Igrejas Inativas' : 'Cadastro de Igrejas'} ({filteredChurches.length})
+                </h2>
+                <p className="text-xs text-slate-500">Gestão das instituições cadastradas na plataforma.</p>
               </div>
-              <span className="px-3 py-1 bg-blue-100 text-blue-900 font-mono font-bold text-xs rounded-lg">
-                Código: {loggedIgreja?.codigo_igreja}
-              </span>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => setShowInactives(!showInactives)}
+                  className={`px-3 py-2 text-xs font-bold rounded-xl border transition-colors ${
+                    showInactives ? 'bg-amber-100 border-amber-300 text-amber-800' : 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  {showInactives ? '← Ver Igrejas Ativas' : '📂 Ver Inativas'}
+                </button>
+
+                <input
+                  type="text"
+                  placeholder="Buscar por Nome ou Código..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600"
+                />
+
+                {!showInactives && (
+                  <button onClick={handleOpenNewChurchModal} className="px-4 py-2 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all">
+                    <span>+</span> Nova Igreja
+                  </button>
+                )}
+              </div>
             </div>
 
-            <form onSubmit={handleSaveChurch} className="space-y-6">
-              
-              {/* DADOS CADASTRAIS */}
-              <div>
-                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider mb-3">1. Dados Cadastrais da Igreja</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Nome Fantasia / Nome da Igreja *</label>
-                    <input
-                      type="text"
-                      name="nome_fantasia"
-                      required
-                      value={churchFormData.nome_fantasia}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Razão Social</label>
-                    <input
-                      type="text"
-                      name="razao_social"
-                      placeholder="Ex: Igreja Evangélica ..."
-                      value={churchFormData.razao_social}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">CNPJ</label>
-                    <input
-                      type="text"
-                      name="cnpj"
-                      placeholder="00.000.000/0001-00"
-                      value={churchFormData.cnpj}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Endereço Completo</label>
-                    <input
-                      type="text"
-                      name="endereco"
-                      placeholder="Rua, número, bairro, cidade - UF"
-                      value={churchFormData.endereco}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone / WhatsApp</label>
-                    <input
-                      type="text"
-                      name="telefone"
-                      placeholder="(00) 00000-0000"
-                      value={churchFormData.telefone}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail Institucional</label>
-                    <input
-                      type="email"
-                      name="email"
-                      placeholder="contato@igreja.com"
-                      value={churchFormData.email}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* RESPONSÁVEIS */}
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-bold text-blue-900 uppercase tracking-wider mb-3">2. Quadro de Responsáveis</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Responsável pela Igreja (Pastor / Presidente)</label>
-                    <input
-                      type="text"
-                      name="responsavel_nome"
-                      placeholder="Nome do Pastor / Presidente"
-                      value={churchFormData.responsavel_nome}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tesoureiro Principal</label>
-                    <input
-                      type="text"
-                      name="tesoureiro_nome"
-                      placeholder="Nome do Tesoureiro"
-                      value={churchFormData.tesoureiro_nome}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Contador Responsável</label>
-                    <input
-                      type="text"
-                      name="contador_nome"
-                      placeholder="Nome / Escritório de Contabilidade"
-                      value={churchFormData.contador_nome}
-                      onChange={handleChurchChange}
-                      className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex justify-end border-t pt-4">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-6 py-2.5 bg-gradient-to-r from-blue-900 to-indigo-700 text-white font-bold text-sm rounded-xl shadow hover:opacity-95 transition-all"
-                >
-                  {loading ? 'Salvando...' : 'Salvar Alterações da Igreja'}
-                </button>
-              </div>
-
-            </form>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-200 text-slate-600 text-sm font-semibold">
+                    <th className="py-3 px-4">Código</th>
+                    <th className="py-3 px-4">Nome Fantasia</th>
+                    <th className="py-3 px-4">CNPJ</th>
+                    <th className="py-3 px-4">Responsável</th>
+                    <th className="py-3 px-4">Tesoureiro</th>
+                    <th className="py-3 px-4 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
+                  {filteredChurches.length > 0 ? (
+                    filteredChurches.map((c) => (
+                      <tr key={c.id} onClick={() => handleOpenEditChurchModal(c)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                        <td className="py-3 px-4 font-mono font-bold text-blue-900">{c.codigo_igreja}</td>
+                        <td className="py-3 px-4 font-bold text-slate-900">{c.nome_fantasia}</td>
+                        <td className="py-3 px-4 font-mono">{c.cnpj || '-'}</td>
+                        <td className="py-3 px-4">{c.responsavel_nome || '-'}</td>
+                        <td className="py-3 px-4">{c.tesoureiro_nome || '-'}</td>
+                        <td className="py-3 px-4 text-right">
+                          {!showInactives ? (
+                            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                              <button onClick={() => handleOpenEditChurchModal(c)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
+                              <button onClick={(e) => handleDeleteChurchDirect(c, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
+                            </div>
+                          ) : (
+                            <button onClick={(e) => handleRestoreItem(c.id, 'igreja', e)} className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg">♻️ Restaurar</button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhuma igreja encontrada.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1569,7 +1576,80 @@ export default function App() {
         </div>
       )}
 
-      {/* --- MODAL 4: INBOX DE MOTIVO DE EXCLUSÃO (MEMBROS) --- */}
+      {/* --- MODAL 4: CADASTRO / EDIÇÃO DE IGREJA --- */}
+      {isChurchModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
+            <div className="bg-blue-900 text-white px-6 py-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold">{editingChurchId ? 'Alterar Igreja' : 'Nova Igreja'}</h3>
+                <p className="text-xs text-blue-200">Código automático: {churchFormData.codigo_igreja}</p>
+              </div>
+              <button onClick={() => setIsChurchModalOpen(false)} className="text-white text-2xl font-bold">&times;</button>
+            </div>
+
+            <form onSubmit={handleRegisterChurch} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Código da Igreja *</label>
+                  <input type="text" name="codigo_igreja" readOnly value={churchFormData.codigo_igreja} className="w-full rounded-lg border p-2 text-sm bg-slate-100 font-mono font-bold" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Nome Fantasia / Igreja *</label>
+                  <input type="text" name="nome_fantasia" required value={churchFormData.nome_fantasia} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Razão Social</label>
+                  <input type="text" name="razao_social" value={churchFormData.razao_social} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">CNPJ</label>
+                  <input type="text" name="cnpj" placeholder="00.000.000/0001-00" value={churchFormData.cnpj} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Endereço Completo</label>
+                  <input type="text" name="endereco" value={churchFormData.endereco} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Telefone / WhatsApp</label>
+                  <input type="text" name="telefone" placeholder="(00) 00000-0000" value={churchFormData.telefone} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">E-mail Institucional</label>
+                  <input type="email" name="email" value={churchFormData.email} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-sm" />
+                </div>
+              </div>
+
+              <div className="border-t pt-3">
+                <h4 className="text-xs font-bold text-blue-900 uppercase mb-2">Quadro de Responsáveis</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Responsável Principal</label>
+                    <input type="text" name="responsavel_nome" value={churchFormData.responsavel_nome} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Tesoureiro Principal</label>
+                    <input type="text" name="tesoureiro_nome" value={churchFormData.tesoureiro_nome} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-xs" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Contador Responsável</label>
+                    <input type="text" name="contador_nome" value={churchFormData.contador_nome} onChange={handleChurchChange} className="w-full rounded-lg border p-2 text-xs" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t pt-4">
+                <button type="button" onClick={() => setIsChurchModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+                <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
+                  {loading ? 'Salvando...' : editingChurchId ? 'Salvar Alterações' : 'Cadastrar Igreja'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL 5: INBOX DE MOTIVO DE EXCLUSÃO (MEMBROS) --- */}
       {isDeleteMemberModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">

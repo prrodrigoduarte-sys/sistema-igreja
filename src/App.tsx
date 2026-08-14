@@ -4,7 +4,9 @@ import { supabase } from './supabase';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro' | 'igreja'>('membros');
+  
+  // CORRIGIDO: Inicia direto na aba de Relatórios (Dashboard Geral) em vez de Membros
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro' | 'igreja'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
   // Sub-abas de Relatórios
@@ -59,7 +61,7 @@ export default function App() {
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
   const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
 
-  // Financeiro (Conta Corrente Simples & Cadastro de Contas)
+  // Financeiro
   const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
   const [lancamentosCorrente, setLancamentosCorrente] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
@@ -144,12 +146,12 @@ export default function App() {
     const cod = loggedUser.codigo_igreja;
     
     async function carregarDados() {
-      if (activeTab === 'membros' || activeTab === 'relatorios' || activeTab === 'agenda') {
-        setLoadingMembros(true);
-        const { data } = await supabase.from('members').select('*').eq('codigo_igreja', cod);
-        setMembers(data || []);
-        setLoadingMembros(false);
-      }
+      // Sempre carrega membros para o Dashboard Geral funcionar ao logar
+      setLoadingMembros(true);
+      const { data: mData } = await supabase.from('members').select('*').eq('codigo_igreja', cod);
+      setMembers(mData || []);
+      setLoadingMembros(false);
+
       if (activeTab === 'usuarios') {
         const { data } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
         setUsuariosList(data || []);
@@ -433,7 +435,7 @@ export default function App() {
     };
   });
 
-  // Saldo final exato (último resultado do array ou 0 se vazio)
+  // Saldo final exato
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 
     ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual 
     : 0;
@@ -945,7 +947,7 @@ export default function App() {
           </div>
         )}
 
-        {/* --- MÓDULO FINANCEIRO REESTRUTURADO (CONTA CORRENTE, CONTAS & RELATÓRIO) --- */}
+        {/* --- MÓDULO FINANCEIRO REESTRUTURADO --- */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1077,7 +1079,11 @@ export default function App() {
                         <tr><td colSpan={3} className="py-8 text-center text-slate-400">Nenhuma conta cadastrada. Clique em "+ Nova Conta" acima.</td></tr>
                       ) : (
                         contasFinanceiras.map((c: any) => {
-                          const lancamentosDaConta = lancamentosCorrente.filter((l: any) => String(l.conta_id) === String(c.id));
+                          // CORRIGIDO: Se a conta não tiver ID vinculado nos lançamentos antigos, soma todos ou filtra pelo conta_id correspondente
+                          const lancamentosDaConta = lancamentosCorrente.filter((l: any) => 
+                            String(l.conta_id) === String(c.id) || !l.conta_id
+                          );
+                          
                           const saldoConta = lancamentosDaConta.reduce((acc, l: any) => {
                             const val = parseFloat(l.valor || 0);
                             return l.tipo === 'entrada' ? acc + val : acc - val;
@@ -1088,7 +1094,7 @@ export default function App() {
                               <td className="p-3 font-bold text-slate-900">{c.nome_conta}</td>
                               <td className="p-3">{c.codigo_conta}</td>
                               <td className="p-3 font-mono font-bold">
-                                ({saldoConta >= 0 ? `R$ ${saldoConta.toFixed(2)}` : `-R$ ${Math.abs(saldoConta).toFixed(2)}`})
+                                (R$ {saldoConta.toFixed(2)})
                               </td>
                             </tr>
                           );
@@ -1100,7 +1106,7 @@ export default function App() {
               </div>
             )}
 
-            {/* SUB-ABA: RELATÓRIO FINANCEIRO COM SALDO FINAL CORRETO */}
+            {/* SUB-ABA: RELATÓRIO FINANCEIRO COM SALDO CORRETO */}
             {financeiroSubTab === 'relatorio' && (
               <div className="space-y-6">
                 <div className="p-5 bg-blue-50 border border-blue-200 rounded-2xl flex justify-between items-center print:border-slate-400">
@@ -1373,7 +1379,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                      <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" value={formResourceCelular || formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>

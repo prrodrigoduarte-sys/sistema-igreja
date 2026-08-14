@@ -7,7 +7,6 @@ import AgendaView from './components/AgendaView';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [loggedIgreja, setLoggedIgreja] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'membros' | 'financeiro' | 'agenda'>('membros');
 
   // Campos do Login
@@ -35,7 +34,6 @@ export default function App() {
       }
 
       setLoggedUser(data);
-      setLoggedIgreja(data.igrejas);
       setIsLoggedIn(true);
     } catch (err: any) {
       alert('Erro no login: ' + err.message);
@@ -53,8 +51,8 @@ export default function App() {
             <input type="text" placeholder="Código Igreja" value={loginCodigo} onChange={(e) => setLoginCodigo(e.target.value)} className="w-full rounded-xl border p-3" />
             <input type="text" placeholder="Usuário" value={loginUsuario} onChange={(e) => setLoginUsuario(e.target.value)} className="w-full rounded-xl border p-3" />
             <input type="password" placeholder="Senha" value={loginSenha} onChange={(e) => setLoginSenha(e.target.value)} className="w-full rounded-xl border p-3" />
-            <button type="submit" disabled={loginLoading} className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl">
-              {loginLoading ? 'Entrando...' : 'Entrar'}
+            <button type="submit" disabled={loginLoading} className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow-lg">
+              {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
             </button>
           </form>
         </div>
@@ -64,18 +62,47 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm">
+      {/* BARRA SUPERIOR COM OS BOTÕES REAIS DO SEU MENU */}
+      <header className="bg-white border-b border-slate-200 px-6 py-3 shadow-xs">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-black text-blue-900">BRSYSTEM</h1>
-          <nav className="flex gap-6 font-bold text-blue-900">
-            <button onClick={() => setActiveTab('membros')} className={activeTab === 'membros' ? 'text-indigo-600' : ''}>📋 Membros</button>
-            <button onClick={() => setActiveTab('financeiro')} className={activeTab === 'financeiro' ? 'text-indigo-600' : ''}>💰 Financeiro</button>
-            <button onClick={() => setActiveTab('agenda')} className={activeTab === 'agenda' ? 'text-indigo-600' : ''}>📅 Agenda</button>
-          </nav>
-          <button onClick={() => setIsLoggedIn(false)} className="text-xs bg-slate-100 px-3 py-1 rounded">Sair</button>
+          <div className="flex items-center gap-8">
+            <span className="text-xl font-black text-blue-900">BRSYSTEM</span>
+            
+            <nav className="hidden md:flex items-center gap-6 text-sm font-bold">
+              <button 
+                onClick={() => setActiveTab('membros')} 
+                className={`py-2 transition-colors ${activeTab === 'membros' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
+              >
+                Cadastros (Membros)
+              </button>
+              
+              <button 
+                onClick={() => setActiveTab('agenda')} 
+                className={`py-2 transition-colors ${activeTab === 'agenda' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
+              >
+                Agenda
+              </button>
+              
+              <button 
+                onClick={() => setActiveTab('financeiro')} 
+                className={`py-2 transition-colors ${activeTab === 'financeiro' ? 'text-indigo-600 border-b-2 border-indigo-600 font-black' : 'text-slate-700 hover:text-indigo-600'}`}
+              >
+                Financeiro
+              </button>
+            </nav>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-sm font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</p>
+              <p className="text-xs text-slate-500 font-medium">{loggedUser?.nome_usuario}</p>
+            </div>
+            <button onClick={() => setIsLoggedIn(false)} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl">Sair</button>
+          </div>
         </div>
       </header>
 
+      {/* CONTEÚDO DINÂMICO DOS MÓDULOS SEPARADOS */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
         {activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
         {activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}

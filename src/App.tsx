@@ -20,7 +20,6 @@ export default function App() {
   // --- MENU SUPERIOR E DROPDOWNS ---
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios'>('membros');
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // --- MODAIS FLUTUANTES DE CADASTRO ---
   const [isMemberModalOpen, setIsMemberModalOpen] = useState(false);
@@ -306,7 +305,7 @@ export default function App() {
     }
   };
 
-  // --- MEMBROS: ABRIR MODAL / SUBMIT ---
+  // --- MEMBROS: MODAL / SUBMIT ---
   const handleOpenNewMemberModal = () => {
     setEditingMemberId(null);
     setFormData(initialMemberFormData);
@@ -382,7 +381,7 @@ export default function App() {
     }
   };
 
-  // --- EXCLUSÃO DE MEMBRO (COM INBOX) ---
+  // --- EXCLUSÃO DE MEMBRO ---
   const handleOpenDeleteMemberModal = (member: any, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeletingMember(member);
@@ -426,7 +425,7 @@ export default function App() {
     }
   };
 
-  // --- USUÁRIOS: ABRIR MODAL / SUBMIT / EXCLUSÃO DIRETA ---
+  // --- USUÁRIOS: MODAL / SUBMIT / EXCLUSÃO PROTEGIDA ---
   const handleOpenNewUserModal = () => {
     setEditingUserId(null);
     setUserFormData(initialUserFormData);
@@ -434,6 +433,15 @@ export default function App() {
   };
 
   const handleOpenEditUserModal = (user: any) => {
+    const isTargetAdmin = user.nome_usuario?.trim().toLowerCase() === 'administrador';
+    const isCurrentAdmin = loggedUser?.nome_usuario?.trim().toLowerCase() === 'administrador';
+
+    // REGRA 1: Apenas o próprio operador Administrador pode alterar o cadastro Administrador
+    if (isTargetAdmin && !isCurrentAdmin) {
+      alert('Acesso negado! Apenas o operador Administrador master pode alterar o usuário Administrador.');
+      return;
+    }
+
     setEditingUserId(user.id);
     setUserFormData({
       nome_usuario: user.nome_usuario || '',
@@ -445,11 +453,33 @@ export default function App() {
 
   const handleRegisterUser = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const targetOperadorClean = userFormData.nome_usuario.trim().toLowerCase();
+    const isTargetAdmin = targetOperadorClean === 'administrador';
+    const isCurrentAdmin = loggedUser?.nome_usuario?.trim().toLowerCase() === 'administrador';
+
+    // REGRA 2: Bloquear criação/renomeação para Administrador por outros operadores
+    if (isTargetAdmin && !isCurrentAdmin) {
+      alert('Ação não permitida! Você não tem permissão para atribuir o nome de operador Administrador.');
+      return;
+    }
+
+    // REGRA 3: Garantir unicidade do operador "Administrador"
+    if (isTargetAdmin) {
+      const existsAdmin = usersList.find(
+        (u) => u.id !== editingUserId && u.nome_usuario?.trim().toLowerCase() === 'administrador'
+      );
+      if (existsAdmin) {
+        alert('Já existe um operador "Administrador" no sistema!');
+        return;
+      }
+    }
+
     setLoading(true);
     try {
       const payload = {
         codigo_igreja: loggedUser.codigo_igreja,
-        nome_usuario: userFormData.nome_usuario,
+        nome_usuario: userFormData.nome_usuario.trim(),
         usuario: userFormData.usuario.trim(),
         senha: userFormData.senha.trim(),
         ativo: true
@@ -478,6 +508,13 @@ export default function App() {
 
   const handleDeleteUserDirect = async (user: any, e: React.MouseEvent) => {
     e.stopPropagation();
+
+    const isTargetAdmin = user.nome_usuario?.trim().toLowerCase() === 'administrador';
+    if (isTargetAdmin) {
+      alert('Operação negada! O operador Administrador master não pode ser inativado ou excluído do sistema.');
+      return;
+    }
+
     if (!confirm(`Tem certeza que deseja inativar o usuário "${user.nome_usuario || user.usuario}"?`)) return;
 
     try {
@@ -495,7 +532,7 @@ export default function App() {
     }
   };
 
-  // --- FORNECEDORES: ABRIR MODAL / SUBMIT / EXCLUSÃO DIRETA ---
+  // --- FORNECEDORES: MODAL / SUBMIT / EXCLUSÃO ---
   const handleOpenNewSupplierModal = () => {
     setEditingSupplierId(null);
     setSupplierFormData(initialSupplierFormData);
@@ -895,7 +932,7 @@ export default function App() {
                 <h2 className="text-2xl font-bold text-slate-800">
                   {showInactives ? 'Usuários Inativos' : 'Cadastro de Usuários'} ({filteredUsers.length})
                 </h2>
-                <p className="text-xs text-slate-500">Clique na linha do usuário para editar suas credenciais de operador.</p>
+                <p className="text-xs text-slate-500">O operador <b>Administrador</b> é o controlador master de permissões do sistema.</p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
@@ -910,7 +947,7 @@ export default function App() {
 
                 <input
                   type="text"
-                  placeholder="Buscar por Nome ou Login..."
+                  placeholder="Buscar por Operador ou Login..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:ring-2 focus:ring-blue-600"
@@ -928,7 +965,7 @@ export default function App() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-slate-200 text-slate-600 text-sm font-semibold">
-                    <th className="py-3 px-4">Nome Operador</th>
+                    <th className="py-3 px-4">Nome Operador (Permissão)</th>
                     <th className="py-3 px-4">Login (Usuário)</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4 text-right">Ações</th>
@@ -936,27 +973,39 @@ export default function App() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm text-slate-700">
                   {filteredUsers.length > 0 ? (
-                    filteredUsers.map((u) => (
-                      <tr key={u.id} onClick={() => handleOpenEditUserModal(u)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
-                        <td className="py-3 px-4 font-bold text-slate-900">{u.nome_usuario || 'Não informado'}</td>
-                        <td className="py-3 px-4 font-mono text-blue-800 font-bold">{u.usuario}</td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2.5 py-1 font-bold text-xs rounded-full ${u.ativo !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
-                            {u.ativo !== false ? 'Ativo' : 'Inativo'}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          {!showInactives ? (
-                            <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                              <button onClick={() => handleOpenEditUserModal(u)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
-                              <button onClick={(e) => handleDeleteUserDirect(u, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
-                            </div>
-                          ) : (
-                            <button onClick={(e) => handleRestoreItem(u.id, 'usuario', e)} className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg">♻️ Restaurar</button>
-                          )}
-                        </td>
-                      </tr>
-                    ))
+                    filteredUsers.map((u) => {
+                      const isAdminMaster = u.nome_usuario?.trim().toLowerCase() === 'administrador';
+                      return (
+                        <tr key={u.id} onClick={() => handleOpenEditUserModal(u)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                          <td className="py-3 px-4 font-bold text-slate-900 flex items-center gap-2">
+                            <span>{u.nome_usuario || 'Não informado'}</span>
+                            {isAdminMaster && (
+                              <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 font-extrabold text-[10px] rounded-full uppercase">
+                                Master
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-blue-800 font-bold">{u.usuario}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2.5 py-1 font-bold text-xs rounded-full ${u.ativo !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
+                              {u.ativo !== false ? 'Ativo' : 'Inativo'}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            {!showInactives ? (
+                              <div className="flex justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+                                <button onClick={() => handleOpenEditUserModal(u)} className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold text-xs rounded-lg">Alterar</button>
+                                {!isAdminMaster && (
+                                  <button onClick={(e) => handleDeleteUserDirect(u, e)} className="px-3 py-1 bg-rose-100 hover:bg-rose-200 text-rose-800 font-bold text-xs rounded-lg">Excluir</button>
+                                )}
+                              </div>
+                            ) : (
+                              <button onClick={(e) => handleRestoreItem(u.id, 'usuario', e)} className="px-3 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold text-xs rounded-lg">♻️ Restaurar</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr><td colSpan={4} className="py-8 text-center text-slate-400">Nenhum usuário encontrado.</td></tr>
                   )}
@@ -1170,17 +1219,42 @@ export default function App() {
 
             <form onSubmit={handleRegisterUser} className="p-6 space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Nome do Operador *</label>
-                <input type="text" name="nome_usuario" required placeholder="Ex: João da Silva" value={userFormData.nome_usuario} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Nome do Operador (Permissão) *</label>
+                <input
+                  type="text"
+                  name="nome_usuario"
+                  required
+                  placeholder="Ex: Administrador, Tesoureiro, Secretária..."
+                  value={userFormData.nome_usuario}
+                  onChange={handleUserChange}
+                  className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Usuário (Login) *</label>
-                <input type="text" name="usuario" required placeholder="Ex: joao" value={userFormData.usuario} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
+                <input
+                  type="text"
+                  name="usuario"
+                  required
+                  placeholder="Ex: admin"
+                  value={userFormData.usuario}
+                  onChange={handleUserChange}
+                  className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1">Senha de Acesso *</label>
-                <input type="password" name="senha" required placeholder="••••••••" value={userFormData.senha} onChange={handleUserChange} className="w-full rounded-lg border p-2.5 text-sm" />
+                <input
+                  type="password"
+                  name="senha"
+                  required
+                  placeholder="••••••••"
+                  value={userFormData.senha}
+                  onChange={handleUserChange}
+                  className="w-full rounded-lg border p-2.5 text-sm focus:ring-2 focus:ring-blue-600"
+                />
               </div>
+
               <div className="flex justify-end gap-3 border-t pt-4">
                 <button type="button" onClick={() => setIsUserModalOpen(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
                 <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-900 text-white font-bold text-sm rounded-lg shadow">
@@ -1192,7 +1266,7 @@ export default function App() {
         </div>
       )}
 
-      {/* --- MODAL 3: CADASTRO / EDIÇÃO DE FORNECEDOR (10 CAMPOS PADRÃO) --- */}
+      {/* --- MODAL 3: CADASTRO / EDIÇÃO DE FORNECEDOR --- */}
       {isSupplierModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white max-w-2xl w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8">
@@ -1256,7 +1330,7 @@ export default function App() {
         </div>
       )}
 
-      {/* --- MODAL 4: INBOX DE MOTIVO DE EXCLUSÃO (EXCLUSIVO PARA MEMBROS) --- */}
+      {/* --- MODAL 4: INBOX DE MOTIVO DE EXCLUSÃO (MEMBROS) --- */}
       {isDeleteMemberModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">

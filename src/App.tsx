@@ -10,7 +10,7 @@ export default function App() {
   // Sub-abas de Relatórios
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
 
-  // Sub-abas da Agenda (Lista, Calendário, Impressão)
+  // Sub-abas da Agenda
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
 
   // Login
@@ -47,19 +47,21 @@ export default function App() {
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
   const [showAgendaModal, setShowAgendaModal] = useState(false);
+  const [editingCompromisso, setEditingCompromisso] = useState<any>(null);
   const [formAgendaTitulo, setFormAgendaTitulo] = useState('');
   const [formAgendaData, setFormAgendaData] = useState('');
   const [formAgendaHoraInicio, setFormAgendaHoraInicio] = useState('');
   const [formAgendaHoraFim, setFormAgendaHoraFim] = useState('');
   const [formAgendaComentario, setFormAgendaComentario] = useState('');
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
+  const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
 
   // Financeiro
   const [contas, setContas] = useState<any[]>([]);
   const [lancamentos, setLancamentos] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
 
-  // --- LÓGICA DE ANIVERSARIANTES ---
+  // Aniversariantes
   const hoje = new Date();
   const diaAtual = String(hoje.getDate()).padStart(2, '0');
   const mesAtual = String(hoje.getMonth() + 1).padStart(2, '0');
@@ -67,19 +69,13 @@ export default function App() {
   const aniversariantesDoDia = members.filter((m) => {
     if (!m.data_nascimento) return false;
     const partes = m.data_nascimento.split('-');
-    if (partes.length === 3) {
-      return partes[2] === diaAtual && partes[1] === mesAtual;
-    }
-    return false;
+    return partes.length === 3 && partes[2] === diaAtual && partes[1] === mesAtual;
   });
 
   const aniversariantesDoMes = members.filter((m) => {
     if (!m.data_nascimento) return false;
     const partes = m.data_nascimento.split('-');
-    if (partes.length === 3) {
-      return partes[1] === mesAtual;
-    }
-    return false;
+    return partes.length === 3 && partes[1] === mesAtual;
   });
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -202,6 +198,30 @@ export default function App() {
     }
   };
 
+  const handleOpenNewAgenda = () => {
+    setEditingCompromisso(null);
+    setFormAgendaTitulo('');
+    setFormAgendaData('');
+    setFormAgendaHoraInicio('');
+    setFormAgendaHoraFim('');
+    setFormAgendaComentario('');
+    setFormAgendaMembroId('');
+    setFormAgendaStatus('Pendente');
+    setShowAgendaModal(true);
+  };
+
+  const handleOpenEditAgenda = (c: any) => {
+    setEditingCompromisso(c);
+    setFormAgendaTitulo(c.titulo || '');
+    setFormAgendaData(c.data_compromisso || '');
+    setFormAgendaHoraInicio(c.hora_compromisso || '');
+    setFormAgendaHoraFim(c.hora_fim || '');
+    setFormAgendaComentario(c.descricao || '');
+    setFormAgendaMembroId('');
+    setFormAgendaStatus(c.status || 'Pendente');
+    setShowAgendaModal(true);
+  };
+
   const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
@@ -209,8 +229,7 @@ export default function App() {
       return;
     }
 
-    // Busca nome do membro selecionado se houver ID
-    let nomeMembroVinculado = '';
+    let nomeMembroVinculado = editingCompromisso?.responsavel || 'A definir';
     if (formAgendaMembroId) {
       const membroEncontrado = members.find((m) => String(m.id) === String(formAgendaMembroId));
       if (membroEncontrado) {
@@ -225,20 +244,22 @@ export default function App() {
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || null,
       descricao: formAgendaComentario.trim(),
-      responsavel: nomeMembroVinculado || 'A definir'
+      responsavel: nomeMembroVinculado,
+      status: formAgendaStatus
     };
 
     try {
-      const { error } = await supabase.from('agenda_compromissos').insert([payload]);
-      if (error) throw error;
-      alert('Compromisso cadastrado com sucesso!');
+      if (editingCompromisso) {
+        const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
+        if (error) throw error;
+        alert('Compromisso atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('agenda_compromissos').insert([payload]);
+        if (error) throw error;
+        alert('Compromisso cadastrado com sucesso!');
+      }
+
       setShowAgendaModal(false);
-      setFormAgendaTitulo('');
-      setFormAgendaData('');
-      setFormAgendaHoraInicio('');
-      setFormAgendaHoraFim('');
-      setFormAgendaComentario('');
-      setFormAgendaMembroId('');
       carregarAgenda(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar compromisso: ' + err.message);
@@ -460,20 +481,33 @@ export default function App() {
           </div>
         )}
 
+        {/* ABA CADASTRO DA IGREJA COMPLETA */}
         {activeTab === 'igreja' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-2xl mx-auto">
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
             <div className="border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">🏛️ Cadastro da Instituição (Igreja)</h2>
-              <p className="text-xs text-slate-500">Dados oficiais registrados no sistema.</p>
+              <h2 className="text-2xl font-bold text-slate-800">🏛️ Cadastro Oficial da Instituição (Igreja)</h2>
+              <p className="text-xs text-slate-500">Dados institucionais cadastrados e vinculados ao sistema.</p>
             </div>
-            <div className="space-y-4 text-sm text-slate-700">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
               <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
                 <span className="text-xs font-bold text-slate-400">Código da Igreja</span>
-                <span className="font-mono text-base font-bold text-blue-900">{loggedUser?.igrejas?.codigo_igreja}</span>
+                <span className="font-mono text-base font-bold text-blue-900">{loggedUser?.igrejas?.codigo_igreja || 'IGR-001'}</span>
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
                 <span className="text-xs font-bold text-slate-400">Nome / Razão Social</span>
-                <span className="font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia}</span>
+                <span className="font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja Sede'}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">CNPJ</span>
+                <span className="font-mono text-slate-800">{loggedUser?.igrejas?.cnpj || '00.000.000/0001-00'}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">E-mail Institucional</span>
+                <span className="text-slate-800">{loggedUser?.igrejas?.email || 'contato@igreja.com'}</span>
+              </div>
+              <div className="md:col-span-2 p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">Endereço Completo</span>
+                <span className="text-slate-800">{loggedUser?.igrejas?.endereco || 'Endereço não cadastrado'}</span>
               </div>
             </div>
           </div>
@@ -631,31 +665,29 @@ export default function App() {
           </div>
         )}
 
-        {/* --- ABA AGENDA COM CALENDÁRIO, LISTA E IMPRESSÃO --- */}
+        {/* --- ABA AGENDA COM EDIÇÃO E INDICADOR DE STATUS --- */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">📅 Agenda de Compromissos e Visitas</h2>
-                <p className="text-xs text-slate-500">Gerencie a escala de eventos, calendário e histórico de visitas.</p>
+                <p className="text-xs text-slate-500">Clique em qualquer compromisso para alterar dados, relatórios ou status.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button onClick={() => setAgendaSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Lista de Compromissos</button>
+                  <button onClick={() => setAgendaSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Lista</button>
                   <button onClick={() => setAgendaSubTab('calendario')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'calendario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🗓️ Calendário</button>
                   <button onClick={() => setAgendaSubTab('impressao')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'impressao' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🖨️ Relatório A4</button>
                 </div>
-                <button onClick={() => setShowAgendaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Compromisso</button>
+                <button onClick={handleOpenNewAgenda} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Compromisso</button>
               </div>
             </div>
 
-            {/* Cabeçalho de Impressão A4 para Agenda */}
             <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
               <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
               <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Relatório de Compromissos e Visitas por Ordem de Data e Hora</p>
             </div>
 
-            {/* SUB-ABA: LISTA DE COMPROMISSOS */}
             {agendaSubTab === 'lista' && (
               <div>
                 {loadingAgenda ? (
@@ -665,21 +697,27 @@ export default function App() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {compromissos.map((c: any) => (
-                      <div key={c.id} className="p-5 border border-slate-200 rounded-2xl bg-slate-50/50 shadow-sm space-y-3">
+                      <div 
+                        key={c.id} 
+                        onClick={() => handleOpenEditAgenda(c)}
+                        className={`p-5 border rounded-2xl shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-all bg-white ${c.status === 'Cumprido' ? 'border-emerald-300 bg-emerald-50/20' : 'border-slate-200'}`}
+                      >
                         <div className="flex justify-between items-start border-b pb-2">
                           <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
-                          <span className="text-[10px] font-black bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full uppercase tracking-wider">Compromisso</span>
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${c.status === 'Cumprido' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                            {c.status || 'Pendente'}
+                          </span>
                         </div>
                         
                         <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
                           <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
                           <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'} {c.hora_fim ? `às ${c.hora_fim}` : ''}</span></div>
-                          <div>👤 Responsável / Membro: <span className="text-blue-800 font-bold">{c.responsavel || 'Não vinculado'}</span></div>
+                          <div>👤 Membro: <span className="text-blue-800 font-bold">{c.responsavel || 'Não vinculado'}</span></div>
                         </div>
 
-                        <div className="pt-2 border-t text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-100">
-                          <strong className="text-slate-900 block mb-1">💬 Relatório / Comentário da Visita:</strong>
-                          <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado ainda.'}</p>
+                        <div className="pt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                          <strong className="text-slate-900 block mb-1">💬 Relatório / Comentário:</strong>
+                          <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado. Clique para editar.'}</p>
                         </div>
                       </div>
                     ))}
@@ -688,7 +726,6 @@ export default function App() {
               </div>
             )}
 
-            {/* SUB-ABA: CALENDÁRIO DE COMPROMISSOS */}
             {agendaSubTab === 'calendario' && (
               <div className="space-y-4">
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex items-center justify-between">
@@ -701,13 +738,12 @@ export default function App() {
                     <div key={dia} className="p-3 bg-slate-100 text-slate-700 font-bold text-center text-xs rounded-xl">{dia}</div>
                   ))}
                   
-                  {/* Cards dos Compromissos organizados por dia */}
                   <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                     {compromissos.map((c: any) => (
-                      <div key={c.id} className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 border-l-4 border-l-blue-900">
+                      <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className={`p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 ${c.status === 'Cumprido' ? 'border-l-emerald-600' : 'border-l-blue-900'}`}>
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-mono font-bold bg-blue-50 text-blue-900 px-2 py-0.5 rounded">{c.data_compromisso}</span>
-                          <span className="text-xs font-semibold text-slate-500">{c.hora_compromisso}</span>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${c.status === 'Cumprido' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{c.status || 'Pendente'}</span>
                         </div>
                         <h4 className="font-bold text-slate-800 text-sm">{c.titulo}</h4>
                         <p className="text-xs text-slate-600">👤 {c.responsavel || 'Sem vínculo'}</p>
@@ -718,7 +754,6 @@ export default function App() {
               </div>
             )}
 
-            {/* SUB-ABA: RELATÓRIO DE IMPRESSÃO A4 (EM ORDEM DE DATA E HORA) */}
             {agendaSubTab === 'impressao' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center print:hidden">
@@ -732,8 +767,9 @@ export default function App() {
                       <tr>
                         <th className="p-3">Data</th>
                         <th className="p-3">Horário</th>
-                        <th className="p-3">Assunto / Compromisso</th>
-                        <th className="p-3">Membro / Responsável</th>
+                        <th className="p-3">Assunto</th>
+                        <th className="p-3">Membro</th>
+                        <th className="p-3">Status</th>
                         <th className="p-3">Relatório / Comentário</th>
                       </tr>
                     </thead>
@@ -744,6 +780,7 @@ export default function App() {
                           <td className="p-3 font-mono">{c.hora_compromisso} {c.hora_fim ? `- ${c.hora_fim}` : ''}</td>
                           <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
                           <td className="p-3">{c.responsavel || '-'}</td>
+                          <td className="p-3 font-semibold">{c.status || 'Pendente'}</td>
                           <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
                         </tr>
                       ))}
@@ -808,12 +845,14 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL DE CADASTRO DE COMPROMISSO NA AGENDA COM VÍNCULO DE MEMBRO */}
+      {/* MODAL DE CADASTRO / EDIÇÃO DE COMPROMISSO NA AGENDA */}
       {showAgendaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center border-b pb-4">
-              <h3 className="text-lg font-black text-blue-900">Novo Compromisso / Visita</h3>
+              <h3 className="text-lg font-black text-blue-900">
+                {editingCompromisso ? 'Alterar Compromisso / Visita' : 'Novo Compromisso / Visita'}
+              </h3>
               <button onClick={() => setShowAgendaModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
             </div>
 
@@ -823,7 +862,6 @@ export default function App() {
                 <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value)} placeholder="Ex: Visita pastoral ou Reunião" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
 
-              {/* Vínculo com Membro Cadastrado */}
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Vincular Membro (Opcional - Busca do Cadastro)</label>
                 <select value={formAgendaMembroId} onChange={(e) => setFormAgendaMembroId(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
@@ -851,13 +889,23 @@ export default function App() {
               </div>
 
               <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Status do Compromisso</label>
+                <select value={formAgendaStatus} onChange={(e) => setFormAgendaStatus(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white font-bold text-slate-700">
+                  <option value="Pendente">Pendente</option>
+                  <option value="Cumprido">Cumprido</option>
+                </select>
+              </div>
+
+              <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Comentário / Relatório de como foi</label>
                 <textarea rows={3} value={formAgendaComentario} onChange={(e) => setFormAgendaComentario(e.target.value)} placeholder="Registre os detalhes, observações ou como foi a visita..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowAgendaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Compromisso</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
+                  {editingCompromisso ? 'Salvar Alterações' : 'Salvar Compromisso'}
+                </button>
               </div>
             </form>
           </div>

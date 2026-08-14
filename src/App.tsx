@@ -5,8 +5,7 @@ export default function App() {
 // Estados de Autenticação e Navegação
 const [isLoggedIn, setIsLoggedIn] = useState(false);
 const [loggedUser, setLoggedUser] = useState(null);
-const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros');
-const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'agenda' | 'financeiro' | 'controle' | null>(null); 
+const [activeTab, setActiveTab] = useState<'membros' | 'agenda' | 'financeiro'>('membros'); 
 
 // Estados do Formulário de Login
 const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -49,7 +48,7 @@ return;
 
 setLoggedUser(data);
 setIsLoggedIn(true);
-setActiveTab('membros'); // Inicia na aba de membros após logar
+setActiveTab('membros');
 } catch (err: any) {
 alert('Erro no login: ' + err.message);
 } finally {
@@ -109,21 +108,15 @@ console.error(err);
 setLoadingFinanceiro(false);
 }
 
-// Executa as buscas de acordo com a aba ativa para economizar processamento
 if (activeTab === 'membros') fetchMembers();
 if (activeTab === 'agenda') fetchAgenda();
 if (activeTab === 'financeiro') fetchFinanceiro();
 
 }, [isLoggedIn, activeTab, loggedUser]); 
 
-// Filtro de busca de membros por nome
 const filteredMembers = members.filter(
 (m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
 ); 
-
-const toggleDropdown = (menu: 'cadastros' | 'agenda' | 'financeiro' | 'controle') => {
-setOpenDropdown(openDropdown === menu ? null : menu);
-}; 
 
 // --- TELA DE LOGIN ---
 if (!isLoggedIn) {

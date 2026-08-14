@@ -100,12 +100,11 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1">
-        {/* Renderização condicional garantindo que o usuário está carregado */}
         {loggedUser ? (
           <>
             {activeTab === 'membros' && <MembrosView codigoIgreja={loggedUser.codigo_igreja} />}
-            {activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
             {activeTab === 'agenda' && <AgendaView codigoIgreja={loggedUser.codigo_igreja} />}
+            {activeTab === 'financeiro' && <FinanceiroView codigoIgreja={loggedUser.codigo_igreja} />}
           </>
         ) : (
           <p className="text-center text-slate-500">Carregando dados...</p>

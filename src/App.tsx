@@ -4,7 +4,7 @@ import { supabase } from './supabase';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'agenda' | 'financeiro'>('membros');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro'>('membros');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | null>(null);
 
   // Login
@@ -20,10 +20,16 @@ export default function App() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
 
+  // Campos Completos do Membro
   const [formNome, setFormNome] = useState('');
   const [formTipo, setFormTipo] = useState('Membro');
   const [formCpf, setFormCpf] = useState('');
+  const [formRg, setFormRg] = useState('');
+  const [formNascimento, setFormNascimento] = useState('');
   const [formCelular, setFormCelular] = useState('');
+  const [formEmail, setFormEmail] = useState('');
+  const [formEstadoCivil, setFormEstadoCivil] = useState('Solteiro(a)');
+  const [formEndereco, setFormEndereco] = useState('');
 
   // Usuários e Fornecedores
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
@@ -90,7 +96,12 @@ export default function App() {
     setFormNome('');
     setFormTipo('Membro');
     setFormCpf('');
+    setFormRg('');
+    setFormNascimento('');
     setFormCelular('');
+    setFormEmail('');
+    setFormEstadoCivil('Solteiro(a)');
+    setFormEndereco('');
     setShowMemberModal(true);
   };
 
@@ -99,7 +110,12 @@ export default function App() {
     setFormNome(m.nome || '');
     setFormTipo(m.tipo_cadastro || 'Membro');
     setFormCpf(m.cpf || '');
+    setFormRg(m.rg || '');
+    setFormNascimento(m.data_nascimento || '');
     setFormCelular(m.celular_principal || '');
+    setFormEmail(m.email || '');
+    setFormEstadoCivil(m.estado_civil || 'Solteiro(a)');
+    setFormEndereco(m.endereco || '');
     setShowMemberModal(true);
   };
 
@@ -112,7 +128,12 @@ export default function App() {
       nome: formNome.trim(),
       tipo_cadastro: formTipo,
       cpf: formCpf.trim(),
-      celular_principal: formCelular.trim()
+      rg: formRg.trim(),
+      data_nascimento: formNascimento || null,
+      celular_principal: formCelular.trim(),
+      email: formEmail.trim(),
+      estado_civil: formEstadoCivil,
+      endereco: formEndereco.trim()
     };
 
     try {
@@ -185,6 +206,7 @@ export default function App() {
                     <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📁 Membros</button>
                     <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários</button>
                     <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🚚 Fornecedores</button>
+                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📊 Relatórios</button>
                   </div>
                 )}
               </div>
@@ -214,7 +236,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
-                <p className="text-xs text-slate-500">Clique na linha do membro para alterar os dados ou cadastre um novo.</p>
+                <p className="text-xs text-slate-500">Clique na linha do membro para alterar os dados completos.</p>
               </div>
               <div className="flex items-center gap-3">
                 <input type="text" placeholder="Buscar por Nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:outline-none focus:border-blue-900" />
@@ -233,11 +255,12 @@ export default function App() {
                       <th className="py-3 px-4">Tipo</th>
                       <th className="py-3 px-4">CPF</th>
                       <th className="py-3 px-4">Celular</th>
+                      <th className="py-3 px-4">E-mail</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-sm text-slate-700">
                     {filteredMembers.length === 0 ? (
-                      <tr><td colSpan={4} className="py-6 text-center text-slate-400">Nenhum membro encontrado.</td></tr>
+                      <tr><td colSpan={5} className="py-6 text-center text-slate-400">Nenhum membro encontrado.</td></tr>
                     ) : (
                       filteredMembers.map((m: any) => (
                         <tr key={m.id} onClick={() => handleOpenEditMember(m)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
@@ -245,6 +268,7 @@ export default function App() {
                           <td className="py-3 px-4">{m.tipo_cadastro}</td>
                           <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
                           <td className="py-3 px-4">{m.celular_principal || '-'}</td>
+                          <td className="py-3 px-4">{m.email || '-'}</td>
                         </tr>
                       ))
                     )}
@@ -316,6 +340,29 @@ export default function App() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'relatorios' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios Gerais</h2>
+              <p className="text-xs text-slate-500">Estatísticas e listagens consolidadas da igreja.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
+                <h4 className="font-bold text-blue-900">Total de Membros</h4>
+                <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
+              </div>
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
+                <h4 className="font-bold text-blue-900">Compromissos na Agenda</h4>
+                <p className="text-3xl font-black text-slate-800 mt-2">{compromissos.length}</p>
+              </div>
+              <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl">
+                <h4 className="font-bold text-blue-900">Contas Financeiras</h4>
+                <p className="text-3xl font-black text-slate-800 mt-2">{contas.length}</p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -404,9 +451,10 @@ export default function App() {
         )}
       </main>
 
+      {/* MODAL COMPLETO DE CADASTRO / EDIÇÃO DE MEMBRO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-lg font-black text-blue-900">
                 {editingMember ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}
@@ -419,7 +467,8 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
                 <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
                   <select value={formTipo} onChange={(e) => setFormTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
@@ -430,13 +479,45 @@ export default function App() {
                   </select>
                 </div>
                 <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
+                  <select value={formEstadoCivil} onChange={(e) => setFormEstadoCivil(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                    <option value="Solteiro(a)">Solteiro(a)</option>
+                    <option value="Casado(a)">Casado(a)</option>
+                    <option value="Divorciado(a)">Divorciado(a)</option>
+                    <option value="Viúvo(a)">Viúvo(a)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
                   <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
                   <input type="text" value={formCpf} onChange={(e) => setFormCpf(e.target.value)} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                 </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
+                  <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
+                  <input type="date" value={formNascimento} onChange={(e) => setFormNascimento(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
+                  <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
+                  <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+              </div>
+
               <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
+                <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">

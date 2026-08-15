@@ -263,32 +263,7 @@ export default function App() {
     setShowAgendaModal(true);
   };
 
-  const handleSaveAgenda = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
-      alert('Preencha pelo menos o Assunto e a Data do compromisso.');
-      return;
-    }
-
-    let nomeMembroVinculado = '';
-    if (formAgendaMembroId) {
-      const membroEncontrado = members.find((m) => String(m.id) === String(formAgendaMembroId));
-      if (membroEncontrado) {
-        nomeMembroVinculado = membroEncontrado.nome;
-      }
-    }
-
-    const descricaoCompleta = `[Membro: ${nomeMembroVinculado || 'Nenhum'}] [Término: ${formAgendaHoraFim || 'N/A'}] [Status: ${formAgendaStatus}] — ${formAgendaComentario.trim()}`;
-
-    const payload: any = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      titulo: formAgendaTitulo.trim(),
-      data_compromisso: formAgendaData,
-      hora_compromisso: formAgendaHoraInicio || '00:00',
-      descricao: descricaoCompleta,
-      dono_codigo: loggedUser.codigo_igreja,
-      responsavel: loggedUser.nome_usuario || 'Administrador'
-    };
+  handleSaveAgenda
 
     try {
       if (editingCompromisso) {

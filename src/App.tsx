@@ -2077,7 +2077,7 @@ export default function App() {
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <h3 className="text-lg font-black text-blue-900">
-                  {editingMember ? `Ficha do Membro: ${editingMember.nome}` : 'Novo Cadastro de Membro'}
+                  {editingMember ? `Ficha do Membro: ${formNome || editingMember.nome}` : 'Novo Cadastro de Membro'}
                 </h3>
                 {editingMember && (
                   <div className="flex gap-2 mt-2">

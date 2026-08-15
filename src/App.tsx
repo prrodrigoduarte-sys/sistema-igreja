@@ -352,6 +352,20 @@ const payload: any = {
       alert('Erro ao salvar compromisso: ' + err.message);
     }
   };
+  useEffect(() => {
+    if (activeTab === 'agenda' && isLoggedIn) {
+      const agora = new Date();
+      
+      compromissos.forEach(c => {
+        // Verifica se o compromisso tem aviso ativado na descrição
+        if (c.descricao.includes('[Aviso:')) {
+          // Lógica de cálculo de tempo...
+          // Se a diferença entre agora e o horário do compromisso for <= horas do aviso:
+          // AQUI VOCÊ PODE DISPARAR UM ALERTA OU EXIBIR O BOTÃO DE WHATSAPP NA TELA
+        }
+      });
+    }
+  }, [activeTab, compromissos]);
 
   // Função para deletar lançamento financeiro com senha de administrador
   const handleDeleteLancamento = async (lancamentoId: any) => {

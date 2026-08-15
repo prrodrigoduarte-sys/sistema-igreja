@@ -372,19 +372,15 @@ export default function App() {
 <div className="grid grid-cols-2 gap-4">
   <div>
   <div>
-  <label className="text-xs font-bold text-slate-600 ml-1">Responsável pelo Compromisso</label>
-  <select 
-    value={formAgendaMembroId || ''} 
-    onChange={(e) => setFormAgendaMembroId(e.target.value)}
-    className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900"
-  >
-    <option value="">Selecione o responsável...</option>
-    {members.map((m: any) => (
-      <option key={m.id} value={m.id}>
-        {m.nome}
-      </option>
-    ))}
-  </select>
+  <div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="text-xs font-bold text-slate-600">Início</label>
+    <input type="time" value={formAgendaHoraInicio} onChange={e => setFormAgendaHoraInicio(e.target.value)} className="w-full border p-3 rounded-xl" />
+  </div>
+  <div>
+    <label className="text-xs font-bold text-slate-600">Fim</label>
+    <input type="time" value={formAgendaHoraFim} onChange={e => setFormAgendaHoraFim(e.target.value)} className="w-full border p-3 rounded-xl" />
+  </div>
 </div>
 
     try {

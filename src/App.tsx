@@ -454,32 +454,39 @@ export default function App() {
     setFormCelParticipantes(formCelParticipantes.filter(id => id !== membroId));
   };
 
-  const handleSaveCelula = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formCelNome.trim()) {
-      alert('O nome da célula é obrigatório.');
-      return;
-    }
-
-    const enderecoCompleto = `${formCelRua}, ${formCelNumero || 'S/N'} - ${formCelBairro}, ${formCelCidade} (CEP: ${formCelCep})`;
-
+  const handleSave = async () => {
+    // Converte strings vazias ou seleções nulas/inválidas para null, 
+    // evitando que o banco recuse a foreign key (erro 409).
     const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      nome: formCelNome.trim(),
-      lider_id: formCelLider || null,
-      vice_id: formCelVice || null,
-      anfitriao_id: formCelAnfitriao || null,
-      dia_semana: formCelDia,
-      horario: formCelHora,
-      cep: formCelCep.trim(),
-      rua: formCelRua.trim(),
-      numero: formCelNumero.trim(),
-      bairro: formCelBairro.trim(),
-      cidade: formCelCidade.trim(),
-      endereco: enderecoCompleto,
-      participantes: formCelParticipantes
+      nome: nomeCelula,
+      lider_id: liderId && liderId !== "" && liderId !== "Selecione" ? liderId : null,
+      vice_id: viceId && viceId !== "" && viceId !== "Selecione" ? viceId : null,
+      anfitriao_id: anfitriaoId && anfitriaoId !== "" && anfitriaoId !== "Selecione" ? anfitriaoId : null,
+      dia_semana: diaSemana,
+      horario: horario,
+      cep: cep,
+      logradouro: logradouro,
+      numero: numero,
+      bairro: bairro,
+      cidade: cidade
     };
-
+  
+    try {
+      const { data, error } = await supabase
+        .from('celulas')
+        .insert([payload]);
+  
+      if (error) {
+        throw error;
+      }
+  
+      alert("Célula salva e interligada com sucesso!");
+      // Limpar o formulário ou atualizar a listagem aqui, se necessário
+    } catch (err: any) {
+      console.error("Erro ao salvar célula:", err);
+      alert(`Erro ao salvar célula: ${err.message || 'Verifique os dados informados.'}`);
+    }
+  };
     try {
       if (editingCelula) {
         const { error } = await supabase.from('celulas').update(payload).eq('id', editingCelula.id);

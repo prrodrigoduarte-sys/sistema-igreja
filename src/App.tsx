@@ -523,7 +523,7 @@ export default function App() {
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formSetorNome.trim(),
-      lider_id: formSetorLider ? formSetorLider : null
+      lider_id: formSetorLider && formSetorLider !== "" ? parseInt(formSetorLider, 10) : null
     };
     try {
       const { error } = await supabase.from('setores').insert([payload]);
@@ -544,8 +544,20 @@ export default function App() {
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formRedeNome.trim(),
-      lider_id: formRedeLider ? formRedeLider : null
+      lider_id: formRedeLider && formRedeLider !== "" ? parseInt(formRedeLider, 10) : null
     };
+    try {
+      const { error } = await supabase.from('redes').insert([payload]);
+      if (error) throw error;
+      alert('Rede cadastrada com sucesso!');
+      setShowRedeModal(false);
+      setFormRedeNome('');
+      setFormRedeLider('');
+      carregarRedes(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar rede: ' + err.message);
+    }
+  };
     try {
       const { error } = await supabase.from('redes').insert([payload]);
       if (error) throw error;

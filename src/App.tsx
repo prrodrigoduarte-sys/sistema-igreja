@@ -705,7 +705,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
-      {/* Marca D'água Corrigida (Mais suave, centralizada e proporcional) */}
+      {/* Marca D'água Otimizada (Centralizada, proporcional e suave) */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
         <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
           {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}

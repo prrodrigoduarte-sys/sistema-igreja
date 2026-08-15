@@ -11,7 +11,6 @@ export default function App() {
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
-  
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
@@ -28,16 +27,19 @@ export default function App() {
   const [formStep, setFormStep] = useState<1 | 2>(1);
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
-  const [formNome, setFormNome] = useState('');
-  const [formTipo, setFormTipo] = useState('Membro');
-  const [formCpf, setFormCpf] = useState('');
-  const [formRg, setFormRg] = useState('');
-  const [formNascimento, setFormNascimento] = useState('');
-  const [formCelular, setFormCelular] = useState('');
-  const [formEmail, setFormEmail] = useState('');
-  const [formEstadoCivil, setFormEstadoCivil] = useState('Solteiro(a)');
-  const [formEndereco, setFormEndereco] = useState('');
-  const [formFotoUrl, setFormFotoUrl] = useState('');
+  // ESTADO ÚNICO DE FORMULÁRIO DE MEMBRO (Evita que os campos voltem vazios)
+  const [formMember, setFormMember] = useState({
+    nome: '',
+    tipo_cadastro: 'Membro',
+    cpf: '',
+    rg: '',
+    data_nascimento: '',
+    celular_principal: '',
+    email: '',
+    estado_civil: 'Solteiro(a)',
+    endereco: '',
+    foto_url: ''
+  });
 
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
   const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
@@ -177,13 +179,10 @@ export default function App() {
     
     async function carregarDados() {
       await carregarMembros(cod);
-
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
-
       const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
       setFornecedoresList(fData || []);
-
       carregarAgenda(cod);
       carregarCelulas(cod);
       carregarSetores(cod);
@@ -223,16 +222,18 @@ export default function App() {
 
   const handleOpenNewMember = () => {
     setEditingMember(null);
-    setFormNome('');
-    setFormTipo('Membro');
-    setFormCpf('');
-    setFormRg('');
-    setFormNascimento('');
-    setFormCelular('');
-    setFormEmail('');
-    setFormEstadoCivil('Solteiro(a)');
-    setFormEndereco('');
-    setFormFotoUrl('');
+    setFormMember({
+      nome: '',
+      tipo_cadastro: 'Membro',
+      cpf: '',
+      rg: '',
+      data_nascimento: '',
+      celular_principal: '',
+      email: '',
+      estado_civil: 'Solteiro(a)',
+      endereco: '',
+      foto_url: ''
+    });
     setFormStep(1);
     setMemberModalTab('dados');
     setRetornarParaTab(null);
@@ -241,16 +242,18 @@ export default function App() {
 
   const handleOpenEditMember = (m: any) => {
     setEditingMember(m);
-    setFormNome(m.nome || '');
-    setFormTipo(m.tipo_cadastro || 'Membro');
-    setFormCpf(m.cpf || '');
-    setFormRg(m.rg || '');
-    setFormNascimento(m.data_nascimento || '');
-    setFormCelular(m.celular_principal || '');
-    setFormEmail(m.email || '');
-    setFormEstadoCivil(m.estado_civil || 'Solteiro(a)');
-    setFormEndereco(m.endereco || '');
-    setFormFotoUrl(m.foto_url || '');
+    setFormMember({
+      nome: m.nome || '',
+      tipo_cadastro: m.tipo_cadastro || 'Membro',
+      cpf: m.cpf || '',
+      rg: m.rg || '',
+      data_nascimento: m.data_nascimento || '',
+      celular_principal: m.celular_principal || '',
+      email: m.email || '',
+      estado_civil: m.estado_civil || 'Solteiro(a)',
+      endereco: m.endereco || '',
+      foto_url: m.foto_url || ''
+    });
     setFormStep(1);
     setMemberModalTab('dados');
     setShowMemberModal(true);
@@ -258,20 +261,20 @@ export default function App() {
 
   const handleSaveMember = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formNome.trim()) { alert('O nome é obrigatório.'); return; }
+    if (!formMember.nome.trim()) { alert('O nome é obrigatório.'); return; }
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
-      nome: formNome.trim(),
-      tipo_cadastro: formTipo,
-      cpf: formCpf.trim() || null,
-      rg: formRg.trim() || null,
-      data_nascimento: formNascimento || null,
-      celular_principal: formCelular.trim() || null,
-      email: formEmail.trim() || null,
-      estado_civil: formEstadoCivil || null,
-      endereco: formEndereco.trim() || null,
-      foto_url: formFotoUrl.trim() || null
+      nome: formMember.nome.trim(),
+      tipo_cadastro: formMember.tipo_cadastro,
+      cpf: formMember.cpf.trim() || null,
+      rg: formMember.rg.trim() || null,
+      data_nascimento: formMember.data_nascimento || null,
+      celular_principal: formMember.celular_principal.trim() || null,
+      email: formMember.email.trim() || null,
+      estado_civil: formMember.estado_civil || null,
+      endereco: formMember.endereco.trim() || null,
+      foto_url: formMember.foto_url.trim() || null
     };
 
     try {
@@ -314,7 +317,6 @@ export default function App() {
       
       alert(`Membro excluído com sucesso! Motivo registrado: "${motivo}"`);
       setShowMemberModal(false);
-      
       await carregarMembros(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao excluir membro: ' + err.message);
@@ -339,10 +341,8 @@ export default function App() {
     setFormAgendaHoraInicio(c.hora_compromisso || '');
     setFormAgendaHoraFim(c.hora_fim || '');
     setFormAgendaMembroId(c.responsavel ? String(c.responsavel) : ''); 
-    
     const comentarioLimpo = c.descricao ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) : '';
     setFormAgendaComentario(comentarioLimpo);
-    
     setShowAgendaModal(true);
   };
 
@@ -354,7 +354,6 @@ export default function App() {
     }
   
     const comentarioLimpo = formAgendaComentario.trim();
-  
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
@@ -433,17 +432,14 @@ export default function App() {
 
   const handleAddParticipante = () => {
     if (!formCelNovoParticipante) return;
-    
     if (formCelNovoParticipante === formCelLider || formCelNovoParticipante === formCelVice || formCelNovoParticipante === formCelAnfitriao) {
       alert('Já relacionado com função, insira outro novo.');
       return;
     }
-
     if (formCelParticipantes.includes(formCelNovoParticipante)) {
       alert('Este membro já está adicionado na célula.');
       return;
     }
-
     setFormCelParticipantes([...formCelParticipantes, formCelNovoParticipante]);
     setFormCelNovoParticipante('');
   };
@@ -498,7 +494,6 @@ export default function App() {
   const handleDeleteCelula = async (celulaId: string) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir esta célula:');
     if (!senhaInformada) return;
-
     if (senhaInformada !== loggedUser.senha) {
       alert('Senha de administrador incorreta. Exclusão cancelada.');
       return;
@@ -612,7 +607,6 @@ export default function App() {
   const handleDeleteLancamento = async (lancamentoId: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir este lançamento:');
     if (!senhaInformada) return;
-
     if (senhaInformada !== loggedUser.senha) {
       alert('Senha de administrador incorreta. Exclusão cancelada.');
       return;
@@ -2077,7 +2071,7 @@ export default function App() {
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <h3 className="text-lg font-black text-blue-900">
-                  {editingMember ? `Ficha do Membro: ${formNome || editingMember.nome}` : 'Novo Cadastro de Membro'}
+                  {editingMember ? `Ficha do Membro: ${formMember.nome || editingMember.nome}` : 'Novo Cadastro de Membro'}
                 </h3>
                 {editingMember && (
                   <div className="flex gap-2 mt-2">
@@ -2146,8 +2140,8 @@ export default function App() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
                       <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
-                        {formFotoUrl ? (
-                          <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                        {formMember.foto_url ? (
+                          <img src={formMember.foto_url} alt="Preview" className="w-full h-full object-cover" />
                         ) : (
                           <span className="text-xs font-bold text-slate-400">Foto</span>
                         )}
@@ -2168,7 +2162,7 @@ export default function App() {
                                 const reader = new FileReader();
                                 reader.readAsDataURL(file);
                                 reader.onload = () => {
-                                  setFormFotoUrl(reader.result as string);
+                                  setFormMember({ ...formMember, foto_url: reader.result as string });
                                 };
                               }}
                             />
@@ -2186,16 +2180,16 @@ export default function App() {
                                 const reader = new FileReader();
                                 reader.readAsDataURL(file);
                                 reader.onload = () => {
-                                  setFormFotoUrl(reader.result as string);
+                                  setFormMember({ ...formMember, foto_url: reader.result as string });
                                 };
                               }}
                             />
                           </label>
 
-                          {formFotoUrl && (
+                          {formMember.foto_url && (
                             <button 
                               type="button" 
-                              onClick={() => setFormFotoUrl('')} 
+                              onClick={() => setFormMember({ ...formMember, foto_url: '' })} 
                               className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
                             >
                               Remover
@@ -2207,13 +2201,13 @@ export default function App() {
 
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
-                      <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" required value={formMember.nome} onChange={(e) => setFormMember({ ...formMember, nome: e.target.value })} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
-                        <select value={formTipo} onChange={(e) => setFormTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                        <select value={formMember.tipo_cadastro} onChange={(e) => setFormMember({ ...formMember, tipo_cadastro: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
                           <option value="Membro">Membro</option>
                           <option value="Congregado">Congregado</option>
                           <option value="Visitante">Visitante</option>
@@ -2222,7 +2216,7 @@ export default function App() {
                       </div>
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
-                        <select value={formEstadoCivil} onChange={(e) => setFormEstadoCivil(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                        <select value={formMember.estado_civil} onChange={(e) => setFormMember({ ...formMember, estado_civil: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
                           <option value="Solteiro(a)">Solteiro(a)</option>
                           <option value="Casado(a)">Casado(a)</option>
                           <option value="Divorciado(a)">Divorciado(a)</option>
@@ -2240,32 +2234,32 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
-                        <input type="text" value={formCpf} onChange={(e) => setFormCpf(e.target.value)} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.cpf} onChange={(e) => setFormMember({ ...formMember, cpf: e.target.value })} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                       </div>
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
-                        <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                       </div>
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
-                        <input type="date" value={formNascimento} onChange={(e) => setFormNascimento(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                        <input type="date" value={formMember.data_nascimento} onChange={(e) => setFormMember({ ...formMember, data_nascimento: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                        <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.celular_principal} onChange={(e) => setFormMember({ ...formMember, celular_principal: e.target.value })} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                       </div>
                       <div>
                         <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
-                        <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                        <input type="email" value={formMember.email} onChange={(e) => setFormMember({ ...formMember, email: e.target.value })} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                       </div>
                     </div>
 
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
-                      <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" value={formMember.endereco} onChange={(e) => setFormMember({ ...formMember, endereco: e.target.value })} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
 
                     <div className="flex items-center justify-between pt-4 border-t">

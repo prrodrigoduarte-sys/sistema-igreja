@@ -307,16 +307,41 @@ export default function App() {
   const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // O payload agora usa as colunas que acabamos de garantir no banco
+    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
+      alert('Preencha o título e a data do compromisso.');
+      return;
+    }
+  
+    // Pega apenas o comentário limpo digitado pelo usuário (removendo tags antigas acumuladas)
+    const comentarioLimpo = formAgendaComentario.includes('—') 
+      ? formAgendaComentario.split('—').pop()?.trim() 
+      : formAgendaComentario.trim();
+  
+    // Monta a string de metadados de forma limpa e única
+    const descricaoFinal = `[MembroID: ${formAgendaMembroId}] [Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${comentarioLimpo}`;
+  
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio || '00:00',
-      hora_fim: formAgendaHoraFim || '00:00', // O campo que restauramos
-      responsavel: formAgendaMembroId,         // O ID do membro responsável pelo controle
-      descricao: `[Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${formAgendaComentario.trim()}`
+      hora_fim: formAgendaHoraFim || '00:00',
+      responsavel: formAgendaMembroId, // Salva o ID do membro na coluna correta
+      descricao: descricaoFinal
     };
+  
+    try {
+      if (editingCompromisso) {
+        await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
+      } else {
+        await supabase.from('agenda_compromissos').insert([payload]);
+      }
+      setShowAgendaModal(false);
+      carregarAgenda(loggedUser.codigo_igreja);
+    } catch (err: any) { 
+      alert('Erro ao salvar: ' + err.message); 
+    }
+  };
   
     try {
       if (editingCompromisso) {

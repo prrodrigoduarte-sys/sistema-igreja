@@ -2138,7 +2138,7 @@ export default function App() {
               <form onSubmit={handleSaveMember} className="space-y-4">
                 {formStep === 1 ? (
                   <div className="space-y-4">
-                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
+                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
   <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
     {formFotoUrl ? (
       <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />

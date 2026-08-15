@@ -343,10 +343,19 @@ export default function App() {
 
   const handleAddParticipante = () => {
     if (!formCelNovoParticipante) return;
+    
+    // Verifica se já está selecionado como Líder, Vice ou Anfitrião
+    if (formCelNovoParticipante === formCelLider || formCelNovoParticipante === formCelVice || formCelNovoParticipante === formCelAnfitriao) {
+      alert('Já relacionado com função, insira outro novo.');
+      return;
+    }
+
+    // Verifica repetição na lista de participantes
     if (formCelParticipantes.includes(formCelNovoParticipante)) {
       alert('Este membro já está adicionado na célula.');
       return;
     }
+
     setFormCelParticipantes([...formCelParticipantes, formCelNovoParticipante]);
     setFormCelNovoParticipante('');
   };
@@ -834,8 +843,8 @@ export default function App() {
                         return (
                           <tr key={c.id} className="hover:bg-slate-50">
                             <td className="p-3 font-bold text-slate-900">{c.nome}</td>
-                            <td className="p-3">{liderObj ? liderObj.nome : '-'}</td>
-                            <td className="p-3">{anfitriaoObj ? anfitriaoObj.nome : '-'}</td>
+                            <td className="p-3">{liderObj ? `${liderObj.nome} (Líder)` : '-'}</td>
+                            <td className="p-3">{anfitriaoObj ? `${anfitriaoObj.nome} (Anfitrião)` : '-'}</td>
                             <td className="p-3">{c.endereco || '-'}</td>
                           </tr>
                         );
@@ -866,9 +875,9 @@ export default function App() {
                           <span className="text-xs font-mono font-bold text-slate-600">{parts.length} Participantes</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-700">
-                          <div>👑 <strong>Líder:</strong> {liderObj ? liderObj.nome : 'Não definido'}</div>
-                          <div>🥈 <strong>Vice:</strong> {viceObj ? viceObj.nome : 'Não definido'}</div>
-                          <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? anfitriaoObj.nome : 'Não definido'}</div>
+                          <div>👑 <strong>Líder:</strong> {liderObj ? `${liderObj.nome} (Líder)` : 'Não definido'}</div>
+                          <div>🥈 <strong>Vice:</strong> {viceObj ? `${viceObj.nome} (Vice-Líder)` : 'Não definido'}</div>
+                          <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? `${anfitriaoObj.nome} (Anfitrião)` : 'Não definido'}</div>
                         </div>
                         <div className="text-xs text-slate-600">
                           📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}
@@ -883,7 +892,7 @@ export default function App() {
                                 const mObj = members.find((m: any) => String(m.id) === String(pId));
                                 return (
                                   <span key={pId} className="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-semibold text-slate-700">
-                                    {mObj ? mObj.nome : 'Membro ID: ' + pId}
+                                    {mObj ? `${mObj.nome} (Participante)` : 'Membro ID: ' + pId}
                                   </span>
                                 );
                               })}
@@ -1757,7 +1766,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
-                      <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} className="00.000.000-0" placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>

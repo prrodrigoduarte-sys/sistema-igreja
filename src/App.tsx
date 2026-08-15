@@ -7,6 +7,7 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
+  const [showWelcomeMapModal, setShowWelcomeMapModal] = useState(false);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
@@ -121,7 +122,8 @@ export default function App() {
       const { data, error } = await supabase.from('usuarios').select('*, igrejas(*)').eq('codigo_igreja', loginCodigo.trim()).eq('usuario', loginUsuario.trim()).eq('senha', loginSenha.trim()).eq('ativo', true).single();
       if (error || !data) { alert('Usuário ou senha incorretos.'); return; }
       setLoggedUser(data); 
-      setIsLoggedIn(true); 
+      setIsLoggedIn(true);
+      setShowWelcomeMapModal(true);
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
 
@@ -174,28 +176,20 @@ export default function App() {
       setMembers(mData || []);
       setLoadingMembros(false);
 
-      if (activeTab === 'usuarios') {
-        const { data } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
-        setUsuariosList(data || []);
-      }
-      if (activeTab === 'fornecedores') {
-        const { data } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
-        setFornecedoresList(data || []);
-      }
-      if (activeTab === 'agenda') {
-        carregarAgenda(cod);
-      }
-      if (activeTab === 'celulas') {
-        carregarCelulas(cod);
-        carregarSetores(cod);
-        carregarRedes(cod);
-      }
-      if (activeTab === 'financeiro' || activeTab === 'membros') {
-        carregarFinanceiro(cod);
-      }
+      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
+      setUsuariosList(uData || []);
+
+      const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
+      setFornecedoresList(fData || []);
+
+      carregarAgenda(cod);
+      carregarCelulas(cod);
+      carregarSetores(cod);
+      carregarRedes(cod);
+      carregarFinanceiro(cod);
     }
     carregarDados();
-  }, [isLoggedIn, activeTab, loggedUser]);
+  }, [isLoggedIn, loggedUser]);
 
   const handleBuscarCep = async () => {
     const cepLimpo = formCelCep.replace(/\D/g, '');
@@ -720,7 +714,14 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col">
+    <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
+      {/* Marca D'água com a Logomarca / Nome da Igreja */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-3 overflow-hidden select-none">
+        <span className="text-[12vw] font-black uppercase tracking-widest text-center text-blue-950 px-4 whitespace-nowrap">
+          {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}
+        </span>
+      </div>
+
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-8">
@@ -777,7 +778,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="max-w-7xl w-full mx-auto p-6 flex-1 print:p-0 print:max-w-none">
+      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -1724,6 +1725,42 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Modal Pop-up de boas-vindas com o Mapa da Igreja */}
+      {showWelcomeMapModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 text-center">
+            <div className="space-y-2">
+              <span className="text-3xl">🏛️📍</span>
+              <h3 className="text-xl font-black text-blue-900">Bem-vindo ao BRSYSTEM!</h3>
+              <p className="text-sm text-slate-600">
+                Deseja abrir o mapa para localizar o endereço oficial de <strong>{loggedUser?.igrejas?.nome_fantasia || 'sua igreja'}</strong>?
+              </p>
+              <div className="p-3 bg-slate-50 border rounded-xl text-xs font-semibold text-slate-700 mt-2">
+                📍 {loggedUser?.igrejas?.endereco || 'Endereço não cadastrado'}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={() => setShowWelcomeMapModal(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer transition-all"
+              >
+                Agora Não
+              </button>
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loggedUser?.igrejas?.endereco || 'Brasil')}`} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                onClick={() => setShowWelcomeMapModal(false)}
+                className="flex-1 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer transition-all flex items-center justify-center gap-2"
+              >
+                🗺️ Ver no Mapa
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Novo Setor */}
       {showSetorModal && (

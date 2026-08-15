@@ -311,16 +311,28 @@ export default function App() {
       return;
     }
 
-    const payload: any = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      titulo: formAgendaTitulo.trim(),
-      data_compromisso: formAgendaData,
-      hora_compromisso: formAgendaHoraInicio || '00:00',
-      hora_fim: formAgendaHoraFim || '00:00',
-      descricao: `[MembroID: ${formAgendaMembroId || ''}] [Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${formAgendaComentario.trim()}`
-      // Nota: 'responsavel' foi omitido aqui para evitar conflito se o seu código não o utiliza ativamente, 
-      // mas como a coluna já existe no banco, ela não causará mais erro de cache.
-    };
+    c// 1. No payload do handleSaveAgenda (Garanta que hora_fim está aqui):
+const payload: any = {
+  codigo_igreja: loggedUser.codigo_igreja,
+  titulo: formAgendaTitulo.trim(),
+  data_compromisso: formAgendaData,
+  hora_compromisso: formAgendaHoraInicio || '00:00',
+  hora_fim: formAgendaHoraFim || '00:00', // RESTAURADO
+  descricao: `[MembroID: ${formAgendaMembroId || ''}] [Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${formAgendaComentario.trim()}`
+};
+
+// 2. Na interface da Agenda (No seu Main ou Modal):
+// Adicione o campo de Horário Final novamente:
+<div className="grid grid-cols-2 gap-4">
+  <div>
+    <label className="text-xs font-bold text-slate-600">Início</label>
+    <input type="time" value={formAgendaHoraInicio} onChange={e => setFormAgendaHoraInicio(e.target.value)} className="w-full border p-3 rounded-xl" />
+  </div>
+  <div>
+    <label className="text-xs font-bold text-slate-600">Fim</label>
+    <input type="time" value={formAgendaHoraFim} onChange={e => setFormAgendaHoraFim(e.target.value)} className="w-full border p-3 rounded-xl" />
+  </div>
+</div>
 
     try {
       if (editingCompromisso) {

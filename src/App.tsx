@@ -882,11 +882,15 @@ export default function App() {
                           setFormAgendaData(c.data_compromisso || '');
                           setFormAgendaHoraInicio(c.hora_compromisso || '');
                           setFormAgendaHoraFim(c.hora_fim || '');
+                        
+                          // EXTRAI O ID DO MEMBRO DE DENTRO DA DESCRIÇÃO (onde o sistema está salvando)
+                          const matchMembro = c.descricao?.match(/MembroID:\s*([a-fA-F0-9-]+)/);
+                          setFormAgendaMembroId(matchMembro ? matchMembro[1] : (c.responsavel || ''));
+                        
+                          // Limpa a descrição para o usuário não ver os códigos feios no campo de texto
+                          const descLimpa = c.descricao ? c.descricao.split('—').pop()?.trim() : '';
+                          setFormAgendaComentario(descLimpa || '');
                           
-                          // É ESTA LINHA AQUI QUE FAZ O MEMBRO APARECER PREENCHIDO NA EDIÇÃO:
-                          setFormAgendaMembroId(c.responsavel || ''); 
-                          
-                          setFormAgendaComentario(c.descricao || '');
                           setShowAgendaModal(true);
                         };
               </div>

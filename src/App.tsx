@@ -127,7 +127,8 @@ export default function App() {
 
   const carregarMembros = async (cod: string) => {
     setLoadingMembros(true);
-    const { data } = await supabase.from('members').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    const { data, error } = await supabase.from('members').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    if (error) console.error('Erro ao carregar membros:', error.message);
     setMembers(data || []);
     setLoadingMembros(false);
   };

@@ -52,7 +52,6 @@ export default function App() {
   const [formAgendaHoraFim, setFormAgendaHoraFim] = useState('');
   const [formAgendaComentario, setFormAgendaComentario] = useState('');
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
-  const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
 
   const [celulasList, setCelulasList] = useState<any[]>([]);
   const [loadingCelulas, setLoadingCelulas] = useState(false);
@@ -265,14 +264,14 @@ export default function App() {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formNome.trim(),
       tipo_cadastro: formTipo,
-      cpf: formCpf.trim(),
-      rg: formRg.trim(),
+      cpf: formCpf.trim() || null,
+      rg: formRg.trim() || null,
       data_nascimento: formNascimento || null,
-      celular_principal: formCelular.trim(),
-      email: formEmail.trim(),
-      estado_civil: formEstadoCivil,
-      endereco: formEndereco.trim(),
-      foto_url: formFotoUrl.trim()
+      celular_principal: formCelular.trim() || null,
+      email: formEmail.trim() || null,
+      estado_civil: formEstadoCivil || null,
+      endereco: formEndereco.trim() || null,
+      foto_url: formFotoUrl.trim() || null
     };
 
     try {
@@ -330,7 +329,6 @@ export default function App() {
     setFormAgendaHoraFim('');
     setFormAgendaComentario('');
     setFormAgendaMembroId('');
-    setFormAgendaStatus('Pendente');
     setShowAgendaModal(true);
   };
 
@@ -341,7 +339,6 @@ export default function App() {
     setFormAgendaHoraInicio(c.hora_compromisso || '');
     setFormAgendaHoraFim(c.hora_fim || '');
     setFormAgendaMembroId(c.responsavel ? String(c.responsavel) : ''); 
-    setFormAgendaStatus(c.status || 'Pendente');
     
     const comentarioLimpo = c.descricao ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) : '';
     setFormAgendaComentario(comentarioLimpo);
@@ -365,7 +362,6 @@ export default function App() {
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || '00:00',
       responsavel: formAgendaMembroId && formAgendaMembroId !== "" ? parseInt(formAgendaMembroId, 10) : null, 
-      status: formAgendaStatus,
       descricao: comentarioLimpo
     };
   
@@ -1410,7 +1406,6 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {compromissos.map((c: any) => {
                       const membroResp = members.find((m: any) => String(m.id) === String(c.responsavel));
-                      const isPendente = (c.status || 'Pendente') === 'Pendente';
                       const comentarioExibicao = c.descricao 
                         ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) 
                         : 'Nenhum comentário registrado.';
@@ -1418,26 +1413,26 @@ export default function App() {
                       return (
                         <div 
                           key={c.id} 
-                          className={`p-5 border rounded-2xl shadow-sm space-y-3 bg-white flex flex-col justify-between ${isPendente ? 'border-rose-300 bg-rose-50/20' : 'border-emerald-300 bg-emerald-50/20'}`}
+                          className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between"
                         >
                           <div onClick={() => handleOpenEditAgenda(c)} className="cursor-pointer space-y-2">
                             <div className="flex justify-between items-start border-b pb-2">
-                              <h4 className="font-bold text-slate-900 text-base">{c.titulo}</h4>
-                              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider ${isPendente ? 'bg-rose-100 text-rose-800 border border-rose-300' : 'bg-emerald-100 text-emerald-800 border border-emerald-300'}`}>
-                                {c.status || 'Pendente'}
+                              <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-800">
+                                Compromisso
                               </span>
                             </div>
                             
                             <div className="text-xs text-slate-600 space-y-1 pt-2 font-semibold">
-                              <div>🗓️ Data: <span className="font-mono text-slate-900 font-bold">{c.data_compromisso}</span></div>
+                              <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
                               <div>⏰ Início: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span> | Fim: <span className="font-mono text-slate-700">{c.hora_fim || '00:00'}</span></div>
                               <div className="flex justify-between items-center">
-                                <span>👤 Responsável: <span className="text-slate-900 font-bold">{membroResp ? membroResp.nome : 'Não vinculado'}</span></span>
+                                <span>👤 Responsável: <span className="text-blue-900 font-bold">{membroResp ? membroResp.nome : 'Não vinculado'}</span></span>
                                 {membroResp && <button onClick={(e) => { e.stopPropagation(); handleOpenEditMemberFromContext(membroResp.id, 'agenda'); }} className="text-[10px] text-blue-700 underline font-bold cursor-pointer">Ver</button>}
                               </div>
                             </div>
 
-                            <div className="pt-2 mt-2 border-t text-xs text-slate-700 bg-white p-3 rounded-xl border border-slate-200">
+                            <div className="pt-2 mt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
                               <strong className="text-slate-900 block mb-1">💬 Comentário / Relatório:</strong>
                               <p className="text-slate-600 italic">{comentarioExibicao}</p>
                             </div>
@@ -1479,19 +1474,15 @@ export default function App() {
                   ))}
                   
                   <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                    {compromissos.map((c: any) => {
-                      const isPendente = (c.status || 'Pendente') === 'Pendente';
-                      return (
-                        <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className={`p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer transition-all border-l-4 ${isPendente ? 'border-l-rose-500' : 'border-l-emerald-500'}`}>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs font-mono font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded">{c.data_compromisso}</span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isPendente ? 'bg-rose-100 text-rose-800' : 'bg-emerald-100 text-emerald-800'}`}>{c.status || 'Pendente'}</span>
-                          </div>
-                          <h4 className="font-bold text-slate-800 text-sm">{c.titulo}</h4>
-                          <p className="text-xs text-slate-600 truncate">{c.descricao}</p>
+                    {compromissos.map((c: any) => (
+                      <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-mono font-bold bg-blue-50 text-blue-900 px-2 py-0.5 rounded">{c.data_compromisso}</span>
                         </div>
-                      );
-                    })}
+                        <h4 className="font-bold text-slate-800 text-sm">{c.titulo}</h4>
+                        <p className="text-xs text-slate-600 truncate">{c.descricao}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1510,28 +1501,19 @@ export default function App() {
                       <tr>
                         <th className="p-3">Data</th>
                         <th className="p-3">Horário</th>
-                        <th className="p-3">Status</th>
                         <th className="p-3">Assunto</th>
                         <th className="p-3">Relatório / Comentário</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
-                      {compromissos.map((c: any) => {
-                        const isPendente = (c.status || 'Pendente') === 'Pendente';
-                        return (
-                          <tr key={c.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-mono font-bold">{c.data_compromisso}</td>
-                            <td className="p-3 font-mono">{c.hora_compromisso} - {c.hora_fim}</td>
-                            <td className="p-3 font-bold">
-                              <span className={isPendente ? 'text-rose-600' : 'text-emerald-700'}>
-                                {c.status || 'Pendente'}
-                              </span>
-                            </td>
-                            <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
-                            <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
-                          </tr>
-                        );
-                      })}
+                      {compromissos.map((c: any) => (
+                        <tr key={c.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-mono font-bold">{c.data_compromisso}</td>
+                          <td className="p-3 font-mono">{c.hora_compromisso} - {c.hora_fim}</td>
+                          <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
+                          <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>
@@ -1911,15 +1893,6 @@ export default function App() {
                   <label className="text-xs font-bold text-slate-600 ml-1">Horário Final</label>
                   <input type="time" value={formAgendaHoraFim} onChange={(e) => setFormAgendaHoraFim(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                 </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Status do Compromisso</label>
-                <select value={formAgendaStatus} onChange={(e) => setFormAgendaStatus(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white font-bold text-slate-700">
-                  <option value="Pendente">Pendente</option>
-                  <option value="Confirmado">Confirmado</option>
-                  <option value="Cumprido">Cumprido</option>
-                </select>
               </div>
 
               <div>

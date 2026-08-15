@@ -250,15 +250,19 @@ export default function App() {
     setFormAgendaStatus('Pendente');
     setShowAgendaModal(true);
   };
-
+  
   const handleOpenEditAgenda = (c: any) => {
     setEditingCompromisso(c);
     setFormAgendaTitulo(c.titulo || '');
     setFormAgendaData(c.data_compromisso || '');
     setFormAgendaHoraInicio(c.hora_compromisso || '');
-    setFormAgendaHoraFim(c.hora_fim || ''); // Agora ele carrega o que foi salvo!
-    setFormAgendaMembroId(c.responsavel || ''); // Aqui ele puxa o responsável corretamente
-    setFormAgendaComentario(c.descricao || '');
+    setFormAgendaHoraFim(c.hora_fim || '');
+    setFormAgendaMembroId(c.responsavel || ''); // CORREÇÃO: Pega o responsável salvo e mantém no select
+    
+    // Extrai o comentário limpo removendo a tag antiga de aviso se houver
+    const descLimpa = c.descricao ? c.descricao.split('—').pop()?.trim() : '';
+    setFormAgendaComentario(descLimpa || c.descricao || '');
+    
     setShowAgendaModal(true);
   };
   chandleSaveAgenda

@@ -454,39 +454,32 @@ export default function App() {
     setFormCelParticipantes(formCelParticipantes.filter(id => id !== membroId));
   };
 
-  const handleSave = async () => {
-    // Converte strings vazias ou seleções nulas/inválidas para null, 
-    // evitando que o banco recuse a foreign key (erro 409).
-    const payload = {
-      nome: nomeCelula,
-      lider_id: liderId && liderId !== "" && liderId !== "Selecione" ? liderId : null,
-      vice_id: viceId && viceId !== "" && viceId !== "Selecione" ? viceId : null,
-      anfitriao_id: anfitriaoId && anfitriaoId !== "" && anfitriaoId !== "Selecione" ? anfitriaoId : null,
-      dia_semana: diaSemana,
-      horario: horario,
-      cep: cep,
-      logradouro: logradouro,
-      numero: numero,
-      bairro: bairro,
-      cidade: cidade
-    };
-  
-    try {
-      const { data, error } = await supabase
-        .from('celulas')
-        .insert([payload]);
-  
-      if (error) {
-        throw error;
-      }
-  
-      alert("Célula salva e interligada com sucesso!");
-      // Limpar o formulário ou atualizar a listagem aqui, se necessário
-    } catch (err: any) {
-      console.error("Erro ao salvar célula:", err);
-      alert(`Erro ao salvar célula: ${err.message || 'Verifique os dados informados.'}`);
+  const handleSaveCelula = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formCelNome.trim()) {
+      alert('O nome da célula é obrigatório.');
+      return;
     }
-  };
+
+    const enderecoCompleto = `${formCelRua}, ${formCelNumero || 'S/N'} - ${formCelBairro}, ${formCelCidade} (CEP: ${formCelCep})`;
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formCelNome.trim(),
+      lider_id: formCelLider && formCelLider !== "" ? formCelLider : null,
+      vice_id: formCelVice && formCelVice !== "" ? formCelVice : null,
+      anfitriao_id: formCelAnfitriao && formCelAnfitriao !== "" ? formCelAnfitriao : null,
+      dia_semana: formCelDia,
+      horario: formCelHora,
+      cep: formCelCep.trim(),
+      rua: formCelRua.trim(),
+      numero: formCelNumero.trim(),
+      bairro: formCelBairro.trim(),
+      cidade: formCelCidade.trim(),
+      endereco: enderecoCompleto,
+      participantes: formCelParticipantes
+    };
+
     try {
       if (editingCelula) {
         const { error } = await supabase.from('celulas').update(payload).eq('id', editingCelula.id);
@@ -715,7 +708,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
-      {/* Marca D'água Otimizada (Centralizada, proporcional e suave) */}
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
         <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
           {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}

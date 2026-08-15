@@ -256,13 +256,11 @@ export default function App() {
     setFormAgendaTitulo(c.titulo || '');
     setFormAgendaData(c.data_compromisso || '');
     setFormAgendaHoraInicio(c.hora_compromisso || '');
-    setFormAgendaHoraFim('');
+    setFormAgendaHoraFim(c.hora_fim || ''); // Agora ele carrega o que foi salvo!
+    setFormAgendaMembroId(c.responsavel || ''); // Aqui ele puxa o responsável corretamente
     setFormAgendaComentario(c.descricao || '');
-    setFormAgendaMembroId('');
-    setFormAgendaStatus('Pendente');
     setShowAgendaModal(true);
   };
-
   chandleSaveAgenda
     try {
       if (editingCompromisso) {
@@ -303,23 +301,33 @@ export default function App() {
     }
   };
 
-  const handleSaveAgenda = async (e: React.FormEvent) => {
+  cconst handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
-      alert('Preencha pelo menos o Assunto e a Data do compromisso.');
-      return;
+    // O payload agora usa as colunas que acabamos de garantir no banco
+    const payload: any = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      titulo: formAgendaTitulo.trim(),
+      data_compromisso: formAgendaData,
+      hora_compromisso: formAgendaHoraInicio || '00:00',
+      hora_fim: formAgendaHoraFim || '00:00', // O campo que restauramos
+      responsavel: formAgendaMembroId,         // O ID do membro responsável pelo controle
+      descricao: `[Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${formAgendaComentario.trim()}`
+    };
+  
+    try {
+      if (editingCompromisso) {
+        await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
+      } else {
+        await supabase.from('agenda_compromissos').insert([payload]);
+      }
+      setShowAgendaModal(false);
+      alert('Compromisso salvo com sucesso!');
+      carregarAgenda(loggedUser.codigo_igreja);
+    } catch (err: any) { 
+      alert('Erro ao salvar: ' + err.message); 
     }
-
-    c// 1. No payload do handleSaveAgenda (Garanta que hora_fim está aqui):
-const payload: any = {
-  codigo_igreja: loggedUser.codigo_igreja,
-  titulo: formAgendaTitulo.trim(),
-  data_compromisso: formAgendaData,
-  hora_compromisso: formAgendaHoraInicio || '00:00',
-  hora_fim: formAgendaHoraFim || '00:00', // RESTAURADO
-  descricao: `[MembroID: ${formAgendaMembroId || ''}] [Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${formAgendaComentario.trim()}`
-};
+  };
 
 // 2. Na interface da Agenda (No seu Main ou Modal):
 // Adicione o campo de Horário Final novamente:

@@ -24,7 +24,9 @@ export default function App() {
   const [loadingMembros, setLoadingMembros] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
+  const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
   const [formStep, setFormStep] = useState<1 | 2>(1);
+  const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
   const [formNome, setFormNome] = useState('');
   const [formTipo, setFormTipo] = useState('Membro');
@@ -70,6 +72,16 @@ export default function App() {
   const [formCelCidade, setFormCelCidade] = useState('');
   const [formCelParticipantes, setFormCelParticipantes] = useState<string[]>([]);
   const [formCelNovoParticipante, setFormCelNovoParticipante] = useState('');
+
+  const [setoresList, setSetoresList] = useState<any[]>([]);
+  const [showSetorModal, setShowSetorModal] = useState(false);
+  const [formSetorNome, setFormSetorNome] = useState('');
+  const [formSetorLider, setFormSetorLider] = useState('');
+
+  const [redesList, setRedesList] = useState<any[]>([]);
+  const [showRedeModal, setShowRedeModal] = useState(false);
+  const [formRedeNome, setFormRedeNome] = useState('');
+  const [formRedeLider, setFormRedeLider] = useState('');
 
   const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
   const [lancamentosCorrente, setLancamentosCorrente] = useState<any[]>([]);
@@ -127,6 +139,16 @@ export default function App() {
     setLoadingCelulas(false);
   };
 
+  const carregarSetores = async (cod: string) => {
+    const { data } = await supabase.from('setores').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    setSetoresList(data || []);
+  };
+
+  const carregarRedes = async (cod: string) => {
+    const { data } = await supabase.from('redes').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    setRedesList(data || []);
+  };
+
   const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
     try {
@@ -165,8 +187,10 @@ export default function App() {
       }
       if (activeTab === 'celulas') {
         carregarCelulas(cod);
+        carregarSetores(cod);
+        carregarRedes(cod);
       }
-      if (activeTab === 'financeiro') {
+      if (activeTab === 'financeiro' || activeTab === 'membros') {
         carregarFinanceiro(cod);
       }
     }
@@ -194,6 +218,21 @@ export default function App() {
     }
   };
 
+  const handleOpenEditMemberFromContext = (mId: string, origemTab: string) => {
+    const m = members.find(item => String(item.id) === String(mId));
+    if (!m) return;
+    setRetornarParaTab(origemTab);
+    handleOpenEditMember(m);
+  };
+
+  const handleCloseMemberModal = () => {
+    setShowMemberModal(false);
+    if (retornarParaTab) {
+      setActiveTab(retornarParaTab as any);
+      setRetornarParaTab(null);
+    }
+  };
+
   const handleOpenNewMember = () => {
     setEditingMember(null);
     setFormNome('');
@@ -207,6 +246,8 @@ export default function App() {
     setFormEndereco('');
     setFormFotoUrl('');
     setFormStep(1);
+    setMemberModalTab('dados');
+    setRetornarParaTab(null);
     setShowMemberModal(true);
   };
 
@@ -223,6 +264,7 @@ export default function App() {
     setFormEndereco(m.endereco || '');
     setFormFotoUrl(m.foto_url || '');
     setFormStep(1);
+    setMemberModalTab('dados');
     setShowMemberModal(true);
   };
 
@@ -255,9 +297,15 @@ export default function App() {
         alert('Membro cadastrado com sucesso!');
       }
 
-      setShowMemberModal(false);
       const { data } = await supabase.from('members').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
       setMembers(data || []);
+
+      const destino = retornarParaTab;
+      setShowMemberModal(false);
+      setRetornarParaTab(null);
+      if (destino) {
+        setActiveTab(destino as any);
+      }
     } catch (err: any) {
       alert('Erro ao salvar membro: ' + err.message);
     }
@@ -458,6 +506,48 @@ export default function App() {
     }
   };
 
+  const handleSaveSetor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formSetorNome.trim()) { alert('Informe o nome do setor.'); return; }
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formSetorNome.trim(),
+      lider_id: formSetorLider || null
+    };
+    try {
+      const { error } = await supabase.from('setores').insert([payload]);
+      if (error) throw error;
+      alert('Setor cadastrado com sucesso!');
+      setShowSetorModal(false);
+      setFormSetorNome('');
+      setFormSetorLider('');
+      carregarSetores(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar setor: ' + err.message);
+    }
+  };
+
+  const handleSaveRede = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formRedeNome.trim()) { alert('Informe o nome da rede.'); return; }
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formRedeNome.trim(),
+      lider_id: formRedeLider || null
+    };
+    try {
+      const { error } = await supabase.from('redes').insert([payload]);
+      if (error) throw error;
+      alert('Rede cadastrada com sucesso!');
+      setShowRedeModal(false);
+      setFormRedeNome('');
+      setFormRedeLider('');
+      carregarRedes(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar rede: ' + err.message);
+    }
+  };
+
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
@@ -491,6 +581,7 @@ export default function App() {
       tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
       valor: parseFloat(formLancValor),
       conta_id: formLancContaId || null,
+      membro_id: editingMember ? editingMember.id : null,
       descricao: formLancObs.trim() || 'Lançamento financeiro'
     };
 
@@ -629,7 +720,7 @@ export default function App() {
               </div>
 
               <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                Células
+                Células / Redes
               </button>
               
               <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
@@ -789,17 +880,19 @@ export default function App() {
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>
-                <h2 className="text-2xl font-bold text-slate-800">🌱 Gestão de Células</h2>
-                <p className="text-xs text-slate-500">Controle de células, líderes, vice-líderes, anfitriões e participantes cadastrados.</p>
+                <h2 className="text-2xl font-bold text-slate-800">🌱 Células, Setores e Redes</h2>
+                <p className="text-xs text-slate-500">Gerenciamento completo de células, setores, redes e relatórios.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
                   <button onClick={() => setCelulasSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Células</button>
-                  <button onClick={() => setCelulasSubTab('relatorio_simples')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_simples' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório Simples</button>
-                  <button onClick={() => setCelulasSubTab('relatorio_completo')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_completo' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório Completo</button>
-                  <button onClick={() => setCelulasSubTab('relatorio_arvore')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_arvore' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🌳 Relatório Árvore</button>
+                  <button onClick={() => setCelulasSubTab('relatorio_simples')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_simples' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Rel. Simples</button>
+                  <button onClick={() => setCelulasSubTab('relatorio_completo')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_completo' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Rel. Completo</button>
+                  <button onClick={() => setCelulasSubTab('relatorio_arvore')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_arvore' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🌳 Árvore</button>
                 </div>
                 <button onClick={handleOpenNewCelula} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Célula</button>
+                <button onClick={() => setShowSetorModal(true)} className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Setor</button>
+                <button onClick={() => setShowRedeModal(true)} className="px-4 py-2 bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Rede</button>
               </div>
             </div>
 
@@ -811,62 +904,128 @@ export default function App() {
             </div>
 
             {celulasSubTab === 'lista' && (
-              <div>
-                {loadingCelulas ? (
-                  <p className="text-center py-6 text-slate-500">Carregando células...</p>
-                ) : celulasList.length === 0 ? (
-                  <p className="text-center py-6 text-slate-400">Nenhuma célula cadastrada.</p>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {celulasList.map((c: any) => {
-                      const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
-                      const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
-                      const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
-                      const totalParticipantes = Array.isArray(c.participantes) ? c.participantes.length : 0;
-                      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco || c.rua || '')}`;
-
-                      return (
-                        <div key={c.id} className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between">
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-start border-b pb-2">
-                              <h4 className="font-bold text-blue-900 text-base">{c.nome}</h4>
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-800">
-                                {c.dia_semana} às {c.horario}
-                              </span>
+              <div className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-2xl border">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                      <span>📁 Setores Cadastrados ({setoresList.length})</span>
+                    </h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {setoresList.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Nenhum setor cadastrado.</p>
+                      ) : (
+                        setoresList.map((s: any) => {
+                          const liderObj = members.find((m: any) => String(m.id) === String(s.lider_id));
+                          return (
+                            <div key={s.id} className="p-3 bg-white border rounded-xl shadow-2xs flex justify-between items-center text-xs">
+                              <div>
+                                <span className="font-bold text-slate-900 text-sm block">{s.nome}</span>
+                                <span className="text-slate-500">Líder: <strong className="text-slate-700">{liderObj ? liderObj.nome : 'Não informado'}</strong></span>
+                              </div>
+                              {liderObj && (
+                                <button onClick={() => handleOpenEditMemberFromContext(liderObj.id, 'celulas')} className="px-2.5 py-1 bg-blue-50 text-blue-800 font-bold rounded-lg hover:bg-blue-100 cursor-pointer">Ver Membro</button>
+                              )}
                             </div>
-
-                            <div className="text-xs text-slate-600 space-y-1 font-semibold pt-1">
-                              <div>👑 Líder: <span className="text-slate-900 font-bold">{liderObj ? liderObj.nome : 'Não informado'}</span></div>
-                              <div>🥈 Vice-Líder: <span className="text-slate-900 font-bold">{viceObj ? viceObj.nome : 'Não informado'}</span></div>
-                              <div>🏠 Anfitrião: <span className="text-slate-900 font-bold">{anfitriaoObj ? anfitriaoObj.nome : 'Não informado'}</span></div>
-                              <div>📍 Endereço: <span className="text-slate-700">{c.endereco || 'Não informado'}</span></div>
-                              <div>👥 Participantes: <span className="text-blue-900 font-bold">{totalParticipantes} cadastrados</span></div>
-                            </div>
-                          </div>
-
-                          <div className="pt-3 border-t flex flex-col gap-2">
-                            <a 
-                              href={googleMapsUrl} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="w-full text-center py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
-                            >
-                              📍 Abrir Localização no Google Maps
-                            </a>
-                            <div className="flex gap-2">
-                              <button onClick={() => handleOpenEditCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
-                                Editar / Detalhes
-                              </button>
-                              <button onClick={() => handleDeleteCelula(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Célula">
-                                Excluir
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-                )}
+
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
+                      <span>🌐 Redes Cadastradas ({redesList.length})</span>
+                    </h3>
+                    <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                      {redesList.length === 0 ? (
+                        <p className="text-xs text-slate-400 italic">Nenhuma rede cadastrada.</p>
+                      ) : (
+                        redesList.map((r: any) => {
+                          const liderObj = members.find((m: any) => String(m.id) === String(r.lider_id));
+                          return (
+                            <div key={r.id} className="p-3 bg-white border rounded-xl shadow-2xs flex justify-between items-center text-xs">
+                              <div>
+                                <span className="font-bold text-slate-900 text-sm block">{r.nome}</span>
+                                <span className="text-slate-500">Líder: <strong className="text-slate-700">{liderObj ? liderObj.nome : 'Não informado'}</strong></span>
+                              </div>
+                              {liderObj && (
+                                <button onClick={() => handleOpenEditMemberFromContext(liderObj.id, 'celulas')} className="px-2.5 py-1 bg-indigo-50 text-indigo-800 font-bold rounded-lg hover:bg-indigo-100 cursor-pointer">Ver Membro</button>
+                              )}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-bold text-slate-800 text-lg mb-4">🌱 Células Cadastradas</h3>
+                  {loadingCelulas ? (
+                    <p className="text-center py-6 text-slate-500">Carregando células...</p>
+                  ) : celulasList.length === 0 ? (
+                    <p className="text-center py-6 text-slate-400">Nenhuma célula cadastrada.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {celulasList.map((c: any) => {
+                        const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
+                        const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
+                        const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
+                        const totalParticipantes = Array.isArray(c.participantes) ? c.participantes.length : 0;
+                        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco || c.rua || '')}`;
+
+                        return (
+                          <div key={c.id} className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between">
+                            <div className="space-y-2">
+                              <div className="flex justify-between items-start border-b pb-2">
+                                <h4 className="font-bold text-blue-900 text-base">{c.nome}</h4>
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                  {c.dia_semana} às {c.horario}
+                                </span>
+                              </div>
+
+                              <div className="text-xs text-slate-600 space-y-1.5 font-semibold pt-1">
+                                <div className="flex justify-between items-center">
+                                  <span>👑 Líder: <span className="text-slate-900 font-bold">{liderObj ? liderObj.nome : 'Não informado'}</span></span>
+                                  {liderObj && <button onClick={() => handleOpenEditMemberFromContext(liderObj.id, 'celulas')} className="text-[10px] text-blue-700 underline font-bold cursor-pointer">Ver</button>}
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span>🥈 Vice-Líder: <span className="text-slate-900 font-bold">{viceObj ? viceObj.nome : 'Não informado'}</span></span>
+                                  {viceObj && <button onClick={() => handleOpenEditMemberFromContext(viceObj.id, 'celulas')} className="text-[10px] text-blue-700 underline font-bold cursor-pointer">Ver</button>}
+                                </div>
+                                <div className="flex justify-between items-center">
+                                  <span>🏠 Anfitrião: <span className="text-slate-900 font-bold">{anfitriaoObj ? anfitriaoObj.nome : 'Não informado'}</span></span>
+                                  {anfitriaoObj && <button onClick={() => handleOpenEditMemberFromContext(anfitriaoObj.id, 'celulas')} className="text-[10px] text-blue-700 underline font-bold cursor-pointer">Ver</button>}
+                                </div>
+                                <div>📍 Endereço: <span className="text-slate-700">{c.endereco || 'Não informado'}</span></div>
+                                <div>👥 Participantes: <span className="text-blue-900 font-bold">{totalParticipantes} cadastrados</span></div>
+                              </div>
+                            </div>
+
+                            <div className="pt-3 border-t flex flex-col gap-2">
+                              <a 
+                                href={googleMapsUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="w-full text-center py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
+                              >
+                                📍 Abrir Localização no Google Maps
+                              </a>
+                              <div className="flex gap-2">
+                                <button onClick={() => handleOpenEditCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
+                                  Editar / Detalhes
+                                </button>
+                                <button onClick={() => handleDeleteCelula(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Célula">
+                                  Excluir
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -883,19 +1042,38 @@ export default function App() {
                         <th className="p-3">Nome da Célula</th>
                         <th className="p-3">Líder</th>
                         <th className="p-3">Anfitrião</th>
-                        <th className="p-3">Endereço</th>
+                        <th className="p-3">Endereço / Localização</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
                       {celulasList.map((c: any) => {
                         const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
                         const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
+                        const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco || c.rua || '')}`;
+
                         return (
                           <tr key={c.id} className="hover:bg-slate-50">
                             <td className="p-3 font-bold text-slate-900">{c.nome}</td>
-                            <td className="p-3">{liderObj ? `${liderObj.nome} (Líder)` : '-'}</td>
-                            <td className="p-3">{anfitriaoObj ? `${anfitriaoObj.nome} (Anfitrião)` : '-'}</td>
-                            <td className="p-3">{c.endereco || '-'}</td>
+                            <td className="p-3">
+                              {liderObj ? (
+                                <button onClick={() => handleOpenEditMemberFromContext(liderObj.id, 'celulas')} className="text-blue-900 font-bold underline cursor-pointer hover:text-blue-700">
+                                  {liderObj.nome} (Líder)
+                                </button>
+                              ) : '-'}
+                            </td>
+                            <td className="p-3">
+                              {anfitriaoObj ? (
+                                <button onClick={() => handleOpenEditMemberFromContext(anfitriaoObj.id, 'celulas')} className="text-blue-900 font-bold underline cursor-pointer hover:text-blue-700">
+                                  {anfitriaoObj.nome} (Anfitrião)
+                                </button>
+                              ) : '-'}
+                            </td>
+                            <td className="p-3 flex items-center justify-between gap-2">
+                              <span>{c.endereco || '-'}</span>
+                              <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded text-[10px] whitespace-nowrap print:hidden">
+                                📍 Mapa
+                              </a>
+                            </td>
                           </tr>
                         );
                       })}
@@ -917,6 +1095,7 @@ export default function App() {
                     const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
                     const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
                     const parts = Array.isArray(c.participantes) ? c.participantes : [];
+                    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco || c.rua || '')}`;
 
                     return (
                       <div key={c.id} className="border p-4 rounded-xl space-y-3 bg-white">
@@ -925,12 +1104,15 @@ export default function App() {
                           <span className="text-xs font-mono font-bold text-slate-600">{parts.length} Participantes</span>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-700">
-                          <div>👑 <strong>Líder:</strong> {liderObj ? `${liderObj.nome} (Líder)` : 'Não definido'}</div>
-                          <div>🥈 <strong>Vice:</strong> {viceObj ? `${viceObj.nome} (Vice-Líder)` : 'Não definido'}</div>
-                          <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? `${anfitriaoObj.nome} (Anfitrião)` : 'Não definido'}</div>
+                          <div>👑 <strong>Líder:</strong> {liderObj ? <button onClick={() => handleOpenEditMemberFromContext(liderObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{liderObj.nome}</button> : 'Não definido'}</div>
+                          <div>🥈 <strong>Vice:</strong> {viceObj ? <button onClick={() => handleOpenEditMemberFromContext(viceObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{viceObj.nome}</button> : 'Não definido'}</div>
+                          <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? <button onClick={() => handleOpenEditMemberFromContext(anfitriaoObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{anfitriaoObj.nome}</button> : 'Não definido'}</div>
                         </div>
-                        <div className="text-xs text-slate-600">
-                          📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}
+                        <div className="text-xs text-slate-600 flex items-center justify-between">
+                          <span>📍 <strong>Endereço:</strong> {c.endereco || 'Not informed'}</span>
+                          <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded text-[10px] print:hidden">
+                            📍 Abrir no Mapa
+                          </a>
                         </div>
                         <div>
                           <strong className="text-xs text-slate-800 block mb-1">👥 Membros Participantes:</strong>
@@ -941,9 +1123,9 @@ export default function App() {
                               {parts.map((pId: string) => {
                                 const mObj = members.find((m: any) => String(m.id) === String(pId));
                                 return (
-                                  <span key={pId} className="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-semibold text-slate-700">
-                                    {mObj ? `${mObj.nome} (Participante)` : 'Membro ID: ' + pId}
-                                  </span>
+                                  <button key={pId} onClick={() => mObj && handleOpenEditMemberFromContext(mObj.id, 'celulas')} className="px-2.5 py-1 bg-slate-100 hover:bg-blue-100 rounded-md text-xs font-semibold text-slate-700 cursor-pointer">
+                                    {mObj ? `${mObj.nome}` : 'Membro ID: ' + pId}
+                                  </button>
                                 );
                               })}
                             </div>
@@ -970,6 +1152,7 @@ export default function App() {
                       const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
                       const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
                       const parts = Array.isArray(c.participantes) ? c.participantes : [];
+                      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco || c.rua || '')}`;
 
                       return (
                         <div key={c.id} className="border-l-4 border-l-emerald-600 bg-white p-4 rounded-xl shadow-xs space-y-2">
@@ -977,11 +1160,16 @@ export default function App() {
                             <h4 className="font-black text-blue-950 text-base">🌱 {c.nome}</h4>
                             <span className="text-xs font-bold bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full">{c.dia_semana} — {c.horario}</span>
                           </div>
-                          <div className="text-xs text-slate-700 pl-4 space-y-1 border-l-2 border-slate-100 ml-2">
-                            <div>👑 <strong>Líder:</strong> {liderObj ? `${liderObj.nome} (Líder)` : 'Não definido'}</div>
-                            <div>🥈 <strong>Vice:</strong> {viceObj ? `${viceObj.nome} (Vice-Líder)` : 'Não definido'}</div>
-                            <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? `${anfitriaoObj.nome} (Anfitrião)` : 'Não definido'}</div>
-                            <div>📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}</div>
+                          <div className="text-xs text-slate-700 pl-4 space-y-1.5 border-l-2 border-slate-100 ml-2">
+                            <div>👑 <strong>Líder:</strong> {liderObj ? <button onClick={() => handleOpenEditMemberFromContext(liderObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{liderObj.nome}</button> : 'Não definido'}</div>
+                            <div>🥈 <strong>Vice:</strong> {viceObj ? <button onClick={() => handleOpenEditMemberFromContext(viceObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{viceObj.nome}</button> : 'Não definido'}</div>
+                            <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? <button onClick={() => handleOpenEditMemberFromContext(anfitriaoObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{anfitriaoObj.nome}</button> : 'Não definido'}</div>
+                            <div className="flex items-center gap-3">
+                              <span>📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}</span>
+                              <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded text-[10px] print:hidden">
+                                📍 Abrir no Mapa
+                              </a>
+                            </div>
                             <div>👥 <strong>Participantes ({parts.length}):</strong> {parts.length === 0 ? 'Nenhum' : parts.map((pId: string) => members.find((m: any) => String(m.id) === String(pId))?.nome).filter(Boolean).join(', ')}</div>
                           </div>
                         </div>
@@ -1223,7 +1411,10 @@ export default function App() {
                             <div className="text-xs text-slate-600 space-y-1 pt-2 font-semibold">
                               <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
                               <div>⏰ Início: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span> | Fim: <span className="font-mono text-slate-700">{c.hora_fim || '00:00'}</span></div>
-                              <div>👤 Responsável: <span className="text-blue-900 font-bold">{membroResp ? membroResp.nome : 'Não vinculado'}</span></div>
+                              <div className="flex justify-between items-center">
+                                <span>👤 Responsável: <span className="text-blue-900 font-bold">{membroResp ? membroResp.nome : 'Não vinculado'}</span></span>
+                                {membroResp && <button onClick={(e) => { e.stopPropagation(); handleOpenEditMemberFromContext(membroResp.id, 'agenda'); }} className="text-[10px] text-blue-700 underline font-bold cursor-pointer">Ver</button>}
+                              </div>
                             </div>
 
                             <div className="pt-2 mt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
@@ -1509,6 +1700,68 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Modal Novo Setor */}
+      {showSetorModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Cadastrar Novo Setor</h3>
+              <button onClick={() => setShowSetorModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+            </div>
+            <form onSubmit={handleSaveSetor} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome do Setor *</label>
+                <input type="text" required value={formSetorNome} onChange={(e) => setFormSetorNome(e.target.value)} placeholder="Ex: Setor Centro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Líder do Setor</label>
+                <select value={formSetorLider} onChange={(e) => setFormSetorLider(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                  <option value="">Selecione o líder...</option>
+                  {members.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.nome}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowSetorModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Setor</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Nova Rede */}
+      {showRedeModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Cadastrar Nova Rede</h3>
+              <button onClick={() => setShowRedeModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+            </div>
+            <form onSubmit={handleSaveRede} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome da Rede *</label>
+                <input type="text" required value={formRedeNome} onChange={(e) => setFormRedeNome(e.target.value)} placeholder="Ex: Rede de Casais" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Líder da Rede</label>
+                <select value={formRedeLider} onChange={(e) => setFormRedeLider(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                  <option value="">Selecione o líder...</option>
+                  {members.map((m: any) => (
+                    <option key={m.id} value={m.id}>{m.nome}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowRedeModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Rede</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showLancamentoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1814,106 +2067,164 @@ export default function App() {
 
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <h3 className="text-lg font-black text-blue-900">
-                  {editingMember ? 'Alterar Cadastro de Membro' : 'Novo Cadastro de Membro'}
+                  {editingMember ? `Ficha do Membro: ${editingMember.nome}` : 'Novo Cadastro de Membro'}
                 </h3>
-                <p className="text-xs text-slate-400">Etapa {formStep} de 2 — {formStep === 1 ? 'Dados Principais & Foto' : 'Documentos & Contato'}</p>
+                {editingMember && (
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => setMemberModalTab('dados')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'dados' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>📁 Dados Cadastrais</button>
+                    <button onClick={() => setMemberModalTab('financeiro')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'financeiro' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>💰 Financeiro (Conta Corrente)</button>
+                  </div>
+                )}
               </div>
-              <button onClick={() => setShowMemberModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+              <button onClick={handleCloseMemberModal} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
             </div>
 
-            <form onSubmit={handleSaveMember} className="space-y-4">
-              {formStep === 1 ? (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
-                    <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
-                      {formFotoUrl ? (
-                        <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xs font-bold text-slate-400">Foto</span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <label className="text-xs font-bold text-slate-600 ml-1">URL da Foto do Membro</label>
-                      <input type="url" value={formFotoUrl} onChange={(e) => setFormFotoUrl(e.target.value)} placeholder="https://exemplo.com/foto.jpg" className="w-full rounded-xl border p-2.5 text-sm mt-1 focus:outline-none focus:border-blue-900" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
-                    <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
-                      <select value={formTipo} onChange={(e) => setFormTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
-                        <option value="Membro">Membro</option>
-                        <option value="Congregado">Congregado</option>
-                        <option value="Visitante">Visitante</option>
-                        <option value="Liderança">Liderança</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
-                      <select value={formEstadoCivil} onChange={(e) => setFormEstadoCivil(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
-                        <option value="Solteiro(a)">Solteiro(a)</option>
-                        <option value="Casado(a)">Casado(a)</option>
-                        <option value="Divorciado(a)">Divorciado(a)</option>
-                        <option value="Viúvo(a)">Viúvo(a)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4 border-t">
-                    <button type="button" onClick={() => setFormStep(2)} className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl cursor-pointer">Avançar para Próxima Tela ➔</button>
-                  </div>
+            {memberModalTab === 'financeiro' && editingMember ? (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="font-bold text-slate-800 text-base">Extrato Financeiro Individual</h4>
+                  <button onClick={() => setShowLancamentoModal(true)} className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer">+ Novo Lançamento</button>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
-                      <input type="text" value={formCpf} onChange={(e) => setFormCpf(e.target.value)} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
-                      <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
-                      <input type="date" value={formNascimento} onChange={(e) => setFormNascimento(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                      <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
-                      <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
-                  </div>
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Débito (Saída)</th>
+                        <th className="p-3">Crédito (Entrada)</th>
+                        <th className="p-3">Descrição</th>
+                        <th className="p-3">Saldo</th>
+                        <th className="p-3 text-center">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {(() => {
+                        const lancsDoMembro = lancamentosCorrente.filter((l: any) => String(l.membro_id) === String(editingMember.id));
+                        let saldoMembro = 0;
+                        const comSaldo = lancsDoMembro.map((l: any) => {
+                          const val = parseFloat(l.valor || 0);
+                          const isCred = l.tipo === 'entrada';
+                          if (isCred) saldoMembro += val; else saldoMembro -= val;
+                          return { ...l, isCred, valorNum: val, saldoAtual: saldoMembro };
+                        });
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
-                    <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                  </div>
+                        if (comSaldo.length === 0) {
+                          return <tr><td colSpan={6} className="py-6 text-center text-slate-400">Nenhum lançamento financeiro vinculado a este membro.</td></tr>;
+                        }
 
-                  <div className="flex justify-between items-center pt-4 border-t">
-                    <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
-                    <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
-                      {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}
-                    </button>
-                  </div>
+                        return comSaldo.map((l: any) => (
+                          <tr key={l.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono">{l.data_lancamento}</td>
+                            <td className="p-3 font-mono font-bold text-rose-600">{!l.isCred ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                            <td className="p-3 font-mono font-bold text-emerald-600">{l.isCred ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                            <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                            <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
+                            <td className="p-3 text-center">
+                              <button onClick={() => handleDeleteLancamento(l.id)} className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded text-[10px] cursor-pointer">Excluir</button>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-            </form>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveMember} className="space-y-4">
+                {formStep === 1 ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
+                      <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
+                        {formFotoUrl ? (
+                          <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">Foto</span>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-xs font-bold text-slate-600 ml-1">URL da Foto do Membro</label>
+                        <input type="url" value={formFotoUrl} onChange={(e) => setFormFotoUrl(e.target.value)} placeholder="https://exemplo.com/foto.jpg" className="w-full rounded-xl border p-2.5 text-sm mt-1 focus:outline-none focus:border-blue-900" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
+                      <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
+                        <select value={formTipo} onChange={(e) => setFormTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                          <option value="Membro">Membro</option>
+                          <option value="Congregado">Congregado</option>
+                          <option value="Visitante">Visitante</option>
+                          <option value="Liderança">Liderança</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
+                        <select value={formEstadoCivil} onChange={(e) => setFormEstadoCivil(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                          <option value="Solteiro(a)">Solteiro(a)</option>
+                          <option value="Casado(a)">Casado(a)</option>
+                          <option value="Divorciado(a)">Divorciado(a)</option>
+                          <option value="Viúvo(a)">Viúvo(a)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4 border-t">
+                      <button type="button" onClick={() => setFormStep(2)} className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl cursor-pointer">Avançar para Próxima Tela ➔</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
+                        <input type="text" value={formCpf} onChange={(e) => setFormCpf(e.target.value)} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
+                        <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
+                        <input type="date" value={formNascimento} onChange={(e) => setFormNascimento(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
+                        <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
+                        <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
+                      <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+
+                    <div className="flex justify-between items-center pt-4 border-t">
+                      <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
+                      <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
+                        {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </form>
+            )}
           </div>
         </div>
       )}

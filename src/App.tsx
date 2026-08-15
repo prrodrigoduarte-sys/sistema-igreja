@@ -497,26 +497,6 @@ export default function App() {
     }
   };
 
-  const handleDeleteCelula = async (celulaId: string) => {
-    const senhaInformada = prompt('Digite a senha de administrador para excluir esta célula:');
-    if (!senhaInformada) return;
-
-    if (senhaInformada !== loggedUser.senha) {
-      alert('Senha de administrador incorreta. Exclusão cancelada.');
-      return;
-    }
-
-    try {
-      const { error } = await supabase.from('celulas').delete().eq('id', celulaId);
-      if (error) throw error;
-      alert('Célula excluída com sucesso!');
-      setShowCelulaModal(false);
-      carregarCelulas(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao excluir célula: ' + err.message);
-    }
-  };
-
   const handleSaveSetor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formSetorNome.trim()) { alert('Informe o nome do setor.'); return; }
@@ -556,6 +536,49 @@ export default function App() {
       carregarRedes(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar rede: ' + err.message);
+    }
+  };
+
+  const handleSaveCelula = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formCelNome.trim()) {
+      alert('O nome da célula é obrigatório.');
+      return;
+    }
+
+    const enderecoCompleto = `${formCelRua}, ${formCelNumero || 'S/N'} - ${formCelBairro}, ${formCelCidade} (CEP: ${formCelCep})`;
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formCelNome.trim(),
+      lider_id: formCelLider && formCelLider !== "" ? parseInt(formCelLider, 10) : null,
+      vice_id: formCelVice && formCelVice !== "" ? parseInt(formCelVice, 10) : null,
+      anfitriao_id: formCelAnfitriao && formCelAnfitriao !== "" ? parseInt(formCelAnfitriao, 10) : null,
+      dia_semana: formCelDia,
+      horario: formCelHora,
+      cep: formCelCep.trim(),
+      rua: formCelRua.trim(),
+      numero: formCelNumero.trim(),
+      bairro: formCelBairro.trim(),
+      cidade: formCelCidade.trim(),
+      endereco: enderecoCompleto,
+      participantes: formCelParticipantes
+    };
+
+    try {
+      if (editingCelula) {
+        const { error } = await supabase.from('celulas').update(payload).eq('id', editingCelula.id);
+        if (error) throw error;
+        alert('Célula atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('celulas').insert([payload]);
+        if (error) throw error;
+        alert('Célula cadastrada com sucesso!');
+      }
+      setShowCelulaModal(false);
+      carregarCelulas(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar célula: ' + err.message);
     }
   };
     try {

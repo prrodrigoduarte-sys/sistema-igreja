@@ -12,7 +12,7 @@ export default function App() {
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
   
-  const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo'>('lista');
+  const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
@@ -63,7 +63,11 @@ export default function App() {
   const [formCelAnfitriao, setFormCelAnfitriao] = useState('');
   const [formCelDia, setFormCelDia] = useState('Quarta-feira');
   const [formCelHora, setFormCelHora] = useState('19:30');
-  const [formCelEndereco, setFormCelEndereco] = useState('');
+  const [formCelCep, setFormCelCep] = useState('');
+  const [formCelRua, setFormCelRua] = useState('');
+  const [formCelNumero, setFormCelNumero] = useState('');
+  const [formCelBairro, setFormCelBairro] = useState('');
+  const [formCelCidade, setFormCelCidade] = useState('');
   const [formCelParticipantes, setFormCelParticipantes] = useState<string[]>([]);
   const [formCelNovoParticipante, setFormCelNovoParticipante] = useState('');
 
@@ -168,6 +172,27 @@ export default function App() {
     }
     carregarDados();
   }, [isLoggedIn, activeTab, loggedUser]);
+
+  const handleBuscarCep = async () => {
+    const cepLimpo = formCelCep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) {
+      alert('Digite um CEP válido com 8 dígitos.');
+      return;
+    }
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        alert('CEP não encontrado.');
+        return;
+      }
+      setFormCelRua(data.logradouro || '');
+      setFormCelBairro(data.bairro || '');
+      setFormCelCidade(data.localidade || '');
+    } catch (err) {
+      alert('Erro ao buscar o CEP.');
+    }
+  };
 
   const handleOpenNewMember = () => {
     setEditingMember(null);
@@ -321,7 +346,11 @@ export default function App() {
     setFormCelAnfitriao('');
     setFormCelDia('Quarta-feira');
     setFormCelHora('19:30');
-    setFormCelEndereco('');
+    setFormCelCep('');
+    setFormCelRua('');
+    setFormCelNumero('');
+    setFormCelBairro('');
+    setFormCelCidade('');
     setFormCelParticipantes([]);
     setFormCelNovoParticipante('');
     setShowCelulaModal(true);
@@ -335,7 +364,11 @@ export default function App() {
     setFormCelAnfitriao(c.anfitriao_id || '');
     setFormCelDia(c.dia_semana || 'Quarta-feira');
     setFormCelHora(c.horario || '19:30');
-    setFormCelEndereco(c.endereco || '');
+    setFormCelCep(c.cep || '');
+    setFormCelRua(c.rua || '');
+    setFormCelNumero(c.numero || '');
+    setFormCelBairro(c.bairro || '');
+    setFormCelCidade(c.cidade || '');
     setFormCelParticipantes(Array.isArray(c.participantes) ? c.participantes : []);
     setFormCelNovoParticipante('');
     setShowCelulaModal(true);
@@ -344,13 +377,11 @@ export default function App() {
   const handleAddParticipante = () => {
     if (!formCelNovoParticipante) return;
     
-    // Verifica se já está selecionado como Líder, Vice ou Anfitrião
     if (formCelNovoParticipante === formCelLider || formCelNovoParticipante === formCelVice || formCelNovoParticipante === formCelAnfitriao) {
       alert('Já relacionado com função, insira outro novo.');
       return;
     }
 
-    // Verifica repetição na lista de participantes
     if (formCelParticipantes.includes(formCelNovoParticipante)) {
       alert('Este membro já está adicionado na célula.');
       return;
@@ -371,6 +402,8 @@ export default function App() {
       return;
     }
 
+    const enderecoCompleto = `${formCelRua}, ${formCelNumero || 'S/N'} - ${formCelBairro}, ${formCelCidade} (CEP: ${formCelCep})`;
+
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formCelNome.trim(),
@@ -379,7 +412,12 @@ export default function App() {
       anfitriao_id: formCelAnfitriao || null,
       dia_semana: formCelDia,
       horario: formCelHora,
-      endereco: formCelEndereco.trim(),
+      cep: formCelCep.trim(),
+      rua: formCelRua.trim(),
+      numero: formCelNumero.trim(),
+      bairro: formCelBairro.trim(),
+      cidade: formCelCidade.trim(),
+      endereco: enderecoCompleto,
       participantes: formCelParticipantes
     };
 
@@ -759,6 +797,7 @@ export default function App() {
                   <button onClick={() => setCelulasSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Células</button>
                   <button onClick={() => setCelulasSubTab('relatorio_simples')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_simples' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório Simples</button>
                   <button onClick={() => setCelulasSubTab('relatorio_completo')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_completo' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório Completo</button>
+                  <button onClick={() => setCelulasSubTab('relatorio_arvore')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_arvore' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🌳 Relatório Árvore</button>
                 </div>
                 <button onClick={handleOpenNewCelula} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Célula</button>
               </div>
@@ -767,7 +806,7 @@ export default function App() {
             <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
               <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
               <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">
-                {celulasSubTab === 'relatorio_simples' ? 'Relatório Simples de Células' : 'Relatório Completo de Células'}
+                {celulasSubTab === 'relatorio_simples' ? 'Relatório Simples de Células' : celulasSubTab === 'relatorio_completo' ? 'Relatório Completo de Células' : 'Relatório Árvore (Ordem Alfabética)'}
               </p>
             </div>
 
@@ -784,6 +823,7 @@ export default function App() {
                       const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
                       const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
                       const totalParticipantes = Array.isArray(c.participantes) ? c.participantes.length : 0;
+                      const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco || c.rua || '')}`;
 
                       return (
                         <div key={c.id} className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between">
@@ -804,13 +844,23 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="pt-3 border-t flex gap-2">
-                            <button onClick={() => handleOpenEditCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
-                              Editar / Detalhes
-                            </button>
-                            <button onClick={() => handleDeleteCelula(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Célula">
-                              Excluir
-                            </button>
+                          <div className="pt-3 border-t flex flex-col gap-2">
+                            <a 
+                              href={googleMapsUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="w-full text-center py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
+                            >
+                              📍 Abrir Localização no Google Maps
+                            </a>
+                            <div className="flex gap-2">
+                              <button onClick={() => handleOpenEditCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
+                                Editar / Detalhes
+                              </button>
+                              <button onClick={() => handleDeleteCelula(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Célula">
+                                Excluir
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -902,6 +952,41 @@ export default function App() {
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {celulasSubTab === 'relatorio_arvore' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center print:hidden">
+                  <h3 className="font-bold text-slate-800 text-lg">🌳 Relatório Árvore (Células em Ordem Alfabética)</h3>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Relatório Árvore</button>
+                </div>
+                <div className="space-y-4">
+                  {[...celulasList]
+                    .sort((a, b) => (a.nome || '').localeCompare(b.nome || ''))
+                    .map((c: any) => {
+                      const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
+                      const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
+                      const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
+                      const parts = Array.isArray(c.participantes) ? c.participantes : [];
+
+                      return (
+                        <div key={c.id} className="border-l-4 border-l-emerald-600 bg-white p-4 rounded-xl shadow-xs space-y-2">
+                          <div className="flex justify-between items-center border-b pb-1">
+                            <h4 className="font-black text-blue-950 text-base">🌱 {c.nome}</h4>
+                            <span className="text-xs font-bold bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-full">{c.dia_semana} — {c.horario}</span>
+                          </div>
+                          <div className="text-xs text-slate-700 pl-4 space-y-1 border-l-2 border-slate-100 ml-2">
+                            <div>👑 <strong>Líder:</strong> {liderObj ? `${liderObj.nome} (Líder)` : 'Não definido'}</div>
+                            <div>🥈 <strong>Vice:</strong> {viceObj ? `${viceObj.nome} (Vice-Líder)` : 'Não definido'}</div>
+                            <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? `${anfitriaoObj.nome} (Anfitrião)` : 'Não definido'}</div>
+                            <div>📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}</div>
+                            <div>👥 <strong>Participantes ({parts.length}):</strong> {parts.length === 0 ? 'Nenhum' : parts.map((pId: string) => members.find((m: any) => String(m.id) === String(pId))?.nome).filter(Boolean).join(', ')}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -1644,9 +1729,39 @@ export default function App() {
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Endereço da Célula</label>
-                <input type="text" value={formCelEndereco} onChange={(e) => setFormCelEndereco(e.target.value)} placeholder="Rua, número, bairro..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              <div className="p-4 bg-slate-50 border rounded-2xl space-y-3">
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Endereço da Célula & CEP</h4>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="text-[11px] font-bold text-slate-500 ml-1">CEP</label>
+                    <input type="text" value={formCelCep} onChange={(e) => setFormCelCep(e.target.value)} placeholder="00000-000" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 font-mono" />
+                  </div>
+                  <div className="flex items-end">
+                    <button type="button" onClick={handleBuscarCep} className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer">Buscar CEP</button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="text-[11px] font-bold text-slate-500 ml-1">Rua / Logradouro</label>
+                    <input type="text" value={formCelRua} onChange={(e) => setFormCelRua(e.target.value)} placeholder="Nome da rua" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 ml-1">Número</label>
+                    <input type="text" value={formCelNumero} onChange={(e) => setFormCelNumero(e.target.value)} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 ml-1">Bairro</label>
+                    <input type="text" value={formCelBairro} onChange={(e) => setFormCelBairro(e.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 ml-1">Cidade</label>
+                    <input type="text" value={formCelCidade} onChange={(e) => setFormCelCidade(e.target.value)} placeholder="Cidade" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2 border-t pt-4">
@@ -1766,7 +1881,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
-                      <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} className="00.000.000-0" placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" value={formRg} onChange={(e) => setFormRg(e.target.value)} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>

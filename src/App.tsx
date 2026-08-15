@@ -5,12 +5,14 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro' | 'igreja'>('relatorios');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
+  
+  const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo'>('lista');
 
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
@@ -49,6 +51,21 @@ export default function App() {
   const [formAgendaComentario, setFormAgendaComentario] = useState('');
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
   const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
+
+  const [celulasList, setCelulasList] = useState<any[]>([]);
+  const [loadingCelulas, setLoadingCelulas] = useState(false);
+  const [showCelulaModal, setShowCelulaModal] = useState(false);
+  const [editingCelula, setEditingCelula] = useState<any>(null);
+
+  const [formCelNome, setFormCelNome] = useState('');
+  const [formCelLider, setFormCelLider] = useState('');
+  const [formCelVice, setFormCelVice] = useState('');
+  const [formCelAnfitriao, setFormCelAnfitriao] = useState('');
+  const [formCelDia, setFormCelDia] = useState('Quarta-feira');
+  const [formCelHora, setFormCelHora] = useState('19:30');
+  const [formCelEndereco, setFormCelEndereco] = useState('');
+  const [formCelParticipantes, setFormCelParticipantes] = useState<string[]>([]);
+  const [formCelNovoParticipante, setFormCelNovoParticipante] = useState('');
 
   const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
   const [lancamentosCorrente, setLancamentosCorrente] = useState<any[]>([]);
@@ -99,6 +116,13 @@ export default function App() {
     setLoadingAgenda(false);
   };
 
+  const carregarCelulas = async (cod: string) => {
+    setLoadingCelulas(true);
+    const { data } = await supabase.from('celulas').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    setCelulasList(data || []);
+    setLoadingCelulas(false);
+  };
+
   const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
     try {
@@ -134,6 +158,9 @@ export default function App() {
       }
       if (activeTab === 'agenda') {
         carregarAgenda(cod);
+      }
+      if (activeTab === 'celulas') {
+        carregarCelulas(cod);
       }
       if (activeTab === 'financeiro') {
         carregarFinanceiro(cod);
@@ -239,7 +266,6 @@ export default function App() {
 
   const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
       alert('Preencha pelo menos o Título e a Data do compromisso.');
       return;
@@ -284,6 +310,104 @@ export default function App() {
       carregarAgenda(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao excluir compromisso: ' + err.message);
+    }
+  };
+
+  const handleOpenNewCelula = () => {
+    setEditingCelula(null);
+    setFormCelNome('');
+    setFormCelLider('');
+    setFormCelVice('');
+    setFormCelAnfitriao('');
+    setFormCelDia('Quarta-feira');
+    setFormCelHora('19:30');
+    setFormCelEndereco('');
+    setFormCelParticipantes([]);
+    setFormCelNovoParticipante('');
+    setShowCelulaModal(true);
+  };
+
+  const handleOpenEditCelula = (c: any) => {
+    setEditingCelula(c);
+    setFormCelNome(c.nome || '');
+    setFormCelLider(c.lider_id || '');
+    setFormCelVice(c.vice_id || '');
+    setFormCelAnfitriao(c.anfitriao_id || '');
+    setFormCelDia(c.dia_semana || 'Quarta-feira');
+    setFormCelHora(c.horario || '19:30');
+    setFormCelEndereco(c.endereco || '');
+    setFormCelParticipantes(Array.isArray(c.participantes) ? c.participantes : []);
+    setFormCelNovoParticipante('');
+    setShowCelulaModal(true);
+  };
+
+  const handleAddParticipante = () => {
+    if (!formCelNovoParticipante) return;
+    if (formCelParticipantes.includes(formCelNovoParticipante)) {
+      alert('Este membro já está adicionado na célula.');
+      return;
+    }
+    setFormCelParticipantes([...formCelParticipantes, formCelNovoParticipante]);
+    setFormCelNovoParticipante('');
+  };
+
+  const handleRemoveParticipante = (membroId: string) => {
+    setFormCelParticipantes(formCelParticipantes.filter(id => id !== membroId));
+  };
+
+  const handleSaveCelula = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formCelNome.trim()) {
+      alert('O nome da célula é obrigatório.');
+      return;
+    }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formCelNome.trim(),
+      lider_id: formCelLider || null,
+      vice_id: formCelVice || null,
+      anfitriao_id: formCelAnfitriao || null,
+      dia_semana: formCelDia,
+      horario: formCelHora,
+      endereco: formCelEndereco.trim(),
+      participantes: formCelParticipantes
+    };
+
+    try {
+      if (editingCelula) {
+        const { error } = await supabase.from('celulas').update(payload).eq('id', editingCelula.id);
+        if (error) throw error;
+        alert('Célula atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('celulas').insert([payload]);
+        if (error) throw error;
+        alert('Célula cadastrada com sucesso!');
+      }
+      setShowCelulaModal(false);
+      carregarCelulas(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar célula: ' + err.message);
+    }
+  };
+
+  const handleDeleteCelula = async (celulaId: string) => {
+    const senhaInformada = prompt('Digite a senha de administrador para excluir esta célula:');
+    if (!senhaInformada) return;
+
+    if (senhaInformada !== loggedUser.senha) {
+      alert('Senha de administrador incorreta. Exclusão cancelada.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('celulas').delete().eq('id', celulaId);
+      if (error) throw error;
+      alert('Célula excluída com sucesso!');
+      setShowCelulaModal(false);
+      carregarCelulas(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao excluir célula: ' + err.message);
     }
   };
 
@@ -457,7 +581,9 @@ export default function App() {
                 )}
               </div>
 
-              <button className="hover:text-blue-900 cursor-pointer flex items-center gap-1">Células <span className="text-xs text-slate-400">∨</span></button>
+              <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+                Células
+              </button>
               
               <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Agenda <span className="text-xs text-slate-400">∨</span>
@@ -607,6 +733,167 @@ export default function App() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'celulas' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">🌱 Gestão de Células</h2>
+                <p className="text-xs text-slate-500">Controle de células, líderes, vice-líderes, anfitriões e participantes cadastrados.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl">
+                  <button onClick={() => setCelulasSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Células</button>
+                  <button onClick={() => setCelulasSubTab('relatorio_simples')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_simples' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório Simples</button>
+                  <button onClick={() => setCelulasSubTab('relatorio_completo')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_completo' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório Completo</button>
+                </div>
+                <button onClick={handleOpenNewCelula} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Célula</button>
+              </div>
+            </div>
+
+            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
+              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
+              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">
+                {celulasSubTab === 'relatorio_simples' ? 'Relatório Simples de Células' : 'Relatório Completo de Células'}
+              </p>
+            </div>
+
+            {celulasSubTab === 'lista' && (
+              <div>
+                {loadingCelulas ? (
+                  <p className="text-center py-6 text-slate-500">Carregando células...</p>
+                ) : celulasList.length === 0 ? (
+                  <p className="text-center py-6 text-slate-400">Nenhuma célula cadastrada.</p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {celulasList.map((c: any) => {
+                      const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
+                      const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
+                      const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
+                      const totalParticipantes = Array.isArray(c.participantes) ? c.participantes.length : 0;
+
+                      return (
+                        <div key={c.id} className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-start border-b pb-2">
+                              <h4 className="font-bold text-blue-900 text-base">{c.nome}</h4>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-800">
+                                {c.dia_semana} às {c.horario}
+                              </span>
+                            </div>
+
+                            <div className="text-xs text-slate-600 space-y-1 font-semibold pt-1">
+                              <div>👑 Líder: <span className="text-slate-900 font-bold">{liderObj ? liderObj.nome : 'Não informado'}</span></div>
+                              <div>🥈 Vice-Líder: <span className="text-slate-900 font-bold">{viceObj ? viceObj.nome : 'Não informado'}</span></div>
+                              <div>🏠 Anfitrião: <span className="text-slate-900 font-bold">{anfitriaoObj ? anfitriaoObj.nome : 'Não informado'}</span></div>
+                              <div>📍 Endereço: <span className="text-slate-700">{c.endereco || 'Não informado'}</span></div>
+                              <div>👥 Participantes: <span className="text-blue-900 font-bold">{totalParticipantes} cadastrados</span></div>
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t flex gap-2">
+                            <button onClick={() => handleOpenEditCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
+                              Editar / Detalhes
+                            </button>
+                            <button onClick={() => handleDeleteCelula(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Célula">
+                              Excluir
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {celulasSubTab === 'relatorio_simples' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center print:hidden">
+                  <h3 className="font-bold text-slate-800 text-lg">Relatório Simples (Nome, Líder, Anfitrião e Endereço)</h3>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Relatório</button>
+                </div>
+                <div className="overflow-x-auto border rounded-xl print:border-none">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                      <tr>
+                        <th className="p-3">Nome da Célula</th>
+                        <th className="p-3">Líder</th>
+                        <th className="p-3">Anfitrião</th>
+                        <th className="p-3">Endereço</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {celulasList.map((c: any) => {
+                        const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
+                        const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold text-slate-900">{c.nome}</td>
+                            <td className="p-3">{liderObj ? liderObj.nome : '-'}</td>
+                            <td className="p-3">{anfitriaoObj ? anfitriaoObj.nome : '-'}</td>
+                            <td className="p-3">{c.endereco || '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {celulasSubTab === 'relatorio_completo' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center print:hidden">
+                  <h3 className="font-bold text-slate-800 text-lg">Relatório Completo (Incluindo Vice e Lista de Participantes)</h3>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Relatório</button>
+                </div>
+                <div className="space-y-4">
+                  {celulasList.map((c: any) => {
+                    const liderObj = members.find((m: any) => String(m.id) === String(c.lider_id));
+                    const viceObj = members.find((m: any) => String(m.id) === String(c.vice_id));
+                    const anfitriaoObj = members.find((m: any) => String(m.id) === String(c.anfitriao_id));
+                    const parts = Array.isArray(c.participantes) ? c.participantes : [];
+
+                    return (
+                      <div key={c.id} className="border p-4 rounded-xl space-y-3 bg-white">
+                        <div className="flex justify-between border-b pb-2">
+                          <h4 className="font-bold text-blue-900 text-base">{c.nome} ({c.dia_semana} às {c.horario})</h4>
+                          <span className="text-xs font-mono font-bold text-slate-600">{parts.length} Participantes</span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-700">
+                          <div>👑 <strong>Líder:</strong> {liderObj ? liderObj.nome : 'Não definido'}</div>
+                          <div>🥈 <strong>Vice:</strong> {viceObj ? viceObj.nome : 'Não definido'}</div>
+                          <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? anfitriaoObj.nome : 'Não definido'}</div>
+                        </div>
+                        <div className="text-xs text-slate-600">
+                          📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}
+                        </div>
+                        <div>
+                          <strong className="text-xs text-slate-800 block mb-1">👥 Membros Participantes:</strong>
+                          {parts.length === 0 ? (
+                            <p className="text-xs text-slate-400 italic">Nenhum participante adicionado.</p>
+                          ) : (
+                            <div className="flex flex-wrap gap-1">
+                              {parts.map((pId: string) => {
+                                const mObj = members.find((m: any) => String(m.id) === String(pId));
+                                return (
+                                  <span key={pId} className="px-2 py-0.5 bg-slate-100 rounded-md text-xs font-semibold text-slate-700">
+                                    {mObj ? mObj.nome : 'Membro ID: ' + pId}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
@@ -1283,6 +1570,124 @@ export default function App() {
         </div>
       )}
 
+      {showCelulaModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">
+                {editingCelula ? 'Alterar Célula' : 'Nova Célula'}
+              </h3>
+              <button onClick={() => setShowCelulaModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+            </div>
+
+            <form onSubmit={handleSaveCelula} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome da Célula *</label>
+                <input type="text" required value={formCelNome} onChange={(e) => setFormCelNome(e.target.value)} placeholder="Ex: Célula Betel" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Líder (Membro Cadastrado)</label>
+                  <select value={formCelLider} onChange={(e) => setFormCelLider(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                    <option value="">Selecione o líder...</option>
+                    {members.map((m: any) => (
+                      <option key={m.id} value={m.id}>{m.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Vice-Líder (Membro Cadastrado)</label>
+                  <select value={formCelVice} onChange={(e) => setFormCelVice(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                    <option value="">Selecione o vice...</option>
+                    {members.map((m: any) => (
+                      <option key={m.id} value={m.id}>{m.nome}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Anfitrião (Membro Cadastrado)</label>
+                  <select value={formCelAnfitriao} onChange={(e) => setFormCelAnfitriao(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                    <option value="">Selecione o anfitrião...</option>
+                    {members.map((m: any) => (
+                      <option key={m.id} value={m.id}>{m.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Dia da Semana</label>
+                  <select value={formCelDia} onChange={(e) => setFormCelDia(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                    <option value="Segunda-feira">Segunda-feira</option>
+                    <option value="Terça-feira">Terça-feira</option>
+                    <option value="Quarta-feira">Quarta-feira</option>
+                    <option value="Quinta-feira">Quinta-feira</option>
+                    <option value="Sexta-feira">Sexta-feira</option>
+                    <option value="Sábado">Sábado</option>
+                    <option value="Domingo">Domingo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Horário</label>
+                  <input type="time" value={formCelHora} onChange={(e) => setFormCelHora(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Endereço da Célula</label>
+                <input type="text" value={formCelEndereco} onChange={(e) => setFormCelEndereco(e.target.value)} placeholder="Rua, número, bairro..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <label className="text-xs font-bold text-slate-700 block">Participantes da Célula (Vincular Membros)</label>
+                <div className="flex gap-2">
+                  <select value={formCelNovoParticipante} onChange={(e) => setFormCelNovoParticipante(e.target.value)} className="flex-1 rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900">
+                    <option value="">Selecione um membro para adicionar...</option>
+                    {members.map((m: any) => (
+                      <option key={m.id} value={m.id}>{m.nome}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={handleAddParticipante} className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer">Adicionar</button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formCelParticipantes.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Nenhum participante adicionado ainda.</p>
+                  ) : (
+                    formCelParticipantes.map((pId) => {
+                      const mObj = members.find((m: any) => String(m.id) === String(pId));
+                      return (
+                        <span key={pId} className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 border rounded-xl text-xs font-bold text-slate-700">
+                          {mObj ? mObj.nome : 'Membro ID: ' + pId}
+                          <button type="button" onClick={() => handleRemoveParticipante(pId)} className="text-rose-600 hover:text-rose-800 font-black cursor-pointer">✕</button>
+                        </span>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-4 border-t">
+                {editingCelula ? (
+                  <button type="button" onClick={() => handleDeleteCelula(editingCelula.id)} className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer">
+                    Excluir Célula
+                  </button>
+                ) : <div />}
+
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowCelulaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                  <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
+                    {editingCelula ? 'Salvar Alterações' : 'Salvar Célula'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -1367,7 +1772,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
-                      <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="valEmail@exemplo.com" placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                   </div>
 

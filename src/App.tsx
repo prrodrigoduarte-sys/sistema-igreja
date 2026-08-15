@@ -19,6 +19,7 @@ export default function App() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   const [members, setMembers] = useState<any[]>([]);
+  const [selecionados, setSelecionados] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingMembros, setLoadingMembros] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
@@ -309,6 +310,22 @@ export default function App() {
     e.preventDefault();
     if (!formMember.nome.trim()) { alert('O nome é obrigatório.'); return; }
 
+    // --- NOVA VALIDAÇÃO DE DUPLICADOS ---
+    const cpfLimpo = formMember.cpf.replace(/\D/g, '');
+    const duplicado = members.find(m => {
+      const nomeIgual = m.nome.toLowerCase() === formMember.nome.trim().toLowerCase();
+      // Verifica CPF apenas se não for vazio
+      const cpfIgual = cpfLimpo && m.cpf && m.cpf.replace(/\D/g, '') === cpfLimpo;
+      return (nomeIgual || cpfIgual) && (!editingMember || m.id !== editingMember.id);
+    });
+
+    if (duplicado) {
+      alert('ERRO: Já existe um membro com este Nome ou CPF cadastrado.');
+      return;
+    }
+    
+    // --- FIM DA VALIDAÇÃO ---
+
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formMember.nome.trim(),
@@ -346,27 +363,39 @@ export default function App() {
       alert('Erro ao gravar membro: ' + err.message);
     }
   };
+        setActiveTab(destino as any);
+      }
+    } catch (err: any) {
+      alert('Erro ao gravar membro: ' + err.message);
+    }
+  };
 
-  const handleDeleteMember = async (memberId: string) => {
-    const motivo = prompt('Informe o motivo da exclusão deste membro:');
+  const deletarMembrosSelecionados = async () => {
+    if (selecionados.length === 0) {
+      alert('Selecione pelo menos um membro para excluir.');
+      return;
+    }
+
+    const motivo = prompt('Informe o motivo da exclusão em massa:');
     if (!motivo) return;
 
-    const senhaInformada = prompt('Digite a senha de administrador para confirmar a exclusão:');
+    const senhaInformada = prompt('Digite a senha de administrador para confirmar a exclusão de ' + selecionados.length + ' membros:');
     if (senhaInformada !== loggedUser?.senha) {
       alert('Senha incorreta. Exclusão cancelada.');
       return;
     }
 
     try {
-      const { error } = await supabase.from('members').delete().eq('id', memberId);
+      const { error } = await supabase.from('members').delete().in('id', selecionados);
       if (error) throw error;
       
-      alert(`Membro excluído com sucesso! Motivo registrado: "${motivo}"`);
-      setShowMemberModal(false);
+      alert(`Membros excluídos com sucesso! Motivo: "${motivo}"`);
+      setSelecionados([]); // Limpa a seleção após excluir
       await carregarMembros(loggedUser.codigo_igreja);
     } catch (err: any) {
-      alert('Erro ao excluir membro: ' + err.message);
+      alert('Erro ao excluir membros: ' + err.message);
     }
+  };
   };
 
   const handleOpenNewAgenda = () => {
@@ -1271,13 +1300,23 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'relatorios' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios e Dashboard</h2>
-                <p className="text-xs text-slate-500">Selecione o relatório desejado abaixo.</p>
-              </div>
+{activeTab === 'relatorios' && (
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios e Dashboard</h2>
+        <p className="text-xs text-slate-500">Selecione o relatório desejado abaixo.</p>
+        
+        {/* BOTÃO QUE APARECE SÓ SE TIVER SELECIONADO ALGUM CHECKBOX */}
+        {selecionados.length > 0 && (
+          <button 
+            onClick={deletarMembrosSelecionados} 
+            className="mt-3 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
+          >
+            🗑️ Deletar {selecionados.length} Selecionados
+          </button>
+        )}
+      </div>
               <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-xl">
                 <button onClick={() => setRelatorioSubTab('geral')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'geral' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Dashboard Geral</button>
                 <button onClick={() => setRelatorioSubTab('aniversariantes_dia')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_dia' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🎂 Aniversariantes do Dia</button>

@@ -177,7 +177,7 @@ export default function App() {
     const cod = loggedUser.codigo_igreja;
     
     async function carregarDados() {
-      carregarMembros(cod);
+      await carregarMembros(cod);
 
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
@@ -418,9 +418,9 @@ export default function App() {
   const handleOpenEditCelula = (c: any) => {
     setEditingCelula(c);
     setFormCelNome(c.nome || '');
-    setFormCelLider(c.lider_id || '');
-    setFormCelVice(c.vice_id || '');
-    setFormCelAnfitriao(c.anfitriao_id || '');
+    setFormCelLider(c.lider_id ? String(c.lider_id) : '');
+    setFormCelVice(c.vice_id ? String(c.vice_id) : '');
+    setFormCelAnfitriao(c.anfitriao_id ? String(c.anfitriao_id) : '');
     setFormCelDia(c.dia_semana || 'Quarta-feira');
     setFormCelHora(c.horario || '19:30');
     setFormCelCep(c.cep || '');

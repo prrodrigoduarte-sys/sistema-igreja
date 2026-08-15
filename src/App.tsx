@@ -876,29 +876,19 @@ export default function App() {
                     {compromissos.map((c: any) => (
                       <div 
                         key={c.id} 
-                        onClick={() => handleOpenEditAgenda(c)}
-                        className="p-5 border rounded-2xl shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-all bg-white border-slate-200"
-                      >
-                        <div className="flex justify-between items-start border-b pb-2">
-                          <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-800">
-                            Compromisso
-                          </span>
-                        </div>
-                        
-                        <div className="text-xs text-slate-600 space-y-1 pt-1 font-semibold">
-                          <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
-                          <div>⏰ Horário: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span></div>
-                        </div>
-
-                        <div className="pt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                          <strong className="text-slate-900 block mb-1">💬 Detalhes / Comentário:</strong>
-                          <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado. Clique para editar.'}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                        const handleOpenEditAgenda = (c: any) => {
+                          setEditingCompromisso(c);
+                          setFormAgendaTitulo(c.titulo || '');
+                          setFormAgendaData(c.data_compromisso || '');
+                          setFormAgendaHoraInicio(c.hora_compromisso || '');
+                          setFormAgendaHoraFim(c.hora_fim || '');
+                          
+                          // É ESTA LINHA AQUI QUE FAZ O MEMBRO APARECER PREENCHIDO NA EDIÇÃO:
+                          setFormAgendaMembroId(c.responsavel || ''); 
+                          
+                          setFormAgendaComentario(c.descricao || '');
+                          setShowAgendaModal(true);
+                        };
               </div>
             )}
 

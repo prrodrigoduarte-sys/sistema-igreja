@@ -24,10 +24,9 @@ export default function App() {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
-  const [formStep, setFormStep] = useState<1 | 2>(1);
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
-  // ESTADO ÚNICO DE FORMULÁRIO DE MEMBRO (Evita que os campos voltem vazios)
+  // ESTADO ÚNICO DE FORMULÁRIO DE MEMBRO (Tela única sem etapas)
   const [formMember, setFormMember] = useState({
     nome: '',
     tipo_cadastro: 'Membro',
@@ -234,7 +233,6 @@ export default function App() {
       endereco: '',
       foto_url: ''
     });
-    setFormStep(1);
     setMemberModalTab('dados');
     setRetornarParaTab(null);
     setShowMemberModal(true);
@@ -254,7 +252,6 @@ export default function App() {
       endereco: m.endereco || '',
       foto_url: m.foto_url || ''
     });
-    setFormStep(1);
     setMemberModalTab('dados');
     setShowMemberModal(true);
   };
@@ -279,13 +276,15 @@ export default function App() {
 
     try {
       if (editingMember && editingMember.id) {
+        // Grava novamente na alteração/edição
         const { error } = await supabase.from('members').update(payload).eq('id', editingMember.id);
         if (error) throw error;
-        alert('Membro atualizado com sucesso!');
+        alert('Membro gravado/atualizado com sucesso!');
       } else {
+        // Grava novamente na inclusão
         const { error } = await supabase.from('members').insert([payload]);
         if (error) throw error;
-        alert('Membro cadastrado com sucesso!');
+        alert('Membro gravado/cadastrado com sucesso!');
       }
 
       await carregarMembros(loggedUser.codigo_igreja);
@@ -297,7 +296,7 @@ export default function App() {
         setActiveTab(destino as any);
       }
     } catch (err: any) {
-      alert('Erro ao salvar membro: ' + err.message);
+      alert('Erro ao gravar membro: ' + err.message);
     }
   };
 
@@ -2065,6 +2064,7 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL DE MEMBRO: TELA ÚNICA SEM ETAPAS E COM GRAVAÇÃO DIRETA */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -2136,151 +2136,151 @@ export default function App() {
               </div>
             ) : (
               <form onSubmit={handleSaveMember} className="space-y-4">
-                {formStep === 1 ? (
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
-                      <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
-                        {formMember.foto_url ? (
-                          <img src={formMember.foto_url} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-bold text-slate-400">Foto</span>
-                        )}
-                      </div>
-                      <div className="flex-1 space-y-2">
-                        <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <label className="px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
-                            📸 Tirar Foto (Câmera)
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              capture="user" 
-                              className="hidden" 
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.readAsDataURL(file);
-                                reader.onload = () => {
-                                  setFormMember({ ...formMember, foto_url: reader.result as string });
-                                };
-                              }}
-                            />
-                          </label>
-
-                          <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
-                            📁 Enviar Arquivo
-                            <input 
-                              type="file" 
-                              accept="image/*" 
-                              className="hidden" 
-                              onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                const reader = new FileReader();
-                                reader.readAsDataURL(file);
-                                reader.onload = () => {
-                                  setFormMember({ ...formMember, foto_url: reader.result as string });
-                                };
-                              }}
-                            />
-                          </label>
-
-                          {formMember.foto_url && (
-                            <button 
-                              type="button" 
-                              onClick={() => setFormMember({ ...formMember, foto_url: '' })} 
-                              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
-                            >
-                              Remover
-                            </button>
-                          )}
-                        </div>
-                      </div>
+                <div className="space-y-4">
+                  {/* Bloco da Foto */}
+                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
+                    <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
+                      {formMember.foto_url ? (
+                        <img src={formMember.foto_url} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-xs font-bold text-slate-400">Foto</span>
+                      )}
                     </div>
+                    <div className="flex-1 space-y-2">
+                      <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
+                          📸 Tirar Foto (Câmera)
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="user" 
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.readAsDataURL(file);
+                              reader.onload = () => {
+                                setFormMember({ ...formMember, foto_url: reader.result as string });
+                              };
+                            }}
+                          />
+                        </label>
 
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
-                      <input type="text" required value={formMember.nome} onChange={(e) => setFormMember({ ...formMember, nome: e.target.value })} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
+                        <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
+                          📁 Enviar Arquivo
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            className="hidden" 
+                            onChange={async (e) => {
+                              const file = e.target.files?.[0];
+                              if (!file) return;
+                              const reader = new FileReader();
+                              reader.readAsDataURL(file);
+                              reader.onload = () => {
+                                setFormMember({ ...formMember, foto_url: reader.result as string });
+                              };
+                            }}
+                          />
+                        </label>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
-                        <select value={formMember.tipo_cadastro} onChange={(e) => setFormMember({ ...formMember, tipo_cadastro: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
-                          <option value="Membro">Membro</option>
-                          <option value="Congregado">Congregado</option>
-                          <option value="Visitante">Visitante</option>
-                          <option value="Liderança">Liderança</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
-                        <select value={formMember.estado_civil} onChange={(e) => setFormMember({ ...formMember, estado_civil: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
-                          <option value="Solteiro(a)">Solteiro(a)</option>
-                          <option value="Casado(a)">Casado(a)</option>
-                          <option value="Divorciado(a)">Divorciado(a)</option>
-                          <option value="Viúvo(a)">Viúvo(a)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end pt-4 border-t">
-                      <button type="button" onClick={() => setFormStep(2)} className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl cursor-pointer">Avançar para Próxima Tela ➔</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
-                        <input type="text" value={formMember.cpf} onChange={(e) => setFormMember({ ...formMember, cpf: e.target.value })} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
-                        <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
-                        <input type="date" value={formMember.data_nascimento} onChange={(e) => setFormMember({ ...formMember, data_nascimento: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                        <input type="text" value={formMember.celular_principal} onChange={(e) => setFormMember({ ...formMember, celular_principal: e.target.value })} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                      </div>
-                      <div>
-                        <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
-                        <input type="email" value={formMember.email} onChange={(e) => setFormMember({ ...formMember, email: e.target.value })} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
-                      <input type="text" value={formMember.endereco} onChange={(e) => setFormMember({ ...formMember, endereco: e.target.value })} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                    </div>
-
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
-                        {editingMember && (
+                        {formMember.foto_url && (
                           <button 
                             type="button" 
-                            onClick={() => handleDeleteMember(editingMember.id)}
-                            className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
+                            onClick={() => setFormMember({ ...formMember, foto_url: '' })} 
+                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
                           >
-                            Excluir Membro
+                            Remover
                           </button>
                         )}
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Nome Completo */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
+                    <input type="text" required value={formMember.nome} onChange={(e) => setFormMember({ ...formMember, nome: e.target.value })} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                  </div>
+
+                  {/* Tipo de Cadastro e Estado Civil */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
+                      <select value={formMember.tipo_cadastro} onChange={(e) => setFormMember({ ...formMember, tipo_cadastro: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                        <option value="Membro">Membro</option>
+                        <option value="Congregado">Congregado</option>
+                        <option value="Visitante">Visitante</option>
+                        <option value="Liderança">Liderança</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
+                      <select value={formMember.estado_civil} onChange={(e) => setFormMember({ ...formMember, estado_civil: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                        <option value="Solteiro(a)">Solteiro(a)</option>
+                        <option value="Casado(a)">Casado(a)</option>
+                        <option value="Divorciado(a)">Divorciado(a)</option>
+                        <option value="Viúvo(a)">Viúvo(a)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* CPF, RG e Data de Nascimento na mesma tela única */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
+                      <input type="text" value={formMember.cpf} onChange={(e) => setFormMember({ ...formMember, cpf: e.target.value })} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
+                      <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
+                      <input type="date" value={formMember.data_nascimento} onChange={(e) => setFormMember({ ...formMember, data_nascimento: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+                  </div>
+
+                  {/* Celular e E-mail */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
+                      <input type="text" value={formMember.celular_principal} onChange={(e) => setFormMember({ ...formMember, celular_principal: e.target.value })} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
+                      <input type="email" value={formMember.email} onChange={(e) => setFormMember({ ...formMember, email: e.target.value })} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    </div>
+                  </div>
+
+                  {/* Endereço */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
+                    <input type="text" value={formMember.endereco} onChange={(e) => setFormMember({ ...formMember, endereco: e.target.value })} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                  </div>
+
+                  {/* Botões de Ação na mesma tela */}
+                  <div className="flex items-center justify-between pt-4 border-t">
+                    {editingMember ? (
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeleteMember(editingMember.id)}
+                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
+                      >
+                        Excluir Membro
+                      </button>
+                    ) : <div />}
+
+                    <div className="flex gap-3">
+                      <button type="button" onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
                       <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
-                        {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}
+                        {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
                       </button>
                     </div>
                   </div>
-                )}
+                </div>
               </form>
             )}
           </div>

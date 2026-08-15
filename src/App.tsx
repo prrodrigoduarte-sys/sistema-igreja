@@ -308,17 +308,14 @@ export default function App() {
     e.preventDefault();
     
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
-      alert('Preencha o título e a data do compromisso.');
+      alert('Preencha pelo menos o Título e a Data do compromisso.');
       return;
     }
   
-    // Pega apenas o comentário limpo digitado pelo usuário (removendo tags antigas acumuladas)
+    // Pega apenas o comentário digitado
     const comentarioLimpo = formAgendaComentario.includes('—') 
       ? formAgendaComentario.split('—').pop()?.trim() 
       : formAgendaComentario.trim();
-  
-    // Monta a string de metadados de forma limpa e única
-    const descricaoFinal = `[MembroID: ${formAgendaMembroId}] [Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${comentarioLimpo}`;
   
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
@@ -326,9 +323,22 @@ export default function App() {
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || '00:00',
-      responsavel: formAgendaMembroId, // Salva o ID do membro na coluna correta
-      descricao: descricaoFinal
+      responsavel: formAgendaMembroId, // Salva o responsável fixo na coluna dedicada
+      descricao: `Término: ${formAgendaHoraFim || '00:00'} — ${comentarioLimpo}` // Salva limpo sem tags de WhatsApp
     };
+  
+    try {
+      if (editingCompromisso) {
+        await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
+      } else {
+        await supabase.from('agenda_compromissos').insert([payload]);
+      }
+      setShowAgendaModal(false);
+      carregarAgenda(loggedUser.codigo_igreja);
+    } catch (err: any) { 
+      alert('Erro ao salvar: ' + err.message); 
+    }
+  };
   
     try {
       if (editingCompromisso) {
@@ -361,13 +371,20 @@ export default function App() {
 // Adicione o campo de Horário Final novamente:
 <div className="grid grid-cols-2 gap-4">
   <div>
-    <label className="text-xs font-bold text-slate-600">Início</label>
-    <input type="time" value={formAgendaHoraInicio} onChange={e => setFormAgendaHoraInicio(e.target.value)} className="w-full border p-3 rounded-xl" />
-  </div>
   <div>
-    <label className="text-xs font-bold text-slate-600">Fim</label>
-    <input type="time" value={formAgendaHoraFim} onChange={e => setFormAgendaHoraFim(e.target.value)} className="w-full border p-3 rounded-xl" />
-  </div>
+  <label className="text-xs font-bold text-slate-600 ml-1">Responsável pelo Compromisso</label>
+  <select 
+    value={formAgendaMembroId || ''} 
+    onChange={(e) => setFormAgendaMembroId(e.target.value)}
+    className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900"
+  >
+    <option value="">Selecione o responsável...</option>
+    {members.map((m: any) => (
+      <option key={m.id} value={m.id}>
+        {m.nome}
+      </option>
+    ))}
+  </select>
 </div>
 
     try {
@@ -907,14 +924,13 @@ export default function App() {
                           setFormAgendaData(c.data_compromisso || '');
                           setFormAgendaHoraInicio(c.hora_compromisso || '');
                           setFormAgendaHoraFim(c.hora_fim || '');
-                        
-                          // EXTRAI O ID DO MEMBRO DE DENTRO DA DESCRIÇÃO (onde o sistema está salvando)
-                          const matchMembro = c.descricao?.match(/MembroID:\s*([a-fA-F0-9-]+)/);
-                          setFormAgendaMembroId(matchMembro ? matchMembro[1] : (c.responsavel || ''));
-                        
-                          // Limpa a descrição para o usuário não ver os códigos feios no campo de texto
-                          const descLimpa = c.descricao ? c.descricao.split('—').pop()?.trim() : '';
-                          setFormAgendaComentario(descLimpa || '');
+                          
+                          // Puxa o responsável direto da coluna salva no banco
+                          setFormAgendaMembroId(c.responsavel || ''); 
+                          
+                          // Limpa o comentário deixando apenas o texto real
+                          const comentarioLimpo = c.descricao ? c.descricao.split('—').pop()?.trim() : (c.descricao || '');
+                          setFormAgendaComentario(comentarioLimpo);
                           
                           setShowAgendaModal(true);
                         };

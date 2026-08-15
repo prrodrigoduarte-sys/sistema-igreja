@@ -271,7 +271,7 @@ export default function App() {
     };
 
     try {
-      if (editingMember) {
+      if (editingMember && editingMember.id) {
         const { error } = await supabase.from('members').update(payload).eq('id', editingMember.id);
         if (error) throw error;
         alert('Membro atualizado com sucesso!');
@@ -705,9 +705,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
-      {/* Marca D'água com a Logomarca / Nome da Igreja (Clareada e Centralizada) */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-8 overflow-hidden select-none">
-        <span className="text-[14vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
+      {/* Marca D'água Corrigida (Mais suave, centralizada e proporcional) */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
+        <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
           {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}
         </span>
       </div>
@@ -2168,7 +2168,7 @@ export default function App() {
                             <input 
                               type="file" 
                               accept="image/*" 
-                              capture="environment" 
+                              capture="user" 
                               className="hidden" 
                               onChange={async (e) => {
                                 const file = e.target.files?.[0];

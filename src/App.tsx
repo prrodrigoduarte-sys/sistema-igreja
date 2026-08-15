@@ -2138,20 +2138,47 @@ export default function App() {
               <form onSubmit={handleSaveMember} className="space-y-4">
                 {formStep === 1 ? (
                   <div className="space-y-4">
-                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
-                      <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
-                        {formFotoUrl ? (
-                          <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-xs font-bold text-slate-400">Foto</span>
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <label className="text-xs font-bold text-slate-600 ml-1">URL da Foto do Membro</label>
-                        <input type="url" value={formFotoUrl} onChange={(e) => setFormFotoUrl(e.target.value)} placeholder="https://exemplo.com/foto.jpg" className="w-full rounded-xl border p-2.5 text-sm mt-1 focus:outline-none focus:border-blue-900" />
-                      </div>
-                    </div>
-
+                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
+  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
+    {formFotoUrl ? (
+      <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
+    ) : (
+      <span className="text-xs font-bold text-slate-400">Foto</span>
+    )}
+  </div>
+  <div className="flex-1 space-y-1">
+    <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro (Arquivo ou Câmera)</label>
+    <div className="flex items-center gap-2">
+      <label className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
+        📷 Tirar Foto / Enviar Arquivo
+        <input 
+          type="file" 
+          accept="image/*" 
+          capture="environment" 
+          className="hidden" 
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+              setFormFotoUrl(reader.result as string);
+            };
+          }}
+        />
+      </label>
+      {formFotoUrl && (
+        <button 
+          type="button" 
+          onClick={() => setFormFotoUrl('')} 
+          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
+        >
+          Remover
+        </button>
+      )}
+    </div>
+  </div>
+</div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
                       <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />

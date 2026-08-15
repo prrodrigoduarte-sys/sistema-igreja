@@ -125,6 +125,13 @@ export default function App() {
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
 
+  const carregarMembros = async (cod: string) => {
+    setLoadingMembros(true);
+    const { data } = await supabase.from('members').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    setMembers(data || []);
+    setLoadingMembros(false);
+  };
+
   const carregarAgenda = async (cod: string) => {
     setLoadingAgenda(true);
     const { data } = await supabase.from('agenda_compromissos').select('*').eq('codigo_igreja', cod).order('data_compromisso', { ascending: true });
@@ -169,10 +176,7 @@ export default function App() {
     const cod = loggedUser.codigo_igreja;
     
     async function carregarDados() {
-      setLoadingMembros(true);
-      const { data: mData } = await supabase.from('members').select('*').eq('codigo_igreja', cod);
-      setMembers(mData || []);
-      setLoadingMembros(false);
+      carregarMembros(cod);
 
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
@@ -281,8 +285,7 @@ export default function App() {
         alert('Membro cadastrado com sucesso!');
       }
 
-      const { data } = await supabase.from('members').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
-      setMembers(data || []);
+      await carregarMembros(loggedUser.codigo_igreja);
 
       const destino = retornarParaTab;
       setShowMemberModal(false);
@@ -312,8 +315,7 @@ export default function App() {
       alert(`Membro excluído com sucesso! Motivo registrado: "${motivo}"`);
       setShowMemberModal(false);
       
-      const { data } = await supabase.from('members').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
-      setMembers(data || []);
+      await carregarMembros(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao excluir membro: ' + err.message);
     }

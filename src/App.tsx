@@ -274,6 +274,19 @@ export default function App() {
     }
   };
 
+  const handleDeleteAgenda = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este compromisso?')) return;
+    try {
+      const { error } = await supabase.from('agenda_compromissos').delete().eq('id', id);
+      if (error) throw error;
+      alert('Compromisso excluído com sucesso!');
+      setShowAgendaModal(false);
+      carregarAgenda(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao excluir compromisso: ' + err.message);
+    }
+  };
+
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
@@ -809,7 +822,6 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {compromissos.map((c: any) => {
                       const membroResp = members.find((m: any) => String(m.id) === String(c.responsavel));
-                      // Filtra e exibe apenas o comentário real, limpando qualquer sujeira anterior
                       const comentarioExibicao = c.descricao 
                         ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) 
                         : 'Nenhum comentário registrado.';
@@ -817,10 +829,9 @@ export default function App() {
                       return (
                         <div 
                           key={c.id} 
-                          onClick={() => handleOpenEditAgenda(c)}
-                          className="p-5 border rounded-2xl shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-all bg-white border-slate-200 flex flex-col justify-between"
+                          className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between"
                         >
-                          <div>
+                          <div onClick={() => handleOpenEditAgenda(c)} className="cursor-pointer space-y-2">
                             <div className="flex justify-between items-start border-b pb-2">
                               <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
                               <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-800">
@@ -840,10 +851,20 @@ export default function App() {
                             </div>
                           </div>
 
-                          <div className="pt-2">
-                            <span className="w-full block text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all">
+                          <div className="pt-2 flex gap-2">
+                            <button 
+                              onClick={() => handleOpenEditAgenda(c)}
+                              className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                            >
                               Editar / Ver Detalhes
-                            </span>
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteAgenda(c.id)}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
+                              title="Excluir Compromisso"
+                            >
+                              Excluir
+                            </button>
                           </div>
                         </div>
                       );
@@ -1239,11 +1260,23 @@ export default function App() {
                 <textarea rows={3} value={formAgendaComentario} onChange={(e) => setFormAgendaComentario(e.target.value)} placeholder="Registre os detalhes, observações ou como foi a visita..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setShowAgendaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
-                  {editingCompromisso ? 'Salvar Alterações' : 'Salvar Compromisso'}
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t">
+                {editingCompromisso ? (
+                  <button 
+                    type="button" 
+                    onClick={() => handleDeleteAgenda(editingCompromisso.id)}
+                    className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
+                  >
+                    Excluir Compromisso
+                  </button>
+                ) : <div />}
+
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => setShowAgendaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                  <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
+                    {editingCompromisso ? 'Salvar Alterações' : 'Salvar Compromisso'}
+                  </button>
+                </div>
               </div>
             </form>
           </div>
@@ -1334,7 +1367,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
-                      <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} className="valEmail@exemplo.com" placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                   </div>
 
@@ -1343,7 +1376,7 @@ export default function App() {
                     <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                   </div>
 
-                  <div className="flex justify-end items-center pt-4 border-t">
+                  <div className="flex justify-between items-center pt-4 border-t">
                     <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
                     <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
                       {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}

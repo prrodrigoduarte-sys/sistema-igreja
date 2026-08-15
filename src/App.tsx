@@ -311,6 +311,30 @@ export default function App() {
     }
   };
 
+  const handleDeleteMember = async (memberId: string) => {
+    const motivo = prompt('Informe o motivo da exclusão deste membro:');
+    if (!motivo) return;
+
+    const senhaInformada = prompt('Digite a senha de administrador para confirmar a exclusão:');
+    if (senhaInformada !== loggedUser?.senha) {
+      alert('Senha incorreta. Exclusão cancelada.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('members').delete().eq('id', memberId);
+      if (error) throw error;
+      
+      alert(`Membro excluído com sucesso! Motivo registrado: "${motivo}"`);
+      setShowMemberModal(false);
+      
+      const { data } = await supabase.from('members').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
+      setMembers(data || []);
+    } catch (err: any) {
+      alert('Erro ao excluir membro: ' + err.message);
+    }
+  };
+
   const handleOpenNewAgenda = () => {
     setEditingCompromisso(null);
     setFormAgendaTitulo('');
@@ -2138,47 +2162,48 @@ export default function App() {
               <form onSubmit={handleSaveMember} className="space-y-4">
                 {formStep === 1 ? (
                   <div className="space-y-4">
-                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
-  <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
-    {formFotoUrl ? (
-      <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
-    ) : (
-      <span className="text-xs font-bold text-slate-400">Foto</span>
-    )}
-  </div>
-  <div className="flex-1 space-y-1">
-    <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro (Arquivo ou Câmera)</label>
-    <div className="flex items-center gap-2">
-      <label className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
-        📷 Tirar Foto / Enviar Arquivo
-        <input 
-          type="file" 
-          accept="image/*" 
-          capture="environment" 
-          className="hidden" 
-          onChange={async (e) => {
-            const file = e.target.files?.[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-              setFormFotoUrl(reader.result as string);
-            };
-          }}
-        />
-      </label>
-      {formFotoUrl && (
-        <button 
-          type="button" 
-          onClick={() => setFormFotoUrl('')} 
-          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
-        >
-          Remover
-        </button>
-      )}
-    </div>
-  </div>
-</div>
+                    <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
+                      <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
+                        {formFotoUrl ? (
+                          <img src={formFotoUrl} alt="Preview" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs font-bold text-slate-400">Foto</span>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro (Câmera ou Arquivo)</label>
+                        <div className="flex items-center gap-2">
+                          <label className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
+                            📷 Tirar Foto / Enviar Arquivo
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              capture="environment" 
+                              className="hidden" 
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.readAsDataURL(file);
+                                reader.onload = () => {
+                                  setFormFotoUrl(reader.result as string);
+                                };
+                              }}
+                            />
+                          </label>
+                          {formFotoUrl && (
+                            <button 
+                              type="button" 
+                              onClick={() => setFormFotoUrl('')} 
+                              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
+                            >
+                              Remover
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
                       <input type="text" required value={formNome} onChange={(e) => setFormNome(e.target.value)} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
@@ -2242,8 +2267,19 @@ export default function App() {
                       <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
 
-                    <div className="flex justify-between items-center pt-4 border-t">
-                      <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
+                        {editingMember && (
+                          <button 
+                            type="button" 
+                            onClick={() => handleDeleteMember(editingMember.id)}
+                            className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
+                          >
+                            Excluir Membro
+                          </button>
+                        )}
+                      </div>
                       <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
                         {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}
                       </button>

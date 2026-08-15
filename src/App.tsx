@@ -32,13 +32,16 @@ export default function App() {
     tipo_cadastro: 'Membro',
     cpf: '',
     rg: '',
-    data_nascimento: '',
+    data_nascimento: '', // Formato yyyy-mm-dd para o banco
     celular_principal: '',
     email: '',
     estado_civil: 'Solteiro(a)',
     endereco: '',
     foto_url: ''
   });
+
+  // Estados auxiliares para máscara visual de data (dd/mm/aaaa)
+  const [dataNascDisplay, setDataNascDisplay] = useState('');
 
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
   const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
@@ -212,6 +215,52 @@ export default function App() {
     }
   };
 
+  // Função de Máscara para CPF: 000.000.000-00
+  const aplicarMascaraCpf = (valor: string) => {
+    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
+    let cpfFormatado = apenasDigitos;
+    if (apenasDigitos.length > 3) {
+      cpfFormatado = apenasDigitos.substring(0, 3) + '.' + apenasDigitos.substring(3);
+    }
+    if (apenasDigitos.length > 6) {
+      cpfFormatado = cpfFormatado.substring(0, 7) + '.' + apenasDigitos.substring(6);
+    }
+    if (apenasDigitos.length > 9) {
+      cpfFormatado = cpfFormatado.substring(0, 11) + '-' + apenasDigitos.substring(9);
+    }
+    return cpfFormatado;
+  };
+
+  // Função de Máscara para Data de Nascimento: dd/mm/aaaa
+  const aplicarMascaraData = (valor: string) => {
+    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 8);
+    let dataFormatada = apenasDigitos;
+    if (apenasDigitos.length > 2) {
+      dataFormatada = apenasDigitos.substring(0, 2) + '/' + apenasDigitos.substring(2);
+    }
+    if (apenasDigitos.length > 4) {
+      dataFormatada = dataFormatada.substring(0, 5) + '/' + apenasDigitos.substring(4);
+    }
+    return dataFormatada;
+  };
+
+  // Converte dd/mm/aaaa para yyyy-mm-dd para salvar no banco
+  const converterDataParaBanco = (dataBr: string) => {
+    if (!dataBr || dataBr.length !== 10) return null;
+    const [dia, mes, ano] = dataBr.split('/');
+    if (!dia || !mes || !ano) return null;
+    return `${ano}-${mes}-${dia}`;
+  };
+
+  // Converte yyyy-mm-dd do banco para dd/mm/aaaa para exibir no input
+  const converterDataParaDisplay = (dataIso: string) => {
+    if (!dataIso) return '';
+    const partes = dataIso.split('-');
+    if (partes.length !== 3) return dataIso;
+    const [ano, mes, dia] = partes;
+    return `${dia}/${mes}/${ano}`;
+  };
+
   const abrirModalMembro = (m?: any) => {
     if (m) {
       setEditingMember(m);
@@ -227,6 +276,7 @@ export default function App() {
         endereco: m.endereco || '',
         foto_url: m.foto_url || ''
       });
+      setDataNascDisplay(converterDataParaDisplay(m.data_nascimento || ''));
     } else {
       setEditingMember(null);
       setFormMember({
@@ -241,6 +291,7 @@ export default function App() {
         endereco: '',
         foto_url: ''
       });
+      setDataNascDisplay('');
     }
     setMemberModalTab('dados');
     setRetornarParaTab(null);
@@ -2227,15 +2278,33 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
-                      <input type="text" value={formMember.cpf} onChange={(e) => setFormMember({ ...formMember, cpf: e.target.value })} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input 
+                        type="text" 
+                        maxLength={14}
+                        value={formMember.cpf} 
+                        onChange={(e) => setFormMember({ ...formMember, cpf: aplicarMascaraCpf(e.target.value) })} 
+                        placeholder="000.000.000-00" 
+                        className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
                       <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
-                      <input type="date" value={formMember.data_nascimento} onChange={(e) => setFormMember({ ...formMember, data_nascimento: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento (dd/mm/aaaa)</label>
+                      <input 
+                        type="text" 
+                        maxLength={10}
+                        value={dataNascDisplay} 
+                        onChange={(e) => {
+                          const formatada = aplicarMascaraData(e.target.value);
+                          setDataNascDisplay(formatada);
+                          setFormMember({ ...formMember, data_nascimento: converterDataParaBanco(formatada) || '' });
+                        }} 
+                        placeholder="dd/mm/aaaa" 
+                        className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
+                      />
                     </div>
                   </div>
 

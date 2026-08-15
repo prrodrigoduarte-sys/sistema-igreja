@@ -250,20 +250,19 @@ export default function App() {
     setFormAgendaStatus('Pendente');
     setShowAgendaModal(true);
   };
-  
-  const handleOpenEditAgenda = (c: any) => {
-    setEditingCompromisso(c);
-    setFormAgendaTitulo(c.titulo || '');
-    setFormAgendaData(c.data_compromisso || '');
-    setFormAgendaHoraInicio(c.hora_compromisso || '');
-    setFormAgendaHoraFim(c.hora_fim || '');
-    setFormAgendaMembroId(c.responsavel || ''); // CORREÇÃO: Pega o responsável salvo e mantém no select
-    
-    // Extrai o comentário limpo removendo a tag antiga de aviso se houver
-    const descLimpa = c.descricao ? c.descricao.split('—').pop()?.trim() : '';
-    setFormAgendaComentario(descLimpa || c.descricao || '');
-    
-    setShowAgendaModal(true);
+
+  const handleOpenNewAgenda = () => {
+  setEditingCompromisso(null);
+  setFormAgendaTitulo('');
+  setFormAgendaData('');
+  setFormAgendaHoraInicio('');
+  setFormAgendaHoraFim('');
+  setFormAgendaComentario('');
+  setFormAgendaMembroId(''); // Limpa o membro ao criar novo
+  setFormAgendaDesejaAviso(false);
+  setFormAgendaAvisoHoras('1');
+  setShowAgendaModal(true);
+};
   };
   chandleSaveAgenda
     try {
@@ -305,7 +304,7 @@ export default function App() {
     }
   };
 
-  cconst handleSaveAgenda = async (e: React.FormEvent) => {
+  const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // O payload agora usa as colunas que acabamos de garantir no banco

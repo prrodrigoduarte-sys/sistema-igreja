@@ -303,36 +303,41 @@ export default function App() {
     }
   };
 
-  const handleSaveLancamento = async (e: React.FormEvent) => {
+  const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formLancData || !formLancValor) { alert('Preencha a data e o valor.'); return; }
-
-    const valorNum = parseFloat(formLancValor);
-    const payload: any = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      data_lancamento: formLancData,
-      tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
-      valor: valorNum,
-      descricao: formLancObs.trim() || 'Lançamento em Conta Corrente',
-      categoria: 'Geral',
-      codigo_conta: 'Geral'
-    };
-
-    if (formLancContaId) {
-      payload.conta_id = parseInt(formLancContaId);
+    
+    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
+      alert('Preencha pelo menos o Assunto e a Data do compromisso.');
+      return;
     }
 
+    const payload: any = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      titulo: formAgendaTitulo.trim(),
+      data_compromisso: formAgendaData,
+      hora_compromisso: formAgendaHoraInicio || '00:00',
+      hora_fim: formAgendaHoraFim || '00:00',
+      descricao: `[MembroID: ${formAgendaMembroId || ''}] [Aviso: ${formAgendaDesejaAviso ? formAgendaAvisoHoras + 'h' : 'Não'}] — ${formAgendaComentario.trim()}`
+      // Nota: 'responsavel' foi omitido aqui para evitar conflito se o seu código não o utiliza ativamente, 
+      // mas como a coluna já existe no banco, ela não causará mais erro de cache.
+    };
+
     try {
-      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-      if (error) throw error;
-      alert('Lançamento efetuado com sucesso!');
-      setShowLancamentoModal(false);
-      setFormLancData('');
-      setFormLancValor('');
-      setFormLancObs('');
-      carregarFinanceiro(loggedUser.codigo_igreja);
+      if (editingCompromisso) {
+        const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
+        if (error) throw error;
+        alert('Compromisso atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('agenda_compromissos').insert([payload]);
+        if (error) throw error;
+        alert('Compromisso cadastrado com sucesso!');
+      }
+
+      setShowAgendaModal(false);
+      carregarAgenda(loggedUser.codigo_igreja);
     } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
+      console.error('Erro detalhado:', err);
+      alert('Erro ao salvar compromisso: ' + err.message);
     }
   };
 

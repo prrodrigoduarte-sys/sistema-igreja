@@ -231,7 +231,7 @@ export default function App() {
     setFormAgendaHoraFim(c.hora_fim || '');
     setFormAgendaMembroId(c.responsavel || ''); 
     
-    const comentarioLimpo = c.descricao ? c.descricao.split('—').pop()?.trim() : (c.descricao || '');
+    const comentarioLimpo = c.descricao ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) : '';
     setFormAgendaComentario(comentarioLimpo);
     
     setShowAgendaModal(true);
@@ -245,9 +245,7 @@ export default function App() {
       return;
     }
   
-    const comentarioLimpo = formAgendaComentario.includes('—') 
-      ? formAgendaComentario.split('—').pop()?.trim() 
-      : formAgendaComentario.trim();
+    const comentarioLimpo = formAgendaComentario.trim();
   
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
@@ -256,7 +254,7 @@ export default function App() {
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || '00:00',
       responsavel: formAgendaMembroId, 
-      descricao: `Término: ${formAgendaHoraFim || '00:00'} — ${comentarioLimpo}`
+      descricao: comentarioLimpo
     };
   
     try {
@@ -811,6 +809,11 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {compromissos.map((c: any) => {
                       const membroResp = members.find((m: any) => String(m.id) === String(c.responsavel));
+                      // Filtra e exibe apenas o comentário real, limpando qualquer sujeira anterior
+                      const comentarioExibicao = c.descricao 
+                        ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) 
+                        : 'Nenhum comentário registrado.';
+
                       return (
                         <div 
                           key={c.id} 
@@ -833,7 +836,7 @@ export default function App() {
 
                             <div className="pt-2 mt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
                               <strong className="text-slate-900 block mb-1">💬 Comentário / Relatório:</strong>
-                              <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado.'}</p>
+                              <p className="text-slate-600 italic">{comentarioExibicao}</p>
                             </div>
                           </div>
 
@@ -1340,7 +1343,7 @@ export default function App() {
                     <input type="text" value={formEndereco} onChange={(e) => setFormEndereco(e.target.value)} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                   </div>
 
-                  <div className="flex justify-between items-center pt-4 border-t">
+                  <div className="flex justify-end items-center pt-4 border-t">
                     <button type="button" onClick={() => setFormStep(1)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">← Voltar</button>
                     <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
                       {editingMember ? 'Salvar Alterações' : 'Cadastrar Membro'}

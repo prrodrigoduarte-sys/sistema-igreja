@@ -26,7 +26,7 @@ export default function App() {
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
-  // ESTADO ÚNICO DE FORMULÁRIO DE MEMBRO (Tela única sem etapas)
+  // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
     nome: '',
     tipo_cadastro: 'Membro',
@@ -212,51 +212,49 @@ export default function App() {
     }
   };
 
-  const handleOpenEditMemberFromContext = (mId: string, origemTab: string) => {
-    const m = members.find(item => String(item.id) === String(mId));
-    if (!m) return;
-    setRetornarParaTab(origemTab);
-    handleOpenEditMember(m);
-  };
-
-  const handleOpenNewMember = () => {
-    setEditingMember(null);
-    setFormMember({
-      nome: '',
-      tipo_cadastro: 'Membro',
-      cpf: '',
-      rg: '',
-      data_nascimento: '',
-      celular_principal: '',
-      email: '',
-      estado_civil: 'Solteiro(a)',
-      endereco: '',
-      foto_url: ''
-    });
+  const abrirModalMembro = (m?: any) => {
+    if (m) {
+      setEditingMember(m);
+      setFormMember({
+        nome: m.nome || '',
+        tipo_cadastro: m.tipo_cadastro || 'Membro',
+        cpf: m.cpf || '',
+        rg: m.rg || '',
+        data_nascimento: m.data_nascimento || '',
+        celular_principal: m.celular_principal || '',
+        email: m.email || '',
+        estado_civil: m.estado_civil || 'Solteiro(a)',
+        endereco: m.endereco || '',
+        foto_url: m.foto_url || ''
+      });
+    } else {
+      setEditingMember(null);
+      setFormMember({
+        nome: '',
+        tipo_cadastro: 'Membro',
+        cpf: '',
+        rg: '',
+        data_nascimento: '',
+        celular_principal: '',
+        email: '',
+        estado_civil: 'Solteiro(a)',
+        endereco: '',
+        foto_url: ''
+      });
+    }
     setMemberModalTab('dados');
     setRetornarParaTab(null);
     setShowMemberModal(true);
   };
 
-  const handleOpenEditMember = (m: any) => {
-    setEditingMember(m);
-    setFormMember({
-      nome: m.nome || '',
-      tipo_cadastro: m.tipo_cadastro || 'Membro',
-      cpf: m.cpf || '',
-      rg: m.rg || '',
-      data_nascimento: m.data_nascimento || '',
-      celular_principal: m.celular_principal || '',
-      email: m.email || '',
-      estado_civil: m.estado_civil || 'Solteiro(a)',
-      endereco: m.endereco || '',
-      foto_url: m.foto_url || ''
-    });
-    setMemberModalTab('dados');
-    setShowMemberModal(true);
+  const handleOpenEditMemberFromContext = (mId: string, origemTab: string) => {
+    const m = members.find(item => String(item.id) === String(mId));
+    if (!m) return;
+    setRetornarParaTab(origemTab);
+    abrirModalMembro(m);
   };
 
-  const handleSaveMember = async (e: React.FormEvent) => {
+  const salvarMembro = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formMember.nome.trim()) { alert('O nome é obrigatório.'); return; }
 
@@ -276,15 +274,13 @@ export default function App() {
 
     try {
       if (editingMember && editingMember.id) {
-        // Grava novamente na alteração/edição
         const { error } = await supabase.from('members').update(payload).eq('id', editingMember.id);
         if (error) throw error;
-        alert('Membro gravado/atualizado com sucesso!');
+        alert('Membro atualizado com sucesso!');
       } else {
-        // Grava novamente na inclusão
         const { error } = await supabase.from('members').insert([payload]);
         if (error) throw error;
-        alert('Membro gravado/cadastrado com sucesso!');
+        alert('Membro cadastrado com sucesso!');
       }
 
       await carregarMembros(loggedUser.codigo_igreja);
@@ -393,38 +389,36 @@ export default function App() {
     }
   };
 
-  const handleOpenNewCelula = () => {
-    setEditingCelula(null);
-    setFormCelNome('');
-    setFormCelLider('');
-    setFormCelVice('');
-    setFormCelAnfitriao('');
-    setFormCelDia('Quarta-feira');
-    setFormCelHora('19:30');
-    setFormCelCep('');
-    setFormCelRua('');
-    setFormCelNumero('');
-    setFormCelBairro('');
-    setFormCelCidade('');
-    setFormCelParticipantes([]);
-    setFormCelNovoParticipante('');
-    setShowCelulaModal(true);
-  };
-
-  const handleOpenEditCelula = (c: any) => {
-    setEditingCelula(c);
-    setFormCelNome(c.nome || '');
-    setFormCelLider(c.lider_id ? String(c.lider_id) : '');
-    setFormCelVice(c.vice_id ? String(c.vice_id) : '');
-    setFormCelAnfitriao(c.anfitriao_id ? String(c.anfitriao_id) : '');
-    setFormCelDia(c.dia_semana || 'Quarta-feira');
-    setFormCelHora(c.horario || '19:30');
-    setFormCelCep(c.cep || '');
-    setFormCelRua(c.rua || '');
-    setFormCelNumero(c.numero || '');
-    setFormCelBairro(c.bairro || '');
-    setFormCelCidade(c.cidade || '');
-    setFormCelParticipantes(Array.isArray(c.participantes) ? c.participantes : []);
+  const abrirModalCelula = (c?: any) => {
+    if (c) {
+      setEditingCelula(c);
+      setFormCelNome(c.nome || '');
+      setFormCelLider(c.lider_id ? String(c.lider_id) : '');
+      setFormCelVice(c.vice_id ? String(c.vice_id) : '');
+      setFormCelAnfitriao(c.anfitriao_id ? String(c.anfitriao_id) : '');
+      setFormCelDia(c.dia_semana || 'Quarta-feira');
+      setFormCelHora(c.horario || '19:30');
+      setFormCelCep(c.cep || '');
+      setFormCelRua(c.rua || '');
+      setFormCelNumero(c.numero || '');
+      setFormCelBairro(c.bairro || '');
+      setFormCelCidade(c.cidade || '');
+      setFormCelParticipantes(Array.isArray(c.participantes) ? c.participantes : []);
+    } else {
+      setEditingCelula(null);
+      setFormCelNome('');
+      setFormCelLider('');
+      setFormCelVice('');
+      setFormCelAnfitriao('');
+      setFormCelDia('Quarta-feira');
+      setFormCelHora('19:30');
+      setFormCelCep('');
+      setFormCelRua('');
+      setFormCelNumero('');
+      setFormCelBairro('');
+      setFormCelCidade('');
+      setFormCelParticipantes([]);
+    }
     setFormCelNovoParticipante('');
     setShowCelulaModal(true);
   };
@@ -447,7 +441,7 @@ export default function App() {
     setFormCelParticipantes(formCelParticipantes.filter(id => id !== membroId));
   };
 
-  const handleSaveCelula = async (e: React.FormEvent) => {
+  const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formCelNome.trim()) {
       alert('O nome da célula é obrigatório.');
@@ -474,7 +468,7 @@ export default function App() {
     };
 
     try {
-      if (editingCelula) {
+      if (editingCelula && editingCelula.id) {
         const { error } = await supabase.from('celulas').update(payload).eq('id', editingCelula.id);
         if (error) throw error;
         alert('Célula atualizada com sucesso!');
@@ -771,7 +765,7 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3">
                 <input type="text" placeholder="Buscar por Nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:outline-none focus:border-blue-900" />
-                <button onClick={handleOpenNewMember} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
+                <button onClick={() => abrirModalMembro()} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
               </div>
             </div>
             
@@ -788,14 +782,15 @@ export default function App() {
                       <th className="py-3 px-4">CPF</th>
                       <th className="py-3 px-4">Celular</th>
                       <th className="py-3 px-4">E-mail</th>
+                      <th className="py-3 px-4 text-center">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y text-sm text-slate-700">
                     {filteredMembers.length === 0 ? (
-                      <tr><td colSpan={6} className="py-6 text-center text-slate-400">Nenhum membro encontrado.</td></tr>
+                      <tr><td colSpan={7} className="py-6 text-center text-slate-400">Nenhum membro encontrado.</td></tr>
                     ) : (
                       filteredMembers.map((m: any) => (
-                        <tr key={m.id} onClick={() => handleOpenEditMember(m)} className="hover:bg-blue-50/50 cursor-pointer transition-colors">
+                        <tr key={m.id} className="hover:bg-blue-50/50 transition-colors">
                           <td className="py-3 px-4">
                             {m.foto_url ? (
                               <img src={m.foto_url} alt={m.nome} className="w-10 h-10 rounded-full object-cover border" />
@@ -810,6 +805,11 @@ export default function App() {
                           <td className="py-3 px-4 font-mono">{m.cpf || '-'}</td>
                           <td className="py-3 px-4">{m.celular_principal || '-'}</td>
                           <td className="py-3 px-4">{m.email || '-'}</td>
+                          <td className="py-3 px-4 text-center">
+                            <button onClick={() => abrirModalMembro(m)} className="px-3 py-1 bg-blue-50 hover:bg-blue-900 hover:text-white text-blue-900 font-bold text-xs rounded-lg transition-all cursor-pointer">
+                              Editar
+                            </button>
+                          </td>
                         </tr>
                       ))
                     )}
@@ -898,7 +898,7 @@ export default function App() {
                   <button onClick={() => setCelulasSubTab('relatorio_completo')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_completo' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Rel. Completo</button>
                   <button onClick={() => setCelulasSubTab('relatorio_arvore')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${celulasSubTab === 'relatorio_arvore' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🌳 Árvore</button>
                 </div>
-                <button onClick={handleOpenNewCelula} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Célula</button>
+                <button onClick={() => abrirModalCelula()} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Célula</button>
                 <button onClick={() => setShowSetorModal(true)} className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Setor</button>
                 <button onClick={() => setShowRedeModal(true)} className="px-4 py-2 bg-indigo-800 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Rede</button>
               </div>
@@ -1020,7 +1020,7 @@ export default function App() {
                                 📍 Abrir Localização no Google Maps
                               </a>
                               <div className="flex gap-2">
-                                <button onClick={() => handleOpenEditCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
+                                <button onClick={() => abrirModalCelula(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
                                   Editar / Detalhes
                                 </button>
                                 <button onClick={() => handleDeleteCelula(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Célula">
@@ -1926,7 +1926,7 @@ export default function App() {
               <button onClick={() => setShowCelulaModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
             </div>
 
-            <form onSubmit={handleSaveCelula} className="space-y-4">
+            <form onSubmit={salvarCelula} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Célula *</label>
                 <input type="text" required value={formCelNome} onChange={(e) => setFormCelNome(e.target.value)} placeholder="Ex: Célula Betel" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
@@ -2064,7 +2064,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE MEMBRO: TELA ÚNICA SEM ETAPAS E COM GRAVAÇÃO DIRETA */}
+      {/* MODAL DE MEMBRO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -2135,9 +2135,8 @@ export default function App() {
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSaveMember} className="space-y-4">
+              <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">
-                  {/* Bloco da Foto */}
                   <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
                     <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
                       {formMember.foto_url ? (
@@ -2199,13 +2198,11 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Nome Completo */}
                   <div>
                     <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
                     <input type="text" required value={formMember.nome} onChange={(e) => setFormMember({ ...formMember, nome: e.target.value })} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                   </div>
 
-                  {/* Tipo de Cadastro e Estado Civil */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
@@ -2227,7 +2224,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* CPF, RG e Data de Nascimento na mesma tela única */}
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
@@ -2243,7 +2239,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Celular e E-mail */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
@@ -2255,13 +2250,11 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* Endereço */}
                   <div>
                     <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
                     <input type="text" value={formMember.endereco} onChange={(e) => setFormMember({ ...formMember, endereco: e.target.value })} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                   </div>
 
-                  {/* Botões de Ação na mesma tela */}
                   <div className="flex items-center justify-between pt-4 border-t">
                     {editingMember ? (
                       <button 

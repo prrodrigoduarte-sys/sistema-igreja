@@ -360,7 +360,7 @@ export default function App() {
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || '00:00',
-      responsavel: formAgendaMembroId, 
+      responsavel: formAgendaMembroId || null, 
       descricao: comentarioLimpo
     };
   
@@ -520,7 +520,7 @@ export default function App() {
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formSetorNome.trim(),
-      lider_id: formSetorLider || null
+      lider_id: formSetorLider ? formSetorLider : null
     };
     try {
       const { error } = await supabase.from('setores').insert([payload]);
@@ -541,7 +541,7 @@ export default function App() {
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formRedeNome.trim(),
-      lider_id: formRedeLider || null
+      lider_id: formRedeLider ? formRedeLider : null
     };
     try {
       const { error } = await supabase.from('redes').insert([payload]);

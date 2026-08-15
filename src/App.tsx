@@ -7,7 +7,6 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
-  const [showWelcomeMapModal, setShowWelcomeMapModal] = useState(false);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
@@ -123,7 +122,6 @@ export default function App() {
       if (error || !data) { alert('Usuário ou senha incorretos.'); return; }
       setLoggedUser(data); 
       setIsLoggedIn(true);
-      setShowWelcomeMapModal(true);
     } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
   };
 
@@ -217,14 +215,6 @@ export default function App() {
     if (!m) return;
     setRetornarParaTab(origemTab);
     handleOpenEditMember(m);
-  };
-
-  const handleCloseMemberModal = () => {
-    setShowMemberModal(false);
-    if (retornarParaTab) {
-      setActiveTab(retornarParaTab as any);
-      setRetornarParaTab(null);
-    }
   };
 
   const handleOpenNewMember = () => {
@@ -715,9 +705,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
-      {/* Marca D'água com a Logomarca / Nome da Igreja */}
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-3 overflow-hidden select-none">
-        <span className="text-[12vw] font-black uppercase tracking-widest text-center text-blue-950 px-4 whitespace-nowrap">
+      {/* Marca D'água com a Logomarca / Nome da Igreja (Clareada e Centralizada) */}
+      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-8 overflow-hidden select-none">
+        <span className="text-[14vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
           {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}
         </span>
       </div>
@@ -1608,12 +1598,11 @@ export default function App() {
                                     Excluir
                                   </button>
 
-                                  <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Tirar foto ou carregar comprovante">
-                                    📷 {l.comprovante_url ? 'Ver/Trocar' : 'Anexar'}
+                                  <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
+                                    📁 Anexar
                                     <input 
                                       type="file" 
                                       accept="image/*" 
-                                      capture="environment" 
                                       className="hidden" 
                                       onChange={(e) => handleAnexarComprovante(l.id, e)}
                                     />
@@ -1725,42 +1714,6 @@ export default function App() {
           </div>
         )}
       </main>
-
-      {/* Modal Pop-up de boas-vindas com o Mapa da Igreja */}
-      {showWelcomeMapModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 text-center">
-            <div className="space-y-2">
-              <span className="text-3xl">🏛️📍</span>
-              <h3 className="text-xl font-black text-blue-900">Bem-vindo ao BRSYSTEM!</h3>
-              <p className="text-sm text-slate-600">
-                Deseja abrir o mapa para localizar o endereço oficial de <strong>{loggedUser?.igrejas?.nome_fantasia || 'sua igreja'}</strong>?
-              </p>
-              <div className="p-3 bg-slate-50 border rounded-xl text-xs font-semibold text-slate-700 mt-2">
-                📍 {loggedUser?.igrejas?.endereco || 'Endereço não cadastrado'}
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button 
-                onClick={() => setShowWelcomeMapModal(false)}
-                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer transition-all"
-              >
-                Agora Não
-              </button>
-              <a 
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loggedUser?.igrejas?.endereco || 'Brasil')}`} 
-                target="_blank" 
-                rel="noopener noreferrer" 
-                onClick={() => setShowWelcomeMapModal(false)}
-                className="flex-1 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer transition-all flex items-center justify-center gap-2"
-              >
-                🗺️ Ver no Mapa
-              </a>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Modal Novo Setor */}
       {showSetorModal && (
@@ -2141,7 +2094,7 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <button onClick={handleCloseMemberModal} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+              <button onClick={() => setShowMemberModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
             </div>
 
             {memberModalTab === 'financeiro' && editingMember ? (
@@ -2207,11 +2160,11 @@ export default function App() {
                           <span className="text-xs font-bold text-slate-400">Foto</span>
                         )}
                       </div>
-                      <div className="flex-1 space-y-1">
-                        <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro (Câmera ou Arquivo)</label>
-                        <div className="flex items-center gap-2">
-                          <label className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
-                            📷 Tirar Foto / Enviar Arquivo
+                      <div className="flex-1 space-y-2">
+                        <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
+                            📸 Tirar Foto (Câmera)
                             <input 
                               type="file" 
                               accept="image/*" 
@@ -2228,6 +2181,25 @@ export default function App() {
                               }}
                             />
                           </label>
+
+                          <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
+                            📁 Enviar Arquivo
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                const reader = new FileReader();
+                                reader.readAsDataURL(file);
+                                reader.onload = () => {
+                                  setFormFotoUrl(reader.result as string);
+                                };
+                              }}
+                            />
+                          </label>
+
                           {formFotoUrl && (
                             <button 
                               type="button" 

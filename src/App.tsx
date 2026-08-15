@@ -5,26 +5,18 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  // CORRIGIDO: Inicia direto na aba de Relatórios (Dashboard Geral) em vez de Membros
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'financeiro' | 'igreja'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
-  // Sub-abas de Relatórios
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
-
-  // Sub-abas da Agenda
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
-
-  // Sub-abas do Financeiro
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
 
-  // Login
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
-  // Membros
   const [members, setMembers] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingMembros, setLoadingMembros] = useState(false);
@@ -32,7 +24,6 @@ export default function App() {
   const [editingMember, setEditingMember] = useState<any>(null);
   const [formStep, setFormStep] = useState<1 | 2>(1);
 
-  // Campos do Membro
   const [formNome, setFormNome] = useState('');
   const [formTipo, setFormTipo] = useState('Membro');
   const [formCpf, setFormCpf] = useState('');
@@ -44,11 +35,9 @@ export default function App() {
   const [formEndereco, setFormEndereco] = useState('');
   const [formFotoUrl, setFormFotoUrl] = useState('');
 
-  // Usuários e Fornecedores
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
   const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
 
-  // Agenda & Compromissos
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
   const [showAgendaModal, setShowAgendaModal] = useState(false);
@@ -61,25 +50,21 @@ export default function App() {
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
   const [formAgendaStatus, setFormAgendaStatus] = useState('Pendente');
 
-  // Financeiro
   const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
   const [lancamentosCorrente, setLancamentosCorrente] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
   const [showLancamentoModal, setShowLancamentoModal] = useState(false);
   const [showContaModal, setShowContaModal] = useState(false);
 
-  // Formulário de Lançamento Financeiro
   const [formLancData, setFormLancData] = useState('');
   const [formLancTipo, setFormLancTipo] = useState<'debito' | 'credito'>('credito');
   const [formLancValor, setFormLancValor] = useState('');
   const [formLancContaId, setFormLancContaId] = useState('');
   const [formLancObs, setFormLancObs] = useState('');
 
-  // Formulário de Nova Conta Financeira
   const [formNomeConta, setFormNomeConta] = useState('');
   const [formTipoConta, setFormTipoConta] = useState('Caixa Geral');
 
-  // Aniversariantes
   const hoje = new Date();
   const diaAtual = String(hoje.getDate()).padStart(2, '0');
   const mesAtual = String(hoje.getMonth() + 1).padStart(2, '0');
@@ -117,21 +102,9 @@ export default function App() {
   const carregarFinanceiro = async (cod: string) => {
     setLoadingFinanceiro(true);
     try {
-      const { data: cData } = await supabase
-        .from('contas_financeiras')
-        .select('*')
-        .eq('codigo_igreja', cod);
-
-      const { data: lData, error } = await supabase
-        .from('lancamentos_financeiros')
-        .select('*')
-        .eq('codigo_igreja', cod)
-        .order('data_lancamento', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar lançamentos:', error.message);
-      }
-
+      const { data: cData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
+      const { data: lData, error } = await supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', cod).order('data_lancamento', { ascending: true });
+      if (error) console.error('Erro ao buscar lançamentos:', error.message);
       setContasFinanceiras(cData || []);
       setLancamentosCorrente(lData || []);
     } catch (err: any) {
@@ -146,7 +119,6 @@ export default function App() {
     const cod = loggedUser.codigo_igreja;
     
     async function carregarDados() {
-      // Sempre carrega membros para o Dashboard Geral funcionar ao logar
       setLoadingMembros(true);
       const { data: mData } = await supabase.from('members').select('*').eq('codigo_igreja', cod);
       setMembers(mData || []);
@@ -251,20 +223,42 @@ export default function App() {
     setShowAgendaModal(true);
   };
 
-  const handleOpenNewAgenda = () => {
-  setEditingCompromisso(null);
-  setFormAgendaTitulo('');
-  setFormAgendaData('');
-  setFormAgendaHoraInicio('');
-  setFormAgendaHoraFim('');
-  setFormAgendaComentario('');
-  setFormAgendaMembroId(''); // Limpa o membro ao criar novo
-  setFormAgendaDesejaAviso(false);
-  setFormAgendaAvisoHoras('1');
-  setShowAgendaModal(true);
-};
+  const handleOpenEditAgenda = (c: any) => {
+    setEditingCompromisso(c);
+    setFormAgendaTitulo(c.titulo || '');
+    setFormAgendaData(c.data_compromisso || '');
+    setFormAgendaHoraInicio(c.hora_compromisso || '');
+    setFormAgendaHoraFim(c.hora_fim || '');
+    setFormAgendaMembroId(c.responsavel || ''); 
+    
+    const comentarioLimpo = c.descricao ? c.descricao.split('—').pop()?.trim() : (c.descricao || '');
+    setFormAgendaComentario(comentarioLimpo);
+    
+    setShowAgendaModal(true);
   };
-  chandleSaveAgenda
+
+  const handleSaveAgenda = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
+      alert('Preencha pelo menos o Título e a Data do compromisso.');
+      return;
+    }
+  
+    const comentarioLimpo = formAgendaComentario.includes('—') 
+      ? formAgendaComentario.split('—').pop()?.trim() 
+      : formAgendaComentario.trim();
+  
+    const payload: any = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      titulo: formAgendaTitulo.trim(),
+      data_compromisso: formAgendaData,
+      hora_compromisso: formAgendaHoraInicio || '00:00',
+      hora_fim: formAgendaHoraFim || '00:00',
+      responsavel: formAgendaMembroId, 
+      descricao: `Término: ${formAgendaHoraFim || '00:00'} — ${comentarioLimpo}`
+    };
+  
     try {
       if (editingCompromisso) {
         const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
@@ -275,12 +269,10 @@ export default function App() {
         if (error) throw error;
         alert('Compromisso cadastrado com sucesso!');
       }
-
       setShowAgendaModal(false);
       carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      console.error('Erro detalhado:', err);
-      alert('Erro ao salvar compromisso: ' + err.message);
+    } catch (err: any) { 
+      alert('Erro ao salvar: ' + err.message); 
     }
   };
 
@@ -304,119 +296,37 @@ export default function App() {
     }
   };
 
-  const handleSaveAgenda = async (e: React.FormEvent) => {
+  const handleSaveLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
-      alert('Preencha pelo menos o Título e a Data do compromisso.');
+    if (!formLancData || !formLancValor) {
+      alert('Preencha a data e o valor do lançamento.');
       return;
     }
-  
-    // Pega apenas o comentário digitado
-    const comentarioLimpo = formAgendaComentario.includes('—') 
-      ? formAgendaComentario.split('—').pop()?.trim() 
-      : formAgendaComentario.trim();
-  
-    const payload: any = {
+
+    const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
-      titulo: formAgendaTitulo.trim(),
-      data_compromisso: formAgendaData,
-      hora_compromisso: formAgendaHoraInicio || '00:00',
-      hora_fim: formAgendaHoraFim || '00:00',
-      responsavel: formAgendaMembroId, // Salva o responsável fixo na coluna dedicada
-      descricao: `Término: ${formAgendaHoraFim || '00:00'} — ${comentarioLimpo}` // Salva limpo sem tags de WhatsApp
+      data_lancamento: formLancData,
+      tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
+      valor: parseFloat(formLancValor),
+      conta_id: formLancContaId || null,
+      descricao: formLancObs.trim() || 'Lançamento financeiro'
     };
-  
-    try {
-      if (editingCompromisso) {
-        await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
-      } else {
-        await supabase.from('agenda_compromissos').insert([payload]);
-      }
-      setShowAgendaModal(false);
-      carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) { 
-      alert('Erro ao salvar: ' + err.message); 
-    }
-  };
-  
-    try {
-      if (editingCompromisso) {
-        await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
-      } else {
-        await supabase.from('agenda_compromissos').insert([payload]);
-      }
-      setShowAgendaModal(false);
-      carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) { 
-      alert('Erro ao salvar: ' + err.message); 
-    }
-  };
-  
-    try {
-      if (editingCompromisso) {
-        await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
-      } else {
-        await supabase.from('agenda_compromissos').insert([payload]);
-      }
-      setShowAgendaModal(false);
-      alert('Compromisso salvo com sucesso!');
-      carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) { 
-      alert('Erro ao salvar: ' + err.message); 
-    }
-  };
-
-// 2. Na interface da Agenda (No seu Main ou Modal):
-// Adicione o campo de Horário Final novamente:
-<div className="grid grid-cols-2 gap-4">
-  <div>
-  <div>
-  <div className="grid grid-cols-2 gap-4">
-  <div>
-    <label className="text-xs font-bold text-slate-600">Início</label>
-    <input type="time" value={formAgendaHoraInicio} onChange={e => setFormAgendaHoraInicio(e.target.value)} className="w-full border p-3 rounded-xl" />
-  </div>
-  <div>
-    <label className="text-xs font-bold text-slate-600">Fim</label>
-    <input type="time" value={formAgendaHoraFim} onChange={e => setFormAgendaHoraFim(e.target.value)} className="w-full border p-3 rounded-xl" />
-  </div>
-</div>
 
     try {
-      if (editingCompromisso) {
-        const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
-        if (error) throw error;
-        alert('Compromisso atualizado com sucesso!');
-      } else {
-        const { error } = await supabase.from('agenda_compromissos').insert([payload]);
-        if (error) throw error;
-        alert('Compromisso cadastrado com sucesso!');
-      }
-
-      setShowAgendaModal(false);
-      carregarAgenda(loggedUser.codigo_igreja);
+      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+      if (error) throw error;
+      alert('Lançamento salvo com sucesso!');
+      setShowLancamentoModal(false);
+      setFormLancData('');
+      setFormLancValor('');
+      setFormLancObs('');
+      setFormLancContaId('');
+      carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) {
-      console.error('Erro detalhado:', err);
-      alert('Erro ao salvar compromisso: ' + err.message);
+      alert('Erro ao salvar lançamento: ' + err.message);
     }
   };
-  useEffect(() => {
-    if (activeTab === 'agenda' && isLoggedIn) {
-      const agora = new Date();
-      
-      compromissos.forEach(c => {
-        // Verifica se o compromisso tem aviso ativado na descrição
-        if (c.descricao.includes('[Aviso:')) {
-          // Lógica de cálculo de tempo...
-          // Se a diferença entre agora e o horário do compromisso for <= horas do aviso:
-          // AQUI VOCÊ PODE DISPARAR UM ALERTA OU EXIBIR O BOTÃO DE WHATSAPP NA TELA
-        }
-      });
-    }
-  }, [activeTab, compromissos]);
 
-  // Função para deletar lançamento financeiro com senha de administrador
   const handleDeleteLancamento = async (lancamentoId: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir este lançamento:');
     if (!senhaInformada) return;
@@ -427,13 +337,8 @@ export default function App() {
     }
 
     try {
-      const { error } = await supabase
-        .from('lancamentos_financeiros')
-        .delete()
-        .eq('id', lancamentoId);
-
+      const { error } = await supabase.from('lancamentos_financeiros').delete().eq('id', lancamentoId);
       if (error) throw error;
-
       alert('Lançamento excluído com sucesso!');
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) {
@@ -441,7 +346,6 @@ export default function App() {
     }
   };
 
-  // Função para anexar comprovante
   const handleAnexarComprovante = async (lancamentoId: any, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -451,11 +355,7 @@ export default function App() {
       reader.readAsDataURL(file);
       reader.onload = async () => {
         const base64Data = reader.result as string;
-        const { error } = await supabase
-          .from('lancamentos_financeiros')
-          .update({ comprovante_url: base64Data })
-          .eq('id', lancamentoId);
-
+        const { error } = await supabase.from('lancamentos_financeiros').update({ comprovante_url: base64Data }).eq('id', lancamentoId);
         if (error) throw error;
         alert('Comprovante anexado com sucesso!');
         carregarFinanceiro(loggedUser.codigo_igreja);
@@ -471,7 +371,6 @@ export default function App() {
 
   const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  // Cálculo progressivo do Saldo da Conta Corrente
   let saldoAcumulado = 0;
   const lancamentosComSaldo = lancamentosCorrente.map((l: any) => {
     const valor = parseFloat(l.valor || 0);
@@ -489,7 +388,6 @@ export default function App() {
     };
   });
 
-  // Saldo final exato
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 
     ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual 
     : 0;
@@ -911,25 +809,44 @@ export default function App() {
                   <p className="text-center py-6 text-slate-400">Nenhum compromisso agendado para esta igreja.</p>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {compromissos.map((c: any) => (
-                      <div 
-                        key={c.id} 
-                        const handleOpenEditAgenda = (c: any) => {
-                          setEditingCompromisso(c);
-                          setFormAgendaTitulo(c.titulo || '');
-                          setFormAgendaData(c.data_compromisso || '');
-                          setFormAgendaHoraInicio(c.hora_compromisso || '');
-                          setFormAgendaHoraFim(c.hora_fim || '');
-                          
-                          // Puxa o responsável direto da coluna salva no banco
-                          setFormAgendaMembroId(c.responsavel || ''); 
-                          
-                          // Limpa o comentário deixando apenas o texto real
-                          const comentarioLimpo = c.descricao ? c.descricao.split('—').pop()?.trim() : (c.descricao || '');
-                          setFormAgendaComentario(comentarioLimpo);
-                          
-                          setShowAgendaModal(true);
-                        };
+                    {compromissos.map((c: any) => {
+                      const membroResp = members.find((m: any) => String(m.id) === String(c.responsavel));
+                      return (
+                        <div 
+                          key={c.id} 
+                          onClick={() => handleOpenEditAgenda(c)}
+                          className="p-5 border rounded-2xl shadow-sm space-y-3 cursor-pointer hover:shadow-md transition-all bg-white border-slate-200 flex flex-col justify-between"
+                        >
+                          <div>
+                            <div className="flex justify-between items-start border-b pb-2">
+                              <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
+                              <span className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider bg-blue-100 text-blue-800">
+                                Compromisso
+                              </span>
+                            </div>
+                            
+                            <div className="text-xs text-slate-600 space-y-1 pt-2 font-semibold">
+                              <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
+                              <div>⏰ Início: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span> | Fim: <span className="font-mono text-slate-700">{c.hora_fim || '00:00'}</span></div>
+                              <div>👤 Responsável: <span className="text-blue-900 font-bold">{membroResp ? membroResp.nome : 'Não vinculado'}</span></div>
+                            </div>
+
+                            <div className="pt-2 mt-2 border-t text-xs text-slate-700 bg-slate-50 p-3 rounded-xl border border-slate-100">
+                              <strong className="text-slate-900 block mb-1">💬 Comentário / Relatório:</strong>
+                              <p className="text-slate-600 italic">{c.descricao || 'Nenhum comentário registrado.'}</p>
+                            </div>
+                          </div>
+
+                          <div className="pt-2">
+                            <span className="w-full block text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all">
+                              Editar / Ver Detalhes
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
 
@@ -981,7 +898,7 @@ export default function App() {
                       {compromissos.map((c: any) => (
                         <tr key={c.id} className="hover:bg-slate-50">
                           <td className="p-3 font-mono font-bold">{c.data_compromisso}</td>
-                          <td className="p-3 font-mono">{c.hora_compromisso}</td>
+                          <td className="p-3 font-mono">{c.hora_compromisso} - {c.hora_fim}</td>
                           <td className="p-3 font-bold text-slate-900">{c.titulo}</td>
                           <td className="p-3 italic text-slate-600">{c.descricao || '-'}</td>
                         </tr>
@@ -994,7 +911,6 @@ export default function App() {
           </div>
         )}
 
-        {/* --- MÓDULO FINANCEIRO REESTRUTURADO --- */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1020,7 +936,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Cabeçalho exclusivo para impressão do relatório */}
             <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
               <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
               <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Relatório Financeiro — Extrato da Conta Corrente</p>
@@ -1038,15 +953,14 @@ export default function App() {
                           <th className="p-3">Data</th>
                           <th className="p-3">Débito (Saída)</th>
                           <th className="p-3">Crédito (Entrada)</th>
-                          <th className="p-3">Descrição / Conta</th>
+                          <th className="p-3">Descrição</th>
                           <th className="p-3">Saldo</th>
-                          <th className="p-3">Observação</th>
                           <th className="p-3 text-center print:hidden">Ações (Excluir / Anexar)</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-700">
                         {lancamentosComSaldo.length === 0 ? (
-                          <tr><td colSpan={7} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
+                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
                         ) : (
                           lancamentosComSaldo.map((l: any) => (
                             <tr key={l.id} className="hover:bg-slate-50">
@@ -1063,10 +977,8 @@ export default function App() {
                               <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>
                                 R$ {l.saldoAtual.toFixed(2)}
                               </td>
-                              <td className="p-3 text-slate-500 italic">{l.descricao || '-'}</td>
                               <td className="p-3 text-center print:hidden">
                                 <div className="flex items-center justify-center gap-2">
-                                  {/* Botão de Excluir protegido por senha */}
                                   <button 
                                     onClick={() => handleDeleteLancamento(l.id)}
                                     className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]"
@@ -1075,7 +987,6 @@ export default function App() {
                                     Excluir
                                   </button>
 
-                                  {/* Botão / Input para Tirar Foto ou Carregar Comprovante */}
                                   <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Tirar foto ou carregar comprovante">
                                     📷 {l.comprovante_url ? 'Ver/Trocar' : 'Anexar'}
                                     <input 
@@ -1087,7 +998,6 @@ export default function App() {
                                     />
                                   </label>
 
-                                  {/* Link para abrir comprovante anexado */}
                                   {l.comprovante_url && (
                                     <a 
                                       href={l.comprovante_url} 
@@ -1118,7 +1028,7 @@ export default function App() {
                       <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
                         <th className="p-3">Nome da Conta</th>
                         <th className="p-3">Tipo / Categoria</th>
-                        <th className="p-3">Saldo Atual (Crédito - Débito)</th>
+                        <th className="p-3">Saldo Atual</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
@@ -1126,11 +1036,9 @@ export default function App() {
                         <tr><td colSpan={3} className="py-8 text-center text-slate-400">Nenhuma conta cadastrada. Clique em "+ Nova Conta" acima.</td></tr>
                       ) : (
                         contasFinanceiras.map((c: any) => {
-                          // CORRIGIDO: Se a conta não tiver ID vinculado nos lançamentos antigos, soma todos ou filtra pelo conta_id correspondente
                           const lancamentosDaConta = lancamentosCorrente.filter((l: any) => 
                             String(l.conta_id) === String(c.id) || !l.conta_id
                           );
-                          
                           const saldoConta = lancamentosDaConta.reduce((acc, l: any) => {
                             const val = parseFloat(l.valor || 0);
                             return l.tipo === 'entrada' ? acc + val : acc - val;
@@ -1140,9 +1048,7 @@ export default function App() {
                             <tr key={c.id} className="hover:bg-slate-50">
                               <td className="p-3 font-bold text-slate-900">{c.nome_conta}</td>
                               <td className="p-3">{c.codigo_conta}</td>
-                              <td className="p-3 font-mono font-bold">
-                                (R$ {saldoConta.toFixed(2)})
-                              </td>
+                              <td className="p-3 font-mono font-bold">R$ {saldoConta.toFixed(2)}</td>
                             </tr>
                           );
                         })
@@ -1153,13 +1059,12 @@ export default function App() {
               </div>
             )}
 
-            {/* SUB-ABA: RELATÓRIO FINANCEIRO COM SALDO CORRETO */}
             {financeiroSubTab === 'relatorio' && (
               <div className="space-y-6">
                 <div className="p-5 bg-blue-50 border border-blue-200 rounded-2xl flex justify-between items-center print:border-slate-400">
                   <div>
                     <h3 className="font-bold text-blue-950 text-base">Saldo Atual da Conta Corrente</h3>
-                    <p className="text-xs text-blue-700">Calculado através do último resultado acumulado (Créditos menos Débitos).</p>
+                    <p className="text-xs text-blue-700">Calculado através do último resultado acumulado.</p>
                   </div>
                   <div className={`text-2xl font-black font-mono ${saldoFinalRelatorio >= 0 ? 'text-blue-900' : 'text-rose-600'}`}>
                     R$ {saldoFinalRelatorio.toFixed(2)}
@@ -1174,7 +1079,7 @@ export default function App() {
                         <th className="p-3">Débito (Saída)</th>
                         <th className="p-3">Crédito (Entrada)</th>
                         <th className="p-3">Descrição</th>
-                        <th className="p-3">Saldo Parcial / Atual</th>
+                        <th className="p-3">Saldo Parcial</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
@@ -1200,7 +1105,6 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL DE NOVO LANÇAMENTO NA CONTA CORRENTE */}
       {showLancamentoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -1215,7 +1119,7 @@ export default function App() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Lançamento *</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Tipo *</label>
                   <select value={formLancTipo} onChange={(e: any) => setFormLancTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm font-bold bg-white focus:outline-none focus:border-blue-900">
                     <option value="credito">Crédito (Entrada)</option>
                     <option value="debito">Débito (Saída)</option>
@@ -1227,7 +1131,7 @@ export default function App() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Conta Financeira (In Box)</label>
+                <label className="text-xs font-bold text-slate-600 ml-1">Conta Financeira</label>
                 <select value={formLancContaId} onChange={(e) => setFormLancContaId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                   <option value="">Selecione a conta cadastrada...</option>
                   {contasFinanceiras.map((c: any) => (
@@ -1248,7 +1152,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO DE NOVA CONTA */}
       {showContaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -1259,7 +1162,7 @@ export default function App() {
             <form onSubmit={handleSaveConta} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Conta *</label>
-                <input type="text" required value={formNomeConta} onChange={(e) => setFormNomeConta(e.target.value)} placeholder="Ex: Banco Sicoob, Caixa Geral, Dízimos" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formNomeConta} onChange={(e) => setFormNomeConta(e.target.value)} placeholder="Ex: Banco Sicoob, Caixa Geral" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Categoria / Tipo</label>
@@ -1278,10 +1181,9 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO DE COMPROMISSO NA AGENDA */}
       {showAgendaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-lg font-black text-blue-900">
                 {editingCompromisso ? 'Alterar Compromisso / Visita' : 'Novo Compromisso / Visita'}
@@ -1296,9 +1198,9 @@ export default function App() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Vincular Membro (Opcional - Busca do Cadastro)</label>
+                <label className="text-xs font-bold text-slate-600 ml-1">Responsável pelo Compromisso</label>
                 <select value={formAgendaMembroId} onChange={(e) => setFormAgendaMembroId(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
-                  <option value="">Selecione um membro cadastrado...</option>
+                  <option value="">Selecione o responsável...</option>
                   {members.map((m: any) => (
                     <option key={m.id} value={m.id}>{m.nome} ({m.tipo_cadastro})</option>
                   ))}
@@ -1345,10 +1247,9 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE MEMBRO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <h3 className="text-lg font-black text-blue-900">
@@ -1426,7 +1327,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                      <input type="text" value={formResourceCelular || formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" value={formCelular} onChange={(e) => setFormCelular(e.target.value)} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>

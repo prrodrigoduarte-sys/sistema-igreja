@@ -1844,28 +1844,71 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL DE LANÇAMENTO */}
       {showLancamentoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Conta Corrente)</h3>
-              <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
+              <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Débito e Crédito)</h3>
+              <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
             </div>
+            
             <form onSubmit={handleSaveLancamento} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
                 <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Tipo *</label>
-                  <select value={formLancTipo} onChange={(e: any) => setFormLancTipo(e.target.value)} className="w-full rounded-xl border p-3 text-sm font-bold bg-white focus:outline-none focus:border-blue-900">
-                    <option value="credito">Crédito (Entrada)</option>
-                    <option value="debito">Débito (Saída)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
+
+              {/* COMBOBOX (SELECT) PARA CONTA A DÉBITO */}
+              <div>
+                <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Origem/Saída) *</label>
+                <select 
+                  required 
+                  value={formLancContaDebitoId} 
+                  onChange={(e) => setFormLancContaDebitoId(e.target.value)} 
+                  className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700"
+                >
+                  <option value="">Selecione a conta a débito...</option>
+                  {contasFinanceiras.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* COMBOBOX (SELECT) PARA CONTA A CRÉDITO */}
+              <div>
+                <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Destino/Entrada) *</label>
+                <select 
+                  required 
+                  value={formLancContaCreditoId} 
+                  onChange={(e) => setFormLancContaCreditoId(e.target.value)} 
+                  className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700"
+                >
+                  <option value="">Selecione a conta a crédito...</option>
+                  {contasFinanceiras.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
+                <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
+                <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value)} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}                  <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
                   <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                 </div>
               </div>

@@ -650,10 +650,44 @@ export default function App() {
 
   const handleSaveLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formLancData || !formLancValor) {
-      alert('Preencha a data e o valor do lançamento.');
+    
+    // 1. ATUALIZE A VALIDAÇÃO AQUI: Exigir também débito e crédito
+    if (!formLancData || !formLancValor || !formLancContaDebitoId || !formLancContaCreditoId) {
+      alert('Preencha a data, o valor, a conta a débito e a conta a crédito.');
       return;
     }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      data_lancamento: formLancData,
+      valor: parseFloat(formLancValor),
+      
+      // 2. ADICIONE OS CAMPOS DE UUID AQUI:
+      conta_debito_id: formLancContaDebitoId,
+      conta_credito_id: formLancContaCreditoId,
+      
+      membro_id: editingMember ? editingMember.id : null,
+      descricao: formLancObs.trim() || 'Lançamento financeiro'
+    };
+
+    try {
+      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+      if (error) throw error;
+      alert('Lançamento salvo com sucesso!');
+      setShowLancamentoModal(false);
+      
+      // Limpa os campos do formulário após salvar
+      setFormLancData('');
+      setFormLancValor('');
+      setFormLancObs('');
+      setFormLancContaDebitoId('');
+      setFormLancContaCreditoId('');
+      
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar lançamento: ' + err.message);
+    }
+  };
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,

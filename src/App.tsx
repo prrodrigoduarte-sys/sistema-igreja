@@ -1304,61 +1304,69 @@ export default function App() {
           </div>
         )}
 
-{activeTab === 'relatorios' && (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios e Dashboard</h2>
-        <p className="text-xs text-slate-500">Selecione o relatório desejado abaixo.</p>
-        
-        {/* BOTÃO QUE APARECE SÓ SE TIVER SELECIONADO ALGUM CHECKBOX */}
-        {selecionados.length > 0 && (
-          <button 
-            onClick={deletarMembrosSelecionados} 
-            className="mt-3 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2"
-          >
-            🗑️ Deletar {selecionados.length} Selecionados
-          </button>
-        )}
-      </div>
-              <div className="flex flex-wrap items-center gap-2 bg-slate-100 p-1 rounded-xl">
-                <button onClick={() => setRelatorioSubTab('geral')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'geral' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Dashboard Geral</button>
-                <button onClick={() => setRelatorioSubTab('aniversariantes_dia')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_dia' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🎂 Aniversariantes do Dia</button>
-                <button onClick={() => setRelatorioSubTab('aniversariantes_mes')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_mes' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📅 Aniversariantes do Mês</button>
-                <button onClick={() => setRelatorioSubTab('completa')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'completa' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📋 Lista Completa</button>
-                <button onClick={handlePrint} className="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir A4</button>
-              </div>
-            </div>
-
-            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
-              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
-              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">
-                {relatorioSubTab === 'aniversariantes_dia' ? 'Relatório de Aniversariantes do Dia' : relatorioSubTab === 'aniversariantes_mes' ? 'Relatório de Aniversariantes do Mês' : relatorioSubTab === 'completa' ? 'Relatório de Lista Completa de Membros' : 'Dashboard Geral'}
-              </p>
-            </div>
-
-            {relatorioSubTab === 'geral' && (
-                    <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
-                  </div>
-                  <div 
-                    onClick={() => setRelatorioSubTab('aniversariantes_dia')}
-                    className="p-5 bg-blue-50 border border-blue-200 rounded-2xl cursor-pointer hover:bg-blue-100 transition-all shadow-sm print:border-slate-400"
-                  >
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-blue-900">🎂 Aniversariantes Hoje</h4>
-                      <span className="text-xs font-bold bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full">Ver Lista</span>
-                    </div>
-                    <p className="text-3xl font-black text-blue-950 mt-2">{aniversariantesDoDia.length}</p>
-                    <p className="text-[11px] text-blue-700 mt-1">Clique para abrir a listagem do dia.</p>
-                  </div>
-                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
-                    <h4 className="font-bold text-blue-950">Compromissos na Agenda</h4>
-                    <p className="text-3xl font-black text-slate-800 mt-2">{compromissos.length}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
+{relatorioSubTab === 'completa' && (
+  <div className="space-y-4">
+    <div className="flex justify-between items-center print:hidden">
+      <h3 className="font-bold text-slate-800 text-lg">Lista Completa ({members.length})</h3>
+      
+      {/* Botão de Exclusão em Massa (aparece só se marcar alguém) */}
+      {selecionados.length > 0 && (
+        <button 
+          onClick={deletarMembrosSelecionados} 
+          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-all"
+        >
+          🗑️ Deletar {selecionados.length} Selecionados
+        </button>
+      )}
+    </div>
+    
+    {/* === A TABELA COM AS CAIXINHAS (CHECKBOXES) === */}
+    <div className="overflow-x-auto border rounded-xl">
+      <table className="w-full text-left text-xs border-collapse">
+        <thead className="bg-slate-50 border-b">
+          <tr>
+            {/* Caixinha do Topo (Marca/Desmarca Todos) */}
+            <th className="p-3 text-center w-12">
+              <input 
+                type="checkbox" 
+                onChange={(e) => setSelecionados(e.target.checked ? members.map(m => String(m.id)) : [])}
+                checked={members.length > 0 && selecionados.length === members.length}
+                className="cursor-pointer"
+              />
+            </th>
+            <th className="p-3">Nome</th>
+            <th className="p-3">CPF</th>
+            <th className="p-3">E-mail</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y text-slate-700">
+          {members.map((m: any) => (
+            <tr key={m.id} className="hover:bg-slate-50">
+              {/* Caixinha do Lado Esquerdo de Cada Nome */}
+              <td className="p-3 text-center">
+                <input 
+                  type="checkbox" 
+                  checked={selecionados.includes(String(m.id))}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelecionados([...selecionados, String(m.id)]);
+                    } else {
+                      setSelecionados(selecionados.filter(id => id !== String(m.id)));
+                    }
+                  }}
+                  className="cursor-pointer"
+                />
+              </td>
+              <td className="p-3 font-bold">{m.nome}</td>
+              <td className="p-3 font-mono">{m.cpf || '-'}</td>
+              <td className="p-3">{m.email || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
             {relatorioSubTab === 'aniversariantes_dia' && (
               <div className="space-y-4">
                 <h3 className="font-bold text-slate-800 text-lg print:hidden">🎂 Aniversariantes do Dia ({aniversariantesDoDia.length})</h3>

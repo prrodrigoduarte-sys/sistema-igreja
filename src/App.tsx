@@ -26,10 +26,6 @@ export default function App() {
   const [editingMember, setEditingMember] = useState<any>(null);
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
-  const [buscaLiderRede, setBuscaLiderRede] = useState('');
-  const [buscaLiderSetor, setBuscaLiderSetor] = useState('');
-  const [mostrarSugestoesRede, setMostrarSugestoesRede] = useState(false);
-  const [mostrarSugestoesSetor, setMostrarSugestoesSetor] = useState(false);
 
   // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
@@ -37,7 +33,7 @@ export default function App() {
     tipo_cadastro: 'Membro',
     cpf: '',
     rg: '',
-    data_nascimento: '', // Formato yyyy-mm-dd para o banco
+    data_nascimento: '',
     celular_principal: '',
     email: '',
     estado_civil: 'Solteiro(a)',
@@ -45,7 +41,6 @@ export default function App() {
     foto_url: ''
   });
 
-  // Estados auxiliares para máscara visual de data (dd/mm/aaaa)
   const [dataNascDisplay, setDataNascDisplay] = useState('');
 
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
@@ -220,7 +215,6 @@ export default function App() {
     }
   };
 
-  // Função de Máscara para CPF: 000.000.000-00
   const aplicarMascaraCpf = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
     let cpfFormatado = apenasDigitos;
@@ -236,7 +230,6 @@ export default function App() {
     return cpfFormatado;
   };
 
-  // Função de Máscara para Data de Nascimento: dd/mm/aaaa
   const aplicarMascaraData = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 8);
     let dataFormatada = apenasDigitos;
@@ -249,7 +242,6 @@ export default function App() {
     return dataFormatada;
   };
 
-  // Converte dd/mm/aaaa para yyyy-mm-dd para salvar no banco
   const converterDataParaBanco = (dataBr: string) => {
     if (!dataBr || dataBr.length !== 10) return null;
     const [dia, mes, ano] = dataBr.split('/');
@@ -257,7 +249,6 @@ export default function App() {
     return `${ano}-${mes}-${dia}`;
   };
 
-  // Converte yyyy-mm-dd do banco para dd/mm/aaaa para exibir no input
   const converterDataParaDisplay = (dataIso: string) => {
     if (!dataIso) return '';
     const partes = dataIso.split('-');
@@ -314,11 +305,9 @@ export default function App() {
     e.preventDefault();
     if (!formMember.nome.trim()) { alert('O nome é obrigatório.'); return; }
 
-    // --- NOVA VALIDAÇÃO DE DUPLICADOS ---
     const cpfLimpo = formMember.cpf.replace(/\D/g, '');
     const duplicado = members.find(m => {
       const nomeIgual = m.nome.toLowerCase() === formMember.nome.trim().toLowerCase();
-      // Verifica CPF apenas se não for vazio
       const cpfIgual = cpfLimpo && m.cpf && m.cpf.replace(/\D/g, '') === cpfLimpo;
       return (nomeIgual || cpfIgual) && (!editingMember || m.id !== editingMember.id);
     });
@@ -328,8 +317,6 @@ export default function App() {
       return;
     }
     
-    // --- FIM DA VALIDAÇÃO ---
-
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formMember.nome.trim(),
@@ -367,12 +354,6 @@ export default function App() {
       alert('Erro ao gravar membro: ' + err.message);
     }
   };
-        setActiveTab(destino as any);
-      }
-    } catch (err: any) {
-      alert('Erro ao gravar membro: ' + err.message);
-    }
-  };
 
   const deletarMembrosSelecionados = async () => {
     if (selecionados.length === 0) {
@@ -394,12 +375,30 @@ export default function App() {
       if (error) throw error;
       
       alert(`Membros excluídos com sucesso! Motivo: "${motivo}"`);
-      setSelecionados([]); // Limpa a seleção após excluir
+      setSelecionados([]);
       await carregarMembros(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao excluir membros: ' + err.message);
     }
   };
+
+  const handleDeleteMember = async (id: any) => {
+    const senhaInformada = prompt('Digite a senha de administrador para excluir este membro:');
+    if (!senhaInformada) return;
+    if (senhaInformada !== loggedUser.senha) {
+      alert('Senha incorreta. Exclusão cancelada.');
+      return;
+    }
+
+    try {
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) throw error;
+      alert('Membro excluído com sucesso!');
+      setShowMemberModal(false);
+      await carregarMembros(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao excluir membro: ' + err.message);
+    }
   };
 
   const handleOpenNewAgenda = () => {
@@ -968,6 +967,160 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'relatorios' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">📊 Relatórios e Listagens</h2>
+                <p className="text-xs text-slate-500">Geração de relatórios gerenciais e aniversariantes.</p>
+              </div>
+              <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
+                <button onClick={() => setRelatorioSubTab('geral')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'geral' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Geral</button>
+                <button onClick={() => setRelatorioSubTab('aniversariantes_dia')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_dia' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Aniversariantes do Dia</button>
+                <button onClick={() => setRelatorioSubTab('aniversariantes_mes')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'aniversariantes_mes' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Aniversariantes do Mês</button>
+                <button onClick={() => setRelatorioSubTab('completa')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${relatorioSubTab === 'completa' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Lista Completa</button>
+              </div>
+            </div>
+
+            {relatorioSubTab === 'geral' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 text-lg">Visão Geral dos Membros</h3>
+                <p className="text-sm text-slate-600">Total de membros cadastrados: <strong className="text-blue-900">{members.length}</strong></p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
+                  <div className="p-4 bg-blue-50 border rounded-2xl">
+                    <span className="text-xs font-bold text-blue-700 uppercase">Total de Membros</span>
+                    <p className="text-2xl font-black text-blue-950 mt-1">{members.filter(m => m.tipo_cadastro === 'Membro').length}</p>
+                  </div>
+                  <div className="p-4 bg-emerald-50 border rounded-2xl">
+                    <span className="text-xs font-bold text-emerald-700 uppercase">Congregados & Visitantes</span>
+                    <p className="text-2xl font-black text-emerald-950 mt-1">{members.filter(m => m.tipo_cadastro !== 'Membro').length}</p>
+                  </div>
+                  <div className="p-4 bg-purple-50 border rounded-2xl">
+                    <span className="text-xs font-bold text-purple-700 uppercase">Aniversariantes deste Mês</span>
+                    <p className="text-2xl font-black text-purple-950 mt-1">{aniversariantesDoMes.length}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {relatorioSubTab === 'aniversariantes_dia' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 text-lg">🎂 Aniversariantes do Dia ({aniversariantesDoDia.length})</h3>
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b text-slate-600">
+                      <tr>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Data de Nascimento</th>
+                        <th className="p-3">Celular</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {aniversariantesDoDia.length === 0 ? (
+                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante encontrado para hoje.</td></tr>
+                      ) : (
+                        aniversariantesDoDia.map((m: any) => (
+                          <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold">{m.nome}</td>
+                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                            <td className="p-3">{m.celular_principal || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {relatorioSubTab === 'aniversariantes_mes' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 text-lg">📅 Aniversariantes do Mês ({aniversariantesDoMes.length})</h3>
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 border-b text-slate-600">
+                      <tr>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Data de Nascimento</th>
+                        <th className="p-3">Celular</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {aniversariantesDoMes.length === 0 ? (
+                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante cadastrado para este mês.</td></tr>
+                      ) : (
+                        aniversariantesDoMes.map((m: any) => (
+                          <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold">{m.nome}</td>
+                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                            <td className="p-3">{m.celular_principal || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {relatorioSubTab === 'completa' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center print:hidden">
+                  <h3 className="font-bold text-slate-800 text-lg">Lista Completa ({members.length})</h3>
+                  {selecionados.length > 0 && (
+                    <button onClick={deletarMembrosSelecionados} className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-all">
+                      🗑️ Deletar {selecionados.length} Selecionados
+                    </button>
+                  )}
+                </div>
+                
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-50 border-b">
+                      <tr>
+                        <th className="p-3 text-center w-12 print:hidden">
+                          <input 
+                            type="checkbox" 
+                            onChange={(e) => setSelecionados(e.target.checked ? members.map(m => String(m.id)) : [])}
+                            checked={members.length > 0 && selecionados.length === members.length}
+                            className="cursor-pointer"
+                          />
+                        </th>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">CPF</th>
+                        <th className="p-3">E-mail</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {members.map((m: any) => (
+                        <tr key={m.id} className="hover:bg-slate-50">
+                          <td className="p-3 text-center print:hidden">
+                            <input 
+                              type="checkbox" 
+                              checked={selecionados.includes(String(m.id))}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelecionados([...selecionados, String(m.id)]);
+                                } else {
+                                  setSelecionados(selecionados.filter(id => id !== String(m.id)));
+                                }
+                              }}
+                              className="cursor-pointer"
+                            />
+                          </td>
+                          <td className="p-3 font-bold">{m.nome}</td>
+                          <td className="p-3 font-mono">{m.cpf || '-'}</td>
+                          <td className="p-3">{m.email || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'celulas' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -988,20 +1141,11 @@ export default function App() {
               </div>
             </div>
 
-            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
-              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
-              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">
-                {celulasSubTab === 'relatorio_simples' ? 'Relatório Simples de Células' : celulasSubTab === 'relatorio_completo' ? 'Relatório Completo de Células' : 'Relatório Árvore (Ordem Alfabética)'}
-              </p>
-            </div>
-
             {celulasSubTab === 'lista' && (
               <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-2xl border">
                   <div>
-                    <h3 className="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
-                      <span>📁 Setores Cadastrados ({setoresList.length})</span>
-                    </h3>
+                    <h3 className="font-bold text-slate-800 text-base mb-3">📁 Setores Cadastrados ({setoresList.length})</h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {setoresList.length === 0 ? (
                         <p className="text-xs text-slate-400 italic">Nenhum setor cadastrado.</p>
@@ -1009,7 +1153,7 @@ export default function App() {
                         setoresList.map((s: any) => {
                           const liderObj = members.find((m: any) => String(m.id) === String(s.lider_id));
                           return (
-                            <div key={s.id} className="p-3 bg-white border rounded-xl shadow-2xs flex justify-between items-center text-xs">
+                            <div key={s.id} className="p-3 bg-white border rounded-xl flex justify-between items-center text-xs">
                               <div>
                                 <span className="font-bold text-slate-900 text-sm block">{s.nome}</span>
                                 <span className="text-slate-500">Líder: <strong className="text-slate-700">{liderObj ? liderObj.nome : 'Não informado'}</strong></span>
@@ -1025,9 +1169,7 @@ export default function App() {
                   </div>
 
                   <div>
-                    <h3 className="font-bold text-slate-800 text-base mb-3 flex items-center justify-between">
-                      <span>🌐 Redes Cadastradas ({redesList.length})</span>
-                    </h3>
+                    <h3 className="font-bold text-slate-800 text-base mb-3">🌐 Redes Cadastradas ({redesList.length})</h3>
                     <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                       {redesList.length === 0 ? (
                         <p className="text-xs text-slate-400 italic">Nenhuma rede cadastrada.</p>
@@ -1035,7 +1177,7 @@ export default function App() {
                         redesList.map((r: any) => {
                           const liderObj = members.find((m: any) => String(m.id) === String(r.lider_id));
                           return (
-                            <div key={r.id} className="p-3 bg-white border rounded-xl shadow-2xs flex justify-between items-center text-xs">
+                            <div key={r.id} className="p-3 bg-white border rounded-xl flex justify-between items-center text-xs">
                               <div>
                                 <span className="font-bold text-slate-900 text-sm block">{r.nome}</span>
                                 <span className="text-slate-500">Líder: <strong className="text-slate-700">{liderObj ? liderObj.nome : 'Não informado'}</strong></span>
@@ -1095,12 +1237,7 @@ export default function App() {
                             </div>
 
                             <div className="pt-3 border-t flex flex-col gap-2">
-                              <a 
-                                href={googleMapsUrl} 
-                                target="_blank" 
-                                rel="noopener noreferrer" 
-                                className="w-full text-center py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5"
-                              >
+                              <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="w-full text-center py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5">
                                 📍 Abrir Localização no Google Maps
                               </a>
                               <div className="flex gap-2">
@@ -1127,9 +1264,9 @@ export default function App() {
                   <h3 className="font-bold text-slate-800 text-lg">Relatório Simples (Nome, Líder, Anfitrião e Endereço)</h3>
                   <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Relatório</button>
                 </div>
-                <div className="overflow-x-auto border rounded-xl print:border-none">
+                <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                    <thead className="bg-slate-50 border-b text-slate-600">
                       <tr>
                         <th className="p-3">Nome da Célula</th>
                         <th className="p-3">Líder</th>
@@ -1201,7 +1338,7 @@ export default function App() {
                           <div>🏠 <strong>Anfitrião:</strong> {anfitriaoObj ? <button onClick={() => handleOpenEditMemberFromContext(anfitriaoObj.id, 'celulas')} className="text-blue-800 underline font-bold cursor-pointer">{anfitriaoObj.nome}</button> : 'Não definido'}</div>
                         </div>
                         <div className="text-xs text-slate-600 flex items-center justify-between">
-                          <span>📍 <strong>Endereço:</strong> {c.endereco || 'Not informed'}</span>
+                          <span>📍 <strong>Endereço:</strong> {c.endereco || 'Não informado'}</span>
                           <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 font-bold rounded text-[10px] print:hidden">
                             📍 Abrir no Mapa
                           </a>
@@ -1304,233 +1441,6 @@ export default function App() {
           </div>
         )}
 
-{relatorioSubTab === 'completa' && (
-  <div className="space-y-4">
-    <div className="flex justify-between items-center print:hidden">
-      <h3 className="font-bold text-slate-800 text-lg">Lista Completa ({members.length})</h3>
-      
-      {/* Botão de Exclusão em Massa (aparece só se marcar alguém) */}
-      {selecionados.length > 0 && (
-        <button 
-          onClick={deletarMembrosSelecionados} 
-          className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-all"
-        >
-          🗑️ Deletar {selecionados.length} Selecionados
-        </button>
-      )}
-    </div>
-    
-    {/* === A TABELA COM AS CAIXINHAS (CHECKBOXES) === */}
-    <div className="overflow-x-auto border rounded-xl">
-      <table className="w-full text-left text-xs border-collapse">
-        <thead className="bg-slate-50 border-b">
-          <tr>
-            {/* Caixinha do Topo (Marca/Desmarca Todos) */}
-            <th className="p-3 text-center w-12">
-              <input 
-                type="checkbox" 
-                onChange={(e) => setSelecionados(e.target.checked ? members.map(m => String(m.id)) : [])}
-                checked={members.length > 0 && selecionados.length === members.length}
-                className="cursor-pointer"
-              />
-            </th>
-            <th className="p-3">Nome</th>
-            <th className="p-3">CPF</th>
-            <th className="p-3">E-mail</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y text-slate-700">
-          {members.map((m: any) => (
-            <tr key={m.id} className="hover:bg-slate-50">
-              {/* Caixinha do Lado Esquerdo de Cada Nome */}
-              <td className="p-3 text-center">
-                <input 
-                  type="checkbox" 
-                  checked={selecionados.includes(String(m.id))}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelecionados([...selecionados, String(m.id)]);
-                    } else {
-                      setSelecionados(selecionados.filter(id => id !== String(m.id)));
-                    }
-                  }}
-                  className="cursor-pointer"
-                />
-              </td>
-              <td className="p-3 font-bold">{m.nome}</td>
-              <td className="p-3 font-mono">{m.cpf || '-'}</td>
-              <td className="p-3">{m.email || '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-            {relatorioSubTab === 'aniversariantes_dia' && (
-              <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg print:hidden">🎂 Aniversariantes do Dia ({aniversariantesDoDia.length})</h3>
-                <div className="overflow-x-auto border rounded-xl print:border-none">
-                  <table className="w-full text-left text-sm print:text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
-                      <tr>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3">Data de Nascimento</th>
-                        <th className="p-3">Celular</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {aniversariantesDoDia.length === 0 ? (
-                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante encontrado para hoje.</td></tr>
-                      ) : (
-                        aniversariantesDoDia.map((m: any) => (
-                          <tr key={m.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-bold">{m.nome}</td>
-                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                            <td className="p-3">{m.celular_principal || '-'}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-{relatorioSubTab === 'aniversariantes_mes' && (
-  <div className="space-y-4">
-    <h3 className="font-bold text-slate-800 text-lg print:hidden">📅 Aniversariantes do Mês ({aniversariantesDoMes.length})</h3>
-    <div className="overflow-x-auto border rounded-xl print:border-none">
-      <table className="w-full text-left text-sm print:text-xs">
-        <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
-          <tr>
-            <th className="p-3">Nome</th>
-            <th className="p-3">Data de Nascimento</th>
-            <th className="p-3">Celular</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y text-slate-700">
-          {aniversariantesDoMes.length === 0 ? (
-            <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante cadastrado para este mês.</td></tr>
-          ) : (
-            aniversariantesDoMes.map((m: any) => (
-              <tr key={m.id} className="hover:bg-slate-50">
-                <td className="p-3 font-bold">{m.nome}</td>
-                <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                <td className="p-3">{m.celular_principal || '-'}</td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-
-            {relatorioSubTab === 'aniversariantes_dia' && (
-              <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg print:hidden">🎂 Aniversariantes do Dia ({aniversariantesDoDia.length})</h3>
-                <div className="overflow-x-auto border rounded-xl print:border-none">
-                  <table className="w-full text-left text-sm print:text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
-                      <tr>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3">Data de Nascimento</th>
-                        <th className="p-3">Celular</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {aniversariantesDoDia.length === 0 ? (
-                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante encontrado para hoje.</td></tr>
-                      ) : (
-                        aniversariantesDoDia.map((m: any) => (
-                          <tr key={m.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-bold">{m.nome}</td>
-                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                            <td className="p-3">{m.celular_principal || '-'}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {relatorioSubTab === 'aniversariantes_mes' && (
-              <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg print:hidden">📅 Aniversariantes do Mês ({aniversariantesDoMes.length})</h3>
-                <div className="overflow-x-auto border rounded-xl print:border-none">
-                  <table className="w-full text-left text-sm print:text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
-                      <tr>
-                        <th className="p-3">Nome</th>
-                        <th className="p-3">Data de Nascimento</th>
-                        <th className="p-3">Celular</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {aniversariantesDoMes.length === 0 ? (
-                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante cadastrado para este mês.</td></tr>
-                      ) : (
-                        aniversariantesDoMes.map((m: any) => (
-                          <tr key={m.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-bold">{m.nome}</td>
-                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
-                            <td className="p-3">{m.celular_principal || '-'}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {relatorioSubTab === 'completa' && (
-              <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 text-lg print:hidden">Relatório de Lista Completa de Membros</h3>
-                <div className="overflow-x-auto border rounded-xl print:border-none">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
-                      <tr>
-                        <th className="p-2">Nome</th>
-                        <th className="p-2">Tipo</th>
-                        <th className="p-2">CPF</th>
-                        <th className="p-2">RG</th>
-                        <th className="p-2">Estado Civil</th>
-                        <th className="p-2">Celular</th>
-                        <th className="p-2">E-mail</th>
-                        <th className="p-2">Endereço</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {members.map((m: any) => (
-                        <tr key={m.id} className="hover:bg-slate-50">
-                          <td className="p-2 font-bold">{m.nome}</td>
-                          <td className="p-2">{m.tipo_cadastro}</td>
-                          <td className="p-2 font-mono">{m.cpf || '-'}</td>
-                          <td className="p-2 font-mono">{m.rg || '-'}</td>
-                          <td className="p-2">{m.estado_civil || '-'}</td>
-                          <td className="p-2">{m.celular_principal || '-'}</td>
-                          <td className="p-2">{m.email || '-'}</td>
-                          <td className="p-2">{m.endereco || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1548,11 +1458,6 @@ export default function App() {
               </div>
             </div>
 
-            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
-              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
-              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Relatório de Compromissos e Visitas por Ordem de Data e Hora</p>
-            </div>
-
             {agendaSubTab === 'lista' && (
               <div>
                 {loadingAgenda ? (
@@ -1568,10 +1473,7 @@ export default function App() {
                         : 'Nenhum comentário registrado.';
 
                       return (
-                        <div 
-                          key={c.id} 
-                          className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between"
-                        >
+                        <div key={c.id} className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between">
                           <div onClick={() => handleOpenEditAgenda(c)} className="cursor-pointer space-y-2">
                             <div className="flex justify-between items-start border-b pb-2">
                               <h4 className="font-bold text-blue-900 text-base">{c.titulo}</h4>
@@ -1596,17 +1498,10 @@ export default function App() {
                           </div>
 
                           <div className="pt-2 flex gap-2">
-                            <button 
-                              onClick={() => handleOpenEditAgenda(c)}
-                              className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
-                            >
+                            <button onClick={() => handleOpenEditAgenda(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
                               Editar / Ver Detalhes
                             </button>
-                            <button 
-                              onClick={() => handleDeleteAgenda(c.id)}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer"
-                              title="Excluir Compromisso"
-                            >
+                            <button onClick={() => handleDeleteAgenda(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Compromisso">
                               Excluir
                             </button>
                           </div>
@@ -1652,9 +1547,9 @@ export default function App() {
                   <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Agenda A4</button>
                 </div>
 
-                <div className="overflow-x-auto border rounded-xl print:border-none">
+                <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                    <thead className="bg-slate-50 border-b text-slate-600">
                       <tr>
                         <th className="p-3">Data</th>
                         <th className="p-3">Horário</th>
@@ -1704,11 +1599,6 @@ export default function App() {
               </div>
             </div>
 
-            <div className="hidden print:block text-center mb-6 pb-4 border-b-2 border-slate-800">
-              <h1 className="text-2xl font-black text-slate-900">BRSYSTEM — {loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</h1>
-              <p className="text-sm font-bold text-slate-600 uppercase tracking-widest mt-1">Relatório Financeiro — Extrato da Conta Corrente</p>
-            </div>
-
             {financeiroSubTab === 'extrato' && (
               <div className="space-y-4">
                 {loadingFinanceiro ? (
@@ -1747,31 +1637,17 @@ export default function App() {
                               </td>
                               <td className="p-3 text-center print:hidden">
                                 <div className="flex items-center justify-center gap-2">
-                                  <button 
-                                    onClick={() => handleDeleteLancamento(l.id)}
-                                    className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]"
-                                    title="Excluir lançamento"
-                                  >
+                                  <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
                                     Excluir
                                   </button>
 
                                   <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
                                     📁 Anexar
-                                    <input 
-                                      type="file" 
-                                      accept="image/*" 
-                                      className="hidden" 
-                                      onChange={(e) => handleAnexarComprovante(l.id, e)}
-                                    />
+                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
                                   </label>
 
                                   {l.comprovante_url && (
-                                    <a 
-                                      href={l.comprovante_url} 
-                                      target="_blank" 
-                                      rel="noopener noreferrer" 
-                                      className="text-emerald-700 font-bold text-[11px] underline"
-                                    >
+                                    <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
                                       Abrir
                                     </a>
                                   )}
@@ -2059,11 +1935,7 @@ export default function App() {
 
               <div className="flex items-center justify-between pt-4 border-t">
                 {editingCompromisso ? (
-                  <button 
-                    type="button" 
-                    onClick={() => handleDeleteAgenda(editingCompromisso.id)}
-                    className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
-                  >
+                  <button type="button" onClick={() => handleDeleteAgenda(editingCompromisso.id)} className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer">
                     Excluir Compromisso
                   </button>
                 ) : <div />}
@@ -2314,47 +2186,32 @@ export default function App() {
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
                           📸 Tirar Foto (Câmera)
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            capture="user" 
-                            className="hidden" 
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const reader = new FileReader();
-                              reader.readAsDataURL(file);
-                              reader.onload = () => {
-                                setFormMember({ ...formMember, foto_url: reader.result as string });
-                              };
-                            }}
-                          />
+                          <input type="file" accept="image/*" capture="user" className="hidden" onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = () => {
+                              setFormMember({ ...formMember, foto_url: reader.result as string });
+                            };
+                          }} />
                         </label>
 
                         <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
                           📁 Enviar Arquivo
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={async (e) => {
-                              const file = e.target.files?.[0];
-                              if (!file) return;
-                              const reader = new FileReader();
-                              reader.readAsDataURL(file);
-                              reader.onload = () => {
-                                setFormMember({ ...formMember, foto_url: reader.result as string });
-                              };
-                            }}
-                          />
+                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.readAsDataURL(file);
+                            reader.onload = () => {
+                              setFormMember({ ...formMember, foto_url: reader.result as string });
+                            };
+                          }} />
                         </label>
 
                         {formMember.foto_url && (
-                          <button 
-                            type="button" 
-                            onClick={() => setFormMember({ ...formMember, foto_url: '' })} 
-                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
-                          >
+                          <button type="button" onClick={() => setFormMember({ ...formMember, foto_url: '' })} className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all">
                             Remover
                           </button>
                         )}
@@ -2391,14 +2248,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">CPF</label>
-                      <input 
-                        type="text" 
-                        maxLength={14}
-                        value={formMember.cpf} 
-                        onChange={(e) => setFormMember({ ...formMember, cpf: aplicarMascaraCpf(e.target.value) })} 
-                        placeholder="000.000.000-00" 
-                        className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
-                      />
+                      <input type="text" maxLength={14} value={formMember.cpf} onChange={(e) => setFormMember({ ...formMember, cpf: aplicarMascaraCpf(e.target.value) })} placeholder="000.000.000-00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
@@ -2406,18 +2256,11 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento (dd/mm/aaaa)</label>
-                      <input 
-                        type="text" 
-                        maxLength={10}
-                        value={dataNascDisplay} 
-                        onChange={(e) => {
-                          const formatada = aplicarMascaraData(e.target.value);
-                          setDataNascDisplay(formatada);
-                          setFormMember({ ...formMember, data_nascimento: converterDataParaBanco(formatada) || '' });
-                        }} 
-                        placeholder="dd/mm/aaaa" 
-                        className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
-                      />
+                      <input type="text" maxLength={10} value={dataNascDisplay} onChange={(e) => {
+                        const formatada = aplicarMascaraData(e.target.value);
+                        setDataNascDisplay(formatada);
+                        setFormMember({ ...formMember, data_nascimento: converterDataParaBanco(formatada) || '' });
+                      }} placeholder="dd/mm/aaaa" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" />
                     </div>
                   </div>
 
@@ -2439,11 +2282,7 @@ export default function App() {
 
                   <div className="flex items-center justify-between pt-4 border-t">
                     {editingMember ? (
-                      <button 
-                        type="button" 
-                        onClick={() => handleDeleteMember(editingMember.id)}
-                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
-                      >
+                      <button type="button" onClick={() => handleDeleteMember(editingMember.id)} className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer">
                         Excluir Membro
                       </button>
                     ) : <div />}

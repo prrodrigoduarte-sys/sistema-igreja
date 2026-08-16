@@ -26,6 +26,10 @@ export default function App() {
   const [editingMember, setEditingMember] = useState<any>(null);
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
+  const [buscaLiderRede, setBuscaLiderRede] = useState('');
+  const [buscaLiderSetor, setBuscaLiderSetor] = useState('');
+  const [mostrarSugestoesRede, setMostrarSugestoesRede] = useState(false);
+  const [mostrarSugestoesSetor, setMostrarSugestoesSetor] = useState(false);
 
   // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
@@ -1334,10 +1338,6 @@ export default function App() {
             </div>
 
             {relatorioSubTab === 'geral' && (
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 print:grid-cols-3">
-                  <div className="p-5 bg-slate-50 border border-slate-200 rounded-2xl print:border-slate-400">
-                    <h4 className="font-bold text-blue-950">Total de Membros</h4>
                     <p className="text-3xl font-black text-slate-800 mt-2">{members.length}</p>
                   </div>
                   <div 
@@ -1358,6 +1358,67 @@ export default function App() {
                 </div>
               </div>
             )}
+
+            {relatorioSubTab === 'aniversariantes_dia' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 text-lg print:hidden">🎂 Aniversariantes do Dia ({aniversariantesDoDia.length})</h3>
+                <div className="overflow-x-auto border rounded-xl print:border-none">
+                  <table className="w-full text-left text-sm print:text-xs">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                      <tr>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Data de Nascimento</th>
+                        <th className="p-3">Celular</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {aniversariantesDoDia.length === 0 ? (
+                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante encontrado para hoje.</td></tr>
+                      ) : (
+                        aniversariantesDoDia.map((m: any) => (
+                          <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold">{m.nome}</td>
+                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                            <td className="p-3">{m.celular_principal || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {relatorioSubTab === 'aniversariantes_mes' && (
+              <div className="space-y-4">
+                <h3 className="font-bold text-slate-800 text-lg print:hidden">📅 Aniversariantes do Mês ({aniversariantesDoMes.length})</h3>
+                <div className="overflow-x-auto border rounded-xl print:border-none">
+                  <table className="w-full text-left text-sm print:text-xs">
+                    <thead className="bg-slate-50 border-b text-slate-600 print:bg-slate-200">
+                      <tr>
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Data de Nascimento</th>
+                        <th className="p-3">Celular</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {aniversariantesDoMes.length === 0 ? (
+                        <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum aniversariante cadastrado para este mês.</td></tr>
+                      ) : (
+                        aniversariantesDoMes.map((m: any) => (
+                          <tr key={m.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-bold">{m.nome}</td>
+                            <td className="p-3 font-mono">{new Date(m.data_nascimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                            <td className="p-3">{m.celular_principal || '-'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
 
             {relatorioSubTab === 'aniversariantes_dia' && (
               <div className="space-y-4">

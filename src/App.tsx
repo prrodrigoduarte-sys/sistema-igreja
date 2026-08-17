@@ -367,38 +367,33 @@ export default function App() {
     }
   };
 
-  const carregarPlanoContas = async (cod: string) => {
-    console.log("Tentando buscar plano de contas para a igreja:", cod);
-    
-    // REMOVI O .eq('codigo_igreja', cod) TEMPORARIAMENTE PARA TESTE
+  cconst carregarPlanoContas = async (cod: string) => {
+    console.log("Iniciando busca do plano de contas...");
     const { data, error } = await supabase
       .from('plano_contas_contabil')
       .select('*')
       .order('codigo_conta', { ascending: true });
       
     if (error) {
-      console.error('Erro ao carregar plano de contas:', error.message);
-      alert('Erro ao carregar plano de contas: ' + error.message);
+      console.error('Erro no Supabase:', error.message);
     } else {
-      console.log('Dados recebidos do Supabase:', data);
+      console.log('Dados recebidos:', data);
       setPlanoContasContabil(data || []);
-      
-      if (data && data.length === 0) {
-        console.warn("A tabela está vazia ou os dados não possuem este formato.");
-      }
     }
   };
 
   // 2. Verifique se ela é chamada no seu useEffect principal:
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
-    const cod = loggedUser.codigo_igreja;
     
-    async function carregarDados() {
-      // ... outras chamadas ...
-      await carregarPlanoContas(cod); // <--- ESTA LINHA É CRÍTICA
-      // ... outras chamadas ...
+    async function carregarTudo() {
+      const cod = loggedUser.codigo_igreja;
+      await carregarMembros(cod);
+      await carregarFinanceiro(cod);
+      await carregarPlanoContas(cod); // A chamada estava faltando ou sendo pulada
     }
+    carregarTudo();
+  }, [isLoggedIn, loggedUser]);
     carregarDados();
   }, [isLoggedIn, loggedUser]);
   const salvarPlanoConta = async (e: React.FormEvent) => {
@@ -1996,37 +1991,35 @@ export default function App() {
             </div>
 
             {financeiroSubTab === 'plano_contas' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-slate-800 text-base">Plano de Contas Contábil (Padrão Brasileiro)</h3>
-                  <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">+ Adicionar Conta</button>
-                </div>
-                <div className="overflow-x-auto border rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b">
-                      <tr>
-                        <th className="p-3">Código Contábil</th>
-                        <th className="p-3">Nome da Conta</th>
-                        <th className="p-3">Natureza</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {planoContasContabil.map((pc: any) => (
-                        <tr key={pc.id} className="hover:bg-slate-50">
-                          <td className="p-3 font-mono font-bold text-blue-900">{pc.codigo_conta}</td>
-                          <td className="p-3 font-bold text-slate-900">{pc.nome_conta}</td>
-                          <td className="p-3">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pc.tipo_natureza === 'Receita' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                              {pc.tipo_natureza}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+  <div className="space-y-4">
+    <div className="overflow-x-auto border rounded-xl bg-white">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-slate-100 border-b">
+          <tr>
+            <th className="p-3 font-bold">Código</th>
+            <th className="p-3 font-bold">Conta</th>
+            <th className="p-3 font-bold">Natureza</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y text-slate-700">
+          {planoContasContabil && planoContasContabil.length > 0 ? (
+            planoContasContabil.map((pc) => (
+              <tr key={pc.id} className="hover:bg-slate-50">
+                <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
+                <td className="p-3">{pc.nome_conta}</td>
+                <td className="p-3">{pc.tipo_natureza}</td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={3} className="p-6 text-center text-slate-400">Nenhuma conta encontrada. Verifique o banco de dados.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
             {financeiroSubTab === 'extrato' && (
               <div className="space-y-4">

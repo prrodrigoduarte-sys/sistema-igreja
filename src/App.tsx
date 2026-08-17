@@ -814,30 +814,32 @@ export default function App() {
     } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
+  // ==========================================
+  // 4.X FUNÇÃO CORRIGIDA: SALVAR CONTA FINANCEIRA
+  // ==========================================
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
+    
+    // Payload ajustado incluindo o codigo_igreja para passar pelas regras de segurança (RLS) do Supabase
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
-      nome_conta: formNomeConta.trim(),
+      nome_conta: formNomeConta.trim().toUpperCase(),
       codigo_conta: formTipoConta
     };
+
     try {
       const { error } = await supabase.from('contas_financeiras').insert([payload]);
       if (error) throw error;
+      
       alert('Conta cadastrada com sucesso!');
       setShowContaModal(false);
       setFormNomeConta('');
       carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) { alert('Erro: ' + err.message); }
-  };
-
-  const handleSaveLancamento = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formLancData || !formLancValor || !formLancContaDebitoId || !formLancContaCreditoId) {
-      alert('Preencha a data, o valor, a conta a débito e a conta a crédito.');
-      return;
+    } catch (err: any) { 
+      alert('Erro ao salvar conta: ' + err.message); 
     }
+  };
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,

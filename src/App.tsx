@@ -57,6 +57,12 @@ export default function App() {
     celular_principal: '',
     email: '',
     estado_civil: 'Solteiro(a)',
+    cep: '',
+    rua: '',
+    numero: '',
+    bairro: '',
+    cidade: '',
+    estado: '',
     endereco: '',
     foto_url: '',
     ministerio_id: ''
@@ -284,6 +290,33 @@ export default function App() {
     }
   };
 
+  const handleBuscarCepMembro = async () => {
+    const cepLimpo = formMember.cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) {
+      alert('Digite um CEP válido com 8 dígitos.');
+      return;
+    }
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        alert('CEP não encontrado.');
+        return;
+      }
+      const enderecoCompletoCalc = `${data.logradouro || ''}, ${formMember.numero || 'S/N'} - ${data.bairro || ''}, ${data.localidade || ''} - ${data.uf || ''} (CEP: ${formMember.cep})`;
+      setFormMember({
+        ...formMember,
+        rua: data.logradouro || '',
+        bairro: data.bairro || '',
+        cidade: data.localidade || '',
+        estado: data.uf || '',
+        endereco: enderecoCompletoCalc
+      });
+    } catch (err) {
+      alert('Erro ao buscar o CEP.');
+    }
+  };
+
   const aplicarMascaraCpf = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
     let cpfFormatado = apenasDigitos;
@@ -291,10 +324,10 @@ export default function App() {
       cpfFormatado = apenasDigitos.substring(0, 3) + '.' + apenasDigitos.substring(3);
     }
     if (apenasDigitos.length > 6) {
-      cpfFormatado = cpfFormatado.substring(0, 7) + '.' + apenasDigitos.substring(6);
+      cpfFormatado = cpfFormatado.substring(0, 7) + '.' + cpfFormatado.substring(6);
     }
     if (apenasDigitos.length > 9) {
-      cpfFormatado = cpfFormatado.substring(0, 11) + '-' + apenasDigitos.substring(9);
+      cpfFormatado = cpfFormatado.substring(0, 11) + '-' + cpfFormatado.substring(9);
     }
     return cpfFormatado;
   };
@@ -338,6 +371,12 @@ export default function App() {
         celular_principal: m.celular_principal || '',
         email: m.email || '',
         estado_civil: m.estado_civil || 'Solteiro(a)',
+        cep: m.cep || '',
+        rua: m.rua || '',
+        numero: m.numero || '',
+        bairro: m.bairro || '',
+        cidade: m.cidade || '',
+        estado: m.estado || '',
         endereco: m.endereco || '',
         foto_url: m.foto_url || '',
         ministerio_id: m.ministerio_id || ''
@@ -354,6 +393,12 @@ export default function App() {
         celular_principal: '',
         email: '',
         estado_civil: 'Solteiro(a)',
+        cep: '',
+        rua: '',
+        numero: '',
+        bairro: '',
+        cidade: '',
+        estado: '',
         endereco: '',
         foto_url: '',
         ministerio_id: ''
@@ -388,6 +433,8 @@ export default function App() {
       return;
     }
     
+    const enderecoFinal = formMember.endereco.trim() || `${formMember.rua}, ${formMember.numero || 'S/N'} - ${formMember.bairro}, ${formMember.cidade} - ${formMember.estado} (CEP: ${formMember.cep})`;
+
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formMember.nome.trim(),
@@ -398,7 +445,13 @@ export default function App() {
       celular_principal: formMember.celular_principal.trim() || null,
       email: formMember.email.trim() || null,
       estado_civil: formMember.estado_civil || null,
-      endereco: formMember.endereco.trim() || null,
+      cep: formMember.cep.trim() || null,
+      rua: formMember.rua.trim() || null,
+      numero: formMember.numero.trim() || null,
+      bairro: formMember.bairro.trim() || null,
+      cidade: formMember.cidade.trim() || null,
+      estado: formMember.estado.trim() || null,
+      endereco: enderecoFinal,
       foto_url: formMember.foto_url.trim() || null,
       ministerio_id: formMember.ministerio_id || null
     };
@@ -2359,7 +2412,7 @@ export default function App() {
             ) : (
               <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">
-                  {/* CAMPO DE FOTO DO MEMBRO */}
+                  {/* CAMPO DE FOTO CORRIGIDO E FUNCIONAL */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
                     <div className="flex items-center gap-4">
@@ -2372,19 +2425,18 @@ export default function App() {
                       </div>
 
                       <div className="flex-1 flex gap-2">
-                        <label className="flex-1 py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 border border-blue-200">
+                        <label className="flex-1 py-2.5 px-4 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm">
                           <span>📸 Tirar / Escolher Foto</span>
                           <input 
                             type="file" 
                             accept="image/*" 
-                            capture="environment" 
                             className="hidden" 
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
-                                  setFormMember({ ...formMember, foto_url: reader.result as string });
+                                  setFormMember((prev) => ({ ...prev, foto_url: reader.result as string }));
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -2463,7 +2515,6 @@ export default function App() {
                     </div>
                   </div>
 
-                  {/* CAMPO DE MINISTÉRIO IN-BOX */}
                   <div>
                     <label className="text-xs font-bold text-slate-600 ml-1">Ministério</label>
                     <select 
@@ -2478,9 +2529,43 @@ export default function App() {
                     </select>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold text-slate-600 ml-1">Endereço Residencial</label>
-                    <input type="text" value={formMember.endereco} onChange={(e) => setFormMember({ ...formMember, endereco: e.target.value })} placeholder="Rua, número, bairro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                  <div className="p-4 bg-slate-50 border rounded-2xl space-y-3">
+                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Endereço Residencial & CEP</h4>
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <label className="text-[11px] font-bold text-slate-500 ml-1">CEP</label>
+                        <input type="text" value={formMember.cep} onChange={(e) => setFormMember({ ...formMember, cep: e.target.value })} placeholder="00000-000" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 font-mono" />
+                      </div>
+                      <div className="flex items-end">
+                        <button type="button" onClick={handleBuscarCepMembro} className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer">Buscar CEP</button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2">
+                        <label className="text-[11px] font-bold text-slate-500 ml-1">Rua / Logradouro</label>
+                        <input type="text" value={formMember.rua} onChange={(e) => setFormMember({ ...formMember, rua: e.target.value })} placeholder="Nome da rua" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 ml-1">Número</label>
+                        <input type="text" value={formMember.numero} onChange={(e) => setFormMember({ ...formMember, numero: e.target.value })} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 ml-1">Bairro</label>
+                        <input type="text" value={formMember.bairro} onChange={(e) => setFormMember({ ...formMember, bairro: e.target.value })} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 ml-1">Cidade</label>
+                        <input type="text" value={formMember.cidade} onChange={(e) => setFormMember({ ...formMember, cidade: e.target.value })} placeholder="Cidade" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-slate-500 ml-1">Estado (UF)</label>
+                        <input type="text" maxLength={2} value={formMember.estado} onChange={(e) => setFormMember({ ...formMember, estado: e.target.value.toUpperCase() })} placeholder="MG" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 font-mono" />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t">

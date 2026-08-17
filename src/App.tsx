@@ -460,7 +460,6 @@ export default function App() {
       const { error } = await supabase.from('usuarios').update({ [campo]: novoValor }).eq('id', userId);
       if (error) throw error;
       alert('Permissão atualizada com sucesso!');
-      // Recarrega lista de usuários
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
       setUsuariosList(uData || []);
     } catch (err: any) {
@@ -2388,7 +2387,7 @@ export default function App() {
             ) : (
               <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">
-                  {/* CAMPO DE FOTO FUNCIONAL */}
+                  {/* BOTÃO EXCLUSIVO DE TIRAR/ESCOLHER FOTO */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
                     <div className="flex items-center gap-4">

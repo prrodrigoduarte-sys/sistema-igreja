@@ -5,7 +5,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja'>('relatorios');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
@@ -46,6 +46,7 @@ export default function App() {
     }
     return formatado;
   };
+
   // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
     nome: '',
@@ -57,7 +58,8 @@ export default function App() {
     email: '',
     estado_civil: 'Solteiro(a)',
     endereco: '',
-    foto_url: ''
+    foto_url: '',
+    ministerio_id: ''
   });
 
   const [dataNascDisplay, setDataNascDisplay] = useState('');
@@ -112,9 +114,9 @@ export default function App() {
   const [showContaModal, setShowContaModal] = useState(false);
 
   const [formLancData, setFormLancData] = useState('');
-  const [formLancTipo, setFormLancTipo] = useState<'debito' | 'credito'>('credito');
   const [formLancValor, setFormLancValor] = useState('');
-  const [formLancContaId, setFormLancContaId] = useState('');
+  const [formLancContaDebitoId, setFormLancContaDebitoId] = useState('');
+  const [formLancContaCreditoId, setFormLancContaCreditoId] = useState('');
   const [formLancObs, setFormLancObs] = useState('');
 
   const [formNomeConta, setFormNomeConta] = useState('');
@@ -154,10 +156,12 @@ export default function App() {
     setMembers(data || []);
     setLoadingMembros(false);
   };
+
   const carregarMinisterios = async (cod: string) => {
     const { data } = await supabase.from('ministerios').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
     setMinisteriosList(data || []);
   };
+
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formMinisterioNome.trim()) {
@@ -245,6 +249,7 @@ export default function App() {
     
     async function carregarDados() {
       await carregarMembros(cod);
+      await carregarMinisterios(cod);
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
       const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
@@ -334,7 +339,8 @@ export default function App() {
         email: m.email || '',
         estado_civil: m.estado_civil || 'Solteiro(a)',
         endereco: m.endereco || '',
-        foto_url: m.foto_url || ''
+        foto_url: m.foto_url || '',
+        ministerio_id: m.ministerio_id || ''
       });
       setDataNascDisplay(converterDataParaDisplay(m.data_nascimento || ''));
     } else {
@@ -349,7 +355,8 @@ export default function App() {
         email: '',
         estado_civil: 'Solteiro(a)',
         endereco: '',
-        foto_url: ''
+        foto_url: '',
+        ministerio_id: ''
       });
       setDataNascDisplay('');
     }
@@ -392,7 +399,8 @@ export default function App() {
       email: formMember.email.trim() || null,
       estado_civil: formMember.estado_civil || null,
       endereco: formMember.endereco.trim() || null,
-      foto_url: formMember.foto_url.trim() || null
+      foto_url: formMember.foto_url.trim() || null,
+      ministerio_id: formMember.ministerio_id || null
     };
 
     try {
@@ -714,8 +722,6 @@ export default function App() {
 
   const handleSaveLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 1. ATUALIZE A VALIDAÇÃO AQUI: Exigir também débito e crédito
     if (!formLancData || !formLancValor || !formLancContaDebitoId || !formLancContaCreditoId) {
       alert('Preencha a data, o valor, a conta a débito e a conta a crédito.');
       return;
@@ -725,11 +731,8 @@ export default function App() {
       codigo_igreja: loggedUser.codigo_igreja,
       data_lancamento: formLancData,
       valor: parseFloat(formLancValor),
-      
-      // 2. ADICIONE OS CAMPOS DE UUID AQUI:
       conta_debito_id: formLancContaDebitoId,
       conta_credito_id: formLancContaCreditoId,
-      
       membro_id: editingMember ? editingMember.id : null,
       descricao: formLancObs.trim() || 'Lançamento financeiro'
     };
@@ -740,38 +743,12 @@ export default function App() {
       alert('Lançamento salvo com sucesso!');
       setShowLancamentoModal(false);
       
-      // Limpa os campos do formulário após salvar
       setFormLancData('');
       setFormLancValor('');
       setFormLancObs('');
       setFormLancContaDebitoId('');
       setFormLancContaCreditoId('');
       
-      carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
-    }
-  };
-
-    const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      data_lancamento: formLancData,
-      tipo: formLancTipo === 'credito' ? 'entrada' : 'saida',
-      valor: parseFloat(formLancValor),
-      conta_id: formLancContaId || null,
-      membro_id: editingMember ? editingMember.id : null,
-      descricao: formLancObs.trim() || 'Lançamento financeiro'
-    };
-
-    try {
-      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-      if (error) throw error;
-      alert('Lançamento salvo com sucesso!');
-      setShowLancamentoModal(false);
-      setFormLancData('');
-      setFormLancValor('');
-      setFormLancObs('');
-      setFormLancContaId('');
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) {
       alert('Erro ao salvar lançamento: ' + err.message);
@@ -898,12 +875,10 @@ export default function App() {
                     <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários</button>
                     <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🚚 Fornecedores</button>
                     <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📊 Relatórios</button>
-                    <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} 
-  className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700"
->
-  🙌 Ministérios
-</button>       )}
-               
+                    <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🙌 Ministérios</button>
+                  </div>
+                )}
+              </div>
 
               <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Células / Redes
@@ -952,33 +927,6 @@ export default function App() {
                 <button onClick={() => abrirModalMembro()} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
               </div>
             </div>
-            {/* EXEMPLO DE COMO DEVE FICAR NO SEU FORMULÁRIO DE MEMBROS: */}
-
-<div>
-  <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-  <input 
-    type="text" 
-    maxLength={15} 
-    value={formMember.celular_principal || ''} 
-    onChange={(e) => setFormMember({ ...formMember, celular_principal: aplicarMascaraCelular(e.target.value) })} 
-    placeholder="(00) 00000-0000" 
-    className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
-  />
-</div>
-
-<div>
-  <label className="text-xs font-bold text-slate-600 ml-1">Ministério</label>
-  <select 
-    value={formMember.ministerio_id || ''} 
-    onChange={(e) => setFormMember({ ...formMember, ministerio_id: e.target.value || null })} 
-    className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900"
-  >
-    <option value="">Nenhum ministério vinculado...</option>
-    {ministeriosList.map((min: any) => (
-      <option key={min.id} value={min.id}>{min.nome}</option>
-    ))}
-  </select>
-</div>
             
             {loadingMembros ? (
               <p className="text-center py-6 text-slate-500 font-medium">Carregando membros...</p>
@@ -1028,6 +976,71 @@ export default function App() {
                 </table>
               </div>
             )}
+          </div>
+        )}
+
+        {activeTab === 'ministerios' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">🙌 Gestão de Ministérios ({ministeriosList.length})</h2>
+                <p className="text-xs text-slate-500">Cadastre, edite ou exclua os ministérios da igreja.</p>
+              </div>
+              <button 
+                onClick={() => { 
+                  setEditingMinisterio(null); 
+                  setFormMinisterioNome(''); 
+                  setFormMinisterioDesc(''); 
+                  setShowMinisterioModal(true); 
+                }} 
+                className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer"
+              >
+                + Novo Ministério
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
+                    <th className="p-3">Nome do Ministério</th>
+                    <th className="p-3">Descrição</th>
+                    <th className="p-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-slate-700">
+                  {ministeriosList.length === 0 ? (
+                    <tr><td colSpan={3} className="py-6 text-center text-slate-400">Nenhum ministério cadastrado.</td></tr>
+                  ) : (
+                    ministeriosList.map((min: any) => (
+                      <tr key={min.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-900">{min.nome}</td>
+                        <td className="p-3 text-slate-600">{min.descricao || '-'}</td>
+                        <td className="p-3 text-center space-x-2">
+                          <button 
+                            onClick={() => {
+                              setEditingMinisterio(min);
+                              setFormMinisterioNome(min.nome);
+                              setFormMinisterioDesc(min.descricao || '');
+                              setShowMinisterioModal(true);
+                            }} 
+                            className="px-3 py-1 bg-blue-50 hover:bg-blue-900 hover:text-white text-blue-900 font-bold text-xs rounded-lg transition-all cursor-pointer"
+                          >
+                            Editar
+                          </button>
+                          <button 
+                            onClick={() => deletarMinisterio(min.id)} 
+                            className="px-3 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 font-bold text-xs rounded-lg transition-all cursor-pointer"
+                          >
+                            Excluir
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 
@@ -1953,7 +1966,6 @@ export default function App() {
                 <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
 
-              {/* COMBOBOX (SELECT) PARA CONTA A DÉBITO */}
               <div>
                 <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Origem/Saída) *</label>
                 <select 
@@ -1969,7 +1981,6 @@ export default function App() {
                 </select>
               </div>
 
-              {/* COMBOBOX (SELECT) PARA CONTA A CRÉDITO */}
               <div>
                 <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Destino/Entrada) *</label>
                 <select 
@@ -1998,30 +2009,6 @@ export default function App() {
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
                 <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}                  <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
-                  <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Conta Financeira</label>
-                <select value={formLancContaId} onChange={(e) => setFormLancContaId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
-                  <option value="">Selecione a conta cadastrada...</option>
-                  {contasFinanceiras.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Observação</label>
-                <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value)} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-              </div>
-              <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
               </div>
             </form>
           </div>
@@ -2271,6 +2258,34 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL DE MINISTÉRIO */}
+      {showMinisterioModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">
+                {editingMinisterio ? 'Editar Ministério' : 'Novo Ministério'}
+              </h3>
+              <button onClick={() => setShowMinisterioModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={salvarMinisterio} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome do Ministério *</label>
+                <input type="text" required value={formMinisterioNome} onChange={(e) => setFormMinisterioNome(e.target.value)} placeholder="Ex: Louvor, Diaconato, Infantil" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Observações</label>
+                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value)} placeholder="Detalhes sobre as atividades do ministério..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowMinisterioModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Ministério</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE MEMBRO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -2344,93 +2359,40 @@ export default function App() {
             ) : (
               <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
-                    <div className="w-16 h-16 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden border shrink-0">
-                      {formMember.foto_url ? (
-                        <img src={formMember.foto_url} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-xs font-bold text-slate-400">Foto</span>
-                      )}
-                    </div>
-                    <div className="flex-1 space-y-2">
-                      <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
-                          📸 Tirar Foto (Câmera)
-                          <{/* CAMPO DE FOTO DO MEMBRO - CORRIGIDO PARA TIRAR FOTO DIRETAMENTE */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
-                <div className="flex items-center gap-4">
-                  {/* Pré-visualização da foto */}
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 border flex items-center justify-center overflow-hidden shrink-0">
-                    {formMember.foto_url ? (
-                      <img src={formMember.foto_url} alt="Foto" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-2xl">👤</span>
-                    )}
-                  </div>
+                  {/* CAMPO DE FOTO DO MEMBRO */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 rounded-2xl bg-slate-100 border flex items-center justify-center overflow-hidden shrink-0">
+                        {formMember.foto_url ? (
+                          <img src={formMember.foto_url} alt="Foto" className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl">👤</span>
+                        )}
+                      </div>
 
-                  <div className="flex-1 flex gap-2">
-                    {/* Botão que abre a CÂMERA diretamente */}
-                    <label className="flex-1 py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 border border-blue-200">
-                      <span>📸 Tirar Foto</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        capture="environment" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFormMember({ ...formMember, foto_url: reader.result as string });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-
-                    {/* Botão opcional para carregar da galeria/arquivo do PC */}
-                    <label className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center border">
-                      <span>📁 Galeria</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        className="hidden" 
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFormMember({ ...formMember, foto_url: reader.result as string });
-                            };
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
+                      <div className="flex-1 flex gap-2">
+                        <label className="flex-1 py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 border border-blue-200">
+                          <span>📸 Tirar / Escolher Foto</span>
+                          <input 
+                            type="file" 
+                            accept="image/*" 
+                            capture="environment" 
+                            className="hidden" 
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setFormMember({ ...formMember, foto_url: reader.result as string });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
                         </label>
-
-                        <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
-                          📁 Enviar Arquivo
-                          <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
-                            const reader = new FileReader();
-                            reader.readAsDataURL(file);
-                            reader.onload = () => {
-                              setFormMember({ ...formMember, foto_url: reader.result as string });
-                            };
-                          }} />
-                        </label>
-
                         {formMember.foto_url && (
-                          <button type="button" onClick={() => setFormMember({ ...formMember, foto_url: '' })} className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer transition-all">
+                          <button type="button" onClick={() => setFormMember({ ...formMember, foto_url: '' })} className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer">
                             Remover
                           </button>
                         )}
@@ -2474,7 +2436,7 @@ export default function App() {
                       <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                     <div>
-                      <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento (dd/mm/aaaa)</label>
+                      <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
                       <input type="text" maxLength={10} value={dataNascDisplay} onChange={(e) => {
                         const formatada = aplicarMascaraData(e.target.value);
                         setDataNascDisplay(formatada);
@@ -2486,12 +2448,34 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                      <input type="text" value={formMember.celular_principal} onChange={(e) => setFormMember({ ...formMember, celular_principal: e.target.value })} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input 
+                        type="text" 
+                        maxLength={15} 
+                        value={formMember.celular_principal} 
+                        onChange={(e) => setFormMember({ ...formMember, celular_principal: aplicarMascaraCelular(e.target.value) })} 
+                        placeholder="(00) 00000-0000" 
+                        className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
                       <input type="email" value={formMember.email} onChange={(e) => setFormMember({ ...formMember, email: e.target.value })} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
+                  </div>
+
+                  {/* CAMPO DE MINISTÉRIO IN-BOX */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 ml-1">Ministério</label>
+                    <select 
+                      value={formMember.ministerio_id || ''} 
+                      onChange={(e) => setFormMember({ ...formMember, ministerio_id: e.target.value || null })} 
+                      className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900"
+                    >
+                      <option value="">Nenhum ministério vinculado...</option>
+                      {ministeriosList.map((min: any) => (
+                        <option key={min.id} value={min.id}>{min.nome}</option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>

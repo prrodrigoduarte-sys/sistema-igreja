@@ -39,12 +39,40 @@ export default function App() {
   // ==========================================
   // 2.3 PLANO DE CONTAS CONTÁBIL
   // ==========================================
-  const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
-  const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
-  const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
-  const [formPlanoNome, setFormPlanoNome] = useState('');
-  const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
+  const salvarPlanoConta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) {
+      alert('Preencha o código e o nome da conta contábil.');
+      return;
+    }
 
+    try {
+      const { error } = await supabase
+        .from('plano_contas_contabil')
+        .insert([
+          {
+            codigo_igreja: loggedUser?.codigo_igreja || loginCodigo,
+            codigo_conta: formPlanoCodigo,
+            nome_conta: formPlanoNome,
+            tipo_natureza: formPlanoNatureza,
+          }
+        ]);
+
+      if (error) throw error;
+      
+      alert('Conta contábil cadastrada com sucesso!');
+      setShowPlanoContaModal(false);
+      setFormPlanoCodigo('');
+      setFormPlanoNome('');
+      setFormPlanoNatureza('Receita');
+      
+      if (loggedUser?.codigo_igreja) {
+        carregarPlanoContas(loggedUser.codigo_igreja);
+      }
+    } catch (err: any) {
+      alert('Erro ao cadastrar conta: ' + err.message);
+    }
+  };
   // ==========================================
   // 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO
   // ==========================================
@@ -236,16 +264,20 @@ export default function App() {
     setMinisteriosList(data || []);
   };
 
-  const salvarMinisterio = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formMinisterioNome.trim()) { alert('Informe o nome do ministério.'); return; }
+  const carregarPlanoContas = async (cod: string) => {
+    const igrejaAlvo = cod || loggedUser?.codigo_igreja || loginCodigo;
+    
+    const { data, error } = await supabase
+      .from('plano_contas_contabil')
+      .select('*')
+      .eq('codigo_igreja', igrejaAlvo); // Filtra corretamente pela igreja atual
 
-    const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      nome: formMinisterioNome.trim().toUpperCase(),
-      descricao: formMinisterioDesc.trim().toUpperCase()
-    };
-
+    if (error) {
+      console.error('Erro ao carregar plano de contas:', error.message);
+    } else {
+      setPlanoContasContabil(data || []);
+    }
+  };
     try {
       if (editingMinisterio && editingMinisterio.id) {
         const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
@@ -383,7 +415,6 @@ export default function App() {
   // 2. Verifique se ela é chamada no seu useEffect principal:
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
-  
     async function carregarTodosDados() {
       const cod = loggedUser.codigo_igreja;
       setLoadingMembros(true); // Opcional: gerencie loadings individuais
@@ -393,6 +424,7 @@ export default function App() {
         carregarMembros(cod),
         carregarMinisterios(cod),
         carregarInscricoes(cod),
+        
         carregarPlanoContas(cod),
         carregarAgenda(cod),
         carregarCelulas(cod),
@@ -2019,7 +2051,9 @@ export default function App() {
             ))
           ) : (
             <tr>
-              <td colSpan={3} className="p-6 text-center text-slate-400">Nenhuma conta encontrada. Verifique o banco de dados.</td>
+              <td colSpan={3} className="p-6 text-center text-slate-400">
+                Nenhuma conta encontrada. Verifique o banco de dados.
+              </td>
             </tr>
           )}
         </tbody>

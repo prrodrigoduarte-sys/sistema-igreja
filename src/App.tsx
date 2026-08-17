@@ -39,6 +39,12 @@ export default function App() {
   // ==========================================
   // 2.3 PLANO DE CONTAS CONTÁBIL
   // ==========================================
+  const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
+  const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
+  const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
+  const [formPlanoNome, setFormPlanoNome] = useState('');
+  const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
+
   const salvarPlanoConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) {
@@ -73,6 +79,7 @@ export default function App() {
       alert('Erro ao cadastrar conta: ' + err.message);
     }
   };
+
   // ==========================================
   // 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO
   // ==========================================
@@ -270,7 +277,7 @@ export default function App() {
     const { data, error } = await supabase
       .from('plano_contas_contabil')
       .select('*')
-      .eq('codigo_igreja', igrejaAlvo); // Filtra corretamente pela igreja atual
+      .eq('codigo_igreja', igrejaAlvo);
 
     if (error) {
       console.error('Erro ao carregar plano de contas:', error.message);
@@ -278,6 +285,17 @@ export default function App() {
       setPlanoContasContabil(data || []);
     }
   };
+
+  const salvarMinisterio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formMinisterioNome.trim().toUpperCase(),
+      descricao: formMinisterioDesc.trim().toUpperCase()
+    };
+
     try {
       if (editingMinisterio && editingMinisterio.id) {
         const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
@@ -331,100 +349,37 @@ export default function App() {
     setRedesList(data || []);
   };
 
-  // =========================================================================
-  // 4.X FUNÇÃO: CARREGAR DADOS FINANCEIROS (DEPURADA)
-  // =========================================================================
- // =========================================================================
-  // 4.X FUNÇÃO: CARREGAR DADOS FINANCEIROS (DEPURADA)
-  // =========================================================================
+  const carregarInscricoes = async (cod: string) => {
+    const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod);
+    setInscricoesList(data || []);
+  };
+
   const carregarFinanceiro = async (cod: string) => {
-    if (!cod) {
-      console.warn('carregarFinanceiro: Código da igreja está vazio ou indefinido.');
-      return;
-    }
-
+    if (!cod) return;
     setLoadingFinanceiro(true);
-    console.log(`Buscando dados financeiros para a igreja: ${cod}`);
-
     try {
-      // 1. Busca Contas Financeiras
-      const { data: cData, error: cError } = await supabase
-        .from('contas_financeiras')
-        .select('*')
-        .eq('codigo_igreja', cod);
+      const { data: cData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
+      setContasFinanceiras(cData || []);
 
-      if (cError) {
-        console.error('Erro ao buscar contas financeiras:', cError.message);
-      } else {
-        console.log(`Contas encontradas (${cData?.length}):`, cData);
-        setContasFinanceiras(cData || []);
-      }
-
-      // 2. Busca Lançamentos Financeiros
-      const { data: lData, error: lError } = await supabase
-        .from('lancamentos_financeiros')
-        .select('*')
-        .eq('codigo_igreja', cod)
-        .order('data_lancamento', { ascending: true });
-
-      if (lError) {
-        console.error('Erro ao buscar lançamentos financeiros:', lError.message);
-      } else {
-        console.log(`Lançamentos encontrados (${lData?.length}):`, lData);
-        setLancamentosCorrente(lData || []);
-      }
+      const { data: lData } = await supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', cod).order('data_lancamento', { ascending: true });
+      setLancamentosCorrente(lData || []);
     } catch (err: any) {
-      console.error('Erro inesperado na carregarFinanceiro:', err);
-    } finally {
-      setLoadingFinanceiro(false);
-    }
-  };
-      // 2. Busca Lançamentos Financeiros
-      const { data: lData, error: lError } = await supabase
-        .from('lancamentos_financeiros')
-        .select('*')
-        .eq('codigo_igreja', cod)
-        .order('data_lancamento', { ascending: true });
-
-      if (lError) {
-        console.error('Erro ao buscar lançamentos financeiros:', lError.message);
-      } else {
-        console.log(`Lançamentos encontrados (${lData?.length}):`, lData);
-        setLancamentosCorrente(lData || []);
-      }
-    } catch (err: any) {
-      console.error('Erro inesperado na carregarFinanceiro:', err);
+      console.error('Erro na carregarFinanceiro:', err);
     } finally {
       setLoadingFinanceiro(false);
     }
   };
 
-  const carregarPlanoContas = async (cod: string) => {
-    const { data, error } = await supabase
-      .from('plano_contas_contabil')
-      .select('*');
-      
-    if (error) {
-      console.error('Erro:', error.message);
-    } else {
-      console.log('ESTES SÃO OS DADOS QUE O REACT RECEBEU:', data); // <--- ISSO VAI APARECER NO CONSOLE
-      setPlanoContasContabil(data || []);
-    }
-  };
-
-  // 2. Verifique se ela é chamada no seu useEffect principal:
+  // Carregamento Geral Unificado
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
-    async function carregarTodosDados() {
-      const cod = loggedUser.codigo_igreja;
-      setLoadingMembros(true); // Opcional: gerencie loadings individuais
-      
-      // Executa as chamadas em paralelo para performance
+    const cod = loggedUser.codigo_igreja;
+    
+    async function carregarDados() {
       await Promise.all([
         carregarMembros(cod),
         carregarMinisterios(cod),
         carregarInscricoes(cod),
-        
         carregarPlanoContas(cod),
         carregarAgenda(cod),
         carregarCelulas(cod),
@@ -432,51 +387,12 @@ export default function App() {
         carregarRedes(cod),
         carregarFinanceiro(cod)
       ]);
-      
-      // Carregamentos simples que não precisam de estado de loading complexo
+
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
       
       const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
       setFornecedoresList(fData || []);
-      
-      setLoadingMembros(false);
-    }
-  
-    carregarTodosDados();
-  }, [isLoggedIn, loggedUser]);
-
-    try {
-      const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
-      if (error) throw error;
-      alert('Conta contábil cadastrada com sucesso!');
-      setShowPlanoContaModal(false);
-      setFormPlanoCodigo('');
-      setFormPlanoNome('');
-      carregarPlanoContas(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao cadastrar conta: ' + err.message);
-    }
-  };
-
-  useEffect(() => {
-    if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
-    const cod = loggedUser.codigo_igreja;
-    
-    async function carregarDados() {
-      await carregarMembros(cod);
-      await carregarMinisterios(cod);
-      await carregarInscricoes(cod);
-      await carregarPlanoContas(cod);
-      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
-      setUsuariosList(uData || []);
-      const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
-      setFornecedoresList(fData || []);
-      carregarAgenda(cod);
-      carregarCelulas(cod);
-      carregarSetores(cod);
-      carregarRedes(cod);
-      carregarFinanceiro(cod);
     }
     carregarDados();
   }, [isLoggedIn, loggedUser]);
@@ -927,14 +843,6 @@ export default function App() {
 
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // LOG DE DEBUG PARA VER SE OS DADOS ESTÃO CHEGANDO
-    console.log("Dados do formulário:", { 
-      nome: formNomeConta, 
-      tipo: formTipoConta, 
-      igreja: loggedUser?.codigo_igreja 
-    });
-  
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
     
     const payload = {
@@ -944,10 +852,8 @@ export default function App() {
     };
   
     try {
-      const { data, error } = await supabase.from('contas_financeiras').insert([payload]);
-      
+      const { error } = await supabase.from('contas_financeiras').insert([payload]);
       if (error) {
-        console.error("Erro do Supabase:", error); // Isso vai nos dizer o motivo exato se for um erro de banco
         alert('Erro ao salvar conta: ' + error.message);
         return;
       }
@@ -2030,37 +1936,41 @@ export default function App() {
             </div>
 
             {financeiroSubTab === 'plano_contas' && (
-  <div className="space-y-4">
-    <div className="overflow-x-auto border rounded-xl bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-slate-100 border-b">
-          <tr>
-            <th className="p-3 font-bold">Código</th>
-            <th className="p-3 font-bold">Conta</th>
-            <th className="p-3 font-bold">Natureza</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y text-slate-700">
-          {planoContasContabil && planoContasContabil.length > 0 ? (
-            planoContasContabil.map((pc) => (
-              <tr key={pc.id} className="hover:bg-slate-50">
-                <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
-                <td className="p-3">{pc.nome_conta}</td>
-                <td className="p-3">{pc.tipo_natureza}</td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={3} className="p-6 text-center text-slate-400">
-                Nenhuma conta encontrada. Verifique o banco de dados.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  </div>
-)}
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-slate-800 text-lg">Plano de Contas Contábil</h3>
+                  <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer">+ Nova Conta Contábil</button>
+                </div>
+                <div className="overflow-x-auto border rounded-xl bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-100 border-b">
+                      <tr>
+                        <th className="p-3 font-bold">Código</th>
+                        <th className="p-3 font-bold">Conta</th>
+                        <th className="p-3 font-bold">Natureza</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {planoContasContabil && planoContasContabil.length > 0 ? (
+                        planoContasContabil.map((pc) => (
+                          <tr key={pc.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
+                            <td className="p-3">{pc.nome_conta}</td>
+                            <td className="p-3">{pc.tipo_natureza}</td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="p-6 text-center text-slate-400">
+                            Nenhuma conta encontrada. Verifique o banco de dados.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {financeiroSubTab === 'extrato' && (
               <div className="space-y-4">
@@ -2203,9 +2113,7 @@ export default function App() {
       {/* 8. MODAIS DE CADASTRO E EDIÇÃO             */}
       {/* ========================================== */}
 
-      {/* ========================================== */}
-      {/* 8.1 MODAL: PLANO DE CONTAS                 */}
-      {/* ========================================== */}
+      {/* 8.1 MODAL: PLANO DE CONTAS */}
       {showPlanoContaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2240,9 +2148,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.2 MODAL: SETORES                         */}
-      {/* ========================================== */}
+      {/* 8.2 MODAL: SETORES */}
       {showSetorModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2271,9 +2177,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.3 MODAL: REDES                           */}
-      {/* ========================================== */}
+      {/* 8.3 MODAL: REDES */}
       {showRedeModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2302,9 +2206,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.4 MODAL: LANÇAMENTO FINANCEIRO           */}
-      {/* ========================================== */}
+      {/* 8.4 MODAL: LANÇAMENTO FINANCEIRO */}
       {showLancamentoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2349,9 +2251,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.5 MODAL: CONTA FINANCEIRA                */}
-      {/* ========================================== */}
+      {/* 8.5 MODAL: CONTA FINANCEIRA */}
       {showContaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2381,9 +2281,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.6 MODAL: AGENDA                          */}
-      {/* ========================================== */}
+      {/* 8.6 MODAL: AGENDA */}
       {showAgendaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2442,9 +2340,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.7 MODAL: CÉLULAS                         */}
-      {/* ========================================== */}
+      {/* 8.7 MODAL: CÉLULAS */}
       {showCelulaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -2579,9 +2475,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.8 MODAL: MINISTÉRIOS                     */}
-      {/* ========================================== */}
+      {/* 8.8 MODAL: MINISTÉRIOS */}
       {showMinisterioModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2607,9 +2501,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ========================================== */}
-      {/* 8.9 MODAL: MEMBROS                         */}
-      {/* ========================================== */}
+      {/* 8.9 MODAL: MEMBROS */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">

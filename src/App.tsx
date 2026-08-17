@@ -446,7 +446,6 @@ export default function App() {
     }
   };
 
-  // FUNÇÃO DE AUTORIZAÇÃO DE ACESSO DE USUÁRIO (MOBILE / COMPUTADOR) PELO ADMINISTRADOR
   const handleAtualizarPermissaoUsuario = async (userId: string, campo: 'permissao_mobile' | 'permissao_computador', valorAtual: boolean) => {
     const senhaAdmin = prompt('Digite a senha de ADMINISTRADOR para alterar as permissões de acesso deste usuário:');
     if (!senhaAdmin) return;
@@ -2300,11 +2299,11 @@ export default function App() {
             <form onSubmit={salvarMinisterio} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome do Ministério *</label>
-                <input type="text" required value={formMinisterioNome} onChange={(e) => setFormMinisterioNome(e.target.value)} placeholder="Ex: Louvor, Diaconato, Infantil" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formMinisterioNome} onChange={(e) => setFormMinisterioNome(e.target.value)} placeholder="Ex: Louvor, Diaconato, Infantil" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Observações</label>
-                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value)} placeholder="Detalhes..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value)} placeholder="Detalhes..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowMinisterioModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>

@@ -5,13 +5,36 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile'>('relatorios');
-  const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
+  // ATENÇÃO: Adicionados 'projetos' no activeTab e 'projetos' no openDropdown
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('relatorios');
+  const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
-  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'relatorio'>('extrato');
+  
+  // ATENÇÃO: Adicionado 'plano_contas' no financeiroSubTab
+  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'plano_contas' | 'relatorio'>('extrato');
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
+
+  // NOVOS ESTADOS: Sub-abas de Projetos e Plano de Contas
+  const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
+
+  // Estados para Projetos / Inscrições
+  const [inscricoesList, setInscricoesList] = useState<any[]>([]);
+  const [showInscricaoModal, setShowInscricaoModal] = useState(false);
+  const [editingInscricao, setEditingInscricao] = useState<any>(null);
+  const [formInscricaoNome, setFormInscricaoNome] = useState('');
+  const [formInscricaoCpf, setFormInscricaoCpf] = useState('');
+  const [formInscricaoTel, setFormInscricaoTel] = useState('');
+  const [formInscricaoEmail, setFormInscricaoEmail] = useState('');
+  const [formInscricaoMembroId, setFormInscricaoMembroId] = useState<any>(null);
+
+  // Plano de Contas Contábil
+  const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
+  const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
+  const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
+  const [formPlanoNome, setFormPlanoNome] = useState('');
+  const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
 
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
@@ -35,7 +58,6 @@ export default function App() {
   const [editingMinisterio, setEditingMinisterio] = useState<any>(null);
   const [formMinisterioNome, setFormMinisterioNome] = useState('');
   const [formMinisterioDesc, setFormMinisterioDesc] = useState('');
-
   // Máscara automática para celular (00) 00000-0000
   const aplicarMascaraCelular = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
@@ -262,6 +284,101 @@ export default function App() {
       setLoadingFinanceiro(false);
     }
   };
+  const carregarInscricoes = async (cod: string) => {
+    const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    setInscricoesList(data || []);
+  };
+
+  const carregarPlanoContas = async (cod: string) => {
+    const { data } = await supabase.from('plano_contas_contabil').select('*').eq('codigo_igreja', cod).order('codigo_conta', { ascending: true });
+    setPlanoContasContabil(data || []);
+  };
+
+  // BUSCA AUTOMÁTICA DE MEMBRO POR NOME OU CPF NAS INSCRIÇÕES DE PROJETOS
+  const handleBuscarMembroParaInscricao = (termo: string) => {
+    const termoLimpo = termo.trim().toLowerCase();
+    if (!termoLimpo) return;
+
+    const encontrado = members.find(m => 
+      m.nome.toLowerCase().includes(termoLimpo) || 
+      (m.cpf && m.cpf.replace(/\D/g, '').includes(termoLimpo.replace(/\D/g, '')))
+    );
+
+    if (encontrado) {
+      setFormInscricaoNome(encontrado.nome);
+      setFormInscricaoCpf(encontrado.cpf || '');
+      setFormInscricaoTel(encontrado.celular_principal || '');
+      setFormInscricaoEmail(encontrado.email || '');
+      setFormInscricaoMembroId(encontrado.id);
+    }
+  };
+
+  const salvarInscricaoProjeto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formInscricaoNome.trim()) { alert('Informe o nome do participante.'); return; }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      tipo_projeto: projetoAtivo,
+      membro_id: formInscricaoMembroId || null,
+      nome: formInscricaoNome.trim().toUpperCase(),
+      cpf: formInscricaoCpf.trim() || null,
+      telefone: formInscricaoTel.trim() || null,
+      email: formInscricaoEmail.trim().toLowerCase() || null
+    };
+
+    try {
+      if (editingInscricao && editingInscricao.id) {
+        const { error } = await supabase.from('inscricoes_projetos').update(payload).eq('id', editingInscricao.id);
+        if (error) throw error;
+        alert('Inscrição atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
+        if (error) throw error;
+        alert('Inscrição realizada com sucesso!');
+      }
+      setShowInscricaoModal(false);
+      carregarInscricoes(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar inscrição: ' + err.message);
+    }
+  };
+
+  const deletarInscricao = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta inscrição?')) return;
+    try {
+      const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
+      if (error) throw error;
+      alert('Inscrição excluída com sucesso!');
+      carregarInscricoes(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao excluir: ' + err.message);
+    }
+  };
+
+  const salvarPlanoConta = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) { alert('Preencha o código e o nome da conta.'); return; }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      codigo_conta: formPlanoCodigo.trim(),
+      nome_conta: formPlanoNome.trim().toUpperCase(),
+      tipo_natureza: formPlanoNatureza
+    };
+
+    try {
+      const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
+      if (error) throw error;
+      alert('Conta contábil cadastrada com sucesso!');
+      setShowPlanoContaModal(false);
+      setFormPlanoCodigo('');
+      setFormPlanoNome('');
+      carregarPlanoContas(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao cadastrar conta: ' + err.message);
+    }
+  };
 
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
@@ -270,6 +387,8 @@ export default function App() {
     async function carregarDados() {
       await carregarMembros(cod);
       await carregarMinisterios(cod);
+      await carregarInscricoes(cod);
+      await carregarPlanoContas(cod);
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
       const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
@@ -279,6 +398,7 @@ export default function App() {
       carregarSetores(cod);
       carregarRedes(cod);
       carregarFinanceiro(cod);
+      
     }
     carregarDados();
   }, [isLoggedIn, loggedUser]);
@@ -866,53 +986,54 @@ export default function App() {
               <span className="text-[10px] tracking-widest text-blue-500 font-bold">TECNOLOGIA</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
-              
-              <div className="relative">
-                <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
-                  Cadastros <span className="text-xs text-slate-400">∨</span>
-                </button>
-                {openDropdown === 'cadastros' && (
-                  <div className="absolute left-0 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🖥️ Membros (Computador)</button>
-                    <button onClick={() => { 
-                      if (loggedUser.usuario !== 'admin' && !loggedUser.permissao_mobile) {
-                        alert('Acesso negado. O administrador não autorizou o uso do módulo Mobile para este usuário.');
-                        return;
-                      }
-                      setActiveTab('membros_mobile'); 
-                      setOpenDropdown(null); 
-                    }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-blue-900">📱 Membros (Mobile Compacto)</button>
-                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários e Permissões</button>
-                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🚚 Fornecedores</button>
-                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📊 Relatórios</button>
-                    <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🙌 Ministérios</button>
-                  </div>
-                )}
-              </div>
+  
+  <div className="relative">
+    <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
+      Cadastros <span className="text-xs text-slate-400">∨</span>
+    </button>
+    {openDropdown === 'cadastros' && (
+      <div className="absolute left-0 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 z-50">
+        <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🖥️ Membros</button>
+        <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">👤 Usuários e Permissões</button>
+        <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🚚 Fornecedores</button>
+        <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📊 Relatórios</button>
+        <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🙌 Ministérios</button>
+      </div>
+    )}
+  </div>
 
-              <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                Células / Redes
-              </button>
-              
-              <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                Agenda <span className="text-xs text-slate-400">∨</span>
-              </button>
+  {/* NOVA ABA FLUTUANTE PROJETOS */}
+  <div className="relative">
+    <button onClick={() => setOpenDropdown(openDropdown === 'projetos' ? null : 'projetos')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'projetos' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+      🚀 Projetos <span className="text-xs text-slate-400">∨</span>
+    </button>
+    {openDropdown === 'projetos' && (
+      <div className="absolute left-0 mt-2 w-64 bg-white border rounded-xl shadow-xl py-2 z-50">
+        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('missoes'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🌐 Missões</button>
+        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_1'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📂 Proj 1 - Ilimitados</button>
+        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_2'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">❤️ Proj 2 - Casais</button>
+        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_3'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📖 Proj 3 - Escola de Célula</button>
+        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_4'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🎓 Proj 4 - Escola de Líderes</button>
+        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_5'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Proj 5 - Escola de Pastores</button>
+      </div>
+    )}
+  </div>
 
-              <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                Financeiro
-              </button>
+  <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Células / Redes</button>
+  <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Agenda</button>
+  <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Financeiro</button>
 
-              <div className="relative">
-                <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                  Controle <span className="text-xs text-slate-400">∨</span>
-                </button>
-                {openDropdown === 'controle' && (
-                  <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🏛️ Cadastro da Igreja</button>
-                  </div>
-                )}
-              </div>
-            </nav>
+  <div className="relative">
+    <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+      Controle <span className="text-xs text-slate-400">∨</span>
+    </button>
+    {openDropdown === 'controle' && (
+      <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
+        <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Cadastro da Igreja</button>
+      </div>
+    )}
+  </div>
+</nav>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
@@ -1006,6 +1127,26 @@ export default function App() {
                     }
                     setActiveTab('membros_mobile');
                   }} 
+                  {financeiroSubTab === 'plano_contas' && (
+  <div className="space-y-4">
+    <div className="flex justify-between items-center">
+      <h3 className="font-bold text-slate-800">Plano de Contas Contábil</h3>
+      <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">+ Adicionar Conta</button>
+    </div>
+    {/* Tabela do Plano de Contas */}
+    <div className="overflow-x-auto border rounded-xl">
+       <table className="w-full text-left text-xs">
+          {planoContasContabil.map((pc: any) => (
+            <tr key={pc.id} className="border-b">
+              <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
+              <td className="p-3 font-bold">{pc.nome_conta}</td>
+            </tr>
+          ))}
+       </table>
+    </div>
+  </div>
+)}
+
                   className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
                 >
                   📱 Mudar para Modo Mobile
@@ -1819,30 +1960,42 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'financeiro' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800">💰 Módulo Financeiro — Conta Corrente</h2>
-                <p className="text-xs text-slate-500">Controle financeiro com extrato padrão, gestão de contas e relatórios.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato</button>
-                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🏦 Contas</button>
-                  <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📊 Relatório</button>
-                </div>
-                {financeiroSubTab === 'extrato' && (
-                  <button onClick={() => setShowLancamentoModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Lançamento</button>
-                )}
-                {financeiroSubTab === 'contas' && (
-                  <button onClick={() => setShowContaModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Conta</button>
-                )}
-                {financeiroSubTab === 'relatorio' && (
-                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap flex items-center gap-1">🖨️ Imprimir Relatório</button>
-                )}
-              </div>
-            </div>
+{/* EXIBIÇÃO DA SUB-ABA: PLANO DE CONTAS */}
+{financeiroSubTab === 'plano_contas' && (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="font-bold text-slate-800 text-base">Plano de Contas Contábil (Padrão Brasileiro)</h3>
+          <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">+ Adicionar Conta</button>
+        </div>
+        <div className="overflow-x-auto border rounded-xl">
+           <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 border-b">
+                <tr>
+                  <th className="p-3">Código Contábil</th>
+                  <th className="p-3">Nome da Conta</th>
+                  <th className="p-3">Natureza</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-slate-700">
+                {planoContasContabil.map((pc: any) => (
+                  <tr key={pc.id} className="hover:bg-slate-50">
+                    <td className="p-3 font-mono font-bold text-blue-900">{pc.codigo_conta}</td>
+                    <td className="p-3 font-bold text-slate-900">{pc.nome_conta}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pc.tipo_natureza === 'Receita' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                        {pc.tipo_natureza}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+           </table>
+        </div>
+      </div>
+    )}
+
+  </div>
+)}
 
             {financeiroSubTab === 'extrato' && (
               <div className="space-y-4">
@@ -1946,7 +2099,7 @@ export default function App() {
                     R$ {saldoFinalRelatorio.toFixed(2)}
                   </div>
                 </div>
-
+                
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>

@@ -2357,15 +2357,63 @@ export default function App() {
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="px-3 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">
                           📸 Tirar Foto (Câmera)
-                          <input type="file" accept="image/*" capture="user" className="hidden" onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file) return;
+                          <{/* CAMPO DE FOTO DO MEMBRO - CORRIGIDO PARA TIRAR FOTO DIRETAMENTE */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
+                <div className="flex items-center gap-4">
+                  {/* Pré-visualização da foto */}
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 border flex items-center justify-center overflow-hidden shrink-0">
+                    {formMember.foto_url ? (
+                      <img src={formMember.foto_url} alt="Foto" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-2xl">👤</span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 flex gap-2">
+                    {/* Botão que abre a CÂMERA diretamente */}
+                    <label className="flex-1 py-2.5 px-4 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 border border-blue-200">
+                      <span>📸 Tirar Foto</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        capture="environment" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
                             const reader = new FileReader();
-                            reader.readAsDataURL(file);
-                            reader.onload = () => {
+                            reader.onloadend = () => {
                               setFormMember({ ...formMember, foto_url: reader.result as string });
                             };
-                          }} />
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+
+                    {/* Botão opcional para carregar da galeria/arquivo do PC */}
+                    <label className="py-2.5 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center border">
+                      <span>📁 Galeria</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormMember({ ...formMember, foto_url: reader.result as string });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
                         </label>
 
                         <label className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-all inline-flex items-center gap-1 shadow-sm">

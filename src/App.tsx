@@ -302,6 +302,9 @@ export default function App() {
   // =========================================================================
   // 4.X FUNÇÃO: CARREGAR DADOS FINANCEIROS (DEPURADA)
   // =========================================================================
+ // =========================================================================
+  // 4.X FUNÇÃO: CARREGAR DADOS FINANCEIROS (DEPURADA)
+  // =========================================================================
   const carregarFinanceiro = async (cod: string) => {
     if (!cod) {
       console.warn('carregarFinanceiro: Código da igreja está vazio ou indefinido.');
@@ -325,6 +328,25 @@ export default function App() {
         setContasFinanceiras(cData || []);
       }
 
+      // 2. Busca Lançamentos Financeiros
+      const { data: lData, error: lError } = await supabase
+        .from('lancamentos_financeiros')
+        .select('*')
+        .eq('codigo_igreja', cod)
+        .order('data_lancamento', { ascending: true });
+
+      if (lError) {
+        console.error('Erro ao buscar lançamentos financeiros:', lError.message);
+      } else {
+        console.log(`Lançamentos encontrados (${lData?.length}):`, lData);
+        setLancamentosCorrente(lData || []);
+      }
+    } catch (err: any) {
+      console.error('Erro inesperado na carregarFinanceiro:', err);
+    } finally {
+      setLoadingFinanceiro(false);
+    }
+  };
       // 2. Busca Lançamentos Financeiros
       const { data: lData, error: lError } = await supabase
         .from('lancamentos_financeiros')

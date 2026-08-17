@@ -5,18 +5,15 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  // ATENÇÃO: Adicionados 'projetos' no activeTab e 'projetos' no openDropdown
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
   
-  // ATENÇÃO: Adicionado 'plano_contas' no financeiroSubTab
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'plano_contas' | 'relatorio'>('extrato');
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
-  // NOVOS ESTADOS: Sub-abas de Projetos e Plano de Contas
   const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
 
   // Estados para Projetos / Inscrições
@@ -58,7 +55,7 @@ export default function App() {
   const [editingMinisterio, setEditingMinisterio] = useState<any>(null);
   const [formMinisterioNome, setFormMinisterioNome] = useState('');
   const [formMinisterioDesc, setFormMinisterioDesc] = useState('');
-  // Máscara automática para celular (00) 00000-0000
+
   const aplicarMascaraCelular = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
     let formatado = apenasDigitos;
@@ -71,10 +68,8 @@ export default function App() {
     return formatado;
   };
 
-  // MÁSCARA BLINDADA PARA CPF (Evita repetição de números)
   const aplicarMascaraCpf = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').slice(0, 11);
-    
     if (apenasDigitos.length <= 3) {
       return apenasDigitos;
     } else if (apenasDigitos.length <= 6) {
@@ -86,7 +81,6 @@ export default function App() {
     }
   };
 
-  // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
     nome: '',
     tipo_cadastro: 'Membro',
@@ -284,6 +278,7 @@ export default function App() {
       setLoadingFinanceiro(false);
     }
   };
+
   const carregarInscricoes = async (cod: string) => {
     const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
     setInscricoesList(data || []);
@@ -292,68 +287,6 @@ export default function App() {
   const carregarPlanoContas = async (cod: string) => {
     const { data } = await supabase.from('plano_contas_contabil').select('*').eq('codigo_igreja', cod).order('codigo_conta', { ascending: true });
     setPlanoContasContabil(data || []);
-  };
-
-  // BUSCA AUTOMÁTICA DE MEMBRO POR NOME OU CPF NAS INSCRIÇÕES DE PROJETOS
-  const handleBuscarMembroParaInscricao = (termo: string) => {
-    const termoLimpo = termo.trim().toLowerCase();
-    if (!termoLimpo) return;
-
-    const encontrado = members.find(m => 
-      m.nome.toLowerCase().includes(termoLimpo) || 
-      (m.cpf && m.cpf.replace(/\D/g, '').includes(termoLimpo.replace(/\D/g, '')))
-    );
-
-    if (encontrado) {
-      setFormInscricaoNome(encontrado.nome);
-      setFormInscricaoCpf(encontrado.cpf || '');
-      setFormInscricaoTel(encontrado.celular_principal || '');
-      setFormInscricaoEmail(encontrado.email || '');
-      setFormInscricaoMembroId(encontrado.id);
-    }
-  };
-
-  const salvarInscricaoProjeto = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formInscricaoNome.trim()) { alert('Informe o nome do participante.'); return; }
-
-    const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      tipo_projeto: projetoAtivo,
-      membro_id: formInscricaoMembroId || null,
-      nome: formInscricaoNome.trim().toUpperCase(),
-      cpf: formInscricaoCpf.trim() || null,
-      telefone: formInscricaoTel.trim() || null,
-      email: formInscricaoEmail.trim().toLowerCase() || null
-    };
-
-    try {
-      if (editingInscricao && editingInscricao.id) {
-        const { error } = await supabase.from('inscricoes_projetos').update(payload).eq('id', editingInscricao.id);
-        if (error) throw error;
-        alert('Inscrição atualizada com sucesso!');
-      } else {
-        const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
-        if (error) throw error;
-        alert('Inscrição realizada com sucesso!');
-      }
-      setShowInscricaoModal(false);
-      carregarInscricoes(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar inscrição: ' + err.message);
-    }
-  };
-
-  const deletarInscricao = async (id: string) => {
-    if (!window.confirm('Tem certeza que deseja excluir esta inscrição?')) return;
-    try {
-      const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
-      if (error) throw error;
-      alert('Inscrição excluída com sucesso!');
-      carregarInscricoes(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao excluir: ' + err.message);
-    }
   };
 
   const salvarPlanoConta = async (e: React.FormEvent) => {
@@ -398,7 +331,6 @@ export default function App() {
       carregarSetores(cod);
       carregarRedes(cod);
       carregarFinanceiro(cod);
-      
     }
     carregarDados();
   }, [isLoggedIn, loggedUser]);
@@ -757,7 +689,6 @@ export default function App() {
     setFormCelParticipantes(formCelParticipantes.filter(id => id !== membroId));
   };
 
-  // CORRIGIDO: Adicionado "async" aqui para o Vercel não falhar no build!
   const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formCelNome.trim()) { alert('O nome da célula é obrigatório.'); return; }
@@ -986,54 +917,52 @@ export default function App() {
               <span className="text-[10px] tracking-widest text-blue-500 font-bold">TECNOLOGIA</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
-  
-  <div className="relative">
-    <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
-      Cadastros <span className="text-xs text-slate-400">∨</span>
-    </button>
-    {openDropdown === 'cadastros' && (
-      <div className="absolute left-0 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 z-50">
-        <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🖥️ Membros</button>
-        <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">👤 Usuários e Permissões</button>
-        <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🚚 Fornecedores</button>
-        <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📊 Relatórios</button>
-        <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🙌 Ministérios</button>
-      </div>
-    )}
-  </div>
+              <div className="relative">
+                <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
+                  Cadastros <span className="text-xs text-slate-400">∨</span>
+                </button>
+                {openDropdown === 'cadastros' && (
+                  <div className="absolute left-0 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 z-50">
+                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🖥️ Membros</button>
+                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">👤 Usuários e Permissões</button>
+                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🚚 Fornecedores</button>
+                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📊 Relatórios</button>
+                    <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🙌 Ministérios</button>
+                  </div>
+                )}
+              </div>
 
-  {/* NOVA ABA FLUTUANTE PROJETOS */}
-  <div className="relative">
-    <button onClick={() => setOpenDropdown(openDropdown === 'projetos' ? null : 'projetos')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'projetos' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-      🚀 Projetos <span className="text-xs text-slate-400">∨</span>
-    </button>
-    {openDropdown === 'projetos' && (
-      <div className="absolute left-0 mt-2 w-64 bg-white border rounded-xl shadow-xl py-2 z-50">
-        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('missoes'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🌐 Missões</button>
-        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_1'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📂 Proj 1 - Ilimitados</button>
-        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_2'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">❤️ Proj 2 - Casais</button>
-        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_3'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📖 Proj 3 - Escola de Célula</button>
-        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_4'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🎓 Proj 4 - Escola de Líderes</button>
-        <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_5'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Proj 5 - Escola de Pastores</button>
-      </div>
-    )}
-  </div>
+              <div className="relative">
+                <button onClick={() => setOpenDropdown(openDropdown === 'projetos' ? null : 'projetos')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'projetos' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+                  🚀 Projetos <span className="text-xs text-slate-400">∨</span>
+                </button>
+                {openDropdown === 'projetos' && (
+                  <div className="absolute left-0 mt-2 w-64 bg-white border rounded-xl shadow-xl py-2 z-50">
+                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('missoes'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🌐 Missões</button>
+                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_1'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📂 Proj 1 - Ilimitados</button>
+                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_2'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">❤️ Proj 2 - Casais</button>
+                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_3'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📖 Proj 3 - Escola de Célula</button>
+                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_4'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🎓 Proj 4 - Escola de Líderes</button>
+                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_5'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Proj 5 - Escola de Pastores</button>
+                  </div>
+                )}
+              </div>
 
-  <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Células / Redes</button>
-  <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Agenda</button>
-  <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Financeiro</button>
+              <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Células / Redes</button>
+              <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Agenda</button>
+              <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Financeiro</button>
 
-  <div className="relative">
-    <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-      Controle <span className="text-xs text-slate-400">∨</span>
-    </button>
-    {openDropdown === 'controle' && (
-      <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
-        <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Cadastro da Igreja</button>
-      </div>
-    )}
-  </div>
-</nav>
+              <div className="relative">
+                <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
+                  Controle <span className="text-xs text-slate-400">∨</span>
+                </button>
+                {openDropdown === 'controle' && (
+                  <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
+                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Cadastro da Igreja</button>
+                  </div>
+                )}
+              </div>
+            </nav>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
@@ -1046,7 +975,6 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
-        
         {activeTab === 'membros_mobile' && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
             <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
@@ -1054,41 +982,21 @@ export default function App() {
                 <h2 className="text-base font-black">📱 Cadastro Mobile Compacto</h2>
                 <p className="text-[10px] text-blue-200">Versão otimizada para toque e telas verticais</p>
               </div>
-              <button 
-                onClick={() => setActiveTab('membros')} 
-                className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl cursor-pointer"
-              >
+              <button onClick={() => setActiveTab('membros')} className="px-3 py-1 bg-white/25 hover:bg-white/35 text-white text-xs font-bold rounded-xl cursor-pointer">
                 🖥️ Ir para Computador
               </button>
             </div>
-
             <div className="p-4 space-y-4 flex-1">
               <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Buscar membro..." 
-                  value={searchTerm} 
-                  onChange={(e) => setSearchTerm(e.target.value)} 
-                  className="w-full rounded-xl border border-slate-300 p-2 text-xs focus:outline-none focus:border-blue-900" 
-                />
-                <button 
-                  onClick={() => abrirModalMembro()} 
-                  className="px-3 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl shadow-sm whitespace-nowrap cursor-pointer"
-                >
-                  + Novo
-                </button>
+                <input type="text" placeholder="Buscar membro..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full rounded-xl border border-slate-300 p-2 text-xs focus:outline-none focus:border-blue-900" />
+                <button onClick={() => abrirModalMembro()} className="px-3 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl shadow-sm whitespace-nowrap cursor-pointer">+ Novo</button>
               </div>
-
               <div className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
                 {filteredMembers.length === 0 ? (
                   <p className="text-center py-6 text-xs text-slate-400">Nenhum membro cadastrado.</p>
                 ) : (
                   filteredMembers.map((m: any) => (
-                    <div 
-                      key={m.id} 
-                      onClick={() => abrirModalMembro(m)} 
-                      className="p-3 bg-slate-50 hover:bg-blue-50/50 border rounded-2xl flex items-center justify-between cursor-pointer transition-all"
-                    >
+                    <div key={m.id} onClick={() => abrirModalMembro(m)} className="p-3 bg-slate-50 hover:bg-blue-50/50 border rounded-2xl flex items-center justify-between cursor-pointer transition-all">
                       <div className="flex items-center gap-3">
                         {m.foto_url ? (
                           <img src={m.foto_url} alt={m.nome} className="w-10 h-10 rounded-full object-cover border" />
@@ -1119,36 +1027,13 @@ export default function App() {
                 <p className="text-xs text-slate-500">Clique na linha do membro para alterar os dados completos ou use o menu para o modo Mobile.</p>
               </div>
               <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => {
-                    if (loggedUser.usuario !== 'admin' && !loggedUser.permissao_mobile) {
-                      alert('Acesso negado. O administrador não autorizou o uso do módulo Mobile para este usuário.');
-                      return;
-                    }
-                    setActiveTab('membros_mobile');
-                  }} 
-                  {financeiroSubTab === 'plano_contas' && (
-  <div className="space-y-4">
-    <div className="flex justify-between items-center">
-      <h3 className="font-bold text-slate-800">Plano de Contas Contábil</h3>
-      <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">+ Adicionar Conta</button>
-    </div>
-    {/* Tabela do Plano de Contas */}
-    <div className="overflow-x-auto border rounded-xl">
-       <table className="w-full text-left text-xs">
-          {planoContasContabil.map((pc: any) => (
-            <tr key={pc.id} className="border-b">
-              <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
-              <td className="p-3 font-bold">{pc.nome_conta}</td>
-            </tr>
-          ))}
-       </table>
-    </div>
-  </div>
-)}
-
-                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
-                >
+                <button onClick={() => {
+                  if (loggedUser.usuario !== 'admin' && !loggedUser.permissao_mobile) {
+                    alert('Acesso negado. O administrador não autorizou o uso do módulo Mobile para este usuário.');
+                    return;
+                  }
+                  setActiveTab('membros_mobile');
+                }} className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">
                   📱 Mudar para Modo Mobile
                 </button>
                 <input type="text" placeholder="Buscar por Nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:outline-none focus:border-blue-900" />
@@ -1214,19 +1099,10 @@ export default function App() {
                 <h2 className="text-2xl font-bold text-slate-800">🙌 Gestão de Ministérios ({ministeriosList.length})</h2>
                 <p className="text-xs text-slate-500">Cadastre, edite ou exclua os ministérios da igreja.</p>
               </div>
-              <button 
-                onClick={() => { 
-                  setEditingMinisterio(null); 
-                  setFormMinisterioNome(''); 
-                  setFormMinisterioDesc(''); 
-                  setShowMinisterioModal(true); 
-                }} 
-                className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer"
-              >
+              <button onClick={() => { setEditingMinisterio(null); setFormMinisterioNome(''); setFormMinisterioDesc(''); setShowMinisterioModal(true); }} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer">
                 + Novo Ministério
               </button>
             </div>
-
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
@@ -1245,21 +1121,10 @@ export default function App() {
                         <td className="p-3 font-bold text-slate-900">{min.nome}</td>
                         <td className="p-3 text-slate-600">{min.descricao || '-'}</td>
                         <td className="p-3 text-center space-x-2">
-                          <button 
-                            onClick={() => {
-                              setEditingMinisterio(min);
-                              setFormMinisterioNome(min.nome);
-                              setFormMinisterioDesc(min.descricao || '');
-                              setShowMinisterioModal(true);
-                            }} 
-                            className="px-3 py-1 bg-blue-50 hover:bg-blue-900 hover:text-white text-blue-900 font-bold text-xs rounded-lg transition-all cursor-pointer"
-                          >
+                          <button onClick={() => { setEditingMinisterio(min); setFormMinisterioNome(min.nome); setFormMinisterioDesc(min.descricao || ''); setShowMinisterioModal(true); }} className="px-3 py-1 bg-blue-50 hover:bg-blue-900 hover:text-white text-blue-900 font-bold text-xs rounded-lg transition-all cursor-pointer">
                             Editar
                           </button>
-                          <button 
-                            onClick={() => deletarMinisterio(min.id)} 
-                            className="px-3 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 font-bold text-xs rounded-lg transition-all cursor-pointer"
-                          >
+                          <button onClick={() => deletarMinisterio(min.id)} className="px-3 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 font-bold text-xs rounded-lg transition-all cursor-pointer">
                             Excluir
                           </button>
                         </td>
@@ -1297,20 +1162,12 @@ export default function App() {
                       <td className="py-3 px-4 font-bold text-slate-900">{u.nome_usuario}</td>
                       <td className="py-3 px-4 font-mono">{u.usuario}</td>
                       <td className="py-3 px-4 text-center">
-                        <button 
-                          onClick={() => handleAtualizarPermissaoUsuario(u.id, 'permissao_mobile', u.permissao_mobile)}
-                          className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${u.permissao_mobile ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-                          title="Clique para autorizar ou bloquear via senha de admin"
-                        >
+                        <button onClick={() => handleAtualizarPermissaoUsuario(u.id, 'permissao_mobile', u.permissao_mobile)} className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${u.permissao_mobile ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
                           {u.permissao_mobile ? '✔ Autorizado Mobile' : '✖ Bloqueado'}
                         </button>
                       </td>
                       <td className="py-3 px-4 text-center">
-                        <button 
-                          onClick={() => handleAtualizarPermissaoUsuario(u.id, 'permissao_computador', u.permissao_computador)}
-                          className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${u.permissao_computador !== false ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-                          title="Clique para autorizar ou bloquear via senha de admin"
-                        >
+                        <button onClick={() => handleAtualizarPermissaoUsuario(u.id, 'permissao_computador', u.permissao_computador)} className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${u.permissao_computador !== false ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
                           {u.permissao_computador !== false ? '✔ Autorizado PC' : '✖ Bloqueado'}
                         </button>
                       </td>
@@ -1464,18 +1321,12 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-50 border-b">
                       <tr>
                         <th className="p-3 text-center w-12 print:hidden">
-                          <input 
-                            type="checkbox" 
-                            onChange={(e) => setSelecionados(e.target.checked ? members.map(m => String(m.id)) : [])}
-                            checked={members.length > 0 && selecionados.length === members.length}
-                            className="cursor-pointer"
-                          />
+                          <input type="checkbox" onChange={(e) => setSelecionados(e.target.checked ? members.map(m => String(m.id)) : [])} checked={members.length > 0 && selecionados.length === members.length} className="cursor-pointer" />
                         </th>
                         <th className="p-3">Nome</th>
                         <th className="p-3">CPF</th>
@@ -1486,15 +1337,10 @@ export default function App() {
                       {members.map((m: any) => (
                         <tr key={m.id} className="hover:bg-slate-50">
                           <td className="p-3 text-center print:hidden">
-                            <input 
-                              type="checkbox" 
-                              checked={selecionados.includes(String(m.id))}
-                              onChange={(e) => {
-                                if (e.target.checked) setSelecionados([...selecionados, String(m.id)]);
-                                else setSelecionados(selecionados.filter(id => id !== String(m.id)));
-                              }}
-                              className="cursor-pointer"
-                            />
+                            <input type="checkbox" checked={selecionados.includes(String(m.id))} onChange={(e) => {
+                              if (e.target.checked) setSelecionados([...selecionados, String(m.id)]);
+                              else setSelecionados(selecionados.filter(id => id !== String(m.id)));
+                            }} className="cursor-pointer" />
                           </td>
                           <td className="p-3 font-bold">{m.nome}</td>
                           <td className="p-3 font-mono">{m.cpf || '-'}</td>
@@ -1960,42 +1806,57 @@ export default function App() {
           </div>
         )}
 
-{/* EXIBIÇÃO DA SUB-ABA: PLANO DE CONTAS */}
-{financeiroSubTab === 'plano_contas' && (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <h3 className="font-bold text-slate-800 text-base">Plano de Contas Contábil (Padrão Brasileiro)</h3>
-          <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">+ Adicionar Conta</button>
-        </div>
-        <div className="overflow-x-auto border rounded-xl">
-           <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  <th className="p-3">Código Contábil</th>
-                  <th className="p-3">Nome da Conta</th>
-                  <th className="p-3">Natureza</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-slate-700">
-                {planoContasContabil.map((pc: any) => (
-                  <tr key={pc.id} className="hover:bg-slate-50">
-                    <td className="p-3 font-mono font-bold text-blue-900">{pc.codigo_conta}</td>
-                    <td className="p-3 font-bold text-slate-900">{pc.nome_conta}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pc.tipo_natureza === 'Receita' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
-                        {pc.tipo_natureza}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-           </table>
-        </div>
-      </div>
-    )}
+        {activeTab === 'financeiro' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
+                <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos e plano de contas.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
+                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Geral</button>
+                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
+                  <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
+                  <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
+                </div>
+                <button onClick={() => setShowLancamentoModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Lançamento</button>
+                <button onClick={() => setShowContaModal(true)} className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Conta</button>
+              </div>
+            </div>
 
-  </div>
-)}
+            {financeiroSubTab === 'plano_contas' && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="font-bold text-slate-800 text-base">Plano de Contas Contábil (Padrão Brasileiro)</h3>
+                  <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">+ Adicionar Conta</button>
+                </div>
+                <div className="overflow-x-auto border rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b">
+                      <tr>
+                        <th className="p-3">Código Contábil</th>
+                        <th className="p-3">Nome da Conta</th>
+                        <th className="p-3">Natureza</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {planoContasContabil.map((pc: any) => (
+                        <tr key={pc.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-mono font-bold text-blue-900">{pc.codigo_conta}</td>
+                          <td className="p-3 font-bold text-slate-900">{pc.nome_conta}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${pc.tipo_natureza === 'Receita' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-800'}`}>
+                              {pc.tipo_natureza}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {financeiroSubTab === 'extrato' && (
               <div className="space-y-4">
@@ -2133,6 +1994,41 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* MODAIS DO SISTEMA */}
+      {showPlanoContaModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Cadastrar Conta Contábil</h3>
+              <button onClick={() => setShowPlanoContaModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
+            </div>
+            <form onSubmit={salvarPlanoConta} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Código da Conta *</label>
+                <input type="text" required value={formPlanoCodigo} onChange={(e) => setFormPlanoCodigo(e.target.value)} placeholder="Ex: 1.1.1.01" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Nome da Conta *</label>
+                <input type="text" required value={formPlanoNome} onChange={(e) => setFormPlanoNome(e.target.value.toUpperCase())} placeholder="Ex: Dízimos e Ofertas" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Natureza *</label>
+                <select value={formPlanoNatureza} onChange={(e) => setFormPlanoNatureza(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
+                  <option value="Receita">Receita</option>
+                  <option value="Despesa">Despesa</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Passivo">Passivo</option>
+                </select>
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowPlanoContaModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Conta Contábil</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showSetorModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -2558,11 +2454,7 @@ export default function App() {
                   <div className="space-y-4 pt-2">
                     <div>
                       <label className="text-xs font-bold text-slate-700 block mb-1">1º Ministério Atual Cadastrado</label>
-                      <select 
-                        disabled 
-                        value={formMember.ministerio_id || ''} 
-                        className="w-full rounded-xl border p-3 text-sm bg-slate-100 text-slate-600 font-bold cursor-not-allowed"
-                      >
+                      <select disabled value={formMember.ministerio_id || ''} className="w-full rounded-xl border p-3 text-sm bg-slate-100 text-slate-600 font-bold cursor-not-allowed">
                         <option value="">Nenhum ministério atual</option>
                         {ministeriosList.map((min: any) => (
                           <option key={min.id} value={min.id}>{min.nome}</option>
@@ -2573,11 +2465,7 @@ export default function App() {
 
                     <div>
                       <label className="text-xs font-bold text-blue-900 block mb-1">2º Ministério que vai Evoluir *</label>
-                      <select 
-                        value={novoMinisterioEvolucao} 
-                        onChange={(e) => setNovoMinisterioEvolucao(e.target.value)} 
-                        className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900 shadow-sm"
-                      >
+                      <select value={novoMinisterioEvolucao} onChange={(e) => setNovoMinisterioEvolucao(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900 shadow-sm">
                         <option value="">Selecione o novo ministério para evolução...</option>
                         {ministeriosList.map((min: any) => (
                           <option key={min.id} value={min.id}>{min.nome}</option>
@@ -2612,21 +2500,16 @@ export default function App() {
                       <div className="flex-1 flex gap-2">
                         <label className="flex-1 py-2.5 px-4 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl text-center cursor-pointer transition-all flex items-center justify-center gap-2 shadow-sm">
                           <span>📸 Tirar / Escolher Foto</span>
-                          <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  setFormMember((prev) => ({ ...prev, foto_url: reader.result as string }));
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
+                          <input type="file" accept="image/*" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setFormMember((prev) => ({ ...prev, foto_url: reader.result as string }));
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }} />
                         </label>
                         {formMember.foto_url && (
                           <button type="button" onClick={() => setFormMember({ ...formMember, foto_url: '' })} className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer">

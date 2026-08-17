@@ -27,6 +27,25 @@ export default function App() {
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
+  // Estados e funções para Ministérios
+  const [ministeriosList, setMinisteriosList] = useState<any[]>([]);
+  const [showMinisterioModal, setShowMinisterioModal] = useState(false);
+  const [editingMinisterio, setEditingMinisterio] = useState<any>(null);
+  const [formMinisterioNome, setFormMinisterioNome] = useState('');
+  const [formMinisterioDesc, setFormMinisterioDesc] = useState('');
+
+  // Máscara automática para celular (00) 00000-0000
+  const aplicarMascaraCelular = (valor: string) => {
+    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
+    let formatado = apenasDigitos;
+    if (apenasDigitos.length > 2) {
+      formatado = `(${apenasDigitos.substring(0, 2)}) ${apenasDigitos.substring(2)}`;
+    }
+    if (apenasDigitos.length > 7) {
+      formatado = `(${apenasDigitos.substring(0, 2)}) ${apenasDigitos.substring(2, 7)}-${apenasDigitos.substring(7)}`;
+    }
+    return formatado;
+  };
   // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
     nome: '',

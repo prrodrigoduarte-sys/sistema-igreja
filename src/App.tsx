@@ -817,11 +817,13 @@ export default function App() {
   // ==========================================
   // 4.X FUNÇÃO CORRIGIDA: SALVAR CONTA FINANCEIRA
   // ==========================================
+  // ==========================================
+  // 4. FUNÇÃO: SALVAR CONTA FINANCEIRA
+  // ==========================================
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
     
-    // Payload ajustado incluindo o codigo_igreja para passar pelas regras de segurança (RLS) do Supabase
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome_conta: formNomeConta.trim().toUpperCase(),

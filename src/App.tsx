@@ -372,11 +372,34 @@ export default function App() {
     setInscricoesList(data || []);
   };
 
+  c// 1. Verifique se essa função existe e está correta:
   const carregarPlanoContas = async (cod: string) => {
-    const { data } = await supabase.from('plano_contas_contabil').select('*').eq('codigo_igreja', cod).order('codigo_conta', { ascending: true });
-    setPlanoContasContabil(data || []);
+    const { data, error } = await supabase
+      .from('plano_contas_contabil')
+      .select('*')
+      .eq('codigo_igreja', cod)
+      .order('codigo_conta', { ascending: true });
+      
+    if (error) {
+      console.error('Erro ao carregar plano de contas:', error.message);
+    } else {
+      console.log('Plano de Contas carregado:', data); // Isso deve aparecer no F12
+      setPlanoContasContabil(data || []);
+    }
   };
 
+  // 2. Verifique se ela é chamada no seu useEffect principal:
+  useEffect(() => {
+    if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
+    const cod = loggedUser.codigo_igreja;
+    
+    async function carregarDados() {
+      // ... outras chamadas ...
+      await carregarPlanoContas(cod); // <--- ESTA LINHA É CRÍTICA
+      // ... outras chamadas ...
+    }
+    carregarDados();
+  }, [isLoggedIn, loggedUser]);
   const salvarPlanoConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) { alert('Preencha o código e o nome da conta.'); return; }

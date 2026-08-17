@@ -383,27 +383,36 @@ export default function App() {
   // 2. Verifique se ela é chamada no seu useEffect principal:
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
-    
-    async function carregarTudo() {
+  
+    async function carregarTodosDados() {
       const cod = loggedUser.codigo_igreja;
-      await carregarMembros(cod);
-      await carregarFinanceiro(cod);
-      await carregarPlanoContas(cod); // A chamada estava faltando ou sendo pulada
+      setLoadingMembros(true); // Opcional: gerencie loadings individuais
+      
+      // Executa as chamadas em paralelo para performance
+      await Promise.all([
+        carregarMembros(cod),
+        carregarMinisterios(cod),
+        carregarInscricoes(cod),
+        carregarPlanoContas(cod),
+        carregarAgenda(cod),
+        carregarCelulas(cod),
+        carregarSetores(cod),
+        carregarRedes(cod),
+        carregarFinanceiro(cod)
+      ]);
+      
+      // Carregamentos simples que não precisam de estado de loading complexo
+      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
+      setUsuariosList(uData || []);
+      
+      const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
+      setFornecedoresList(fData || []);
+      
+      setLoadingMembros(false);
     }
-    carregarTudo();
+  
+    carregarTodosDados();
   }, [isLoggedIn, loggedUser]);
-    carregarDados();
-  }, [isLoggedIn, loggedUser]);
-  const salvarPlanoConta = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) { alert('Preencha o código e o nome da conta.'); return; }
-
-    const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      codigo_conta: formPlanoCodigo.trim(),
-      nome_conta: formPlanoNome.trim().toUpperCase(),
-      tipo_natureza: formPlanoNatureza
-    };
 
     try {
       const { error } = await supabase.from('plano_contas_contabil').insert([payload]);

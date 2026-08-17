@@ -814,14 +814,16 @@ export default function App() {
     } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
-  // ==========================================
-  // 4.X FUNÇÃO CORRIGIDA: SALVAR CONTA FINANCEIRA
-  // ==========================================
-  // ==========================================
-  // 4. FUNÇÃO: SALVAR CONTA FINANCEIRA
-  // ==========================================
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // LOG DE DEBUG PARA VER SE OS DADOS ESTÃO CHEGANDO
+    console.log("Dados do formulário:", { 
+      nome: formNomeConta, 
+      tipo: formTipoConta, 
+      igreja: loggedUser?.codigo_igreja 
+    });
+  
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
     
     const payload = {
@@ -829,19 +831,31 @@ export default function App() {
       nome_conta: formNomeConta.trim().toUpperCase(),
       codigo_conta: formTipoConta
     };
-
+  
     try {
-      const { error } = await supabase.from('contas_financeiras').insert([payload]);
-      if (error) throw error;
+      const { data, error } = await supabase.from('contas_financeiras').insert([payload]);
+      
+      if (error) {
+        console.error("Erro do Supabase:", error); // Isso vai nos dizer o motivo exato se for um erro de banco
+        alert('Erro ao salvar conta: ' + error.message);
+        return;
+      }
       
       alert('Conta cadastrada com sucesso!');
       setShowContaModal(false);
       setFormNomeConta('');
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) { 
-      alert('Erro ao salvar conta: ' + err.message); 
+      alert('Erro: ' + err.message); 
     }
   };
+
+  const handleSaveLancamento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formLancData || !formLancValor || !formLancContaDebitoId || !formLancContaCreditoId) {
+      alert('Preencha a data, o valor, a conta a débito e a conta a crédito.');
+      return;
+    }
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,

@@ -368,16 +368,14 @@ export default function App() {
   };
 
   const carregarPlanoContas = async (cod: string) => {
-    console.log("Iniciando busca do plano de contas...");
     const { data, error } = await supabase
       .from('plano_contas_contabil')
-      .select('*')
-      .order('codigo_conta', { ascending: true });
+      .select('*');
       
     if (error) {
-      console.error('Erro no Supabase:', error.message);
+      console.error('Erro:', error.message);
     } else {
-      console.log('Dados recebidos:', data);
+      console.log('ESTES SÃO OS DADOS QUE O REACT RECEBEU:', data); // <--- ISSO VAI APARECER NO CONSOLE
       setPlanoContasContabil(data || []);
     }
   };

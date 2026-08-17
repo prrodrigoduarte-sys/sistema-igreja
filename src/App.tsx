@@ -24,8 +24,11 @@ export default function App() {
   const [loadingMembros, setLoadingMembros] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<any>(null);
-  const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
+  const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro' | 'evolucao'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
+
+  // Estados para Evolução Ministerial na edição
+  const [novoMinisterioEvolucao, setNovoMinisterioEvolucao] = useState('');
 
   // Estados para Ministérios
   const [ministeriosList, setMinisteriosList] = useState<any[]>([]);
@@ -353,6 +356,7 @@ export default function App() {
         ministerio_id: m.ministerio_id || ''
       });
       setDataNascDisplay(converterDataParaDisplay(m.data_nascimento || ''));
+      setNovoMinisterioEvolucao(m.ministerio_id || '');
     } else {
       setEditingMember(null);
       setFormMember({
@@ -375,6 +379,7 @@ export default function App() {
         ministerio_id: ''
       });
       setDataNascDisplay('');
+      setNovoMinisterioEvolucao('');
     }
     setMemberModalTab('dados');
     setRetornarParaTab(null);
@@ -443,6 +448,26 @@ export default function App() {
       if (destino) setActiveTab(destino as any);
     } catch (err: any) {
       alert('Erro ao gravar membro: ' + err.message);
+    }
+  };
+
+  // Função para salvar especificamente a Evolução Ministerial
+  const salvarEvolucaoMinisterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember || !editingMember.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('members')
+        .update({ ministerio_id: novoMinisterioEvolucao || null })
+        .eq('id', editingMember.id);
+
+      if (error) throw error;
+      alert('Evolução ministerial salva com sucesso!');
+      await carregarMembros(loggedUser.codigo_igreja);
+      setShowMemberModal(false);
+    } catch (err: any) {
+      alert('Erro ao atualizar evolução ministerial: ' + err.message);
     }
   };
 
@@ -2306,9 +2331,10 @@ export default function App() {
                   {editingMember ? `Ficha do Membro: ${formMember.nome || editingMember.nome}` : 'Novo Cadastro de Membro'}
                 </h3>
                 {editingMember && (
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex gap-2 mt-2 flex-wrap">
                     <button onClick={() => setMemberModalTab('dados')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'dados' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>📁 Dados Cadastrais</button>
                     <button onClick={() => setMemberModalTab('financeiro')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'financeiro' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>💰 Financeiro</button>
+                    <button onClick={() => setMemberModalTab('evolucao')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'evolucao' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>🚀 Evolução Ministerial</button>
                   </div>
                 )}
               </div>
@@ -2365,6 +2391,52 @@ export default function App() {
                   </table>
                 </div>
               </div>
+            ) : memberModalTab === 'evolucao' && editingMember ? (
+              <form onSubmit={salvarEvolucaoMinisterial} className="space-y-6">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-4">
+                  <h4 className="font-bold text-blue-950 text-base">🚀 Acompanhamento e Evolução Ministerial</h4>
+                  <p className="text-xs text-blue-800">Acompanhe o ministério atual do membro e promova para um novo ministério cadastrado.</p>
+                  
+                  <div className="space-y-4 pt-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-700 block mb-1">1º Ministério Atual Cadastrado</label>
+                      <select 
+                        disabled 
+                        value={formMember.ministerio_id || ''} 
+                        className="w-full rounded-xl border p-3 text-sm bg-slate-100 text-slate-600 font-bold cursor-not-allowed"
+                      >
+                        <option value="">Nenhum ministério atual</option>
+                        {ministeriosList.map((min: any) => (
+                          <option key={min.id} value={min.id}>{min.nome}</option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-slate-500 mt-1 block">Este é o ministério atual vinculado ao membro.</span>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-blue-900 block mb-1">2º Ministério que vai Evoluir *</label>
+                      <select 
+                        value={novoMinisterioEvolucao} 
+                        onChange={(e) => setNovoMinisterioEvolucao(e.target.value)} 
+                        className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900 shadow-sm"
+                      >
+                        <option value="">Selecione o novo ministério para evolução...</option>
+                        {ministeriosList.map((min: any) => (
+                          <option key={min.id} value={min.id}>{min.nome}</option>
+                        ))}
+                      </select>
+                      <span className="text-[10px] text-blue-700 mt-1 block">Selecione na lista o próximo nível ou novo ministério para evolução.</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button type="button" onClick={() => setShowMemberModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                  <button type="submit" className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
+                    Salvar Evolução Ministerial
+                  </button>
+                </div>
+              </form>
             ) : (
               <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">

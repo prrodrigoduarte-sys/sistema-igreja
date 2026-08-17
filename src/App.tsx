@@ -367,7 +367,7 @@ export default function App() {
     }
   };
 
-  cconst carregarPlanoContas = async (cod: string) => {
+  const carregarPlanoContas = async (cod: string) => {
     console.log("Iniciando busca do plano de contas...");
     const { data, error } = await supabase
       .from('plano_contas_contabil')

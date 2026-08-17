@@ -154,6 +154,51 @@ export default function App() {
     setMembers(data || []);
     setLoadingMembros(false);
   };
+  const carregarMinisterios = async (cod: string) => {
+    const { data } = await supabase.from('ministerios').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    setMinisteriosList(data || []);
+  };
+  const salvarMinisterio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formMinisterioNome.trim()) {
+      alert('Informe o nome do ministério.');
+      return;
+    }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formMinisterioNome.trim(),
+      descricao: formMinisterioDesc.trim()
+    };
+
+    try {
+      if (editingMinisterio && editingMinisterio.id) {
+        const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
+        if (error) throw error;
+        alert('Ministério atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('ministerios').insert([payload]);
+        if (error) throw error;
+        alert('Ministério cadastrado com sucesso!');
+      }
+      setShowMinisterioModal(false);
+      carregarMinisterios(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar ministério: ' + err.message);
+    }
+  };
+
+  const deletarMinisterio = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este ministério?')) return;
+    try {
+      const { error } = await supabase.from('ministerios').delete().eq('id', id);
+      if (error) throw error;
+      alert('Ministério excluído com sucesso!');
+      carregarMinisterios(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao excluir: ' + err.message);
+    }
+  };
 
   const carregarAgenda = async (cod: string) => {
     setLoadingAgenda(true);
@@ -853,9 +898,12 @@ export default function App() {
                     <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários</button>
                     <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🚚 Fornecedores</button>
                     <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📊 Relatórios</button>
-                  </div>
-                )}
-              </div>
+                    <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} 
+  className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700"
+>
+  🙌 Ministérios
+</button>       )}
+               
 
               <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
                 Células / Redes
@@ -904,6 +952,33 @@ export default function App() {
                 <button onClick={() => abrirModalMembro()} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
               </div>
             </div>
+            {/* EXEMPLO DE COMO DEVE FICAR NO SEU FORMULÁRIO DE MEMBROS: */}
+
+<div>
+  <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
+  <input 
+    type="text" 
+    maxLength={15} 
+    value={formMember.celular_principal || ''} 
+    onChange={(e) => setFormMember({ ...formMember, celular_principal: aplicarMascaraCelular(e.target.value) })} 
+    placeholder="(00) 00000-0000" 
+    className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
+  />
+</div>
+
+<div>
+  <label className="text-xs font-bold text-slate-600 ml-1">Ministério</label>
+  <select 
+    value={formMember.ministerio_id || ''} 
+    onChange={(e) => setFormMember({ ...formMember, ministerio_id: e.target.value || null })} 
+    className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900"
+  >
+    <option value="">Nenhum ministério vinculado...</option>
+    {ministeriosList.map((min: any) => (
+      <option key={min.id} value={min.id}>{min.nome}</option>
+    ))}
+  </select>
+</div>
             
             {loadingMembros ? (
               <p className="text-center py-6 text-slate-500 font-medium">Carregando membros...</p>

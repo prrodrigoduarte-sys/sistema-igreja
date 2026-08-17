@@ -47,6 +47,15 @@ export default function App() {
     return formatado;
   };
 
+  // MÁSCARA CORRIGIDA E LIMPA PARA CPF
+  const aplicarMascaraCpf = (valor: string) => {
+    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
+    if (apenasDigitos.length <= 3) return apenasDigitos;
+    if (apenasDigitos.length <= 6) return `${apenasDigitos.substring(0, 3)}.${apenasDigitos.substring(3)}`;
+    if (apenasDigitos.length <= 9) return `${apenasDigitos.substring(0, 3)}.${apenasDigitos.substring(3, 6)}.${apenasDigitos.substring(6)}`;
+    return `${apenasDigitos.substring(0, 3)}.${apenasDigitos.substring(3, 6)}.${apenasDigitos.substring(6, 9)}-${apenasDigitos.substring(9, 11)}`;
+  };
+
   // ESTADO DO FORMULÁRIO DE MEMBRO
   const [formMember, setFormMember] = useState({
     nome: '',
@@ -174,8 +183,8 @@ export default function App() {
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
-      nome: formMinisterioNome.trim(),
-      descricao: formMinisterioDesc.trim()
+      nome: formMinisterioNome.trim().toUpperCase(),
+      descricao: formMinisterioDesc.trim().toUpperCase()
     };
 
     try {
@@ -296,15 +305,6 @@ export default function App() {
         endereco: enderecoCompletoCalc
       });
     } catch (err) { alert('Erro ao buscar o CEP.'); }
-  };
-
-  const aplicarMascaraCpf = (valor: string) => {
-    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
-    let cpfFormatado = apenasDigitos;
-    if (apenasDigitos.length > 3) cpfFormatado = apenasDigitos.substring(0, 3) + '.' + apenasDigitos.substring(3);
-    if (apenasDigitos.length > 6) cpfFormatado = cpfFormatado.substring(0, 7) + '.' + cpfFormatado.substring(6);
-    if (apenasDigitos.length > 9) cpfFormatado = cpfFormatado.substring(0, 11) + '-' + cpfFormatado.substring(9);
-    return cpfFormatado;
   };
 
   const aplicarMascaraData = (valor: string) => {
@@ -837,7 +837,6 @@ export default function App() {
             </div>
             <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
               
-              {/* MENU SUSPENSO DE CADASTROS COM OPÇÃO COMPUTADOR OU MOBILE */}
               <div className="relative">
                 <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
                   Cadastros <span className="text-xs text-slate-400">∨</span>
@@ -897,13 +896,8 @@ export default function App() {
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
-        {/* ======================================================== */}
-        {/* MÓDULO DE CADASTRO DE MEMBROS MOBILE COMPACTO           */}
-        {/* ======================================================== */}
         {activeTab === 'membros_mobile' && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
-            
-            {/* Header Mobile Compacto */}
             <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
               <div>
                 <h2 className="text-base font-black">📱 Cadastro Mobile Compacto</h2>
@@ -917,7 +911,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* Corpo / Lista ou Formulário Mobile */}
             <div className="p-4 space-y-4 flex-1">
               <div className="flex gap-2">
                 <input 
@@ -967,9 +960,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* MÓDULO DE CADASTRO DE MEMBROS PADRÃO (COMPUTADOR)        */}
-        {/* ======================================================== */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -1111,9 +1101,6 @@ export default function App() {
           </div>
         )}
 
-        {/* ======================================================== */}
-        {/* TABELA DE USUÁRIOS COM AUTORIZAÇÃO DE ACESSO EXCLUSIVA   */}
-        {/* ======================================================== */}
         {activeTab === 'usuarios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4 flex justify-between items-center">
@@ -1964,7 +1951,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Modal Novo Setor */}
       {showSetorModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -1975,7 +1961,7 @@ export default function App() {
             <form onSubmit={handleSaveSetor} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome do Setor *</label>
-                <input type="text" required value={formSetorNome} onChange={(e) => setFormSetorNome(e.target.value)} placeholder="Ex: Setor Centro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formSetorNome} onChange={(e) => setFormSetorNome(e.target.value.toUpperCase())} placeholder="Ex: Setor Centro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Líder do Setor</label>
@@ -1993,7 +1979,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Modal Nova Rede */}
       {showRedeModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2004,7 +1989,7 @@ export default function App() {
             <form onSubmit={handleSaveRede} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Rede *</label>
-                <input type="text" required value={formRedeNome} onChange={(e) => setFormRedeNome(e.target.value)} placeholder="Ex: Rede de Casais" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formRedeNome} onChange={(e) => setFormRedeNome(e.target.value.toUpperCase())} placeholder="Ex: Rede de Casais" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Líder da Rede</label>
@@ -2022,7 +2007,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE LANÇAMENTO */}
       {showLancamentoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2056,7 +2040,7 @@ export default function App() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
-                <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value)} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value.toUpperCase())} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
@@ -2077,7 +2061,7 @@ export default function App() {
             <form onSubmit={handleSaveConta} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Conta *</label>
-                <input type="text" required value={formNomeConta} onChange={(e) => setFormNomeConta(e.target.value)} placeholder="Ex: Banco Sicoob, Caixa Geral" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formNomeConta} onChange={(e) => setFormNomeConta(e.target.value.toUpperCase())} placeholder="Ex: Banco Sicoob, Caixa Geral" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Categoria / Tipo</label>
@@ -2109,7 +2093,7 @@ export default function App() {
             <form onSubmit={handleSaveAgenda} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Assunto / Título *</label>
-                <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value)} placeholder="Ex: Visita pastoral ou Reunião" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value.toUpperCase())} placeholder="Ex: Visita pastoral ou Reunião" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Responsável pelo Compromisso</label>
@@ -2134,7 +2118,7 @@ export default function App() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Comentário / Relatório de como foi</label>
-                <textarea rows={3} value={formAgendaComentario} onChange={(e) => setFormAgendaComentario(e.target.value)} placeholder="Registre os detalhes, observações ou como foi a visita..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <textarea rows={3} value={formAgendaComentario} onChange={(e) => setFormAgendaComentario(e.target.value.toUpperCase())} placeholder="Registre os detalhes, observações ou como foi a visita..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div className="flex items-center justify-between pt-4 border-t">
                 {editingCompromisso ? (
@@ -2167,7 +2151,7 @@ export default function App() {
             <form onSubmit={salvarCelula} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Célula *</label>
-                <input type="text" required value={formCelNome} onChange={(e) => setFormCelNome(e.target.value)} placeholder="Ex: Célula Betel" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <input type="text" required value={formCelNome} onChange={(e) => setFormCelNome(e.target.value.toUpperCase())} placeholder="Ex: Célula Betel" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -2225,21 +2209,21 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <label className="text-[11px] font-bold text-slate-500 ml-1">Rua / Logradouro</label>
-                    <input type="text" value={formCelRua} onChange={(e) => setFormCelRua(e.target.value)} placeholder="Nome da rua" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                    <input type="text" value={formCelRua} onChange={(e) => setFormCelRua(e.target.value.toUpperCase())} placeholder="Nome da rua" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 ml-1">Número</label>
-                    <input type="text" value={formCelNumero} onChange={(e) => setFormCelNumero(e.target.value)} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                    <input type="text" value={formCelNumero} onChange={(e) => setFormCelNumero(e.target.value.toUpperCase())} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 ml-1">Bairro</label>
-                    <input type="text" value={formCelBairro} onChange={(e) => setFormCelBairro(e.target.value)} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                    <input type="text" value={formCelBairro} onChange={(e) => setFormCelBairro(e.target.value.toUpperCase())} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                   </div>
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 ml-1">Cidade</label>
-                    <input type="text" value={formCelCidade} onChange={(e) => setFormCelCidade(e.target.value)} placeholder="Cidade" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                    <input type="text" value={formCelCidade} onChange={(e) => setFormCelCidade(e.target.value.toUpperCase())} placeholder="Cidade" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                   </div>
                 </div>
               </div>
@@ -2288,7 +2272,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE MINISTÉRIO */}
       {showMinisterioModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2299,11 +2282,11 @@ export default function App() {
             <form onSubmit={salvarMinisterio} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome do Ministério *</label>
-                <input type="text" required value={formMinisterioNome} onChange={(e) => setFormMinisterioNome(e.target.value)} placeholder="Ex: Louvor, Diaconato, Infantil" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
+                <input type="text" required value={formMinisterioNome} onChange={(e) => setFormMinisterioNome(e.target.value.toUpperCase())} placeholder="Ex: Louvor, Diaconato, Infantil" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Observações</label>
-                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value)} placeholder="Detalhes..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
+                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value.toUpperCase())} placeholder="Detalhes..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowMinisterioModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
@@ -2314,7 +2297,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO/EDIÇÃO DE MEMBRO (COMPLETO) */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -2386,7 +2368,6 @@ export default function App() {
             ) : (
               <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">
-                  {/* BOTÃO EXCLUSIVO DE TIRAR/ESCOLHER FOTO */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
                     <div className="flex items-center gap-4">
@@ -2428,7 +2409,7 @@ export default function App() {
 
                   <div>
                     <label className="text-xs font-bold text-slate-600 ml-1">Nome Completo *</label>
-                    <input type="text" required value={formMember.nome} onChange={(e) => setFormMember({ ...formMember, nome: e.target.value })} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                    <input type="text" required value={formMember.nome} onChange={(e) => setFormMember({ ...formMember, nome: e.target.value.toUpperCase() })} placeholder="Nome do membro" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2459,7 +2440,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">RG</label>
-                      <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="text" value={formMember.rg} onChange={(e) => setFormMember({ ...formMember, rg: e.target.value.toUpperCase() })} placeholder="00.000.000-0" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase font-mono" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Data de Nascimento</label>
@@ -2478,7 +2459,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
-                      <input type="email" value={formMember.email} onChange={(e) => setFormMember({ ...formMember, email: e.target.value })} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                      <input type="email" value={formMember.email} onChange={(e) => setFormMember({ ...formMember, email: e.target.value.toLowerCase() })} placeholder="email@exemplo.com" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                     </div>
                   </div>
 
@@ -2505,26 +2486,26 @@ export default function App() {
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="sm:col-span-2">
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Rua / Logradouro</label>
-                        <input type="text" value={formMember.rua} onChange={(e) => setFormMember({ ...formMember, rua: e.target.value })} placeholder="Nome da rua" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.rua} onChange={(e) => setFormMember({ ...formMember, rua: e.target.value.toUpperCase() })} placeholder="Nome da rua" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                       </div>
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Número</label>
-                        <input type="text" value={formMember.numero} onChange={(e) => setFormMember({ ...formMember, numero: e.target.value })} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.numero} onChange={(e) => setFormMember({ ...formMember, numero: e.target.value.toUpperCase() })} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Bairro</label>
-                        <input type="text" value={formMember.bairro} onChange={(e) => setFormMember({ ...formMember, bairro: e.target.value })} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.bairro} onChange={(e) => setFormMember({ ...formMember, bairro: e.target.value.toUpperCase() })} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                       </div>
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Cidade</label>
-                        <input type="text" value={formMember.cidade} onChange={(e) => setFormMember({ ...formMember, cidade: e.target.value })} placeholder="Cidade" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
+                        <input type="text" value={formMember.cidade} onChange={(e) => setFormMember({ ...formMember, cidade: e.target.value.toUpperCase() })} placeholder="Cidade" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                       </div>
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Estado (UF)</label>
-                        <input type="text" maxLength={2} value={formMember.estado} onChange={(e) => setFormMember({ ...formMember, estado: e.target.value.toUpperCase() })} placeholder="MG" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 font-mono" />
+                        <input type="text" maxLength={2} value={formMember.estado} onChange={(e) => setFormMember({ ...formMember, estado: e.target.value.toUpperCase() })} placeholder="MG" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase font-mono" />
                       </div>
                     </div>
                   </div>

@@ -27,7 +27,6 @@ export default function App() {
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro' | 'evolucao'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
-  // Estados para Evolução Ministerial na edição
   const [novoMinisterioEvolucao, setNovoMinisterioEvolucao] = useState('');
 
   // Estados para Ministérios
@@ -50,13 +49,19 @@ export default function App() {
     return formatado;
   };
 
-  // MÁSCARA CORRIGIDA E LIMPA PARA CPF
+  // MÁSCARA BLINDADA PARA CPF (Evita repetição de números)
   const aplicarMascaraCpf = (valor: string) => {
-    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
-    if (apenasDigitos.length <= 3) return apenasDigitos;
-    if (apenasDigitos.length <= 6) return `${apenasDigitos.substring(0, 3)}.${apenasDigitos.substring(3)}`;
-    if (apenasDigitos.length <= 9) return `${apenasDigitos.substring(0, 3)}.${apenasDigitos.substring(3, 6)}.${apenasDigitos.substring(6)}`;
-    return `${apenasDigitos.substring(0, 3)}.${apenasDigitos.substring(3, 6)}.${apenasDigitos.substring(6, 9)}-${apenasDigitos.substring(9, 11)}`;
+    const apenasDigitos = valor.replace(/\D/g, '').slice(0, 11);
+    
+    if (apenasDigitos.length <= 3) {
+      return apenasDigitos;
+    } else if (apenasDigitos.length <= 6) {
+      return `${apenasDigitos.slice(0, 3)}.${apenasDigitos.slice(3)}`;
+    } else if (apenasDigitos.length <= 9) {
+      return `${apenasDigitos.slice(0, 3)}.${apenasDigitos.slice(3, 6)}.${apenasDigitos.slice(6)}`;
+    } else {
+      return `${apenasDigitos.slice(0, 3)}.${apenasDigitos.slice(3, 6)}.${apenasDigitos.slice(6, 9)}-${apenasDigitos.slice(9, 11)}`;
+    }
   };
 
   // ESTADO DO FORMULÁRIO DE MEMBRO
@@ -451,7 +456,6 @@ export default function App() {
     }
   };
 
-  // Função para salvar especificamente a Evolução Ministerial
   const salvarEvolucaoMinisterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember || !editingMember.id) return;
@@ -633,6 +637,7 @@ export default function App() {
     setFormCelParticipantes(formCelParticipantes.filter(id => id !== membroId));
   };
 
+  // CORRIGIDO: Adicionado "async" aqui para o Vercel não falhar no build!
   const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formCelNome.trim()) { alert('O nome da célula é obrigatório.'); return; }

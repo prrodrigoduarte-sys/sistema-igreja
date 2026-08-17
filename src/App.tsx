@@ -367,24 +367,25 @@ export default function App() {
     }
   };
 
-  const carregarInscricoes = async (cod: string) => {
-    const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
-    setInscricoesList(data || []);
-  };
-
-  c// 1. Verifique se essa função existe e está correta:
   const carregarPlanoContas = async (cod: string) => {
+    console.log("Tentando buscar plano de contas para a igreja:", cod);
+    
+    // REMOVI O .eq('codigo_igreja', cod) TEMPORARIAMENTE PARA TESTE
     const { data, error } = await supabase
       .from('plano_contas_contabil')
       .select('*')
-      .eq('codigo_igreja', cod)
       .order('codigo_conta', { ascending: true });
       
     if (error) {
       console.error('Erro ao carregar plano de contas:', error.message);
+      alert('Erro ao carregar plano de contas: ' + error.message);
     } else {
-      console.log('Plano de Contas carregado:', data); // Isso deve aparecer no F12
+      console.log('Dados recebidos do Supabase:', data);
       setPlanoContasContabil(data || []);
+      
+      if (data && data.length === 0) {
+        console.warn("A tabela está vazia ou os dados não possuem este formato.");
+      }
     }
   };
 

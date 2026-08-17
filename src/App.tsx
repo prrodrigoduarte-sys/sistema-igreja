@@ -1,6 +1,12 @@
+// ==========================================
+// 1. IMPORTAÇÕES E CONFIGURAÇÃO INICIAL
+// ==========================================
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
+// ==========================================
+// 2. COMPONENTE PRINCIPAL E ESTADOS GLOBAIS
+// ==========================================
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
@@ -8,15 +14,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
+  // ==========================================
+  // 2.1 SUB-ABAS DO SISTEMA
+  // ==========================================
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
-  
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'plano_contas' | 'relatorio'>('extrato');
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
   const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
 
-  // Estados para Projetos / Inscrições
+  // ==========================================
+  // 2.2 ESTADOS DE PROJETOS E INSCRIÇÕES
+  // ==========================================
   const [inscricoesList, setInscricoesList] = useState<any[]>([]);
   const [showInscricaoModal, setShowInscricaoModal] = useState(false);
   const [editingInscricao, setEditingInscricao] = useState<any>(null);
@@ -26,18 +36,26 @@ export default function App() {
   const [formInscricaoEmail, setFormInscricaoEmail] = useState('');
   const [formInscricaoMembroId, setFormInscricaoMembroId] = useState<any>(null);
 
-  // Plano de Contas Contábil
+  // ==========================================
+  // 2.3 PLANO DE CONTAS CONTÁBIL
+  // ==========================================
   const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
   const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
   const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
   const [formPlanoNome, setFormPlanoNome] = useState('');
   const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
 
+  // ==========================================
+  // 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO
+  // ==========================================
   const [loginCodigo, setLoginCodigo] = useState('IGR-001');
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
+  // ==========================================
+  // 2.5 MEMBROS E FORMULÁRIOS
+  // ==========================================
   const [members, setMembers] = useState<any[]>([]);
   const [selecionados, setSelecionados] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -49,13 +67,18 @@ export default function App() {
 
   const [novoMinisterioEvolucao, setNovoMinisterioEvolucao] = useState('');
 
-  // Estados para Ministérios
+  // ==========================================
+  // 2.6 MINISTÉRIOS
+  // ==========================================
   const [ministeriosList, setMinisteriosList] = useState<any[]>([]);
   const [showMinisterioModal, setShowMinisterioModal] = useState(false);
   const [editingMinisterio, setEditingMinisterio] = useState<any>(null);
   const [formMinisterioNome, setFormMinisterioNome] = useState('');
   const [formMinisterioDesc, setFormMinisterioDesc] = useState('');
 
+  // ==========================================
+  // 3. MÁSCARAS E FORMATAÇÕES DE DADOS
+  // ==========================================
   const aplicarMascaraCelular = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
     let formatado = apenasDigitos;
@@ -106,6 +129,9 @@ export default function App() {
   const [usuariosList, setUsuariosList] = useState<any[]>([]);
   const [fornecedoresList, setFornecedoresList] = useState<any[]>([]);
 
+  // ==========================================
+  // 3.1 AGENDA E COMPROMISSOS
+  // ==========================================
   const [compromissos, setCompromissos] = useState<any[]>([]);
   const [loadingAgenda, setLoadingAgenda] = useState(false);
   const [showAgendaModal, setShowAgendaModal] = useState(false);
@@ -117,6 +143,9 @@ export default function App() {
   const [formAgendaComentario, setFormAgendaComentario] = useState('');
   const [formAgendaMembroId, setFormAgendaMembroId] = useState('');
 
+  // ==========================================
+  // 3.2 CÉLULAS, SETORES E REDES
+  // ==========================================
   const [celulasList, setCelulasList] = useState<any[]>([]);
   const [loadingCelulas, setLoadingCelulas] = useState(false);
   const [showCelulaModal, setShowCelulaModal] = useState(false);
@@ -146,6 +175,9 @@ export default function App() {
   const [formRedeNome, setFormRedeNome] = useState('');
   const [formRedeLider, setFormRedeLider] = useState('');
 
+  // ==========================================
+  // 3.3 MÓDULO FINANCEIRO
+  // ==========================================
   const [contasFinanceiras, setContasFinanceiras] = useState<any[]>([]);
   const [lancamentosCorrente, setLancamentosCorrente] = useState<any[]>([]);
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
@@ -177,6 +209,9 @@ export default function App() {
     return partes.length === 3 && partes[1] === mesAtual;
   });
 
+  // ==========================================
+  // 4. FUNÇÕES DE SUPABASE E BANCO DE DADOS
+  // ==========================================
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -871,6 +906,9 @@ export default function App() {
 
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual : 0;
 
+  // ==========================================
+  // 5. TELA DE LOGIN DO SISTEMA
+  // ==========================================
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
@@ -901,6 +939,9 @@ export default function App() {
     );
   }
 
+  // ==========================================
+  // 6. ESTRUTURA PRINCIPAL E HEADER (CABEÇALHO)
+  // ==========================================
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
@@ -974,7 +1015,14 @@ export default function App() {
         </div>
       </header>
 
+      {/* ========================================== */}
+      {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}
+      {/* ========================================== */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+        
+        {/* ========================================== */}
+        {/* 7.1 MÓDULO: MEMBROS MOBILE                 */}
+        {/* ========================================== */}
         {activeTab === 'membros_mobile' && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
             <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
@@ -1019,6 +1067,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR             */}
+        {/* ========================================== */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -1092,6 +1143,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.3 MÓDULO: MINISTÉRIOS                    */}
+        {/* ========================================== */}
         {activeTab === 'ministerios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
@@ -1137,6 +1191,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES          */}
+        {/* ========================================== */}
         {activeTab === 'usuarios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4 flex justify-between items-center">
@@ -1184,6 +1241,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.5 MÓDULO: FORNECEDORES                   */}
+        {/* ========================================== */}
         {activeTab === 'fornecedores' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4">
@@ -1215,6 +1275,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.6 MÓDULO: RELATÓRIOS                     */}
+        {/* ========================================== */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1355,6 +1418,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.7 MÓDULO: CÉLULAS, SETORES E REDES       */}
+        {/* ========================================== */}
         {activeTab === 'celulas' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1644,6 +1710,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.8 MÓDULO: CADASTRO DA IGREJA             */}
+        {/* ========================================== */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
             <div className="border-b pb-4">
@@ -1675,6 +1744,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS          */}
+        {/* ========================================== */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1806,6 +1878,9 @@ export default function App() {
           </div>
         )}
 
+        {/* ========================================== */}
+        {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL         */}
+        {/* ========================================== */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1995,7 +2070,13 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAIS DO SISTEMA */}
+      {/* ========================================== */}
+      {/* 8. MODAIS DE CADASTRO E EDIÇÃO             */}
+      {/* ========================================== */}
+
+      {/* ========================================== */}
+      {/* 8.1 MODAL: PLANO DE CONTAS                 */}
+      {/* ========================================== */}
       {showPlanoContaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2030,6 +2111,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.2 MODAL: SETORES                         */}
+      {/* ========================================== */}
       {showSetorModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2058,6 +2142,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.3 MODAL: REDES                           */}
+      {/* ========================================== */}
       {showRedeModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2086,6 +2173,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.4 MODAL: LANÇAMENTO FINANCEIRO           */}
+      {/* ========================================== */}
       {showLancamentoModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2130,6 +2220,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.5 MODAL: CONTA FINANCEIRA                */}
+      {/* ========================================== */}
       {showContaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2159,6 +2252,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.6 MODAL: AGENDA                          */}
+      {/* ========================================== */}
       {showAgendaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2217,6 +2313,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.7 MODAL: CÉLULAS                         */}
+      {/* ========================================== */}
       {showCelulaModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -2351,6 +2450,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.8 MODAL: MINISTÉRIOS                     */}
+      {/* ========================================== */}
       {showMinisterioModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2376,6 +2478,9 @@ export default function App() {
         </div>
       )}
 
+      {/* ========================================== */}
+      {/* 8.9 MODAL: MEMBROS                         */}
+      {/* ========================================== */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">

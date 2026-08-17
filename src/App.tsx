@@ -5,7 +5,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios'>('relatorios');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
@@ -27,7 +27,7 @@ export default function App() {
   const [memberModalTab, setMemberModalTab] = useState<'dados' | 'financeiro'>('dados');
   const [retornarParaTab, setRetornarParaTab] = useState<string | null>(null);
 
-  // Estados e funções para Ministérios
+  // Estados para Ministérios
   const [ministeriosList, setMinisteriosList] = useState<any[]>([]);
   const [showMinisterioModal, setShowMinisterioModal] = useState(false);
   const [editingMinisterio, setEditingMinisterio] = useState<any>(null);
@@ -170,10 +170,7 @@ export default function App() {
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formMinisterioNome.trim()) {
-      alert('Informe o nome do ministério.');
-      return;
-    }
+    if (!formMinisterioNome.trim()) { alert('Informe o nome do ministério.'); return; }
 
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
@@ -271,38 +268,24 @@ export default function App() {
 
   const handleBuscarCep = async () => {
     const cepLimpo = formCelCep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) {
-      alert('Digite um CEP válido com 8 dígitos.');
-      return;
-    }
+    if (cepLimpo.length !== 8) { alert('Digite um CEP válido com 8 dígitos.'); return; }
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
       const data = await response.json();
-      if (data.erro) {
-        alert('CEP não encontrado.');
-        return;
-      }
+      if (data.erro) { alert('CEP não encontrado.'); return; }
       setFormCelRua(data.logradouro || '');
       setFormCelBairro(data.bairro || '');
       setFormCelCidade(data.localidade || '');
-    } catch (err) {
-      alert('Erro ao buscar o CEP.');
-    }
+    } catch (err) { alert('Erro ao buscar o CEP.'); }
   };
 
   const handleBuscarCepMembro = async () => {
     const cepLimpo = formMember.cep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) {
-      alert('Digite um CEP válido com 8 dígitos.');
-      return;
-    }
+    if (cepLimpo.length !== 8) { alert('Digite um CEP válido com 8 dígitos.'); return; }
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
       const data = await response.json();
-      if (data.erro) {
-        alert('CEP não encontrado.');
-        return;
-      }
+      if (data.erro) { alert('CEP não encontrado.'); return; }
       const enderecoCompletoCalc = `${data.logradouro || ''}, ${formMember.numero || 'S/N'} - ${data.bairro || ''}, ${data.localidade || ''} - ${data.uf || ''} (CEP: ${formMember.cep})`;
       setFormMember({
         ...formMember,
@@ -312,35 +295,23 @@ export default function App() {
         estado: data.uf || '',
         endereco: enderecoCompletoCalc
       });
-    } catch (err) {
-      alert('Erro ao buscar o CEP.');
-    }
+    } catch (err) { alert('Erro ao buscar o CEP.'); }
   };
 
   const aplicarMascaraCpf = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
     let cpfFormatado = apenasDigitos;
-    if (apenasDigitos.length > 3) {
-      cpfFormatado = apenasDigitos.substring(0, 3) + '.' + apenasDigitos.substring(3);
-    }
-    if (apenasDigitos.length > 6) {
-      cpfFormatado = cpfFormatado.substring(0, 7) + '.' + cpfFormatado.substring(6);
-    }
-    if (apenasDigitos.length > 9) {
-      cpfFormatado = cpfFormatado.substring(0, 11) + '-' + cpfFormatado.substring(9);
-    }
+    if (apenasDigitos.length > 3) cpfFormatado = apenasDigitos.substring(0, 3) + '.' + apenasDigitos.substring(3);
+    if (apenasDigitos.length > 6) cpfFormatado = cpfFormatado.substring(0, 7) + '.' + cpfFormatado.substring(6);
+    if (apenasDigitos.length > 9) cpfFormatado = cpfFormatado.substring(0, 11) + '-' + cpfFormatado.substring(9);
     return cpfFormatado;
   };
 
   const aplicarMascaraData = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').substring(0, 8);
     let dataFormatada = apenasDigitos;
-    if (apenasDigitos.length > 2) {
-      dataFormatada = apenasDigitos.substring(0, 2) + '/' + apenasDigitos.substring(2);
-    }
-    if (apenasDigitos.length > 4) {
-      dataFormatada = dataFormatada.substring(0, 5) + '/' + apenasDigitos.substring(4);
-    }
+    if (apenasDigitos.length > 2) dataFormatada = apenasDigitos.substring(0, 2) + '/' + apenasDigitos.substring(2);
+    if (apenasDigitos.length > 4) dataFormatada = dataFormatada.substring(0, 5) + '/' + apenasDigitos.substring(4);
     return dataFormatada;
   };
 
@@ -428,10 +399,7 @@ export default function App() {
       return (nomeIgual || cpfIgual) && (!editingMember || m.id !== editingMember.id);
     });
 
-    if (duplicado) {
-      alert('ERRO: Já existe um membro com este Nome ou CPF cadastrado.');
-      return;
-    }
+    if (duplicado) { alert('ERRO: Já existe um membro com este Nome ou CPF cadastrado.'); return; }
     
     const enderecoFinal = formMember.endereco.trim() || `${formMember.rua}, ${formMember.numero || 'S/N'} - ${formMember.bairro}, ${formMember.cidade} - ${formMember.estado} (CEP: ${formMember.cep})`;
 
@@ -472,33 +440,44 @@ export default function App() {
       const destino = retornarParaTab;
       setShowMemberModal(false);
       setRetornarParaTab(null);
-      if (destino) {
-        setActiveTab(destino as any);
-      }
+      if (destino) setActiveTab(destino as any);
     } catch (err: any) {
       alert('Erro ao gravar membro: ' + err.message);
     }
   };
 
-  const deletarMembrosSelecionados = async () => {
-    if (selecionados.length === 0) {
-      alert('Selecione pelo menos um membro para excluir.');
+  // FUNÇÃO DE AUTORIZAÇÃO DE ACESSO DE USUÁRIO (MOBILE / COMPUTADOR) PELO ADMINISTRADOR
+  const handleAtualizarPermissaoUsuario = async (userId: string, campo: 'permissao_mobile' | 'permissao_computador', valorAtual: boolean) => {
+    const senhaAdmin = prompt('Digite a senha de ADMINISTRADOR para alterar as permissões de acesso deste usuário:');
+    if (!senhaAdmin) return;
+    if (senhaAdmin !== loggedUser.senha) {
+      alert('Senha incorreta. Apenas o administrador pode alterar esta função.');
       return;
     }
 
+    const novoValor = !valorAtual;
+    try {
+      const { error } = await supabase.from('usuarios').update({ [campo]: novoValor }).eq('id', userId);
+      if (error) throw error;
+      alert('Permissão atualizada com sucesso!');
+      // Recarrega lista de usuários
+      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', loggedUser.codigo_igreja);
+      setUsuariosList(uData || []);
+    } catch (err: any) {
+      alert('Erro ao atualizar permissão: ' + err.message);
+    }
+  };
+
+  const deletarMembrosSelecionados = async () => {
+    if (selecionados.length === 0) { alert('Selecione pelo menos um membro para excluir.'); return; }
     const motivo = prompt('Informe o motivo da exclusão em massa:');
     if (!motivo) return;
-
     const senhaInformada = prompt('Digite a senha de administrador para confirmar a exclusão de ' + selecionados.length + ' membros:');
-    if (senhaInformada !== loggedUser?.senha) {
-      alert('Senha incorreta. Exclusão cancelada.');
-      return;
-    }
+    if (senhaInformada !== loggedUser?.senha) { alert('Senha incorreta. Exclusão cancelada.'); return; }
 
     try {
       const { error } = await supabase.from('members').delete().in('id', selecionados);
       if (error) throw error;
-      
       alert(`Membros excluídos com sucesso! Motivo: "${motivo}"`);
       setSelecionados([]);
       await carregarMembros(loggedUser.codigo_igreja);
@@ -510,10 +489,7 @@ export default function App() {
   const handleDeleteMember = async (id: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir este membro:');
     if (!senhaInformada) return;
-    if (senhaInformada !== loggedUser.senha) {
-      alert('Senha incorreta. Exclusão cancelada.');
-      return;
-    }
+    if (senhaInformada !== loggedUser.senha) { alert('Senha incorreta. Exclusão cancelada.'); return; }
 
     try {
       const { error } = await supabase.from('members').delete().eq('id', id);
@@ -551,12 +527,8 @@ export default function App() {
 
   const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) {
-      alert('Preencha pelo menos o Título e a Data do compromisso.');
-      return;
-    }
+    if (!formAgendaTitulo.trim() || !formAgendaData.trim()) { alert('Preencha pelo menos o Título e a Data do compromisso.'); return; }
   
-    const comentarioLimpo = formAgendaComentario.trim();
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
@@ -564,7 +536,7 @@ export default function App() {
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || '00:00',
       responsavel: formAgendaMembroId && formAgendaMembroId !== "" ? parseInt(formAgendaMembroId, 10) : null, 
-      descricao: comentarioLimpo
+      descricao: formAgendaComentario.trim()
     };
   
     try {
@@ -579,9 +551,7 @@ export default function App() {
       }
       setShowAgendaModal(false);
       carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) { 
-      alert('Erro ao salvar: ' + err.message); 
-    }
+    } catch (err: any) { alert('Erro ao salvar: ' + err.message); }
   };
 
   const handleDeleteAgenda = async (id: string) => {
@@ -592,9 +562,7 @@ export default function App() {
       alert('Compromisso excluído com sucesso!');
       setShowAgendaModal(false);
       carregarAgenda(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao excluir compromisso: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro ao excluir compromisso: ' + err.message); }
   };
 
   const abrirModalCelula = (c?: any) => {
@@ -633,14 +601,7 @@ export default function App() {
 
   const handleAddParticipante = () => {
     if (!formCelNovoParticipante) return;
-    if (formCelNovoParticipante === formCelLider || formCelNovoParticipante === formCelVice || formCelNovoParticipante === formCelAnfitriao) {
-      alert('Já relacionado com função, insira outro novo.');
-      return;
-    }
-    if (formCelParticipantes.includes(formCelNovoParticipante)) {
-      alert('Este membro já está adicionado na célula.');
-      return;
-    }
+    if (formCelParticipantes.includes(formCelNovoParticipante)) { alert('Este membro já está adicionado na célula.'); return; }
     setFormCelParticipantes([...formCelParticipantes, formCelNovoParticipante]);
     setFormCelNovoParticipante('');
   };
@@ -651,10 +612,7 @@ export default function App() {
 
   const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formCelNome.trim()) {
-      alert('O nome da célula é obrigatório.');
-      return;
-    }
+    if (!formCelNome.trim()) { alert('O nome da célula é obrigatório.'); return; }
 
     const enderecoCompleto = `${formCelRua}, ${formCelNumero || 'S/N'} - ${formCelBairro}, ${formCelCidade} (CEP: ${formCelCep})`;
 
@@ -687,18 +645,13 @@ export default function App() {
       }
       setShowCelulaModal(false);
       carregarCelulas(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar célula: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro ao salvar célula: ' + err.message); }
   };
 
   const handleDeleteCelula = async (celulaId: string) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir esta célula:');
     if (!senhaInformada) return;
-    if (senhaInformada !== loggedUser.senha) {
-      alert('Senha de administrador incorreta. Exclusão cancelada.');
-      return;
-    }
+    if (senhaInformada !== loggedUser.senha) { alert('Senha incorreta.'); return; }
 
     try {
       const { error } = await supabase.from('celulas').delete().eq('id', celulaId);
@@ -706,9 +659,7 @@ export default function App() {
       alert('Célula excluída com sucesso!');
       setShowCelulaModal(false);
       carregarCelulas(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao excluir célula: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro ao excluir: ' + err.message); }
   };
 
   const handleSaveSetor = async (e: React.FormEvent) => {
@@ -727,9 +678,7 @@ export default function App() {
       setFormSetorNome('');
       setFormSetorLider('');
       carregarSetores(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar setor: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
   const handleSaveRede = async (e: React.FormEvent) => {
@@ -748,9 +697,7 @@ export default function App() {
       setFormRedeNome('');
       setFormRedeLider('');
       carregarRedes(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar rede: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
   const handleSaveConta = async (e: React.FormEvent) => {
@@ -768,9 +715,7 @@ export default function App() {
       setShowContaModal(false);
       setFormNomeConta('');
       carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao cadastrar conta: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
   const handleSaveLancamento = async (e: React.FormEvent) => {
@@ -795,41 +740,31 @@ export default function App() {
       if (error) throw error;
       alert('Lançamento salvo com sucesso!');
       setShowLancamentoModal(false);
-      
       setFormLancData('');
       setFormLancValor('');
       setFormLancObs('');
       setFormLancContaDebitoId('');
       setFormLancContaCreditoId('');
-      
       carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
   const handleDeleteLancamento = async (lancamentoId: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir este lançamento:');
     if (!senhaInformada) return;
-    if (senhaInformada !== loggedUser.senha) {
-      alert('Senha de administrador incorreta. Exclusão cancelada.');
-      return;
-    }
+    if (senhaInformada !== loggedUser.senha) { alert('Senha incorreta.'); return; }
 
     try {
       const { error } = await supabase.from('lancamentos_financeiros').delete().eq('id', lancamentoId);
       if (error) throw error;
       alert('Lançamento excluído com sucesso!');
       carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro ao excluir lançamento: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
   const handleAnexarComprovante = async (lancamentoId: any, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -840,14 +775,10 @@ export default function App() {
         alert('Comprovante anexado com sucesso!');
         carregarFinanceiro(loggedUser.codigo_igreja);
       };
-    } catch (err: any) {
-      alert('Erro ao anexar comprovante: ' + err.message);
-    }
+    } catch (err: any) { alert('Erro: ' + err.message); }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => { window.print(); };
 
   const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
 
@@ -855,22 +786,11 @@ export default function App() {
   const lancamentosComSaldo = lancamentosCorrente.map((l: any) => {
     const valor = parseFloat(l.valor || 0);
     const isCredito = l.tipo === 'entrada';
-    if (isCredito) {
-      saldoAcumulado += valor;
-    } else {
-      saldoAcumulado -= valor;
-    }
-    return {
-      ...l,
-      isCredito,
-      valorNum: valor,
-      saldoAtual: saldoAcumulado
-    };
+    if (isCredito) saldoAcumulado += valor; else saldoAcumulado -= valor;
+    return { ...l, isCredito, valorNum: valor, saldoAtual: saldoAcumulado };
   });
 
-  const saldoFinalRelatorio = lancamentosComSaldo.length > 0 
-    ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual 
-    : 0;
+  const saldoFinalRelatorio = lancamentosComSaldo.length > 0 ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual : 0;
 
   if (!isLoggedIn) {
     return (
@@ -918,14 +838,24 @@ export default function App() {
               <span className="text-[10px] tracking-widest text-blue-500 font-bold">TECNOLOGIA</span>
             </div>
             <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
+              
+              {/* MENU SUSPENSO DE CADASTROS COM OPÇÃO COMPUTADOR OU MOBILE */}
               <div className="relative">
                 <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
                   Cadastros <span className="text-xs text-slate-400">∨</span>
                 </button>
                 {openDropdown === 'cadastros' && (
-                  <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📁 Membros</button>
-                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários</button>
+                  <div className="absolute left-0 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 z-50">
+                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🖥️ Membros (Computador)</button>
+                    <button onClick={() => { 
+                      if (loggedUser.usuario !== 'admin' && !loggedUser.permissao_mobile) {
+                        alert('Acesso negado. O administrador não autorizou o uso do módulo Mobile para este usuário.');
+                        return;
+                      }
+                      setActiveTab('membros_mobile'); 
+                      setOpenDropdown(null); 
+                    }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-blue-900">📱 Membros (Mobile Compacto)</button>
+                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">👤 Usuários e Permissões</button>
                     <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🚚 Fornecedores</button>
                     <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">📊 Relatórios</button>
                     <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 flex items-center gap-2 cursor-pointer font-semibold text-slate-700">🙌 Ministérios</button>
@@ -968,14 +898,100 @@ export default function App() {
       </header>
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+        
+        {/* ======================================================== */}
+        {/* MÓDULO DE CADASTRO DE MEMBROS MOBILE COMPACTO           */}
+        {/* ======================================================== */}
+        {activeTab === 'membros_mobile' && (
+          <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
+            
+            {/* Header Mobile Compacto */}
+            <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-black">📱 Cadastro Mobile Compacto</h2>
+                <p className="text-[10px] text-blue-200">Versão otimizada para toque e telas verticais</p>
+              </div>
+              <button 
+                onClick={() => setActiveTab('membros')} 
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                🖥️ Ir para Computador
+              </button>
+            </div>
+
+            {/* Corpo / Lista ou Formulário Mobile */}
+            <div className="p-4 space-y-4 flex-1">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="Buscar membro..." 
+                  value={searchTerm} 
+                  onChange={(e) => setSearchTerm(e.target.value)} 
+                  className="w-full rounded-xl border border-slate-300 p-2 text-xs focus:outline-none focus:border-blue-900" 
+                />
+                <button 
+                  onClick={() => abrirModalMembro()} 
+                  className="px-3 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl shadow-sm whitespace-nowrap cursor-pointer"
+                >
+                  + Novo
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
+                {filteredMembers.length === 0 ? (
+                  <p className="text-center py-6 text-xs text-slate-400">Nenhum membro cadastrado.</p>
+                ) : (
+                  filteredMembers.map((m: any) => (
+                    <div 
+                      key={m.id} 
+                      onClick={() => abrirModalMembro(m)} 
+                      className="p-3 bg-slate-50 hover:bg-blue-50/50 border rounded-2xl flex items-center justify-between cursor-pointer transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        {m.foto_url ? (
+                          <img src={m.foto_url} alt={m.nome} className="w-10 h-10 rounded-full object-cover border" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                            {m.nome?.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <h4 className="font-bold text-slate-900 text-xs">{m.nome}</h4>
+                          <p className="text-[10px] text-slate-500 font-mono">{m.celular_principal || 'Sem celular'} • {m.tipo_cadastro}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-blue-900 font-bold">Editar ➔</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ======================================================== */}
+        {/* MÓDULO DE CADASTRO DE MEMBROS PADRÃO (COMPUTADOR)        */}
+        {/* ======================================================== */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
-                <p className="text-xs text-slate-500">Clique na linha do membro para alterar os dados completos.</p>
+                <p className="text-xs text-slate-500">Clique na linha do membro para alterar os dados completos ou use o menu para o modo Mobile.</p>
               </div>
               <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => {
+                    if (loggedUser.usuario !== 'admin' && !loggedUser.permissao_mobile) {
+                      alert('Acesso negado. O administrador não autorizou o uso do módulo Mobile para este usuário.');
+                      return;
+                    }
+                    setActiveTab('membros_mobile');
+                  }} 
+                  className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
+                >
+                  📱 Mudar para Modo Mobile
+                </button>
                 <input type="text" placeholder="Buscar por Nome..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 rounded-xl border border-slate-300 p-2 text-sm focus:outline-none focus:border-blue-900" />
                 <button onClick={() => abrirModalMembro()} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
               </div>
@@ -1097,11 +1113,16 @@ export default function App() {
           </div>
         )}
 
+        {/* ======================================================== */}
+        {/* TABELA DE USUÁRIOS COM AUTORIZAÇÃO DE ACESSO EXCLUSIVA   */}
+        {/* ======================================================== */}
         {activeTab === 'usuarios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">👤 Usuários do Sistema ({usuariosList.length})</h2>
-              <p className="text-xs text-slate-500">Credenciais de acesso vinculadas a esta igreja.</p>
+            <div className="border-b pb-4 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">👤 Usuários e Permissões de Acesso ({usuariosList.length})</h2>
+                <p className="text-xs text-slate-500">Apenas o administrador pode autorizar o acesso aos módulos Mobile e Computador.</p>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -1109,6 +1130,8 @@ export default function App() {
                   <tr className="border-b text-slate-600 text-sm font-semibold">
                     <th className="py-3 px-4">Nome de Usuário</th>
                     <th className="py-3 px-4">Login</th>
+                    <th className="py-3 px-4 text-center">Permissão Mobile</th>
+                    <th className="py-3 px-4 text-center">Permissão Computador</th>
                     <th className="py-3 px-4">Status</th>
                   </tr>
                 </thead>
@@ -1117,6 +1140,24 @@ export default function App() {
                     <tr key={u.id} className="hover:bg-slate-50">
                       <td className="py-3 px-4 font-bold text-slate-900">{u.nome_usuario}</td>
                       <td className="py-3 px-4 font-mono">{u.usuario}</td>
+                      <td className="py-3 px-4 text-center">
+                        <button 
+                          onClick={() => handleAtualizarPermissaoUsuario(u.id, 'permissao_mobile', u.permissao_mobile)}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${u.permissao_mobile ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                          title="Clique para autorizar ou bloquear via senha de admin"
+                        >
+                          {u.permissao_mobile ? '✔ Autorizado Mobile' : '✖ Bloqueado'}
+                        </button>
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <button 
+                          onClick={() => handleAtualizarPermissaoUsuario(u.id, 'permissao_computador', u.permissao_computador)}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold cursor-pointer transition-all ${u.permissao_computador !== false ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                          title="Clique para autorizar ou bloquear via senha de admin"
+                        >
+                          {u.permissao_computador !== false ? '✔ Autorizado PC' : '✖ Bloqueado'}
+                        </button>
+                      </td>
                       <td className="py-3 px-4">
                         <span className={`px-2 py-0.5 rounded-md text-xs font-bold ${u.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                           {u.ativo ? 'Ativo' : 'Inativo'}
@@ -1293,11 +1334,8 @@ export default function App() {
                               type="checkbox" 
                               checked={selecionados.includes(String(m.id))}
                               onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelecionados([...selecionados, String(m.id)]);
-                                } else {
-                                  setSelecionados(selecionados.filter(id => id !== String(m.id)));
-                                }
+                                if (e.target.checked) setSelecionados([...selecionados, String(m.id)]);
+                                else setSelecionados(selecionados.filter(id => id !== String(m.id)));
                               }}
                               className="cursor-pointer"
                             />
@@ -1662,9 +1700,7 @@ export default function App() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {compromissos.map((c: any) => {
                       const membroResp = members.find((m: any) => String(m.id) === String(c.responsavel));
-                      const comentarioExibicao = c.descricao 
-                        ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) 
-                        : 'Nenhum comentário registrado.';
+                      const comentarioExibicao = c.descricao ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) : 'Nenhum comentário registrado.';
 
                       return (
                         <div key={c.id} className="p-5 border rounded-2xl shadow-sm space-y-3 bg-white border-slate-200 flex flex-col justify-between">
@@ -1817,29 +1853,19 @@ export default function App() {
                           lancamentosComSaldo.map((l: any) => (
                             <tr key={l.id} className="hover:bg-slate-50">
                               <td className="p-3 font-mono">{l.data_lancamento}</td>
-                              <td className="p-3 font-mono font-bold text-rose-600">
-                                {!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}
-                              </td>
-                              <td className="p-3 font-mono font-bold text-emerald-600">
-                                {l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}
-                              </td>
-                              <td className="p-3 font-bold text-slate-900">
-                                {l.descricao}
-                              </td>
-                              <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>
-                                R$ {l.saldoAtual.toFixed(2)}
-                              </td>
+                              <td className="p-3 font-mono font-bold text-rose-600">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                              <td className="p-3 font-mono font-bold text-emerald-600">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                              <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                              <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
                               <td className="p-3 text-center print:hidden">
                                 <div className="flex items-center justify-center gap-2">
                                   <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
                                     Excluir
                                   </button>
-
                                   <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
                                     📁 Anexar
                                     <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
                                   </label>
-
                                   {l.comprovante_url && (
                                     <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
                                       Abrir
@@ -1873,9 +1899,7 @@ export default function App() {
                         <tr><td colSpan={3} className="py-8 text-center text-slate-400">Nenhuma conta cadastrada. Clique em "+ Nova Conta" acima.</td></tr>
                       ) : (
                         contasFinanceiras.map((c: any) => {
-                          const lancamentosDaConta = lancamentosCorrente.filter((l: any) => 
-                            String(l.conta_id) === String(c.id) || !l.conta_id
-                          );
+                          const lancamentosDaConta = lancamentosCorrente.filter((l: any) => String(l.conta_id) === String(c.id) || !l.conta_id);
                           const saldoConta = lancamentosDaConta.reduce((acc, l: any) => {
                             const val = parseFloat(l.valor || 0);
                             return l.tipo === 'entrada' ? acc + val : acc - val;
@@ -1959,9 +1983,7 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-600 ml-1">Líder do Setor</label>
                 <select value={formSetorLider} onChange={(e) => setFormSetorLider(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                   <option value="">Selecione o líder...</option>
-                  {members.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.nome}</option>
-                  ))}
+                  {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
@@ -1990,9 +2012,7 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-600 ml-1">Líder da Rede</label>
                 <select value={formRedeLider} onChange={(e) => setFormRedeLider(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                   <option value="">Selecione o líder...</option>
-                  {members.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.nome}</option>
-                  ))}
+                  {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
@@ -2018,47 +2038,28 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
                 <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div>
                 <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Origem/Saída) *</label>
-                <select 
-                  required 
-                  value={formLancContaDebitoId} 
-                  onChange={(e) => setFormLancContaDebitoId(e.target.value)} 
-                  className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700"
-                >
+                <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
                   <option value="">Selecione a conta a débito...</option>
-                  {contasFinanceiras.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>
-                  ))}
+                  {contasFinanceiras.map((c: any) => (<option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>))}
                 </select>
               </div>
-
               <div>
                 <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Destino/Entrada) *</label>
-                <select 
-                  required 
-                  value={formLancContaCreditoId} 
-                  onChange={(e) => setFormLancContaCreditoId(e.target.value)} 
-                  className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700"
-                >
+                <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
                   <option value="">Selecione a conta a crédito...</option>
-                  {contasFinanceiras.map((c: any) => (
-                    <option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>
-                  ))}
+                  {contasFinanceiras.map((c: any) => (<option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>))}
                 </select>
               </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
                 <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
                 <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value)} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
                 <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
@@ -2112,22 +2113,17 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-600 ml-1">Assunto / Título *</label>
                 <input type="text" required value={formAgendaTitulo} onChange={(e) => setFormAgendaTitulo(e.target.value)} placeholder="Ex: Visita pastoral ou Reunião" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Responsável pelo Compromisso</label>
                 <select value={formAgendaMembroId} onChange={(e) => setFormAgendaMembroId(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
                   <option value="">Selecione o responsável...</option>
-                  {members.map((m: any) => (
-                    <option key={m.id} value={m.id}>{m.nome} ({m.tipo_cadastro})</option>
-                  ))}
+                  {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome} ({m.tipo_cadastro})</option>))}
                 </select>
               </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
                 <input type="date" required value={formAgendaData} onChange={(e) => setFormAgendaData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-600 ml-1">Horário Inicial</label>
@@ -2138,19 +2134,16 @@ export default function App() {
                   <input type="time" value={formAgendaHoraFim} onChange={(e) => setFormAgendaHoraFim(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
                 </div>
               </div>
-
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Comentário / Relatório de como foi</label>
                 <textarea rows={3} value={formAgendaComentario} onChange={(e) => setFormAgendaComentario(e.target.value)} placeholder="Registre os detalhes, observações ou como foi a visita..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div className="flex items-center justify-between pt-4 border-t">
                 {editingCompromisso ? (
                   <button type="button" onClick={() => handleDeleteAgenda(editingCompromisso.id)} className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer">
                     Excluir Compromisso
                   </button>
                 ) : <div />}
-
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setShowAgendaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
                   <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
@@ -2178,37 +2171,29 @@ export default function App() {
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Célula *</label>
                 <input type="text" required value={formCelNome} onChange={(e) => setFormCelNome(e.target.value)} placeholder="Ex: Célula Betel" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Líder (Membro Cadastrado)</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Líder</label>
                   <select value={formCelLider} onChange={(e) => setFormCelLider(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                     <option value="">Selecione o líder...</option>
-                    {members.map((m: any) => (
-                      <option key={m.id} value={m.id}>{m.nome}</option>
-                    ))}
+                    {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Vice-Líder (Membro Cadastrado)</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Vice-Líder</label>
                   <select value={formCelVice} onChange={(e) => setFormCelVice(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                     <option value="">Selecione o vice...</option>
-                    {members.map((m: any) => (
-                      <option key={m.id} value={m.id}>{m.nome}</option>
-                    ))}
+                    {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-slate-600 ml-1">Anfitrião (Membro Cadastrado)</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Anfitrião</label>
                   <select value={formCelAnfitriao} onChange={(e) => setFormCelAnfitriao(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                     <option value="">Selecione o anfitrião...</option>
-                    {members.map((m: any) => (
-                      <option key={m.id} value={m.id}>{m.nome}</option>
-                    ))}
+                    {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
                   </select>
                 </div>
               </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-600 ml-1">Dia da Semana</label>
@@ -2239,7 +2224,6 @@ export default function App() {
                     <button type="button" onClick={handleBuscarCep} className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer">Buscar CEP</button>
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
                     <label className="text-[11px] font-bold text-slate-500 ml-1">Rua / Logradouro</label>
@@ -2250,7 +2234,6 @@ export default function App() {
                     <input type="text" value={formCelNumero} onChange={(e) => setFormCelNumero(e.target.value)} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900" />
                   </div>
                 </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-[11px] font-bold text-slate-500 ml-1">Bairro</label>
@@ -2264,17 +2247,14 @@ export default function App() {
               </div>
 
               <div className="space-y-2 border-t pt-4">
-                <label className="text-xs font-bold text-slate-700 block">Participantes da Célula (Vincular Membros)</label>
+                <label className="text-xs font-bold text-slate-700 block">Participantes da Célula</label>
                 <div className="flex gap-2">
                   <select value={formCelNovoParticipante} onChange={(e) => setFormCelNovoParticipante(e.target.value)} className="flex-1 rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900">
                     <option value="">Selecione um membro para adicionar...</option>
-                    {members.map((m: any) => (
-                      <option key={m.id} value={m.id}>{m.nome}</option>
-                    ))}
+                    {members.map((m: any) => (<option key={m.id} value={m.id}>{m.nome}</option>))}
                   </select>
                   <button type="button" onClick={handleAddParticipante} className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer">Adicionar</button>
                 </div>
-
                 <div className="flex flex-wrap gap-2 mt-2">
                   {formCelParticipantes.length === 0 ? (
                     <p className="text-xs text-slate-400 italic">Nenhum participante adicionado ainda.</p>
@@ -2284,7 +2264,7 @@ export default function App() {
                       return (
                         <span key={pId} className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 border rounded-xl text-xs font-bold text-slate-700">
                           {mObj ? mObj.nome : 'Membro ID: ' + pId}
-                          <button type="button" onClick={() => handleRemoveParticipante(pId)} className="text-rose-600 hover:text-rose-800 font-black cursor-pointer">✕</button>
+                          <button type="button" onClick={() => handleRemoveParticipante(pId)} className="text-rose-600 font-black cursor-pointer">✕</button>
                         </span>
                       );
                     })
@@ -2298,7 +2278,6 @@ export default function App() {
                     Excluir Célula
                   </button>
                 ) : <div />}
-
                 <div className="flex gap-3">
                   <button type="button" onClick={() => setShowCelulaModal(false)} className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
                   <button type="submit" className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">
@@ -2316,9 +2295,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h3 className="text-lg font-black text-blue-900">
-                {editingMinisterio ? 'Editar Ministério' : 'Novo Ministério'}
-              </h3>
+              <h3 className="text-lg font-black text-blue-900">{editingMinisterio ? 'Editar Ministério' : 'Novo Ministério'}</h3>
               <button onClick={() => setShowMinisterioModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
             </div>
             <form onSubmit={salvarMinisterio} className="space-y-4">
@@ -2328,7 +2305,7 @@ export default function App() {
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Observações</label>
-                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value)} placeholder="Detalhes sobre as atividades do ministério..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+                <textarea rows={3} value={formMinisterioDesc} onChange={(e) => setFormMinisterioDesc(e.target.value)} placeholder="Detalhes..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button type="button" onClick={() => setShowMinisterioModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
@@ -2339,7 +2316,7 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL DE MEMBRO */}
+      {/* MODAL DE CADASTRO/EDIÇÃO DE MEMBRO (COMPLETO) */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -2351,7 +2328,7 @@ export default function App() {
                 {editingMember && (
                   <div className="flex gap-2 mt-2">
                     <button onClick={() => setMemberModalTab('dados')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'dados' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>📁 Dados Cadastrais</button>
-                    <button onClick={() => setMemberModalTab('financeiro')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'financeiro' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>💰 Financeiro (Conta Corrente)</button>
+                    <button onClick={() => setMemberModalTab('financeiro')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'financeiro' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>💰 Financeiro</button>
                   </div>
                 )}
               </div>
@@ -2364,7 +2341,6 @@ export default function App() {
                   <h4 className="font-bold text-slate-800 text-base">Extrato Financeiro Individual</h4>
                   <button onClick={() => setShowLancamentoModal(true)} className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow-sm cursor-pointer">+ Novo Lançamento</button>
                 </div>
-
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
@@ -2412,7 +2388,7 @@ export default function App() {
             ) : (
               <form onSubmit={salvarMembro} className="space-y-4">
                 <div className="space-y-4">
-                  {/* CAMPO DE FOTO CORRIGIDO E FUNCIONAL */}
+                  {/* CAMPO DE FOTO FUNCIONAL */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-600 ml-1">Foto do Membro</label>
                     <div className="flex items-center gap-4">
@@ -2460,7 +2436,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Tipo de Cadastro</label>
-                      <select value={formMember.tipo_cadastro} onChange={(e) => setFormMember({ ...formMember, tipo_cadastro: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                      <select value={formMember.tipo_cadastro} onChange={(e) => setFormMember({ ...formMember, tipo_cadastro: e.target.value })} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                         <option value="Membro">Membro</option>
                         <option value="Congregado">Congregado</option>
                         <option value="Visitante">Visitante</option>
@@ -2469,7 +2445,7 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Estado Civil</label>
-                      <select value={formMember.estado_civil} onChange={(e) => setFormMember({ ...formMember, estado_civil: e.target.value })} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 bg-white">
+                      <select value={formMember.estado_civil} onChange={(e) => setFormMember({ ...formMember, estado_civil: e.target.value })} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900">
                         <option value="Solteiro(a)">Solteiro(a)</option>
                         <option value="Casado(a)">Casado(a)</option>
                         <option value="Divorciado(a)">Divorciado(a)</option>
@@ -2500,14 +2476,7 @@ export default function App() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">Celular Principal</label>
-                      <input 
-                        type="text" 
-                        maxLength={15} 
-                        value={formMember.celular_principal} 
-                        onChange={(e) => setFormMember({ ...formMember, celular_principal: aplicarMascaraCelular(e.target.value) })} 
-                        placeholder="(00) 00000-0000" 
-                        className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" 
-                      />
+                      <input type="text" maxLength={15} value={formMember.celular_principal} onChange={(e) => setFormMember({ ...formMember, celular_principal: aplicarMascaraCelular(e.target.value) })} placeholder="(00) 00000-0000" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" />
                     </div>
                     <div>
                       <label className="text-xs font-bold text-slate-600 ml-1">E-mail</label>
@@ -2517,15 +2486,9 @@ export default function App() {
 
                   <div>
                     <label className="text-xs font-bold text-slate-600 ml-1">Ministério</label>
-                    <select 
-                      value={formMember.ministerio_id || ''} 
-                      onChange={(e) => setFormMember({ ...formMember, ministerio_id: e.target.value || null })} 
-                      className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900"
-                    >
+                    <select value={formMember.ministerio_id || ''} onChange={(e) => setFormMember({ ...formMember, ministerio_id: e.target.value || null })} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900">
                       <option value="">Nenhum ministério vinculado...</option>
-                      {ministeriosList.map((min: any) => (
-                        <option key={min.id} value={min.id}>{min.nome}</option>
-                      ))}
+                      {ministeriosList.map((min: any) => (<option key={min.id} value={min.id}>{min.nome}</option>))}
                     </select>
                   </div>
 

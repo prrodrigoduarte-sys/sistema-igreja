@@ -299,16 +299,47 @@ export default function App() {
     setRedesList(data || []);
   };
 
+  // =========================================================================
+  // 4.X FUNÇÃO: CARREGAR DADOS FINANCEIROS (DEPURADA)
+  // =========================================================================
   const carregarFinanceiro = async (cod: string) => {
+    if (!cod) {
+      console.warn('carregarFinanceiro: Código da igreja está vazio ou indefinido.');
+      return;
+    }
+
     setLoadingFinanceiro(true);
+    console.log(`Buscando dados financeiros para a igreja: ${cod}`);
+
     try {
-      const { data: cData } = await supabase.from('contas_financeiras').select('*').eq('codigo_igreja', cod);
-      const { data: lData, error } = await supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', cod).order('data_lancamento', { ascending: true });
-      if (error) console.error('Erro ao buscar lançamentos:', error.message);
-      setContasFinanceiras(cData || []);
-      setLancamentosCorrente(lData || []);
+      // 1. Busca Contas Financeiras
+      const { data: cData, error: cError } = await supabase
+        .from('contas_financeiras')
+        .select('*')
+        .eq('codigo_igreja', cod);
+
+      if (cError) {
+        console.error('Erro ao buscar contas financeiras:', cError.message);
+      } else {
+        console.log(`Contas encontradas (${cData?.length}):`, cData);
+        setContasFinanceiras(cData || []);
+      }
+
+      // 2. Busca Lançamentos Financeiros
+      const { data: lData, error: lError } = await supabase
+        .from('lancamentos_financeiros')
+        .select('*')
+        .eq('codigo_igreja', cod)
+        .order('data_lancamento', { ascending: true });
+
+      if (lError) {
+        console.error('Erro ao buscar lançamentos financeiros:', lError.message);
+      } else {
+        console.log(`Lançamentos encontrados (${lData?.length}):`, lData);
+        setLancamentosCorrente(lData || []);
+      }
     } catch (err: any) {
-      console.error('Erro geral:', err);
+      console.error('Erro inesperado na carregarFinanceiro:', err);
     } finally {
       setLoadingFinanceiro(false);
     }

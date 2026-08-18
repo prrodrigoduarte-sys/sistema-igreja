@@ -289,6 +289,13 @@ export default function App() {
       console.error('Erro geral no carregamento:', err);
     }
   };
+
+  // Carrega automaticamente ao alternar para a sub-aba de plano de contas
+  useEffect(() => {
+    if (financeiroSubTab === 'plano_contas') {
+      carregarPlanoContas();
+    }
+  }, [financeiroSubTab]);
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }

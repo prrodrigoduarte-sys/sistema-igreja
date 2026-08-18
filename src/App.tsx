@@ -1967,7 +1967,7 @@ export default function App() {
                     <tbody className="divide-y text-slate-700">
                       {planoContasContabil && planoContasContabil.length > 0 ? (
                         planoContasContabil.map((pc) => (
-                          <tr key={pc.id} className="hover:bg-slate-50">
+                          <tr key={pc.id || pc.codigo_conta} className="hover:bg-slate-50">
                             <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
                             <td className="p-3">{pc.nome_conta}</td>
                             <td className="p-3">{pc.tipo_natureza}</td>
@@ -1975,8 +1975,16 @@ export default function App() {
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={3} className="p-6 text-center text-slate-400">
-                            Nenhuma conta encontrada. Verifique o banco de dados.
+                          <td colSpan={3} className="p-6 text-center">
+                            <button 
+                              onClick={async () => {
+                                const { data } = await supabase.from('plano_contas_contabil').select('*');
+                                if (data) setPlanoContasContabil(data);
+                              }}
+                              className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+                            >
+                              🔄 Clique aqui para forçar o carregamento das contas
+                            </button>
                           </td>
                         </tr>
                       )}

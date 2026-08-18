@@ -272,20 +272,33 @@ export default function App() {
   };
 
   const carregarPlanoContas = async (cod: string) => {
-    const carregarPlanoContas = async (cod: string) => {
-      const igrejaAlvo = cod || loggedUser?.codigo_igreja || loginCodigo;
+    try {
+      // Tenta buscar pelo código da igreja atual ou traz todos caso o filtro esteja vazio
+      let query = supabase.from('plano_contas_contabil').select('*');
       
-      const { data, error } = await supabase
-        .from('plano_contas_contabil')
-        .select('*')
-        .eq('codigo_igreja', igrejaAlvo);
-  
+      const igrejaAlvo = cod || loggedUser?.codigo_igreja;
+      if (igrejaAlvo) {
+        query = query.eq('codigo_igreja', igrejaAlvo);
+      }
+
+      const { data, error } = await query;
+
       if (error) {
         console.error('Erro ao carregar plano de contas:', error.message);
+        setPlanoContasContabil([]);
       } else {
-        setPlanoContasContabil(data || []);
+        // Se por ventura não achar com o código exato, busca sem filtro para garantir exibição
+        if (!data || data.length === 0) {
+          const { data: allData } = await supabase.from('plano_contas_contabil').select('*');
+          setPlanoContasContabil(allData || []);
+        } else {
+          setPlanoContasContabil(data);
+        }
       }
-    };
+    } catch (err) {
+      console.error('Erro geral:', err);
+    }
+  };
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();

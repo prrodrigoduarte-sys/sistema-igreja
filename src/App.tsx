@@ -271,35 +271,24 @@ export default function App() {
     setMinisteriosList(data || []);
   };
 
-  const carregarPlanoContas = async (cod: string) => {
+  const carregarPlanoContas = async () => {
     try {
-      // Tenta buscar pelo código da igreja atual ou traz todos caso o filtro esteja vazio
-      let query = supabase.from('plano_contas_contabil').select('*');
-      
-      const igrejaAlvo = cod || loggedUser?.codigo_igreja;
-      if (igrejaAlvo) {
-        query = query.eq('codigo_igreja', igrejaAlvo);
-      }
-
-      const { data, error } = await query;
+      // Busca direta e sem filtros na tabela para garantir que traga todos os registros
+      const { data, error } = await supabase
+        .from('plano_contas_contabil')
+        .select('*');
 
       if (error) {
-        console.error('Erro ao carregar plano de contas:', error.message);
+        console.error('Erro ao buscar plano de contas:', error.message);
         setPlanoContasContabil([]);
       } else {
-        // Se por ventura não achar com o código exato, busca sem filtro para garantir exibição
-        if (!data || data.length === 0) {
-          const { data: allData } = await supabase.from('plano_contas_contabil').select('*');
-          setPlanoContasContabil(allData || []);
-        } else {
-          setPlanoContasContabil(data);
-        }
+        console.log('Plano de contas carregado com sucesso:', data);
+        setPlanoContasContabil(data || []);
       }
     } catch (err) {
-      console.error('Erro geral:', err);
+      console.error('Erro geral no carregamento:', err);
     }
   };
-
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }

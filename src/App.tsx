@@ -74,19 +74,23 @@ export default function App() {
       
       const carregarPlanoContas = async () => {
         try {
+          console.log('Buscando plano de contas no Supabase...');
           const { data, error } = await supabase
             .from('plano_contas_contabil')
-            .select('*');
+            .select('*')
+            .eq('codigo_igreja', 'IGR-001')
+            .order('codigo_conta', { ascending: true });
     
           if (error) {
             console.error('Erro ao buscar plano de contas:', error.message);
+            alert('Erro ao carregar: ' + error.message);
             setPlanoContasContabil([]);
           } else {
-            console.log('Dados encontrados:', data); // Vai mostrar no F12 o que veio do banco
+            console.log('Dados carregados com sucesso:', data);
             setPlanoContasContabil(data || []);
           }
-        } catch (err) {
-          console.error('Erro geral no carregamento:', err);
+        } catch (err: any) {
+          console.error('Erro geral:', err);
         }
       };
 

@@ -282,10 +282,15 @@ export default function App() {
   };
 
   const carregarPlanoContas = async () => {
+    // Pega o nome exato da igreja vinculado ao usuário logado ou o texto padrão que está na tabela
+    const igrejaChave = loggedUser?.igrejas?.nome_fantasia || loggedUser?.codigo_igreja || 'Vida e Paz CHURCH Teófilo Otoni';
+
     try {
       const { data, error } = await supabase
         .from('plano_contas_contabil')
-        .select('*');
+        .select('*')
+        .eq('codigo_igreja', igrejaChave)
+        .order('codigo_conta', { ascending: true });
 
       if (error) {
         console.error('Erro ao buscar plano de contas:', error.message);

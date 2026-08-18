@@ -282,14 +282,13 @@ export default function App() {
   };
 
   const carregarPlanoContas = async () => {
-    // Pega o nome exato da igreja vinculado ao usuário logado ou o texto padrão que está na tabela
-    const igrejaChave = loggedUser?.igrejas?.nome_fantasia || loggedUser?.codigo_igreja || 'Vida e Paz CHURCH Teófilo Otoni';
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
 
     try {
       const { data, error } = await supabase
         .from('plano_contas_contabil')
         .select('*')
-        .eq('codigo_igreja', igrejaChave)
+        .eq('codigo_igreja', codigoIgrejaAtual)
         .order('codigo_conta', { ascending: true });
 
       if (error) {
@@ -302,13 +301,14 @@ export default function App() {
       console.error('Erro geral no carregamento:', err);
     }
   };
-
   // Carrega automaticamente ao alternar para a sub-aba de plano de contas
   useEffect(() => {
-    if (financeiroSubTab === 'plano_contas') {
+    // Carrega automaticamente ao alternar para a sub-aba de plano de contas
+  useEffect(() => {
+    if (isLoggedIn && loggedUser?.codigo_igreja && financeiroSubTab === 'plano_contas') {
       carregarPlanoContas();
     }
-  }, [financeiroSubTab]);
+  }, [financeiroSubTab, isLoggedIn, loggedUser]);
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1970,6 +1970,7 @@ export default function App() {
                     <thead className="bg-slate-100 border-b">
                       <tr>
                         <th className="p-3 font-bold">Código</th>
+                        <th className="p-3 font-bold">Conta Pai</th>
                         <th className="p-3 font-bold">Conta</th>
                         <th className="p-3 font-bold">Natureza</th>
                       </tr>
@@ -1979,22 +1980,22 @@ export default function App() {
                         planoContasContabil.map((pc) => (
                           <tr key={pc.id || pc.codigo_conta} className="hover:bg-slate-50">
                             <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
-                            <td className="p-3">{pc.nome_conta}</td>
-                            <td className="p-3">{pc.tipo_natureza}</td>
+                            <td className="p-3 font-mono text-slate-500">{pc.conta_pai || '-'}</td>
+                            <td className="p-3 font-semibold text-slate-900">{pc.nome_conta}</td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                pc.tipo_natureza === 'Receita' ? 'bg-emerald-100 text-emerald-800' :
+                                pc.tipo_natureza === 'Despesa' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-800'
+                              }`}>
+                                {pc.tipo_natureza}
+                              </span>
+                            </td>
                           </tr>
                         ))
                       ) : (
                         <tr>
-                          <td colSpan={3} className="p-6 text-center">
-                            <button 
-                              onClick={async () => {
-                                const { data } = await supabase.from('plano_contas_contabil').select('*');
-                                if (data) setPlanoContasContabil(data);
-                              }}
-                              className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer"
-                            >
-                              🔄 Clique aqui para forçar o carregamento das contas
-                            </button>
+                          <td colSpan={4} className="p-8 text-center text-slate-400">
+                            Nenhuma conta contábil encontrada para esta igreja.
                           </td>
                         </tr>
                       )}

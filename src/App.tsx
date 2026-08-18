@@ -72,11 +72,27 @@ export default function App() {
       setFormPlanoNome('');
       setFormPlanoNatureza('Receita');
       
-      carregarPlanoContas();
-    } catch (err: any) {
-      alert('Erro ao cadastrar conta: ' + err.message);
-    }
-  };
+      const carregarPlanoContas = async () => {
+        const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo;
+        if (!codigoIgrejaAtual) return;
+    
+        try {
+          const { data, error } = await supabase
+            .from('plano_contas_contabil')
+            .select('*')
+            .eq('codigo_igreja', codigoIgrejaAtual)
+            .order('codigo_conta', { ascending: true });
+    
+          if (error) {
+            console.error('Erro no Supabase ao buscar plano de contas:', error.message);
+            setPlanoContasContabil([]);
+          } else {
+            setPlanoContasContabil(data || []);
+          }
+        } catch (err) {
+          console.error('Erro geral no carregamento do plano de contas:', err);
+        }
+      };
 
   // ==========================================
   // 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO

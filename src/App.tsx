@@ -39,121 +39,98 @@ export default function App() {
   // ==========================================
   // 2.3 PLANO DE CONTAS CONTÁBIL
   // ==========================================
+  const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
+  const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
+  const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
+  const [formPlanoNome, setFormPlanoNome] = useState('');
+  const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
+
   // ==========================================
-// 2.3 PLANO DE CONTAS CONTÁBIL
-// ==========================================
-const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
-const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
-const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
-const [formPlanoNome, setFormPlanoNome] = useState('');
-const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
+  // 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO
+  // ==========================================
+  const [loginCodigo, setLoginCodigo] = useState('IGR-001');
+  const [loginUsuario, setLoginUsuario] = useState('');
+  const [loginSenha, setLoginSenha] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
 
-// ==========================================
-// 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO
-// ==========================================
-const [loginCodigo, setLoginCodigo] = useState('IGR-001');
-const [loginUsuario, setLoginUsuario] = useState('');
-const [loginSenha, setLoginSenha] = useState('');
-const [loginLoading, setLoginLoading] = useState(false);
+  // ==========================================
+  // CARREGAMENTO DO PLANO DE CONTAS (UNIFICADO)
+  // ==========================================
+  const carregarPlanoContas = async () => {
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
 
-// ==========================================
-// CARREGAMENTO DO PLANO DE CONTAS
-// ==========================================
-const carregarPlanoContas = async () => {
-  const codigoIgrejaAtual =
-    loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
+    try {
+      console.log('Buscando plano de contas da igreja:', codigoIgrejaAtual);
 
-  try {
-    console.log(
-      'Buscando plano de contas da igreja:',
-      codigoIgrejaAtual
-    );
+      const { data, error } = await supabase
+        .from('plano_contas_contabil')
+        .select('*')
+        .eq('codigo_igreja', codigoIgrejaAtual)
+        .order('codigo_conta', { ascending: true });
 
-    const { data, error } = await supabase
-      .from('plano_contas_contabil')
-      .select('*')
-      .eq('codigo_igreja', codigoIgrejaAtual)
-      .order('codigo_conta', { ascending: true });
+      if (error) {
+        console.error('Erro ao buscar plano de contas:', error.message);
+        setPlanoContasContabil([]);
+        return;
+      }
 
-    if (error) {
-      console.error(
-        'Erro ao buscar plano de contas:',
-        error.message
-      );
-
+      console.log('Plano de contas carregado:', data);
+      setPlanoContasContabil(data || []);
+    } catch (err: any) {
+      console.error('Erro geral ao carregar plano de contas:', err.message);
       setPlanoContasContabil([]);
+    }
+  };
+
+  // ==========================================
+  // SALVAMENTO DE NOVA CONTA CONTÁBIL
+  // ==========================================
+  const salvarPlanoConta = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) {
+      alert('Preencha o código e o nome da conta contábil.');
       return;
     }
 
-    console.log('Plano de contas carregado:', data);
-    setPlanoContasContabil(data || []);
-  } catch (err: any) {
-    console.error(
-      'Erro geral ao carregar plano de contas:',
-      err.message
-    );
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
 
-    setPlanoContasContabil([]);
-  }
-};
+    try {
+      const { error } = await supabase
+        .from('plano_contas_contabil')
+        .insert([
+          {
+            codigo_igreja: codigoIgrejaAtual,
+            codigo_conta: formPlanoCodigo.trim(),
+            nome_conta: formPlanoNome.trim(),
+            tipo_natureza: formPlanoNatureza,
+          },
+        ]);
 
-// ==========================================
-// SALVAMENTO DE NOVA CONTA CONTÁBIL
-// ==========================================
-const salvarPlanoConta = async (e: React.FormEvent) => {
-  e.preventDefault();
+      if (error) {
+        throw error;
+      }
 
-  if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) {
-    alert('Preencha o código e o nome da conta contábil.');
-    return;
-  }
+      alert('Conta contábil cadastrada com sucesso!');
 
-  const codigoIgrejaAtual =
-    loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
+      setShowPlanoContaModal(false);
+      setFormPlanoCodigo('');
+      setFormPlanoNome('');
+      setFormPlanoNatureza('Receita');
 
-  try {
-    const { error } = await supabase
-      .from('plano_contas_contabil')
-      .insert([
-        {
-          codigo_igreja: codigoIgrejaAtual,
-          codigo_conta: formPlanoCodigo.trim(),
-          nome_conta: formPlanoNome.trim(),
-          tipo_natureza: formPlanoNatureza,
-        },
-      ]);
-
-    if (error) {
-      throw error;
+      await carregarPlanoContas();
+    } catch (err: any) {
+      alert('Erro ao salvar conta contábil: ' + err.message);
     }
+  };
 
-    alert('Conta contábil cadastrada com sucesso!');
+  // Carrega automaticamente ao acessar a sub-aba Plano de Contas
+  useEffect(() => {
+    if (isLoggedIn && loggedUser?.codigo_igreja && financeiroSubTab === 'plano_contas') {
+      carregarPlanoContas();
+    }
+  }, [financeiroSubTab, isLoggedIn, loggedUser?.codigo_igreja]);
 
-    setShowPlanoContaModal(false);
-    setFormPlanoCodigo('');
-    setFormPlanoNome('');
-    setFormPlanoNatureza('Receita');
-
-    await carregarPlanoContas();
-  } catch (err: any) {
-    alert('Erro ao salvar conta contábil: ' + err.message);
-  }
-};
-
-// Carrega automaticamente ao acessar a sub-aba Plano de Contas
-useEffect(() => {
-  if (
-    isLoggedIn &&
-    loggedUser?.codigo_igreja &&
-    financeiroSubTab === 'plano_contas'
-  ) {
-    carregarPlanoContas();
-  }
-}, [
-  financeiroSubTab,
-  isLoggedIn,
-  loggedUser?.codigo_igreja,
-]);
   // ==========================================
   // 2.5 MEMBROS E FORMULÁRIOS
   // ==========================================
@@ -336,35 +313,6 @@ useEffect(() => {
     const { data } = await supabase.from('ministerios').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
     setMinisteriosList(data || []);
   };
-
-  const carregarPlanoContas = async () => {
-    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
-
-    try {
-      const { data, error } = await supabase
-        .from('plano_contas_contabil')
-        .select('*')
-        .eq('codigo_igreja', 'IGR-001') 
-        .order('codigo_conta', { ascending: true });
-
-      if (error) {
-        console.error('Erro ao buscar plano de contas:', error.message);
-        setPlanoContasContabil([]);
-      } else {
-        setPlanoContasContabil(data || []);
-      }
-    } catch (err) {
-      console.error('Erro geral no carregamento:', err);
-    }
-  };
-  // Carrega automaticamente ao alternar para a sub-aba de plano de contas
-  useEffect(() => {
-    // Carrega automaticamente ao alternar para a sub-aba de plano de contas
-  useEffect(() => {
-    if (isLoggedIn && loggedUser?.codigo_igreja && financeiroSubTab === 'plano_contas') {
-      carregarPlanoContas();
-    }
-  }, [financeiroSubTab, isLoggedIn, loggedUser]);
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();

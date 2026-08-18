@@ -292,9 +292,40 @@ export default function App() {
 
   // Carrega automaticamente ao alternar para a sub-aba de plano de contas
   useEffect(() => {
-    if (financeiroSubTab === 'plano_contas') {
-      carregarPlanoContas();
+     // Carrega automaticamente ao alternar para a sub-aba de plano de contas
+  useEffect(() => {
+    if (financeiroSubTab === 'plano_contas' && loggedUser?.codigo_igreja) {
+      carregarPlanoContas(loggedUser.codigo_igreja);
     }
+  }, [financeiroSubTab, loggedUser]);
+
+  const salvarMinisterio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }
+
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formMinisterioNome.trim().toUpperCase(),
+      descricao: formMinisterioDesc.trim().toUpperCase()
+    };
+
+    try {
+      if (editingMinisterio && editingMinisterio.id) {
+        const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
+        if (error) throw error;
+        alert('Ministério atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('ministerios').insert([payload]);
+        if (error) throw error;
+        alert('Ministério cadastrado com sucesso!');
+      }
+      setShowMinisterioModal(false);
+      carregarMinisterios(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar ministério: ' + err.message);
+    }
+  };
+
   }, [financeiroSubTab]);
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();

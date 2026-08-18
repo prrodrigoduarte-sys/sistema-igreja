@@ -2107,6 +2107,78 @@ export default function App() {
             )}
           </div>
         )}
+
+        {/* ========================================== */}
+        {/* 7.11 MÓDULO: PROJETOS                      */}
+        {/* ========================================== */}
+        {activeTab === 'projetos' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">
+                  🚀 Gestão de Projetos: {
+                    projetoAtivo === 'missoes' ? 'Missões' :
+                    projetoAtivo === 'proj_1' ? 'Proj 1 - Ilimitados' :
+                    projetoAtivo === 'proj_2' ? 'Proj 2 - Casais' :
+                    projetoAtivo === 'proj_3' ? 'Proj 3 - Escola de Célula' :
+                    projetoAtivo === 'proj_4' ? 'Proj 4 - Escola de Líderes' : 'Proj 5 - Escola de Pastores'
+                  }
+                </h2>
+                <p className="text-xs text-slate-500">Inscrições e participantes vinculados a este projeto.</p>
+              </div>
+              <button onClick={() => {
+                setEditingInscricao(null);
+                setFormInscricaoNome('');
+                setFormInscricaoCpf('');
+                setFormInscricaoTel('');
+                setFormInscricaoEmail('');
+                setFormInscricaoMembroId('');
+                setShowInscricaoModal(true);
+              }} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer">
+                + Nova Inscrição
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-sm">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
+                    <th className="p-3">Nome</th>
+                    <th className="p-3">CPF</th>
+                    <th className="p-3">Telefone</th>
+                    <th className="p-3">E-mail</th>
+                    <th className="p-3 text-center">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-slate-700">
+                  {inscricoesList.filter(i => i.tipo_projeto === projetoAtivo).length === 0 ? (
+                    <tr><td colSpan={5} className="py-8 text-center text-slate-400">Nenhuma inscrição registrada para este projeto.</td></tr>
+                  ) : (
+                    inscricoesList.filter(i => i.tipo_projeto === projetoAtivo).map((insc: any) => (
+                      <tr key={insc.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-900">{insc.nome}</td>
+                        <td className="p-3 font-mono">{insc.cpf || '-'}</td>
+                        <td className="p-3">{insc.telefone || '-'}</td>
+                        <td className="p-3">{insc.email || '-'}</td>
+                        <td className="p-3 text-center">
+                          <button onClick={async () => {
+                            if (!window.confirm('Excluir esta inscrição?')) return;
+                            const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', insc.id);
+                            if (error) { alert('Erro: ' + error.message); return; }
+                            carregarInscricoes(loggedUser.codigo_igreja);
+                          }} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 font-bold text-xs rounded-lg transition-all cursor-pointer">
+                            Excluir
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* ========================================== */}

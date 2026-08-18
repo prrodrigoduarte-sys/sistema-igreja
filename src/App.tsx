@@ -73,24 +73,20 @@ export default function App() {
       setFormPlanoNatureza('Receita');
       
       const carregarPlanoContas = async () => {
-        const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo;
-        if (!codigoIgrejaAtual) return;
-    
         try {
           const { data, error } = await supabase
             .from('plano_contas_contabil')
-            .select('*')
-            .eq('codigo_igreja', codigoIgrejaAtual)
-            .order('codigo_conta', { ascending: true });
+            .select('*');
     
           if (error) {
-            console.error('Erro no Supabase ao buscar plano de contas:', error.message);
+            console.error('Erro ao buscar plano de contas:', error.message);
             setPlanoContasContabil([]);
           } else {
+            console.log('Dados encontrados:', data); // Vai mostrar no F12 o que veio do banco
             setPlanoContasContabil(data || []);
           }
         } catch (err) {
-          console.error('Erro geral no carregamento do plano de contas:', err);
+          console.error('Erro geral no carregamento:', err);
         }
       };
 

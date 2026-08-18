@@ -72,9 +72,7 @@ export default function App() {
       setFormPlanoNome('');
       setFormPlanoNatureza('Receita');
       
-      if (loggedUser?.codigo_igreja) {
-        carregarPlanoContas(loggedUser.codigo_igreja);
-      }
+      carregarPlanoContas();
     } catch (err: any) {
       alert('Erro ao cadastrar conta: ' + err.message);
     }
@@ -273,7 +271,6 @@ export default function App() {
 
   const carregarPlanoContas = async () => {
     try {
-      // Busca direta e sem filtros na tabela para garantir que traga todos os registros
       const { data, error } = await supabase
         .from('plano_contas_contabil')
         .select('*');
@@ -282,7 +279,6 @@ export default function App() {
         console.error('Erro ao buscar plano de contas:', error.message);
         setPlanoContasContabil([]);
       } else {
-        console.log('Plano de contas carregado com sucesso:', data);
         setPlanoContasContabil(data || []);
       }
     } catch (err) {
@@ -290,64 +286,39 @@ export default function App() {
     }
   };
 
- // 1. Funções de carregamento e manipulação
- const carregarMinisterios = async (cod: string) => {
-  const { data } = await supabase.from('ministerios').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
-  setMinisteriosList(data || []);
-};
-
-const carregarPlanoContas = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('plano_contas_contabil')
-      .select('*');
-
-    if (error) {
-      console.error('Erro ao buscar plano de contas:', error.message);
-      setPlanoContasContabil([]);
-    } else {
-      console.log('Plano de contas carregado com sucesso:', data);
-      setPlanoContasContabil(data || []);
+  // Carrega automaticamente ao alternar para a sub-aba de plano de contas
+  useEffect(() => {
+    if (financeiroSubTab === 'plano_contas') {
+      carregarPlanoContas();
     }
-  } catch (err) {
-    console.error('Erro geral no carregamento:', err);
-  }
-};
+  }, [financeiroSubTab]);
 
-// 2. O useEffect fica aqui dentro, respeitando o escopo do componente
-useEffect(() => {
-  if (financeiroSubTab === 'plano_contas') {
-    carregarPlanoContas();
-  }
-}, [financeiroSubTab]);
+  const salvarMinisterio = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }
 
-// 3. Função de salvar ministério vem logo depois
-const salvarMinisterio = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome: formMinisterioNome.trim().toUpperCase(),
+      descricao: formMinisterioDesc.trim().toUpperCase()
+    };
 
-  const payload = {
-    codigo_igreja: loggedUser.codigo_igreja,
-    nome: formMinisterioNome.trim().toUpperCase(),
-    descricao: formMinisterioDesc.trim().toUpperCase()
+    try {
+      if (editingMinisterio && editingMinisterio.id) {
+        const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
+        if (error) throw error;
+        alert('Ministério atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('ministerios').insert([payload]);
+        if (error) throw error;
+        alert('Ministério cadastrado com sucesso!');
+      }
+      setShowMinisterioModal(false);
+      carregarMinisterios(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro ao salvar ministério: ' + err.message);
+    }
   };
-
-  try {
-    if (editingMinisterio && editingMinisterio.id) {
-      const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
-      if (error) throw error;
-      alert('Ministério atualizado com sucesso!');
-    } else {
-      const { error } = await supabase.from('ministerios').insert([payload]);
-      if (error) throw error;
-      alert('Ministério cadastrado com sucesso!');
-    }
-    setShowMinisterioModal(false);
-    carregarMinisterios(loggedUser.codigo_igreja);
-  } catch (err: any) {
-    alert('Erro ao salvar ministério: ' + err.message);
-  }
-};
 
   const deletarMinisterio = async (id: string) => {
     if (!window.confirm('Tem certeza que deseja excluir este ministério?')) return;
@@ -416,7 +387,7 @@ const salvarMinisterio = async (e: React.FormEvent) => {
         carregarMembros(cod),
         carregarMinisterios(cod),
         carregarInscricoes(cod),
-        carregarPlanoContas(cod),
+        carregarPlanoContas(),
         carregarAgenda(cod),
         carregarCelulas(cod),
         carregarSetores(cod),

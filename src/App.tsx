@@ -292,7 +292,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('plano_contas_contabil')
         .select('*')
-        .eq('codigo_igreja', codigoIgrejaAtual)
+        .eq('codigo_igreja', 'IGR-001') 
         .order('codigo_conta', { ascending: true });
 
       if (error) {

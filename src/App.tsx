@@ -272,19 +272,20 @@ export default function App() {
   };
 
   const carregarPlanoContas = async (cod: string) => {
-    const igrejaAlvo = cod || loggedUser?.codigo_igreja || loginCodigo;
-    
-    const { data, error } = await supabase
-      .from('plano_contas_contabil')
-      .select('*')
-      .eq('codigo_igreja', igrejaAlvo);
-
-    if (error) {
-      console.error('Erro ao carregar plano de contas:', error.message);
-    } else {
-      setPlanoContasContabil(data || []);
-    }
-  };
+    const carregarPlanoContas = async (cod: string) => {
+      const igrejaAlvo = cod || loggedUser?.codigo_igreja || loginCodigo;
+      
+      const { data, error } = await supabase
+        .from('plano_contas_contabil')
+        .select('*')
+        .eq('codigo_igreja', igrejaAlvo);
+  
+      if (error) {
+        console.error('Erro ao carregar plano de contas:', error.message);
+      } else {
+        setPlanoContasContabil(data || []);
+      }
+    };
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();

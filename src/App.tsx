@@ -52,7 +52,28 @@ export default function App() {
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+// ==========================================
+// CONTROLE DE ACESSO DO MÓDULO MOBILE
+// ==========================================
+const ehUsuarioCelula = loggedUser?.perfil_acesso === 'celula';
 
+const obterIdCelulaDoUsuario = () => {
+  return loggedUser?.celula_id || null;
+};
+
+const membroPodeAcessarCelula = (membro: any) => {
+  const celulaId = obterIdCelulaDoUsuario();
+
+  if (!ehUsuarioCelula || !celulaId || !membro) {
+    return true;
+  }
+
+  const participantes = Array.isArray(loggedUser?.participantes_celula)
+    ? loggedUser.participantes_celula.map((id: any) => String(id))
+    : [];
+
+  return participantes.includes(String(membro.id));
+};
   // ==========================================
   // CARREGAMENTO DO PLANO DE CONTAS (UNIFICADO)
   // ==========================================
@@ -293,12 +314,113 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
+  
     try {
-      const { data, error } = await supabase.from('usuarios').select('*, igrejas(*)').eq('codigo_igreja', loginCodigo.trim()).eq('usuario', loginUsuario.trim()).eq('senha', loginSenha.trim()).eq('ativo', true).single();
-      if (error || !data) { alert('Usuário ou senha incorretos.'); return; }
-      setLoggedUser(data); 
+      const codigoIgreja = loginCodigo.trim().toUpperCase();
+      const usuarioInformado = loginUsuario.trim();
+      const senhaInformada = loginSenha.trim();
+  
+      if (!codigoIgreja || !usuarioInformado || !senhaInformada) {
+        alert('Preencha o código da igreja, usuário e senha.');
+        return;
+      }
+  
+      // Login inicial pela tabela de usuários.
+      // A senha não deve permanecer armazenada em texto aberto em produção.
+      const { data: usuario, error: erroUsuario } = await supabase
+        .from('usuarios')
+        .select('*, igrejas(*)')
+        .eq('codigo_igreja', codigoIgreja)
+        .eq('usuario', usuarioInformado)
+        .eq('senha', senhaInformada)
+        .eq('ativo', true)
+        .maybeSingle();
+  
+      if (erroUsuario || !usuario) {
+        alert('Usuário ou senha incorretos.');
+        return;
+      }
+  
+      // Administrador continua acessando o sistema completo.
+      if (
+        usuario.usuario === 'admin' ||
+        usuario.perfil === 'admin' ||
+        usuario.tipo_usuario === 'admin'
+      ) {
+        setLoggedUser({
+          ...usuario,
+          perfil_acesso: 'admin'
+        });
+        setIsLoggedIn(true);
+        return;
+      }
+  
+      // Para usuários comuns, o usuário deve ser o CPF de um membro.
+      const cpfInformado = usuarioInformado.replace(/\D/g, '');
+  
+      const { data: membro, error: erroMembro } = await supabase
+        .from('members')
+        .select('id, nome, cpf, codigo_igreja')
+        .eq('codigo_igreja', codigoIgreja)
+        .eq('cpf', cpfInformado)
+        .maybeSingle();
+  
+      if (erroMembro || !membro) {
+        alert('Este CPF não está vinculado a um membro da igreja.');
+        return;
+      }
+  
+      // Busca as células da igreja e identifica o líder ou vice-líder.
+      const { data: celulas, error: erroCelulas } = await supabase
+        .from('celulas')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+  
+      if (erroCelulas) {
+        alert('Não foi possível validar a célula deste usuário.');
+        return;
+      }
+  
+      const celulaDoMembro = (celulas || []).find((celula: any) => {
+        return (
+          String(celula.lider_id) === String(membro.id) ||
+          String(celula.vice_id) === String(membro.id)
+        );
+      });
+  
+      if (!celulaDoMembro) {
+        alert('Acesso negado. Somente líder ou vice-líder de célula pode acessar este módulo.');
+        return;
+      }
+  
+      const funcao =
+        String(celulaDoMembro.lider_id) === String(membro.id)
+          ? 'lider'
+          : 'vice_lider';
+  
+      const participantes = Array.isArray(celulaDoMembro.participantes)
+        ? celulaDoMembro.participantes
+        : [];
+  
+      setLoggedUser({
+        ...usuario,
+        perfil_acesso: 'celula',
+        funcao_celula: funcao,
+        membro_id: membro.id,
+        membro_nome: membro.nome,
+        celula_id: celulaDoMembro.id,
+        celula_nome: celulaDoMembro.nome,
+        participantes_celula: participantes,
+        codigo_igreja: codigoIgreja
+      });
+  
+      setActiveTab('membros_mobile');
       setIsLoggedIn(true);
-    } catch (err: any) { alert('Erro no login: ' + err.message); } finally { setLoginLoading(false); }
+    } catch (err: any) {
+      alert('Erro no login: ' + err.message);
+    } finally {
+      setLoginLoading(false);
+    }
   };
 
   const carregarMembros = async (cod: string) => {
@@ -969,44 +1091,88 @@ export default function App() {
 
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual : 0;
 
-  // ==========================================
-  // 5. TELA DE LOGIN DO SISTEMA
-  // ==========================================
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-          <div className="text-center space-y-1">
-            <h1 className="text-3xl font-black text-blue-900">BRSYSTEM</h1>
-            <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">Tecnologia para Gestão</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">Código da Igreja</label>
-              <input type="text" value={loginCodigo} onChange={(e) => setLoginCodigo(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">Usuário</label>
-              <input type="text" placeholder="Digite seu usuário" value={loginUsuario} onChange={(e) => setLoginUsuario(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">Senha</label>
-              <input type="password" placeholder="••••••••" value={loginSenha} onChange={(e) => setLoginSenha(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-            </div>
-            <button type="submit" disabled={loginLoading} className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg cursor-pointer transition-all">
-              {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // 6. ESTRUTURA PRINCIPAL E HEADER (CABEÇALHO)
-  // ==========================================
+ // ==========================================
+// 5. TELA DE LOGIN DO SISTEMA
+// ==========================================
+if (!isLoggedIn) {
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+        <div className="text-center space-y-1">
+          <h1 className="text-3xl font-black text-blue-900">
+            BRSYSTEM
+          </h1>
+
+          <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">
+            Tecnologia para Gestão
+          </p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-slate-600 ml-1">
+              Código da Igreja
+            </label>
+
+            <input
+              type="text"
+              value={loginCodigo}
+              onChange={(e) =>
+                setLoginCodigo(e.target.value.toUpperCase())
+              }
+              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-600 ml-1">
+              CPF do Líder ou Vice-líder
+            </label>
+
+            <input
+              type="text"
+              placeholder="000.000.000-00"
+              maxLength={14}
+              value={loginUsuario}
+              onChange={(e) =>
+                setLoginUsuario(aplicarMascaraCpf(e.target.value))
+              }
+              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-600 ml-1">
+              Senha
+            </label>
+
+            <input
+              type="password"
+              placeholder="Digite sua senha"
+              value={loginSenha}
+              onChange={(e) => setLoginSenha(e.target.value)}
+              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loginLoading}
+            className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg cursor-pointer transition-all disabled:opacity-60"
+          >
+            {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// 6. ESTRUTURA PRINCIPAL E HEADER (CABEÇALHO)
+// ==========================================
+return (
+  <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
         <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
           {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}

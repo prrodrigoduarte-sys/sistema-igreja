@@ -348,12 +348,19 @@ const membroPodeAcessarCelula = (membro: any) => {
         usuario.tipo_usuario === 'admin'
       ) {
         setLoggedUser({
-          ...usuario,
-          perfil_acesso: 'admin'
+          ...usuarioCelula,
+          perfil_acesso: 'celula',
+          funcao_celula: funcaoCelula,
+          membro_id: membro.id,
+          membro_nome: membro.nome,
+          celula_id: celula.id,
+          celula_nome: celula.nome,
+          participantes_celula: idsPermitidos,
+          codigo_igreja: codigoIgreja
         });
+        
+        setActiveTab('membros_mobile');
         setIsLoggedIn(true);
-        return;
-      }
   
       // Para usuários comuns, o usuário deve ser o CPF de um membro.
       const cpfInformado = usuarioInformado.replace(/\D/g, '');

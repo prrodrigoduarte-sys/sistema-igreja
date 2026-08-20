@@ -523,20 +523,20 @@ if (loginModo === 'mobile') {
   };
 
   const carregarMinisterios = async (cod: string) => {
-    const { data, error } = await supabase
-      .from('ministerios')
-      .select('*')
-      .eq('codigo_igreja', cod)
-      .order('nome', { ascending: true });
-  
-    if (error) {
-      console.error('Erro ao carregar ministérios:', error.message);
-      setMinisteriosList([]);
-      return;
-    }
-  
-    setMinisteriosList(data || []);
-  };
+  const { data, error } = await supabase
+    .from('ministerios')
+    .select('*')
+    .eq('codigo_igreja', cod)
+    .order('nome', { ascending: true });
+
+  if (error) {
+    console.error('Erro ao carregar ministérios:', error.message);
+    setMinisteriosList([]);
+    return;
+  }
+
+  setMinisteriosList(data || []);
+};
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1327,126 +1327,114 @@ if (!isLoggedIn) {
 }
 
 // ==========================================
-// 6. ESTRUTURA PRINCIPAL E HEADER (CABEÇALHO)
+// 6. ESTRUTURA PRINCIPAL E HEADER
 // ==========================================
 return (
   <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
 
-    {!ehUsuarioCelula && (
-      <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
-        <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
-          {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}
-        </span>
-      </div>
-    )}
+  {isLoggedIn && loginModo === 'normal' && (
+    <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
+          <button
+            type="button"
+            onClick={() => setActiveTab('relatorios')}
+            className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer"
+          >
+            📊 Relatórios
+          </button>
 
-    {!ehUsuarioCelula && (
-      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
+          <button
+            type="button"
+            onClick={() => setActiveTab('membros')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            👥 Membros
+          </button>
 
-<div className="max-w-7xl mx-auto flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setActiveTab('usuarios')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            👤 Usuários
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('relatorios')}
-  className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer"
->
-  📊 Relatórios
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('fornecedores')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            🚚 Fornecedores
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('membros')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  👥 Membros
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('ministerios')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            🙌 Ministérios
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('usuarios')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  👤 Usuários
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('celulas')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            🌱 Células
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('fornecedores')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  🚚 Fornecedores
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('agenda')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            📅 Agenda
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('ministerios')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  🙌 Ministérios
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('financeiro')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            💰 Financeiro
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('celulas')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  🌱 Células
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('igreja')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            🏛️ Igreja
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('agenda')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  📅 Agenda
-</button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('projetos')}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+          >
+            🚀 Projetos
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('financeiro')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  💰 Financeiro
-</button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsLoggedIn(false);
+              setLoggedUser(null);
+              setActiveTab('relatorios');
+            }}
+            className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
+          >
+            Sair
+          </button>
 
-<button
-  type="button"
-  onClick={() => setActiveTab('igreja')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  🏛️ Igreja
-</button>
-
-<button
-  type="button"
-  onClick={() => setActiveTab('projetos')}
-  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
->
-  🚀 Projetos
-</button>
-
-<button
-  type="button"
-  onClick={() => {
-    setIsLoggedIn(false);
-    setLoggedUser(null);
-    setActiveTab('relatorios');
-  }}
-  className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
->
-  Sair
-</button>
-
-</div>
-
+        </div> 
       </header>
     )}
 
+    <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
       {/* ========================================== */}
       {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}
       {/* ========================================== */}
-      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
-        
+      
         {/* ========================================== */}
         {/* 7.1 MÓDULO: MEMBROS MOBILE                 */}
         {/* ========================================== */}

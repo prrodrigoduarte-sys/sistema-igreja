@@ -1255,7 +1255,7 @@ if (!isLoggedIn) {
 return (
   <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
 
-    {/* Marca d'água somente para usuários do sistema completo */}
+    {/* Marca d'água somente para usuários Normal/Admin */}
     {!ehUsuarioCelula && (
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
         <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
@@ -1264,229 +1264,176 @@ return (
       </div>
     )}
 
-    {/* Menu completo: aparece para administrador e usuário normal.
-        Fica oculto somente para o usuário Mobile. */}
+    {/* Cabeçalho somente para usuários Normal/Admin */}
     {!ehUsuarioCelula && (
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
+        <div className="max-w-7xl mx-auto">
 
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-
-          {/* Identificação do sistema */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-900 text-white flex items-center justify-center font-black">
-              BR
-            </div>
-
+          {/* Identificação e botão sair */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <div>
-              <h1 className="text-lg font-black text-blue-900">
+              <h1 className="text-xl font-black text-blue-900">
                 BRSYSTEM
               </h1>
 
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">
-                {loggedUser?.nome_usuario ||
+              <p className="text-xs text-slate-500 font-bold">
+                Usuário: {
+                  loggedUser?.nome_usuario ||
                   loggedUser?.nome ||
                   loggedUser?.usuario ||
-                  'Usuário'}
+                  'Usuário'
+                }
               </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black">
+                {loggedUser?.perfil_acesso === 'admin'
+                  ? 'ADMINISTRADOR'
+                  : 'USUÁRIO NORMAL'}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLoggedIn(false);
+                  setLoggedUser(null);
+                  setActiveTab('relatorios');
+                  setLoginModo('normal');
+                  setLoginUsuario('');
+                  setLoginSenha('');
+                }}
+                className="px-4 py-2 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                Sair
+              </button>
             </div>
           </div>
 
-          {/* Navegação principal */}
-          <nav className="flex flex-wrap items-center justify-center gap-2">
+          {/* Menu de navegação */}
+          <nav className="flex flex-wrap gap-2">
 
-            {/* Relatórios */}
             <button
               type="button"
               onClick={() => setActiveTab('relatorios')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                 activeTab === 'relatorios'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
               }`}
             >
               📊 Relatórios
             </button>
 
-            {/* Cadastros */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenDropdown(
-                    openDropdown === 'cadastros' ? null : 'cadastros'
-                  )
-                }
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  ['membros', 'ministerios', 'fornecedores'].includes(activeTab)
-                    ? 'bg-blue-900 text-white shadow'
-                    : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
-                }`}
-              >
-                📁 Cadastros ▾
-              </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('membros')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                activeTab === 'membros'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
+              }`}
+            >
+              👥 Membros
+            </button>
 
-              {openDropdown === 'cadastros' && (
-                <div className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50">
+            <button
+              type="button"
+              onClick={() => setActiveTab('usuarios')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                activeTab === 'usuarios'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
+              }`}
+            >
+              👤 Usuários
+            </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('membros');
-                      setOpenDropdown(null);
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-900 cursor-pointer"
-                  >
-                    👥 Membros
-                  </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('fornecedores')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                activeTab === 'fornecedores'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
+              }`}
+            >
+              🚚 Fornecedores
+            </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('ministerios');
-                      setOpenDropdown(null);
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-900 cursor-pointer"
-                  >
-                    🙌 Ministérios
-                  </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('ministerios')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                activeTab === 'ministerios'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
+              }`}
+            >
+              🙌 Ministérios
+            </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('fornecedores');
-                      setOpenDropdown(null);
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-900 cursor-pointer"
-                  >
-                    🚚 Fornecedores
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Controle */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() =>
-                  setOpenDropdown(
-                    openDropdown === 'controle' ? null : 'controle'
-                  )
-                }
-                className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  ['usuarios', 'igreja'].includes(activeTab)
-                    ? 'bg-blue-900 text-white shadow'
-                    : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
-                }`}
-              >
-                ⚙️ Controle ▾
-              </button>
-
-              {openDropdown === 'controle' && (
-                <div className="absolute top-full left-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50">
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('usuarios');
-                      setOpenDropdown(null);
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-900 cursor-pointer"
-                  >
-                    👤 Usuários e Permissões
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTab('igreja');
-                      setOpenDropdown(null);
-                    }}
-                    className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-900 cursor-pointer"
-                  >
-                    🏛️ Cadastro da Igreja
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Células */}
             <button
               type="button"
               onClick={() => setActiveTab('celulas')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                 activeTab === 'celulas'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
               }`}
             >
               🌱 Células
             </button>
 
-            {/* Agenda */}
             <button
               type="button"
               onClick={() => setActiveTab('agenda')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                 activeTab === 'agenda'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
               }`}
             >
               📅 Agenda
             </button>
 
-            {/* Financeiro */}
             <button
               type="button"
               onClick={() => setActiveTab('financeiro')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                 activeTab === 'financeiro'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
               }`}
             >
               💰 Financeiro
             </button>
 
-            {/* Projetos */}
+            <button
+              type="button"
+              onClick={() => setActiveTab('igreja')}
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                activeTab === 'igreja'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
+              }`}
+            >
+              🏛️ Igreja
+            </button>
+
             <button
               type="button"
               onClick={() => setActiveTab('projetos')}
-              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                 activeTab === 'projetos'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-900'
+                  ? 'bg-blue-900 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
               }`}
             >
               🚀 Projetos
             </button>
+
           </nav>
-
-          {/* Usuário e saída */}
-          <div className="flex items-center gap-3">
-            <span className="hidden lg:inline-block text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
-              {loggedUser?.perfil_acesso === 'admin'
-                ? 'Administrador'
-                : 'Usuário Normal'}
-            </span>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsLoggedIn(false);
-                setLoggedUser(null);
-                setActiveTab('relatorios');
-                setOpenDropdown(null);
-                setLoginModo('normal');
-                setLoginUsuario('');
-                setLoginSenha('');
-              }}
-              className="px-3 py-2 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
-            >
-              Sair
-            </button>
-          </div>
         </div>
       </header>
     )}

@@ -10,7 +10,7 @@ import { supabase } from './supabase';
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-
+  
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('relatorios');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
@@ -53,32 +53,34 @@ export default function App() {
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginModo, setLoginModo] = useState<'mobile' | 'normal'>('normal');
+// ==========================================
+// CONTROLE DE ACESSO DO MÓDULO MOBILE
+// ==========================================
+const ehUsuarioCelula =
+  loggedUser?.perfil_acesso === 'celula';
 
-  // ==========================================
-  // CONTROLE DE ACESSO DO MÓDULO MOBILE
-  // ==========================================
-  const ehUsuarioCelula = loggedUser?.perfil_acesso === 'celula';
-  const ehAdministrador = loggedUser?.perfil_acesso === 'admin';
-  const podeAcessarSistemaCompleto = !ehUsuarioCelula;
+const ehAdministrador =
+  loggedUser?.perfil_acesso === 'admin';
 
-  const obterIdCelulaDoUsuario = () => {
-    return loggedUser?.celula_id || null;
-  };
+const podeAcessarSistemaCompleto =
+  !ehUsuarioCelula;
+const obterIdCelulaDoUsuario = () => {
+  return loggedUser?.celula_id || null;
+};
 
-  const membroPodeAcessarCelula = (membro: any) => {
-    const celulaId = obterIdCelulaDoUsuario();
+const membroPodeAcessarCelula = (membro: any) => {
+  const celulaId = obterIdCelulaDoUsuario();
 
-    if (!ehUsuarioCelula || !celulaId || !membro) {
-      return true;
-    }
+  if (!ehUsuarioCelula || !celulaId || !membro) {
+    return true;
+  }
 
-    const participantes = Array.isArray(loggedUser?.participantes_celula)
-      ? loggedUser.participantes_celula.map((id: any) => String(id))
-      : [];
+  const participantes = Array.isArray(loggedUser?.participantes_celula)
+    ? loggedUser.participantes_celula.map((id: any) => String(id))
+    : [];
 
-    return participantes.includes(String(membro.id));
-  };
-
+  return participantes.includes(String(membro.id));
+};
   // ==========================================
   // CARREGAMENTO DO PLANO DE CONTAS (UNIFICADO)
   // ==========================================
@@ -319,109 +321,136 @@ export default function App() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
-
+  
     try {
       const codigoIgreja = loginCodigo.trim().toUpperCase();
       const identificador = loginUsuario.trim();
       const senha = loginSenha.trim();
-
+  
       if (!codigoIgreja || !identificador || !senha) {
         alert('Preencha todos os campos.');
         return;
       }
+  
+     // ==========================================
+// LOGIN MOBILE
+// CPF + senha padrão 123456
+// ==========================================
+if (loginModo === 'mobile') {
+  const cpfNumeros = identificador.replace(/\D/g, '');
 
-      // LOGIN MOBILE (CPF + senha padrão 123456)
-      if (loginModo === 'mobile') {
-        const cpfNumeros = identificador.replace(/\D/g, '');
+  if (cpfNumeros.length !== 11) {
+    alert('Digite um CPF válido com 11 números.');
+    return;
+  }
 
-        if (cpfNumeros.length !== 11) {
-          alert('Digite um CPF válido com 11 números.');
-          return;
-        }
+  if (senha !== '123456') {
+    alert('A senha do Mobile deve ser 123456.');
+    return;
+  }
 
-        if (senha !== '123456') {
-          alert('A senha do Mobile deve ser 123456.');
-          return;
-        }
+  const { data: membrosIgreja, error: erroMembro } = await supabase
+    .from('members')
+    .select('id, nome, cpf, codigo_igreja')
+    .eq('codigo_igreja', codigoIgreja);
 
-        const { data: membrosIgreja, error: erroMembro } = await supabase
-          .from('members')
-          .select('id, nome, cpf, codigo_igreja')
-          .eq('codigo_igreja', codigoIgreja);
+  if (erroMembro) {
+    alert('Erro ao consultar membros: ' + erroMembro.message);
+    return;
+  }
 
-        if (erroMembro) {
-          alert('Erro ao consultar membros: ' + erroMembro.message);
-          return;
-        }
+  const membro = (membrosIgreja || []).find((item: any) => {
+    const cpfBanco = String(item.cpf || '').replace(/\D/g, '');
+    return cpfBanco === cpfNumeros;
+  });
 
-        const membro = (membrosIgreja || []).find((item: any) => {
-          const cpfBanco = String(item.cpf || '').replace(/\D/g, '');
-          return cpfBanco === cpfNumeros;
-        });
+  if (!membro) {
+    alert('CPF não encontrado no cadastro de membros.');
+    return;
+  }
 
-        if (!membro) {
-          alert('CPF não encontrado no cadastro de membros.');
-          return;
-        }
+  const { data: celulasDaIgreja, error: erroCelula } = await supabase
+    .from('celulas')
+    .select('*')
+    .eq('codigo_igreja', codigoIgreja);
 
-        const { data: celulasDaIgreja, error: erroCelula } = await supabase
-          .from('celulas')
-          .select('*')
-          .eq('codigo_igreja', codigoIgreja);
+  if (erroCelula) {
+    alert('Erro ao consultar células: ' + erroCelula.message);
+    return;
+  }
 
-        if (erroCelula) {
-          alert('Erro ao consultar células: ' + erroCelula.message);
-          return;
-        }
+  const celula = (celulasDaIgreja || []).find((item: any) => {
+    const membroId = String(membro.id);
+    const liderId = String(item.lider_id ?? '');
+    const viceId = String(item.vice_id ?? '');
 
-        const celula = (celulasDaIgreja || []).find((item: any) => {
-          const membroId = String(membro.id);
-          const liderId = String(item.lider_id ?? '');
-          const viceId = String(item.vice_id ?? '');
+    return liderId === membroId || viceId === membroId;
+  });
 
-          return liderId === membroId || viceId === membroId;
-        });
+  if (!celula) {
+    alert(
+      'Acesso negado. Este CPF não é de líder ou vice-líder de célula.'
+    );
+    return;
+  }
 
-        if (!celula) {
-          alert('Acesso negado. Este CPF não é de líder ou vice-líder de célula.');
-          return;
-        }
+  const funcaoCelula =
+    String(celula.lider_id) === String(membro.id)
+      ? 'lider'
+      : 'vice_lider';
 
-        const funcaoCelula = String(celula.lider_id) === String(membro.id) ? 'lider' : 'vice_lider';
-        const participantes = Array.isArray(celula.participantes) ? celula.participantes : [];
+  const participantes = Array.isArray(celula.participantes)
+    ? celula.participantes
+    : [];
 
-        const idsPermitidos = Array.from(
-          new Set(
-            [...participantes, celula.lider_id, celula.vice_id, celula.anfitriao_id]
-              .map((item: any) => {
-                if (item && typeof item === 'object' && 'id' in item) {
-                  return item.id;
-                }
-                return item;
-              })
-              .filter((id: any) => id !== null && id !== undefined && String(id).trim() !== '')
-              .map((id: any) => String(id))
+    const idsPermitidos = Array.from(
+      new Set(
+        [
+          ...participantes,
+          celula.lider_id,
+          celula.vice_id,
+          celula.anfitriao_id
+        ]
+          .map((item: any) => {
+            if (
+              item &&
+              typeof item === 'object' &&
+              'id' in item
+            ) {
+              return item.id;
+            }
+    
+            return item;
+          })
+          .filter(
+            (id: any) =>
+              id !== null &&
+              id !== undefined &&
+              String(id).trim() !== ''
           )
-        );
+          .map((id: any) => String(id))
+      )
+    );
+  setLoggedUser({
+    perfil_acesso: 'celula',
+    funcao_celula: funcaoCelula,
+    membro_id: membro.id,
+    membro_nome: membro.nome,
+    celula_id: celula.id,
+    celula_nome: celula.nome,
+    participantes_celula: idsPermitidos,
+    codigo_igreja: codigoIgreja,
+    nome_usuario: membro.nome
+  });
 
-        setLoggedUser({
-          perfil_acesso: 'celula',
-          funcao_celula: funcaoCelula,
-          membro_id: membro.id,
-          membro_nome: membro.nome,
-          celula_id: celula.id,
-          celula_nome: celula.nome,
-          participantes_celula: idsPermitidos,
-          codigo_igreja: codigoIgreja,
-          nome_usuario: membro.nome
-        });
-
-        setActiveTab('membros_mobile');
-        setIsLoggedIn(true);
-        return;
-      }
-
-      // LOGIN NORMAL
+  setActiveTab('membros_mobile');
+  setIsLoggedIn(true);
+  return;
+}
+      // ==========================================
+      // LOGIN NORMAL ANTIGO
+      // Usuário e senha da tabela usuarios
+      // ==========================================
       const { data: usuario, error: erroUsuario } = await supabase
         .from('usuarios')
         .select('*, igrejas(*)')
@@ -430,22 +459,22 @@ export default function App() {
         .eq('senha', senha)
         .eq('ativo', true)
         .maybeSingle();
-
+  
       if (erroUsuario || !usuario) {
         alert('Usuário ou senha incorretos.');
         return;
       }
-
+  
       const ehAdministrador =
         usuario.usuario === 'admin' ||
         usuario.perfil === 'admin' ||
         usuario.tipo_usuario === 'admin';
-
+  
       setLoggedUser({
         ...usuario,
         perfil_acesso: ehAdministrador ? 'admin' : 'usuario'
       });
-
+  
       setActiveTab('relatorios');
       setIsLoggedIn(true);
     } catch (err: any) {
@@ -456,28 +485,34 @@ export default function App() {
   };
 
   const carregarMembros = async (cod: string) => {
+    console.log('Código usado para buscar membros:', cod);
+  
     if (!cod) {
+      console.warn('Código da igreja não informado.');
       setMembers([]);
       return;
     }
-
+  
     setLoadingMembros(true);
-
+  
     try {
       const codigoNormalizado = cod.trim().toUpperCase();
-
+  
       const { data, error } = await supabase
         .from('members')
         .select('*')
         .eq('codigo_igreja', codigoNormalizado)
         .order('nome', { ascending: true });
-
+  
+      console.log('Membros retornados:', data);
+      console.log('Erro Supabase:', error);
+  
       if (error) {
         console.error('Erro ao carregar membros:', error.message);
         setMembers([]);
         return;
       }
-
+  
       setMembers(data || []);
     } catch (err: any) {
       console.error('Erro inesperado ao carregar membros:', err);
@@ -488,20 +523,20 @@ export default function App() {
   };
 
   const carregarMinisterios = async (cod: string) => {
-    const { data, error } = await supabase
-      .from('ministerios')
-      .select('*')
-      .eq('codigo_igreja', cod)
-      .order('nome', { ascending: true });
+  const { data, error } = await supabase
+    .from('ministerios')
+    .select('*')
+    .eq('codigo_igreja', cod)
+    .order('nome', { ascending: true });
 
-    if (error) {
-      console.error('Erro ao carregar ministérios:', error.message);
-      setMinisteriosList([]);
-      return;
-    }
+  if (error) {
+    console.error('Erro ao carregar ministérios:', error.message);
+    setMinisteriosList([]);
+    return;
+  }
 
-    setMinisteriosList(data || []);
-  };
+  setMinisteriosList(data || []);
+};
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -591,7 +626,7 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
-
+    
     async function carregarDados() {
       await Promise.all([
         carregarMembros(cod),
@@ -607,7 +642,7 @@ export default function App() {
 
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);
-
+      
       const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
       setFornecedoresList(fData || []);
     }
@@ -741,7 +776,7 @@ export default function App() {
     });
 
     if (duplicado) { alert('ERRO: Já existe um membro com este Nome ou CPF cadastrado.'); return; }
-
+    
     const enderecoFinal = formMember.endereco.trim() || `${formMember.rua}, ${formMember.numero || 'S/N'} - ${formMember.bairro}, ${formMember.cidade} - ${formMember.estado} (CEP: ${formMember.cep})`;
 
     const payload = {
@@ -877,7 +912,7 @@ export default function App() {
     setFormAgendaData(c.data_compromisso || '');
     setFormAgendaHoraInicio(c.hora_compromisso || '');
     setFormAgendaHoraFim(c.hora_fim || '');
-    setFormAgendaMembroId(c.responsavel ? String(c.responsavel) : '');
+    setFormAgendaMembroId(c.responsavel ? String(c.responsavel) : ''); 
     const comentarioLimpo = c.descricao ? (c.descricao.includes('—') ? c.descricao.split('—').pop()?.trim() : c.descricao) : '';
     setFormAgendaComentario(comentarioLimpo);
     setShowAgendaModal(true);
@@ -886,17 +921,17 @@ export default function App() {
   const handleSaveAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formAgendaTitulo.trim() || !formAgendaData.trim()) { alert('Preencha pelo menos o Título e a Data do compromisso.'); return; }
-
+  
     const payload: any = {
       codigo_igreja: loggedUser.codigo_igreja,
       titulo: formAgendaTitulo.trim(),
       data_compromisso: formAgendaData,
       hora_compromisso: formAgendaHoraInicio || '00:00',
       hora_fim: formAgendaHoraFim || '00:00',
-      responsavel: formAgendaMembroId && formAgendaMembroId !== "" ? parseInt(formAgendaMembroId, 10) : null,
+      responsavel: formAgendaMembroId && formAgendaMembroId !== "" ? parseInt(formAgendaMembroId, 10) : null, 
       descricao: formAgendaComentario.trim()
     };
-
+  
     try {
       if (editingCompromisso) {
         const { error } = await supabase.from('agenda_compromissos').update(payload).eq('id', editingCompromisso.id);
@@ -1061,26 +1096,26 @@ export default function App() {
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
-
+    
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome_conta: formNomeConta.trim().toUpperCase(),
       codigo_conta: formTipoConta
     };
-
+  
     try {
       const { error } = await supabase.from('contas_financeiras').insert([payload]);
       if (error) {
         alert('Erro ao salvar conta: ' + error.message);
         return;
       }
-
+      
       alert('Conta cadastrada com sucesso!');
       setShowContaModal(false);
       setFormNomeConta('');
       carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro: ' + err.message);
+    } catch (err: any) { 
+      alert('Erro: ' + err.message); 
     }
   };
 
@@ -1147,14 +1182,14 @@ export default function App() {
   const handlePrint = () => { window.print(); };
 
   const membrosVisiveis =
-    loggedUser?.perfil_acesso === 'celula'
-      ? members.filter((m: any) => membroPodeAcessarCelula(m))
-      : members;
+  loggedUser?.perfil_acesso === 'celula'
+    ? members.filter((m: any) => membroPodeAcessarCelula(m))
+    : members;
 
-  const filteredMembers = membrosVisiveis.filter((m: any) =>
-    !searchTerm ||
-    m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+const filteredMembers = membrosVisiveis.filter((m: any) =>
+  !searchTerm ||
+  m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   let saldoAcumulado = 0;
   const lancamentosComSaldo = lancamentosCorrente.map((l: any) => {
@@ -1166,138 +1201,145 @@ export default function App() {
 
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual : 0;
 
-  // ==========================================
-  // 5. TELA DE LOGIN DO SISTEMA
-  // ==========================================
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-          <div className="text-center space-y-1">
-            <h1 className="text-3xl font-black text-blue-900">
-              BRSYSTEM
-            </h1>
-            <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">
-              Tecnologia para Gestão
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-            <button
-              type="button"
-              onClick={() => {
-                setLoginModo('mobile');
-                setLoginUsuario('');
-                setLoginSenha('');
-              }}
-              className={`py-2.5 rounded-lg text-xs font-black transition-all ${
-                loginModo === 'mobile'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-white'
-              }`}
-            >
-              1 — MOBILE
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setLoginModo('normal');
-                setLoginUsuario('');
-                setLoginSenha('');
-              }}
-              className={`py-2.5 rounded-lg text-xs font-black transition-all ${
-                loginModo === 'normal'
-                  ? 'bg-blue-900 text-white shadow'
-                  : 'text-slate-600 hover:bg-white'
-              }`}
-            >
-              2 — NORMAL
-            </button>
-          </div>
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">
-                Código da Igreja
-              </label>
-              <input
-                type="text"
-                value={loginCodigo}
-                onChange={(e) =>
-                  setLoginCodigo(e.target.value.toUpperCase())
-                }
-                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">
-                {loginModo === 'mobile'
-                  ? 'CPF do Líder ou Vice-líder'
-                  : 'Usuário'}
-              </label>
-              <input
-                type="text"
-                placeholder={
-                  loginModo === 'mobile'
-                    ? '000.000.000-00'
-                    : 'Digite seu usuário'
-                }
-                maxLength={loginModo === 'mobile' ? 14 : undefined}
-                value={loginUsuario}
-                onChange={(e) =>
-                  setLoginUsuario(
-                    loginModo === 'mobile'
-                      ? aplicarMascaraCpf(e.target.value)
-                      : e.target.value
-                  )
-                }
-                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">
-                Senha
-              </label>
-              <input
-                type="password"
-                placeholder={
-                  loginModo === 'mobile'
-                    ? 'Senha padrão: 123456'
-                    : 'Digite sua senha'
-                }
-                value={loginSenha}
-                onChange={(e) => setLoginSenha(e.target.value)}
-                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loginLoading}
-              className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg cursor-pointer transition-all disabled:opacity-60"
-            >
-              {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  // ==========================================
-  // 6. ESTRUTURA PRINCIPAL E HEADER
-  // ==========================================
+ /// ==========================================
+// 5. TELA DE LOGIN DO SISTEMA
+// ==========================================
+if (!isLoggedIn) {
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
-      {isLoggedIn && loginModo === 'normal' && (
-        <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden flex flex-wrap gap-2 items-center">
+    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+        <div className="text-center space-y-1">
+          <h1 className="text-3xl font-black text-blue-900">
+            BRSYSTEM
+          </h1>
+
+          <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">
+            Tecnologia para Gestão
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => {
+              setLoginModo('mobile');
+              setLoginUsuario('');
+              setLoginSenha('');
+            }}
+            className={`py-2.5 rounded-lg text-xs font-black transition-all ${
+              loginModo === 'mobile'
+                ? 'bg-blue-900 text-white shadow'
+                : 'text-slate-600 hover:bg-white'
+            }`}
+          >
+            1 — MOBILE
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setLoginModo('normal');
+              setLoginUsuario('');
+              setLoginSenha('');
+            }}
+            className={`py-2.5 rounded-lg text-xs font-black transition-all ${
+              loginModo === 'normal'
+                ? 'bg-blue-900 text-white shadow'
+                : 'text-slate-600 hover:bg-white'
+            }`}
+          >
+            2 — NORMAL
+          </button>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-slate-600 ml-1">
+              Código da Igreja
+            </label>
+
+            <input
+              type="text"
+              value={loginCodigo}
+              onChange={(e) =>
+                setLoginCodigo(e.target.value.toUpperCase())
+              }
+              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-600 ml-1">
+              {loginModo === 'mobile'
+                ? 'CPF do Líder ou Vice-líder'
+                : 'Usuário'}
+            </label>
+
+            <input
+              type="text"
+              placeholder={
+                loginModo === 'mobile'
+                  ? '000.000.000-00'
+                  : 'Digite seu usuário'
+              }
+              maxLength={loginModo === 'mobile' ? 14 : undefined}
+              value={loginUsuario}
+              onChange={(e) =>
+                setLoginUsuario(
+                  loginModo === 'mobile'
+                    ? aplicarMascaraCpf(e.target.value)
+                    : e.target.value
+                )
+              }
+              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-600 ml-1">
+              Senha
+            </label>
+
+            <input
+              type="password"
+              placeholder={
+                loginModo === 'mobile'
+                  ? 'Senha padrão: 123456'
+                  : 'Digite sua senha'
+              }
+              value={loginSenha}
+              onChange={(e) => setLoginSenha(e.target.value)}
+              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loginLoading}
+            className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg cursor-pointer transition-all disabled:opacity-60"
+          >
+            {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+console.log('DEBUG loginModo:', loginModo, 'isLoggedIn:', isLoggedIn);
+// ==========================================
+// 6. ESTRUTURA PRINCIPAL E HEADER
+// ==========================================
+
+return (
+  <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
+
+    {isLoggedIn && loginModo === 'normal' && (
+      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
+        <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
           <button
             type="button"
             onClick={() => setActiveTab('relatorios')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'relatorios' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer"
           >
             📊 Relatórios
           </button>
@@ -1305,7 +1347,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('membros')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'membros' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             👥 Membros
           </button>
@@ -1313,7 +1355,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('usuarios')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'usuarios' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             👤 Usuários
           </button>
@@ -1321,7 +1363,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('fornecedores')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'fornecedores' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             🚚 Fornecedores
           </button>
@@ -1329,7 +1371,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('ministerios')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'ministerios' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             🙌 Ministérios
           </button>
@@ -1337,7 +1379,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('celulas')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'celulas' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             🌱 Células
           </button>
@@ -1345,7 +1387,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('agenda')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'agenda' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             📅 Agenda
           </button>
@@ -1353,7 +1395,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('financeiro')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'financeiro' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             💰 Financeiro
           </button>
@@ -1361,7 +1403,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('igreja')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'igreja' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             🏛️ Igreja
           </button>
@@ -1369,7 +1411,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setActiveTab('projetos')}
-            className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer ${activeTab === 'projetos' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
           >
             🚀 Projetos
           </button>
@@ -1385,15 +1427,17 @@ export default function App() {
           >
             Sair
           </button>
-        </header>
-      )}
+        </div>
+      </header>
+    )}
 
-      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+    <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+      {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}
+      {/* ========================================== */}
+      
         {/* ========================================== */}
-        {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}
+        {/* 7.1 MÓDULO: MEMBROS MOBILE                 */}
         {/* ========================================== */}
-
-        {/* 7.1 MÓDULO: MEMBROS MOBILE */}
         {activeTab === 'membros_mobile' && ehUsuarioCelula && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
             <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
@@ -1435,7 +1479,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR */}
+        {/* ========================================== */}
+        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR             */}
+        {/* ========================================== */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
@@ -1457,7 +1503,7 @@ export default function App() {
                 <button onClick={() => abrirModalMembro()} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Membro</button>
               </div>
             </div>
-
+            
             {loadingMembros ? (
               <p className="text-center py-6 text-slate-500 font-medium">Carregando membros...</p>
             ) : (
@@ -1509,7 +1555,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.3 MÓDULO: MINISTÉRIOS */}
+        {/* ========================================== */}
+        {/* 7.3 MÓDULO: MINISTÉRIOS                    */}
+        {/* ========================================== */}
         {activeTab === 'ministerios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
@@ -1555,7 +1603,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES */}
+        {/* ========================================== */}
+        {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES          */}
+        {/* ========================================== */}
         {activeTab === 'usuarios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4 flex justify-between items-center">
@@ -1603,7 +1653,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.5 MÓDULO: FORNECEDORES */}
+        {/* ========================================== */}
+        {/* 7.5 MÓDULO: FORNECEDORES                   */}
+        {/* ========================================== */}
         {activeTab === 'fornecedores' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="border-b pb-4">
@@ -1635,7 +1687,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.6 MÓDULO: RELATÓRIOS */}
+        {/* ========================================== */}
+        {/* 7.6 MÓDULO: RELATÓRIOS                     */}
+        {/* ========================================== */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -1776,7 +1830,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.7 MÓDULO: CÉLULAS, SETORES E REDES */}
+        {/* ========================================== */}
+        {/* 7.7 MÓDULO: CÉLULAS, SETORES E REDES       */}
+        {/* ========================================== */}
         {activeTab === 'celulas' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -2066,7 +2122,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.8 MÓDULO: CADASTRO DA IGREJA */}
+        {/* ========================================== */}
+        {/* 7.8 MÓDULO: CADASTRO DA IGREJA             */}
+        {/* ========================================== */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
             <div className="border-b pb-4">
@@ -2098,7 +2156,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS */}
+        {/* ========================================== */}
+        {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS          */}
+        {/* ========================================== */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -2137,7 +2197,7 @@ export default function App() {
                                 Compromisso
                               </span>
                             </div>
-
+                            
                             <div className="text-xs text-slate-600 space-y-1 pt-2 font-semibold">
                               <div>🗓️ Data: <span className="font-mono text-blue-900 font-bold">{c.data_compromisso}</span></div>
                               <div>⏰ Início: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span> | Fim: <span className="font-mono text-slate-700">{c.hora_fim || '00:00'}</span></div>
@@ -2180,7 +2240,7 @@ export default function App() {
                   {['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'].map((dia) => (
                     <div key={dia} className="p-3 bg-slate-100 text-slate-700 font-bold text-center text-xs rounded-xl">{dia}</div>
                   ))}
-
+                  
                   <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                     {compromissos.map((c: any) => (
                       <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900">
@@ -2230,7 +2290,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL */}
+        {/* ========================================== */}
+        {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL         */}
+        {/* ========================================== */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
@@ -2398,7 +2460,7 @@ export default function App() {
                     R$ {saldoFinalRelatorio.toFixed(2)}
                   </div>
                 </div>
-
+                
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
@@ -2432,7 +2494,9 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.11 MÓDULO: PROJETOS */}
+        {/* ========================================== */}
+        {/* 7.11 MÓDULO: PROJETOS                      */}
+        {/* ========================================== */}
         {activeTab === 'projetos' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
@@ -2500,6 +2564,7 @@ export default function App() {
             </div>
           </div>
         )}
+
       </main>
 
       {/* ========================================== */}
@@ -2607,7 +2672,7 @@ export default function App() {
               <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Débito e Crédito)</h3>
               <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
             </div>
-
+            
             <form onSubmit={handleSaveLancamento} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
@@ -2969,7 +3034,7 @@ export default function App() {
                 <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl space-y-4">
                   <h4 className="font-bold text-blue-950 text-base">🚀 Acompanhamento e Evolução Ministerial</h4>
                   <p className="text-xs text-blue-800">Acompanhe o ministério atual do membro e promova para um novo ministério cadastrado.</p>
-
+                  
                   <div className="space-y-4 pt-2">
                     <div>
                       <label className="text-xs font-bold text-slate-700 block mb-1">1º Ministério Atual Cadastrado</label>
@@ -3141,43 +3206,44 @@ export default function App() {
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center justify-between pt-4 border-t">
-                  {editingMember && !ehUsuarioCelula ? (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteMember(editingMember.id)}
-                      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
-                    >
-                      Excluir Membro
-                    </button>
-                  ) : (
-                    <div />
-                  )}
+                  <div className="flex items-center justify-between pt-4 border-t">
+  {editingMember && !ehUsuarioCelula ? (
+    <button
+      type="button"
+      onClick={() => handleDeleteMember(editingMember.id)}
+      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
+    >
+      Excluir Membro
+    </button>
+  ) : (
+    <div />
+  )}
 
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => setShowMemberModal(false)}
-                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
-                    >
-                      Cancelar
-                    </button>
+  <div className="flex gap-3">
+    <button
+      type="button"
+      onClick={() => setShowMemberModal(false)}
+      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
+    >
+      Cancelar
+    </button>
 
-                    <button
-                      type="submit"
-                      className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer"
-                    >
-                      {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    <button
+      type="submit"
+      className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer"
+    >
+      {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
+      </button>
+      </div>
+  </div>
+</div>
+
+  </form>
+</div>
+</div>
+  )}
+
+</div>
+);
 }

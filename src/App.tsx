@@ -1325,10 +1325,11 @@ if (!isLoggedIn) {
     </div>
   );
 }
-
+console.log('DEBUG loginModo:', loginModo, 'isLoggedIn:', isLoggedIn);
 // ==========================================
 // 6. ESTRUTURA PRINCIPAL E HEADER
 // ==========================================
+
 return (
   <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
 

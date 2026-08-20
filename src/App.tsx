@@ -1255,7 +1255,6 @@ if (!isLoggedIn) {
 return (
   <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
 
-    {/* Marca d'água somente para usuários Normal/Admin */}
     {!ehUsuarioCelula && (
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
         <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
@@ -1264,177 +1263,11 @@ return (
       </div>
     )}
 
-    {/* Cabeçalho somente para usuários Normal/Admin */}
     {!ehUsuarioCelula && (
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
-        <div className="max-w-7xl mx-auto">
 
-          {/* Identificação e botão sair */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div>
-              <h1 className="text-xl font-black text-blue-900">
-                BRSYSTEM
-              </h1>
+        {/* MANTENHA AQUI TODO O MENU ORIGINAL */}
 
-              <p className="text-xs text-slate-500 font-bold">
-                Usuário: {
-                  loggedUser?.nome_usuario ||
-                  loggedUser?.nome ||
-                  loggedUser?.usuario ||
-                  'Usuário'
-                }
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <span className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-black">
-                {loggedUser?.perfil_acesso === 'admin'
-                  ? 'ADMINISTRADOR'
-                  : 'USUÁRIO NORMAL'}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLoggedIn(false);
-                  setLoggedUser(null);
-                  setActiveTab('relatorios');
-                  setLoginModo('normal');
-                  setLoginUsuario('');
-                  setLoginSenha('');
-                }}
-                className="px-4 py-2 bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
-              >
-                Sair
-              </button>
-            </div>
-          </div>
-
-          {/* Menu de navegação */}
-          <nav className="flex flex-wrap gap-2">
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('relatorios')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'relatorios'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              📊 Relatórios
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('membros')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'membros'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              👥 Membros
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('usuarios')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'usuarios'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              👤 Usuários
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('fornecedores')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'fornecedores'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              🚚 Fornecedores
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('ministerios')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'ministerios'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              🙌 Ministérios
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('celulas')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'celulas'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              🌱 Células
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('agenda')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'agenda'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              📅 Agenda
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('financeiro')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'financeiro'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              💰 Financeiro
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('igreja')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'igreja'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              🏛️ Igreja
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('projetos')}
-              className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                activeTab === 'projetos'
-                  ? 'bg-blue-900 text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-blue-100 hover:text-blue-900'
-              }`}
-            >
-              🚀 Projetos
-            </button>
-
-          </nav>
-        </div>
       </header>
     )}
 

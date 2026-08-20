@@ -3234,6 +3234,15 @@ return (
       className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer"
     >
       {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
-    </button>
+      </button>
   </div>
 </div>
+
+    </form>
+  </div>
+</div>
+      )}
+
+  </div>
+);
+}

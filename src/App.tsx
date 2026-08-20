@@ -52,6 +52,7 @@ export default function App() {
   const [loginUsuario, setLoginUsuario] = useState('');
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [loginModo, setLoginModo] = useState<'mobile' | 'normal'>('normal');
 // ==========================================
 // CONTROLE DE ACESSO DO MÓDULO MOBILE
 // ==========================================
@@ -317,22 +318,103 @@ const membroPodeAcessarCelula = (membro: any) => {
   
     try {
       const codigoIgreja = loginCodigo.trim().toUpperCase();
-      const usuarioInformado = loginUsuario.trim();
-      const senhaInformada = loginSenha.trim();
+      const identificador = loginUsuario.trim();
+      const senha = loginSenha.trim();
   
-      if (!codigoIgreja || !usuarioInformado || !senhaInformada) {
-        alert('Preencha o código da igreja, usuário e senha.');
+      if (!codigoIgreja || !identificador || !senha) {
+        alert('Preencha todos os campos.');
         return;
       }
   
-      // Login inicial pela tabela de usuários.
-      // A senha não deve permanecer armazenada em texto aberto em produção.
+      // ==========================================
+      // LOGIN MOBILE
+      // CPF + senha padrão 123456
+      // ==========================================
+      if (loginModo === 'mobile') {
+        const cpfNumeros = identificador.replace(/\D/g, '');
+        const cpfFormatado = aplicarMascaraCpf(cpfNumeros);
+  
+        if (cpfNumeros.length !== 11) {
+          alert('Digite um CPF válido com 11 números.');
+          return;
+        }
+  
+        if (senha !== '123456') {
+          alert('A senha do Mobile deve ser 123456.');
+          return;
+        }
+  
+        const { data: membro, error: erroMembro } = await supabase
+          .from('members')
+          .select('id, nome, cpf, codigo_igreja')
+          .eq('codigo_igreja', codigoIgreja)
+          .in('cpf', [cpfNumeros, cpfFormatado])
+          .maybeSingle();
+  
+        if (erroMembro || !membro) {
+          alert('CPF não encontrado no cadastro de membros.');
+          return;
+        }
+  
+        const { data: celula, error: erroCelula } = await supabase
+          .from('celulas')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja)
+          .or(`lider_id.eq.${membro.id},vice_id.eq.${membro.id}`)
+          .limit(1)
+          .maybeSingle();
+  
+        if (erroCelula || !celula) {
+          alert(
+            'Acesso negado. Este CPF não é de líder ou vice-líder de célula.'
+          );
+          return;
+        }
+  
+        const funcaoCelula =
+          String(celula.lider_id) === String(membro.id)
+            ? 'lider'
+            : 'vice_lider';
+  
+        const participantes = Array.isArray(celula.participantes)
+          ? celula.participantes
+          : [];
+  
+        const idsPermitidos = [
+          ...participantes,
+          celula.lider_id,
+          celula.vice_id
+        ]
+          .filter((id: any) => id !== null && id !== undefined)
+          .map((id: any) => String(id));
+  
+        setLoggedUser({
+          perfil_acesso: 'celula',
+          funcao_celula: funcaoCelula,
+          membro_id: membro.id,
+          membro_nome: membro.nome,
+          celula_id: celula.id,
+          celula_nome: celula.nome,
+          participantes_celula: idsPermitidos,
+          codigo_igreja: codigoIgreja,
+          nome_usuario: membro.nome
+        });
+  
+        setActiveTab('membros_mobile');
+        setIsLoggedIn(true);
+        return;
+      }
+  
+      // ==========================================
+      // LOGIN NORMAL ANTIGO
+      // Usuário e senha da tabela usuarios
+      // ==========================================
       const { data: usuario, error: erroUsuario } = await supabase
         .from('usuarios')
         .select('*, igrejas(*)')
         .eq('codigo_igreja', codigoIgreja)
-        .eq('usuario', usuarioInformado)
-        .eq('senha', senhaInformada)
+        .eq('usuario', identificador)
+        .eq('senha', senha)
         .eq('ativo', true)
         .maybeSingle();
   
@@ -341,87 +423,17 @@ const membroPodeAcessarCelula = (membro: any) => {
         return;
       }
   
-      // Administrador continua acessando o sistema completo.
-      if (
+      const ehAdministrador =
         usuario.usuario === 'admin' ||
         usuario.perfil === 'admin' ||
-        usuario.tipo_usuario === 'admin'
-      ) {
-        setLoggedUser({
-          ...usuarioCelula,
-          perfil_acesso: 'celula',
-          funcao_celula: funcaoCelula,
-          membro_id: membro.id,
-          membro_nome: membro.nome,
-          celula_id: celula.id,
-          celula_nome: celula.nome,
-          participantes_celula: idsPermitidos,
-          codigo_igreja: codigoIgreja
-        });
-        
-        setActiveTab('membros_mobile');
-        setIsLoggedIn(true);
-  
-      // Para usuários comuns, o usuário deve ser o CPF de um membro.
-      const cpfInformado = usuarioInformado.replace(/\D/g, '');
-  
-      const { data: membro, error: erroMembro } = await supabase
-        .from('members')
-        .select('id, nome, cpf, codigo_igreja')
-        .eq('codigo_igreja', codigoIgreja)
-        .eq('cpf', cpfInformado)
-        .maybeSingle();
-  
-      if (erroMembro || !membro) {
-        alert('Este CPF não está vinculado a um membro da igreja.');
-        return;
-      }
-  
-      // Busca as células da igreja e identifica o líder ou vice-líder.
-      const { data: celulas, error: erroCelulas } = await supabase
-        .from('celulas')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja);
-  
-      if (erroCelulas) {
-        alert('Não foi possível validar a célula deste usuário.');
-        return;
-      }
-  
-      const celulaDoMembro = (celulas || []).find((celula: any) => {
-        return (
-          String(celula.lider_id) === String(membro.id) ||
-          String(celula.vice_id) === String(membro.id)
-        );
-      });
-  
-      if (!celulaDoMembro) {
-        alert('Acesso negado. Somente líder ou vice-líder de célula pode acessar este módulo.');
-        return;
-      }
-  
-      const funcao =
-        String(celulaDoMembro.lider_id) === String(membro.id)
-          ? 'lider'
-          : 'vice_lider';
-  
-      const participantes = Array.isArray(celulaDoMembro.participantes)
-        ? celulaDoMembro.participantes
-        : [];
+        usuario.tipo_usuario === 'admin';
   
       setLoggedUser({
         ...usuario,
-        perfil_acesso: 'celula',
-        funcao_celula: funcao,
-        membro_id: membro.id,
-        membro_nome: membro.nome,
-        celula_id: celulaDoMembro.id,
-        celula_nome: celulaDoMembro.nome,
-        participantes_celula: participantes,
-        codigo_igreja: codigoIgreja
+        perfil_acesso: ehAdministrador ? 'admin' : 'usuario'
       });
   
-      setActiveTab('membros_mobile');
+      setActiveTab('relatorios');
       setIsLoggedIn(true);
     } catch (err: any) {
       alert('Erro no login: ' + err.message);
@@ -1086,7 +1098,15 @@ const membroPodeAcessarCelula = (membro: any) => {
 
   const handlePrint = () => { window.print(); };
 
-  const filteredMembers = members.filter((m) => !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase()));
+  const membrosVisiveis =
+  loggedUser?.perfil_acesso === 'celula'
+    ? members.filter((m: any) => membroPodeAcessarCelula(m))
+    : members;
+
+const filteredMembers = membrosVisiveis.filter((m: any) =>
+  !searchTerm ||
+  m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+);
 
   let saldoAcumulado = 0;
   const lancamentosComSaldo = lancamentosCorrente.map((l: any) => {
@@ -1098,7 +1118,7 @@ const membroPodeAcessarCelula = (membro: any) => {
 
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual : 0;
 
- // ==========================================
+ /// ==========================================
 // 5. TELA DE LOGIN DO SISTEMA
 // ==========================================
 if (!isLoggedIn) {
@@ -1113,6 +1133,40 @@ if (!isLoggedIn) {
           <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">
             Tecnologia para Gestão
           </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+          <button
+            type="button"
+            onClick={() => {
+              setLoginModo('mobile');
+              setLoginUsuario('');
+              setLoginSenha('');
+            }}
+            className={`py-2.5 rounded-lg text-xs font-black transition-all ${
+              loginModo === 'mobile'
+                ? 'bg-blue-900 text-white shadow'
+                : 'text-slate-600 hover:bg-white'
+            }`}
+          >
+            1 — MOBILE
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setLoginModo('normal');
+              setLoginUsuario('');
+              setLoginSenha('');
+            }}
+            className={`py-2.5 rounded-lg text-xs font-black transition-all ${
+              loginModo === 'normal'
+                ? 'bg-blue-900 text-white shadow'
+                : 'text-slate-600 hover:bg-white'
+            }`}
+          >
+            2 — NORMAL
+          </button>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">
@@ -1133,16 +1187,26 @@ if (!isLoggedIn) {
 
           <div>
             <label className="text-xs font-bold text-slate-600 ml-1">
-              CPF do Líder ou Vice-líder
+              {loginModo === 'mobile'
+                ? 'CPF do Líder ou Vice-líder'
+                : 'Usuário'}
             </label>
 
             <input
               type="text"
-              placeholder="000.000.000-00"
-              maxLength={14}
+              placeholder={
+                loginModo === 'mobile'
+                  ? '000.000.000-00'
+                  : 'Digite seu usuário'
+              }
+              maxLength={loginModo === 'mobile' ? 14 : undefined}
               value={loginUsuario}
               onChange={(e) =>
-                setLoginUsuario(aplicarMascaraCpf(e.target.value))
+                setLoginUsuario(
+                  loginModo === 'mobile'
+                    ? aplicarMascaraCpf(e.target.value)
+                    : e.target.value
+                )
               }
               className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono"
             />
@@ -1155,7 +1219,11 @@ if (!isLoggedIn) {
 
             <input
               type="password"
-              placeholder="Digite sua senha"
+              placeholder={
+                loginModo === 'mobile'
+                  ? 'Senha padrão: 123456'
+                  : 'Digite sua senha'
+              }
               value={loginSenha}
               onChange={(e) => setLoginSenha(e.target.value)}
               className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"

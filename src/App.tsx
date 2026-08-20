@@ -1334,9 +1334,14 @@ return (
                 <h2 className="text-base font-black">📱 Cadastro Mobile Compacto</h2>
                 <p className="text-[10px] text-blue-200">Versão otimizada para toque e telas verticais</p>
               </div>
-              <button onClick={() => setActiveTab('membros')} className="px-3 py-1 bg-white/25 hover:bg-white/35 text-white text-xs font-bold rounded-xl cursor-pointer">
-                🖥️ Ir para Computador
-              </button>
+              {loggedUser?.perfil_acesso !== 'celula' && (
+  <button
+    onClick={() => setActiveTab('membros')}
+    className="px-3 py-1 bg-white/25 hover:bg-white/35 text-white text-xs font-bold rounded-xl cursor-pointer"
+  >
+    🖥️ Ir para Computador
+  </button>
+)}
             </div>
             <div className="p-4 space-y-4 flex-1">
               <div className="flex gap-2">

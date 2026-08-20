@@ -1336,129 +1336,140 @@ console.log('DEBUG loginModo:', loginModo, 'isLoggedIn:', isLoggedIn);
 return (
   <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
 
-    {isLoggedIn && loginModo === 'normal' && (
-      <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
-        <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveTab('relatorios')}
-            className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer"
-          >
-            📊 Relatórios
-          </button>
+{isLoggedIn && loginModo === 'normal' && (
+  <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
+    <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
 
-          <div className="relative">
-  <button
-    type="button"
-    onClick={() =>
-      setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')
-    }
-    className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${
-      openDropdown === 'cadastros'
-        ? 'bg-blue-900 text-white'
-        : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
-    }`}
-  >
-    📁 Cadastros {openDropdown === 'cadastros' ? '▲' : '▼'}
-  </button>
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() =>
+            setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')
+          }
+          className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${
+            openDropdown === 'cadastros'
+              ? 'bg-blue-900 text-white'
+              : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
+          }`}
+        >
+          📁 Cadastros {openDropdown === 'cadastros' ? '▲' : '▼'}
+        </button>
 
-  {openDropdown === 'cadastros' && (
-    <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+        {openDropdown === 'cadastros' && (
+          <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('relatorios');
+                setOpenDropdown(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+            >
+              📊 Relatórios
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('membros');
+                setOpenDropdown(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+            >
+              👥 Membros
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('usuarios');
+                setOpenDropdown(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+            >
+              👤 Usuários
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('fornecedores');
+                setOpenDropdown(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+            >
+              🚚 Fornecedores
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab('ministerios');
+                setOpenDropdown(null);
+              }}
+              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+            >
+              🙌 Ministérios
+            </button>
+          </div>
+        )}
+      </div>
+
       <button
         type="button"
-        onClick={() => {
-          setActiveTab('membros');
-          setOpenDropdown(null);
-        }}
-        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+        onClick={() => setActiveTab('celulas')}
+        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
       >
-        👥 Membros
+        🌱 Células
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('agenda')}
+        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+      >
+        📅 Agenda
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('financeiro')}
+        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+      >
+        💰 Financeiro
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('igreja')}
+        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+      >
+        🏛️ Igreja
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setActiveTab('projetos')}
+        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
+      >
+        🚀 Projetos
       </button>
 
       <button
         type="button"
         onClick={() => {
-          setActiveTab('usuarios');
-          setOpenDropdown(null);
+          setIsLoggedIn(false);
+          setLoggedUser(null);
+          setActiveTab('relatorios');
         }}
-        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+        className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
       >
-        👤 Usuários
+        Sair
       </button>
 
-      <button
-        type="button"
-        onClick={() => {
-          setActiveTab('fornecedores');
-          setOpenDropdown(null);
-        }}
-        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
-      >
-        🚚 Fornecedores
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          setActiveTab('ministerios');
-          setOpenDropdown(null);
-        }}
-        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
-      >
-        🙌 Ministérios
-      </button>
     </div>
-  )}
-</div>
-            🌱 Células
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('agenda')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            📅 Agenda
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('financeiro')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            💰 Financeiro
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('igreja')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            🏛️ Igreja
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('projetos')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            🚀 Projetos
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setIsLoggedIn(false);
-              setLoggedUser(null);
-              setActiveTab('relatorios');
-            }}
-            className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-    )}
+  </header>
+)}
 
     <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
       {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}

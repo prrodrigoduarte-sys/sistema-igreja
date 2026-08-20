@@ -53,37 +53,33 @@ export default function App() {
   const [loginSenha, setLoginSenha] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginModo, setLoginModo] = useState<'mobile' | 'normal'>('normal');
-// ==========================================
-// CONTROLE DE ACESSO DO MÓDULO MOBILE
-// ==========================================
-const ehUsuarioCelula =
-  loggedUser?.perfil_acesso === 'celula';
 
-const ehAdministrador =
-  loggedUser?.perfil_acesso === 'admin';
+  // ==========================================
+  // CONTROLE DE ACESSO DO MÓDULO MOBILE
+  // ==========================================
+  const ehUsuarioCelula = loggedUser?.perfil_acesso === 'celula';
+  const ehAdministrador = loggedUser?.perfil_acesso === 'admin';
+  const podeAcessarSistemaCompleto = !ehUsuarioCelula;
 
-const podeAcessarSistemaCompleto =
-  !ehUsuarioCelula;
-const obterIdCelulaDoUsuario = () => {
-  return loggedUser?.celula_id || null;
-};
+  const obterIdCelulaDoUsuario = () => {
+    return loggedUser?.celula_id || null;
+  };
 
-const membroPodeAcessarCelula = (membro: any) => {
-  const celulaId = obterIdCelulaDoUsuario();
+  const membroPodeAcessarCelula = (membro: any) => {
+    const celulaId = obterIdCelulaDoUsuario();
+    const usuarioComAcessoTotal = loggedUser?.membro_nome === 'Rodrigo Duarte Luiz';
 
-  const usuarioComAcessoTotal =
-    loggedUser?.membro_nome === 'Rodrigo Duarte Luiz';
+    if (!ehUsuarioCelula || !celulaId || !membro || usuarioComAcessoTotal) {
+      return true;
+    }
 
-  if (!ehUsuarioCelula || !celulaId || !membro || usuarioComAcessoTotal) {
-    return true;
-  }
+    const participantes = Array.isArray(loggedUser?.participantes_celula)
+      ? loggedUser.participantes_celula.map((id: any) => String(id))
+      : [];
 
-  const participantes = Array.isArray(loggedUser?.participantes_celula)
-    ? loggedUser.participantes_celula.map((id: any) => String(id))
-    : [];
+    return participantes.includes(String(membro.id));
+  };
 
-  return participantes.includes(String(membro.id));
-};
   // ==========================================
   // CARREGAMENTO DO PLANO DE CONTAS (UNIFICADO)
   // ==========================================
@@ -91,8 +87,6 @@ const membroPodeAcessarCelula = (membro: any) => {
     const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
 
     try {
-      console.log('Buscando plano de contas da igreja:', codigoIgrejaAtual);
-
       const { data, error } = await supabase
         .from('plano_contas_contabil')
         .select('*')
@@ -100,22 +94,16 @@ const membroPodeAcessarCelula = (membro: any) => {
         .order('codigo_conta', { ascending: true });
 
       if (error) {
-        console.error('Erro ao buscar plano de contas:', error.message);
         setPlanoContasContabil([]);
         return;
       }
 
-      console.log('Plano de contas carregado:', data);
       setPlanoContasContabil(data || []);
     } catch (err: any) {
-      console.error('Erro geral ao carregar plano de contas:', err.message);
       setPlanoContasContabil([]);
     }
   };
 
-  // ==========================================
-  // SALVAMENTO DE NOVA CONTA CONTÁBIL
-  // ==========================================
   const salvarPlanoConta = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -138,12 +126,9 @@ const membroPodeAcessarCelula = (membro: any) => {
           },
         ]);
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       alert('Conta contábil cadastrada com sucesso!');
-
       setShowPlanoContaModal(false);
       setFormPlanoCodigo('');
       setFormPlanoNome('');
@@ -155,7 +140,6 @@ const membroPodeAcessarCelula = (membro: any) => {
     }
   };
 
-  // Carrega automaticamente ao acessar a sub-aba Plano de Contas
   useEffect(() => {
     if (isLoggedIn && loggedUser?.codigo_igreja && financeiroSubTab === 'plano_contas') {
       carregarPlanoContas();
@@ -185,21 +169,6 @@ const membroPodeAcessarCelula = (membro: any) => {
   const [formMinisterioNome, setFormMinisterioNome] = useState('');
   const [formMinisterioDesc, setFormMinisterioDesc] = useState('');
 
-  // ==========================================
-  // 3. MÁSCARAS E FORMATAÇÕES DE DADOS
-  // ==========================================
-  const aplicarMascaraCelular = (valor: string) => {
-    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
-    let formatado = apenasDigitos;
-    if (apenasDigitos.length > 2) {
-      formatado = `(${apenasDigitos.substring(0, 2)}) ${apenasDigitos.substring(2)}`;
-    }
-    if (apenasDigitos.length > 7) {
-      formatado = `(${apenasDigitos.substring(0, 2)}) ${apenasDigitos.substring(2, 7)}-${apenasDigitos.substring(7)}`;
-    }
-    return formatado;
-  };
-
   const aplicarMascaraCpf = (valor: string) => {
     const apenasDigitos = valor.replace(/\D/g, '').slice(0, 11);
     if (apenasDigitos.length <= 3) {
@@ -211,6 +180,13 @@ const membroPodeAcessarCelula = (membro: any) => {
     } else {
       return `${apenasDigitos.slice(0, 3)}.${apenasDigitos.slice(3, 6)}.${apenasDigitos.slice(6, 9)}-${apenasDigitos.slice(9, 11)}`;
     }
+  };
+
+  const aplicarMascaraCelular = (valor: string) => {
+    const apenasDigitos = valor.replace(/\D/g, '').slice(0, 11);
+    if (apenasDigitos.length <= 2) return apenasDigitos;
+    if (apenasDigitos.length <= 7) return `(${apenasDigitos.slice(0, 2)}) ${apenasDigitos.slice(2)}`;
+    return `(${apenasDigitos.slice(0, 2)}) ${apenasDigitos.slice(2, 7)}-${apenasDigitos.slice(7)}`;
   };
 
   const [formMember, setFormMember] = useState({
@@ -335,125 +311,100 @@ const membroPodeAcessarCelula = (membro: any) => {
         return;
       }
   
-     // ==========================================
-// LOGIN MOBILE
-// CPF + senha padrão 123456
-// ==========================================
-if (loginModo === 'mobile') {
-  const cpfNumeros = identificador.replace(/\D/g, '');
+      if (loginModo === 'mobile') {
+        const cpfNumeros = identificador.replace(/\D/g, '');
 
-  if (cpfNumeros.length !== 11) {
-    alert('Digite um CPF válido com 11 números.');
-    return;
-  }
+        if (cpfNumeros.length !== 11) {
+          alert('Digite um CPF válido com 11 números.');
+          return;
+        }
 
-  if (senha !== '123456') {
-    alert('A senha do Mobile deve ser 123456.');
-    return;
-  }
+        if (senha !== '123456') {
+          alert('A senha do Mobile deve ser 123456.');
+          return;
+        }
 
-  const { data: membrosIgreja, error: erroMembro } = await supabase
-    .from('members')
-    .select('id, nome, cpf, codigo_igreja')
-    .eq('codigo_igreja', codigoIgreja);
+        const { data: membrosIgreja, error: erroMembro } = await supabase
+          .from('members')
+          .select('id, nome, cpf, codigo_igreja')
+          .eq('codigo_igreja', codigoIgreja);
 
-  if (erroMembro) {
-    alert('Erro ao consultar membros: ' + erroMembro.message);
-    return;
-  }
+        if (erroMembro) {
+          alert('Erro ao consultar membros: ' + erroMembro.message);
+          return;
+        }
 
-  const membro = (membrosIgreja || []).find((item: any) => {
-    const cpfBanco = String(item.cpf || '').replace(/\D/g, '');
-    return cpfBanco === cpfNumeros;
-  });
+        const membro = (membrosIgreja || []).find((item: any) => {
+          const cpfBanco = String(item.cpf || '').replace(/\D/g, '');
+          return cpfBanco === cpfNumeros;
+        });
 
-  if (!membro) {
-    alert('CPF não encontrado no cadastro de membros.');
-    return;
-  }
+        if (!membro) {
+          alert('CPF não encontrado no cadastro de membros.');
+          return;
+        }
 
-  const { data: celulasDaIgreja, error: erroCelula } = await supabase
-    .from('celulas')
-    .select('*')
-    .eq('codigo_igreja', codigoIgreja);
+        const { data: celulasDaIgreja, error: erroCelula } = await supabase
+          .from('celulas')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja);
 
-  if (erroCelula) {
-    alert('Erro ao consultar células: ' + erroCelula.message);
-    return;
-  }
+        if (erroCelula) {
+          alert('Erro ao consultar células: ' + erroCelula.message);
+          return;
+        }
 
-  const celula = (celulasDaIgreja || []).find((item: any) => {
-    const membroId = String(membro.id);
-    const liderId = String(item.lider_id ?? '');
-    const viceId = String(item.vice_id ?? '');
+        const celula = (celulasDaIgreja || []).find((item: any) => {
+          const membroId = String(membro.id);
+          const liderId = String(item.lider_id ?? '');
+          const viceId = String(item.vice_id ?? '');
+          return liderId === membroId || viceId === membroId;
+        });
 
-    return liderId === membroId || viceId === membroId;
-  });
+        if (!celula) {
+          alert('Acesso negado. Este CPF não é de líder ou vice-líder de célula.');
+          return;
+        }
 
-  if (!celula) {
-    alert(
-      'Acesso negado. Este CPF não é de líder ou vice-líder de célula.'
-    );
-    return;
-  }
+        const funcaoCelula = String(celula.lider_id) === String(membro.id) ? 'lider' : 'vice_lider';
+        const participantes = Array.isArray(celula.participantes) ? celula.participantes : [];
 
-  const funcaoCelula =
-    String(celula.lider_id) === String(membro.id)
-      ? 'lider'
-      : 'vice_lider';
-
-  const participantes = Array.isArray(celula.participantes)
-    ? celula.participantes
-    : [];
-
-    const idsPermitidos = Array.from(
-      new Set(
-        [
-          ...participantes,
-          celula.lider_id,
-          celula.vice_id,
-          celula.anfitriao_id
-        ]
-          .map((item: any) => {
-            if (
-              item &&
-              typeof item === 'object' &&
-              'id' in item
-            ) {
-              return item.id;
-            }
-    
-            return item;
-          })
-          .filter(
-            (id: any) =>
-              id !== null &&
-              id !== undefined &&
-              String(id).trim() !== ''
+        const idsPermitidos = Array.from(
+          new Set(
+            [
+              ...participantes,
+              celula.lider_id,
+              celula.vice_id,
+              celula.anfitriao_id
+            ]
+              .map((item: any) => {
+                if (item && typeof item === 'object' && 'id' in item) {
+                  return item.id;
+                }
+                return item;
+              })
+              .filter((id: any) => id !== null && id !== undefined && String(id).trim() !== '')
+              .map((id: any) => String(id))
           )
-          .map((id: any) => String(id))
-      )
-    );
-  setLoggedUser({
-    perfil_acesso: 'celula',
-    funcao_celula: funcaoCelula,
-    membro_id: membro.id,
-    membro_nome: membro.nome,
-    celula_id: celula.id,
-    celula_nome: celula.nome,
-    participantes_celula: idsPermitidos,
-    codigo_igreja: codigoIgreja,
-    nome_usuario: membro.nome
-  });
+        );
 
-  setActiveTab('membros_mobile');
-  setIsLoggedIn(true);
-  return;
-}
-      // ==========================================
-      // LOGIN NORMAL ANTIGO
-      // Usuário e senha da tabela usuarios
-      // ==========================================
+        setLoggedUser({
+          perfil_acesso: 'celula',
+          funcao_celula: funcaoCelula,
+          membro_id: membro.id,
+          membro_nome: membro.nome,
+          celula_id: celula.id,
+          celula_nome: celula.nome,
+          participantes_celula: idsPermitidos,
+          codigo_igreja: codigoIgreja,
+          nome_usuario: membro.nome
+        });
+
+        setActiveTab('membros_mobile');
+        setIsLoggedIn(true);
+        return;
+      }
+
       const { data: usuario, error: erroUsuario } = await supabase
         .from('usuarios')
         .select('*, igrejas(*)')
@@ -468,14 +419,11 @@ if (loginModo === 'mobile') {
         return;
       }
   
-      const ehAdministrador =
-        usuario.usuario === 'admin' ||
-        usuario.perfil === 'admin' ||
-        usuario.tipo_usuario === 'admin';
+      const admCheck = usuario.usuario === 'admin' || usuario.perfil === 'admin' || usuario.tipo_usuario === 'admin';
   
       setLoggedUser({
         ...usuario,
-        perfil_acesso: ehAdministrador ? 'admin' : 'usuario'
+        perfil_acesso: admCheck ? 'admin' : 'usuario'
       });
   
       setActiveTab('relatorios');
@@ -488,37 +436,25 @@ if (loginModo === 'mobile') {
   };
 
   const carregarMembros = async (cod: string) => {
-    console.log('Código usado para buscar membros:', cod);
-  
     if (!cod) {
-      console.warn('Código da igreja não informado.');
       setMembers([]);
       return;
     }
-  
     setLoadingMembros(true);
-  
     try {
       const codigoNormalizado = cod.trim().toUpperCase();
-  
       const { data, error } = await supabase
         .from('members')
         .select('*')
         .eq('codigo_igreja', codigoNormalizado)
         .order('nome', { ascending: true });
-  
-      console.log('Membros retornados:', data);
-      console.log('Erro Supabase:', error);
-  
+
       if (error) {
-        console.error('Erro ao carregar membros:', error.message);
         setMembers([]);
         return;
       }
-  
       setMembers(data || []);
     } catch (err: any) {
-      console.error('Erro inesperado ao carregar membros:', err);
       setMembers([]);
     } finally {
       setLoadingMembros(false);
@@ -526,20 +462,18 @@ if (loginModo === 'mobile') {
   };
 
   const carregarMinisterios = async (cod: string) => {
-  const { data, error } = await supabase
-    .from('ministerios')
-    .select('*')
-    .eq('codigo_igreja', cod)
-    .order('nome', { ascending: true });
+    const { data, error } = await supabase
+      .from('ministerios')
+      .select('*')
+      .eq('codigo_igreja', cod)
+      .order('nome', { ascending: true });
 
-  if (error) {
-    console.error('Erro ao carregar ministérios:', error.message);
-    setMinisteriosList([]);
-    return;
-  }
-
-  setMinisteriosList(data || []);
-};
+    if (error) {
+      setMinisteriosList([]);
+      return;
+    }
+    setMinisteriosList(data || []);
+  };
 
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -619,13 +553,12 @@ if (loginModo === 'mobile') {
       const { data: lData } = await supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', cod).order('data_lancamento', { ascending: true });
       setLancamentosCorrente(lData || []);
     } catch (err: any) {
-      console.error('Erro na carregarFinanceiro:', err);
+      console.error('Erro:', err);
     } finally {
       setLoadingFinanceiro(false);
     }
   };
 
-  // Carregamento Geral Unificado
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
     const cod = loggedUser.codigo_igreja;
@@ -1108,10 +1041,7 @@ if (loginModo === 'mobile') {
   
     try {
       const { error } = await supabase.from('contas_financeiras').insert([payload]);
-      if (error) {
-        alert('Erro ao salvar conta: ' + error.message);
-        return;
-      }
+      if (error) throw error;
       
       alert('Conta cadastrada com sucesso!');
       setShowContaModal(false);
@@ -1184,15 +1114,13 @@ if (loginModo === 'mobile') {
 
   const handlePrint = () => { window.print(); };
 
-  const membrosVisiveis =
-  loggedUser?.perfil_acesso === 'celula'
+  const membrosVisiveis = loggedUser?.perfil_acesso === 'celula'
     ? members.filter((m: any) => membroPodeAcessarCelula(m))
     : members;
 
-const filteredMembers = membrosVisiveis.filter((m: any) =>
-  !searchTerm ||
-  m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
-);
+  const filteredMembers = membrosVisiveis.filter((m: any) =>
+    !searchTerm || m.nome?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   let saldoAcumulado = 0;
   const lancamentosComSaldo = lancamentosCorrente.map((l: any) => {
@@ -1204,279 +1132,134 @@ const filteredMembers = membrosVisiveis.filter((m: any) =>
 
   const saldoFinalRelatorio = lancamentosComSaldo.length > 0 ? lancamentosComSaldo[lancamentosComSaldo.length - 1].saldoAtual : 0;
 
- /// ==========================================
-// 5. TELA DE LOGIN DO SISTEMA
-// ==========================================
-if (!isLoggedIn) {
+  // ==========================================
+  // 5. TELA DE LOGIN DO SISTEMA
+  // ==========================================
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+          <div className="text-center space-y-1">
+            <h1 className="text-3xl font-black text-blue-900">BRSYSTEM</h1>
+            <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">Tecnologia para Gestão</p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => { setLoginModo('mobile'); setLoginUsuario(''); setLoginSenha(''); }}
+              className={`py-2.5 rounded-lg text-xs font-black transition-all ${loginModo === 'mobile' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:bg-white'}`}
+            >
+              1 — MOBILE
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { setLoginModo('normal'); setLoginUsuario(''); setLoginSenha(''); }}
+              className={`py-2.5 rounded-lg text-xs font-black transition-all ${loginModo === 'normal' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:bg-white'}`}
+            >
+              2 — NORMAL
+            </button>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-600 ml-1">Código da Igreja</label>
+              <input
+                type="text"
+                value={loginCodigo}
+                onChange={(e) => setLoginCodigo(e.target.value.toUpperCase())}
+                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600 ml-1">
+                {loginModo === 'mobile' ? 'CPF do Líder ou Vice-líder' : 'Usuário'}
+              </label>
+              <input
+                type="text"
+                placeholder={loginModo === 'mobile' ? '000.000.000-00' : 'Digite seu usuário'}
+                maxLength={loginModo === 'mobile' ? 14 : undefined}
+                value={loginUsuario}
+                onChange={(e) => setLoginUsuario(loginModo === 'mobile' ? aplicarMascaraCpf(e.target.value) : e.target.value)}
+                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-600 ml-1">Senha</label>
+              <input
+                type="password"
+                placeholder={loginModo === 'mobile' ? 'Senha padrão: 123456' : 'Digite sua senha'}
+                value={loginSenha}
+                onChange={(e) => setLoginSenha(e.target.value)}
+                className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg cursor-pointer transition-all disabled:opacity-60"
+            >
+              {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 6. ESTRUTURA PRINCIPAL E HEADER
+  // ==========================================
   return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
-        <div className="text-center space-y-1">
-          <h1 className="text-3xl font-black text-blue-900">
-            BRSYSTEM
-          </h1>
+    <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
+      {isLoggedIn && loginModo === 'normal' && (
+        <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
+          <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')}
+                className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${openDropdown === 'cadastros' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+              >
+                📁 Cadastros {openDropdown === 'cadastros' ? '▲' : '▼'}
+              </button>
 
-          <p className="text-xs text-slate-400 font-bold tracking-widest uppercase">
-            Tecnologia para Gestão
-          </p>
-        </div>
+              {openDropdown === 'cadastros' && (
+                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+                  <button type="button" onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">📊 Relatórios</button>
+                  <button type="button" onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">👥 Membros</button>
+                  <button type="button" onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">👤 Usuários</button>
+                  <button type="button" onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">🚚 Fornecedores</button>
+                  <button type="button" onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">🙌 Ministérios</button>
+                </div>
+              )}
+            </div>
 
-        <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => {
-              setLoginModo('mobile');
-              setLoginUsuario('');
-              setLoginSenha('');
-            }}
-            className={`py-2.5 rounded-lg text-xs font-black transition-all ${
-              loginModo === 'mobile'
-                ? 'bg-blue-900 text-white shadow'
-                : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            1 — MOBILE
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setLoginModo('normal');
-              setLoginUsuario('');
-              setLoginSenha('');
-            }}
-            className={`py-2.5 rounded-lg text-xs font-black transition-all ${
-              loginModo === 'normal'
-                ? 'bg-blue-900 text-white shadow'
-                : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            2 — NORMAL
-          </button>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="text-xs font-bold text-slate-600 ml-1">
-              Código da Igreja
-            </label>
-
-            <input
-              type="text"
-              value={loginCodigo}
-              onChange={(e) =>
-                setLoginCodigo(e.target.value.toUpperCase())
-              }
-              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-slate-600 ml-1">
-              {loginModo === 'mobile'
-                ? 'CPF do Líder ou Vice-líder'
-                : 'Usuário'}
-            </label>
-
-            <input
-              type="text"
-              placeholder={
-                loginModo === 'mobile'
-                  ? '000.000.000-00'
-                  : 'Digite seu usuário'
-              }
-              maxLength={loginModo === 'mobile' ? 14 : undefined}
-              value={loginUsuario}
-              onChange={(e) =>
-                setLoginUsuario(
-                  loginModo === 'mobile'
-                    ? aplicarMascaraCpf(e.target.value)
-                    : e.target.value
-                )
-              }
-              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono"
-            />
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-slate-600 ml-1">
-              Senha
-            </label>
-
-            <input
-              type="password"
-              placeholder={
-                loginModo === 'mobile'
-                  ? 'Senha padrão: 123456'
-                  : 'Digite sua senha'
-              }
-              value={loginSenha}
-              onChange={(e) => setLoginSenha(e.target.value)}
-              className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loginLoading}
-            className="w-full py-3.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow-lg cursor-pointer transition-all disabled:opacity-60"
-          >
-            {loginLoading ? 'Entrando...' : 'Entrar no Sistema'}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
-console.log('DEBUG loginModo:', loginModo, 'isLoggedIn:', isLoggedIn);
-// ==========================================
-// 6. ESTRUTURA PRINCIPAL E HEADER
-// ==========================================
-
-return (
-  <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
-
-{isLoggedIn && loginModo === 'normal' && (
-  <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
-    <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() =>
-            setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')
-          }
-          className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${
-            openDropdown === 'cadastros'
-              ? 'bg-blue-900 text-white'
-              : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
-          }`}
-        >
-          📁 Cadastros {openDropdown === 'cadastros' ? '▲' : '▼'}
-        </button>
-
-        {openDropdown === 'cadastros' && (
-          <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('relatorios');
-                setOpenDropdown(null);
-              }}
-              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
-            >
-              📊 Relatórios
-            </button>
+            <button type="button" onClick={() => setActiveTab('celulas')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🌱 Células</button>
+            <button type="button" onClick={() => setActiveTab('agenda')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">📅 Agenda</button>
+            <button type="button" onClick={() => setActiveTab('financeiro')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">💰 Financeiro</button>
+            <button type="button" onClick={() => setActiveTab('igreja')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🏛️ Igreja</button>
+            <button type="button" onClick={() => setActiveTab('projetos')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🚀 Projetos</button>
 
             <button
               type="button"
-              onClick={() => {
-                setActiveTab('membros');
-                setOpenDropdown(null);
-              }}
-              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+              onClick={() => { setIsLoggedIn(false); setLoggedUser(null); setActiveTab('relatorios'); }}
+              className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
             >
-              👥 Membros
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('usuarios');
-                setOpenDropdown(null);
-              }}
-              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
-            >
-              👤 Usuários
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('fornecedores');
-                setOpenDropdown(null);
-              }}
-              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
-            >
-              🚚 Fornecedores
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('ministerios');
-                setOpenDropdown(null);
-              }}
-              className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
-            >
-              🙌 Ministérios
+              Sair
             </button>
           </div>
-        )}
-      </div>
+        </header>
+      )}
 
-      <button
-        type="button"
-        onClick={() => setActiveTab('celulas')}
-        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-      >
-        🌱 Células
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setActiveTab('agenda')}
-        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-      >
-        📅 Agenda
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setActiveTab('financeiro')}
-        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-      >
-        💰 Financeiro
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setActiveTab('igreja')}
-        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-      >
-        🏛️ Igreja
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setActiveTab('projetos')}
-        className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-      >
-        🚀 Projetos
-      </button>
-
-      <button
-        type="button"
-        onClick={() => {
-          setIsLoggedIn(false);
-          setLoggedUser(null);
-          setActiveTab('relatorios');
-        }}
-        className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
-      >
-        Sair
-      </button>
-
-    </div>
-  </header>
-)}
-
-    <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
-      {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}
-      {/* ========================================== */}
-      
+      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+        
         {/* ========================================== */}
-        {/* 7.1 MÓDULO: MEMBROS MOBILE                 */}
+        {/* 7.1 MÓDULO: MEMBROS MOBILE */}
         {/* ========================================== */}
         {activeTab === 'membros_mobile' && ehUsuarioCelula && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
@@ -1520,7 +1303,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR             */}
+        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR */}
         {/* ========================================== */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
@@ -1596,7 +1379,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.3 MÓDULO: MINISTÉRIOS                    */}
+        {/* 7.3 MÓDULO: MINISTÉRIOS */}
         {/* ========================================== */}
         {activeTab === 'ministerios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
@@ -1644,7 +1427,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES          */}
+        {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES */}
         {/* ========================================== */}
         {activeTab === 'usuarios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
@@ -1694,7 +1477,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.5 MÓDULO: FORNECEDORES                   */}
+        {/* 7.5 MÓDULO: FORNECEDORES */}
         {/* ========================================== */}
         {activeTab === 'fornecedores' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
@@ -1728,7 +1511,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.6 MÓDULO: RELATÓRIOS                     */}
+        {/* 7.6 MÓDULO: RELATÓRIOS */}
         {/* ========================================== */}
         {activeTab === 'relatorios' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
@@ -1871,7 +1654,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.7 MÓDULO: CÉLULAS, SETORES E REDES       */}
+        {/* 7.7 MÓDULO: CÉLULAS, SETORES E REDES */}
         {/* ========================================== */}
         {activeTab === 'celulas' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
@@ -2163,7 +1946,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.8 MÓDULO: CADASTRO DA IGREJA             */}
+        {/* 7.8 MÓDULO: CADASTRO DA IGREJA */}
         {/* ========================================== */}
         {activeTab === 'igreja' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
@@ -2197,7 +1980,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS          */}
+        {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS */}
         {/* ========================================== */}
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
@@ -2331,7 +2114,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL         */}
+        {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL */}
         {/* ========================================== */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
@@ -2535,7 +2318,7 @@ return (
         )}
 
         {/* ========================================== */}
-        {/* 7.11 MÓDULO: PROJETOS                      */}
+        {/* 7.11 MÓDULO: PROJETOS */}
         {/* ========================================== */}
         {activeTab === 'projetos' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
@@ -2608,7 +2391,7 @@ return (
       </main>
 
       {/* ========================================== */}
-      {/* 8. MODAIS DE CADASTRO E EDIÇÃO             */}
+      {/* 8. MODAIS DE CADASTRO E EDIÇÃO */}
       {/* ========================================== */}
 
       {/* 8.1 MODAL: PLANO DE CONTAS */}
@@ -3286,8 +3069,4 @@ return (
 
     </div>
   );
-}
-
-</div>
-);
 }

@@ -332,85 +332,121 @@ const membroPodeAcessarCelula = (membro: any) => {
         return;
       }
   
-      // ==========================================
-      // LOGIN MOBILE
-      // CPF + senha padrão 123456
-      // ==========================================
-      if (loginModo === 'mobile') {
-        const cpfNumeros = identificador.replace(/\D/g, '');
-        const cpfFormatado = aplicarMascaraCpf(cpfNumeros);
-  
-        if (cpfNumeros.length !== 11) {
-          alert('Digite um CPF válido com 11 números.');
-          return;
-        }
-  
-        if (senha !== '123456') {
-          alert('A senha do Mobile deve ser 123456.');
-          return;
-        }
-  
-        const { data: membro, error: erroMembro } = await supabase
-          .from('members')
-          .select('id, nome, cpf, codigo_igreja')
-          .eq('codigo_igreja', codigoIgreja)
-          .in('cpf', [cpfNumeros, cpfFormatado])
-          .maybeSingle();
-  
-        if (erroMembro || !membro) {
-          alert('CPF não encontrado no cadastro de membros.');
-          return;
-        }
-  
-        const { data: celula, error: erroCelula } = await supabase
-          .from('celulas')
-          .select('*')
-          .eq('codigo_igreja', codigoIgreja)
-          .or(`lider_id.eq.${membro.id},vice_id.eq.${membro.id}`)
-          .limit(1)
-          .maybeSingle();
-  
-        if (erroCelula || !celula) {
-          alert(
-            'Acesso negado. Este CPF não é de líder ou vice-líder de célula.'
-          );
-          return;
-        }
-  
-        const funcaoCelula =
-          String(celula.lider_id) === String(membro.id)
-            ? 'lider'
-            : 'vice_lider';
-  
-        const participantes = Array.isArray(celula.participantes)
-          ? celula.participantes
-          : [];
-  
-        const idsPermitidos = [
+     // ==========================================
+// LOGIN MOBILE
+// CPF + senha padrão 123456
+// ==========================================
+if (loginModo === 'mobile') {
+  const cpfNumeros = identificador.replace(/\D/g, '');
+
+  if (cpfNumeros.length !== 11) {
+    alert('Digite um CPF válido com 11 números.');
+    return;
+  }
+
+  if (senha !== '123456') {
+    alert('A senha do Mobile deve ser 123456.');
+    return;
+  }
+
+  const { data: membrosIgreja, error: erroMembro } = await supabase
+    .from('members')
+    .select('id, nome, cpf, codigo_igreja')
+    .eq('codigo_igreja', codigoIgreja);
+
+  if (erroMembro) {
+    alert('Erro ao consultar membros: ' + erroMembro.message);
+    return;
+  }
+
+  const membro = (membrosIgreja || []).find((item: any) => {
+    const cpfBanco = String(item.cpf || '').replace(/\D/g, '');
+    return cpfBanco === cpfNumeros;
+  });
+
+  if (!membro) {
+    alert('CPF não encontrado no cadastro de membros.');
+    return;
+  }
+
+  const { data: celulasDaIgreja, error: erroCelula } = await supabase
+    .from('celulas')
+    .select('*')
+    .eq('codigo_igreja', codigoIgreja);
+
+  if (erroCelula) {
+    alert('Erro ao consultar células: ' + erroCelula.message);
+    return;
+  }
+
+  const celula = (celulasDaIgreja || []).find((item: any) => {
+    const membroId = String(membro.id);
+    const liderId = String(item.lider_id ?? '');
+    const viceId = String(item.vice_id ?? '');
+
+    return liderId === membroId || viceId === membroId;
+  });
+
+  if (!celula) {
+    alert(
+      'Acesso negado. Este CPF não é de líder ou vice-líder de célula.'
+    );
+    return;
+  }
+
+  const funcaoCelula =
+    String(celula.lider_id) === String(membro.id)
+      ? 'lider'
+      : 'vice_lider';
+
+  const participantes = Array.isArray(celula.participantes)
+    ? celula.participantes
+    : [];
+
+    const idsPermitidos = Array.from(
+      new Set(
+        [
           ...participantes,
           celula.lider_id,
-          celula.vice_id
+          celula.vice_id,
+          celula.anfitriao_id
         ]
-          .filter((id: any) => id !== null && id !== undefined)
-          .map((id: any) => String(id));
-  
-        setLoggedUser({
-          perfil_acesso: 'celula',
-          funcao_celula: funcaoCelula,
-          membro_id: membro.id,
-          membro_nome: membro.nome,
-          celula_id: celula.id,
-          celula_nome: celula.nome,
-          participantes_celula: idsPermitidos,
-          codigo_igreja: codigoIgreja,
-          nome_usuario: membro.nome
-        });
-  
-        setActiveTab('membros_mobile');
-        setIsLoggedIn(true);
-        return;
-      }
-  
+          .map((item: any) => {
+            if (
+              item &&
+              typeof item === 'object' &&
+              'id' in item
+            ) {
+              return item.id;
+            }
+    
+            return item;
+          })
+          .filter(
+            (id: any) =>
+              id !== null &&
+              id !== undefined &&
+              String(id).trim() !== ''
+          )
+          .map((id: any) => String(id))
+      )
+    );
+  setLoggedUser({
+    perfil_acesso: 'celula',
+    funcao_celula: funcaoCelula,
+    membro_id: membro.id,
+    membro_nome: membro.nome,
+    celula_id: celula.id,
+    celula_nome: celula.nome,
+    participantes_celula: idsPermitidos,
+    codigo_igreja: codigoIgreja,
+    nome_usuario: membro.nome
+  });
+
+  setActiveTab('membros_mobile');
+  setIsLoggedIn(true);
+  return;
+}
       // ==========================================
       // LOGIN NORMAL ANTIGO
       // Usuário e senha da tabela usuarios
@@ -449,15 +485,56 @@ const membroPodeAcessarCelula = (membro: any) => {
   };
 
   const carregarMembros = async (cod: string) => {
+    console.log('Código usado para buscar membros:', cod);
+  
+    if (!cod) {
+      console.warn('Código da igreja não informado.');
+      setMembers([]);
+      return;
+    }
+  
     setLoadingMembros(true);
-    const { data, error } = await supabase.from('members').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
-    if (error) console.error('Erro ao carregar membros:', error.message);
-    setMembers(data || []);
-    setLoadingMembros(false);
+  
+    try {
+      const codigoNormalizado = cod.trim().toUpperCase();
+  
+      const { data, error } = await supabase
+        .from('members')
+        .select('*')
+        .eq('codigo_igreja', codigoNormalizado)
+        .order('nome', { ascending: true });
+  
+      console.log('Membros retornados:', data);
+      console.log('Erro Supabase:', error);
+  
+      if (error) {
+        console.error('Erro ao carregar membros:', error.message);
+        setMembers([]);
+        return;
+      }
+  
+      setMembers(data || []);
+    } catch (err: any) {
+      console.error('Erro inesperado ao carregar membros:', err);
+      setMembers([]);
+    } finally {
+      setLoadingMembros(false);
+    }
   };
 
   const carregarMinisterios = async (cod: string) => {
-    const { data } = await supabase.from('ministerios').select('*').eq('codigo_igreja', cod).order('nome', { ascending: true });
+    const { data, error } = await supabase
+      .from('ministerios')
+      .select('*')
+      .eq('codigo_igreja', cod)
+      .order('nome', { ascending: true });
+  
+    if (error) {
+      console.error('Erro ao carregar ministérios:', error.message);
+      setMinisteriosList([]);
+      return;
+    }
+  
     setMinisteriosList(data || []);
   };
 

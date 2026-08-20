@@ -3248,41 +3248,45 @@ return (
                   </div>
 
                   <div className="flex items-center justify-between pt-4 border-t">
-  {editingMember && !ehUsuarioCelula ? (
-    <button
-      type="button"
-      onClick={() => handleDeleteMember(editingMember.id)}
-      className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
-    >
-      Excluir Membro
-    </button>
-  ) : (
-    <div />
-  )}
+                    {editingMember && !ehUsuarioCelula ? (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteMember(editingMember.id)}
+                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-sm rounded-xl transition-all cursor-pointer"
+                      >
+                        Excluir Membro
+                      </button>
+                    ) : (
+                      <div />
+                    )}
 
-  <div className="flex gap-3">
-    <button
-      type="button"
-      onClick={() => setShowMemberModal(false)}
-      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
-    >
-      Cancelar
-    </button>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowMemberModal(false)}
+                        className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
+                      >
+                        Cancelar
+                      </button>
 
-    <button
-      type="submit"
-      className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer"
-    >
-      {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
-      </button>
-      </div>
-  </div>
-</div>
+                      <button
+                        type="submit"
+                        className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer"
+                      >
+                        {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
-  </form>
-</div>
-</div>
-  )}
+    </div>
+  );
+}
 
 </div>
 );

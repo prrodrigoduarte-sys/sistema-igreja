@@ -1248,76 +1248,22 @@ if (!isLoggedIn) {
 // ==========================================
 return (
   <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
+
+    {!ehUsuarioCelula && (
       <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0 opacity-4 overflow-hidden select-none">
         <span className="text-[10vw] font-black uppercase tracking-widest text-center text-blue-900 px-4 whitespace-nowrap">
           {loggedUser?.igrejas?.nome_fantasia || 'BRSYSTEM'}
         </span>
       </div>
+    )}
 
+    {!ehUsuarioCelula && (
       <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div className="flex flex-col">
-              <span className="text-xl font-black text-blue-900 leading-none">BRSYSTEM</span>
-              <span className="text-[10px] tracking-widest text-blue-500 font-bold">TECNOLOGIA</span>
-            </div>
-            <nav className="flex items-center gap-6 text-sm font-bold text-slate-700">
-              <div className="relative">
-                <button onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')} className="hover:text-blue-900 cursor-pointer flex items-center gap-1">
-                  Cadastros <span className="text-xs text-slate-400">∨</span>
-                </button>
-                {openDropdown === 'cadastros' && (
-                  <div className="absolute left-0 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🖥️ Membros</button>
-                    <button onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">👤 Usuários e Permissões</button>
-                    <button onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🚚 Fornecedores</button>
-                    <button onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📊 Relatórios</button>
-                    <button onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🙌 Ministérios</button>
-                  </div>
-                )}
-              </div>
 
-              <div className="relative">
-                <button onClick={() => setOpenDropdown(openDropdown === 'projetos' ? null : 'projetos')} className={`cursor-pointer flex items-center gap-1 transition-all ${activeTab === 'projetos' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                  🚀 Projetos <span className="text-xs text-slate-400">∨</span>
-                </button>
-                {openDropdown === 'projetos' && (
-                  <div className="absolute left-0 mt-2 w-64 bg-white border rounded-xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('missoes'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🌐 Missões</button>
-                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_1'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📂 Proj 1 - Ilimitados</button>
-                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_2'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">❤️ Proj 2 - Casais</button>
-                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_3'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">📖 Proj 3 - Escola de Célula</button>
-                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_4'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🎓 Proj 4 - Escola de Líderes</button>
-                    <button onClick={() => { setActiveTab('projetos'); setProjetoAtivo('proj_5'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Proj 5 - Escola de Pastores</button>
-                  </div>
-                )}
-              </div>
+        {/* MANTENHA AQUI TODO O MENU ORIGINAL */}
 
-              <button onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'celulas' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Células / Redes</button>
-              <button onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'agenda' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Agenda</button>
-              <button onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`cursor-pointer transition-all ${activeTab === 'financeiro' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>Financeiro</button>
-
-              <div className="relative">
-                <button onClick={() => setOpenDropdown(openDropdown === 'controle' ? null : 'controle')} className={`cursor-pointer flex items-center gap-1 ${activeTab === 'igreja' ? 'text-blue-900 font-black' : 'hover:text-blue-900'}`}>
-                  Controle <span className="text-xs text-slate-400">∨</span>
-                </button>
-                {openDropdown === 'controle' && (
-                  <div className="absolute left-0 mt-2 w-48 bg-white border rounded-xl shadow-xl py-2 z-50">
-                    <button onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-slate-50 font-semibold text-slate-700 cursor-pointer">🏛️ Cadastro da Igreja</button>
-                  </div>
-                )}
-              </div>
-            </nav>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-black text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja'}</p>
-              <p className="text-xs text-slate-500 font-semibold">{loggedUser?.nome_usuario || 'Administrador'}</p>
-            </div>
-            <button onClick={() => setIsLoggedIn(false)} className="px-4 py-1.5 border border-slate-200 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 cursor-pointer transition-all">Sair</button>
-          </div>
-        </div>
       </header>
+    )}
 
       {/* ========================================== */}
       {/* 7. CORPO PRINCIPAL E EXIBIÇÃO DE ABAS      */}

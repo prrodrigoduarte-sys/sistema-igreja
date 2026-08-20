@@ -71,7 +71,10 @@ const obterIdCelulaDoUsuario = () => {
 const membroPodeAcessarCelula = (membro: any) => {
   const celulaId = obterIdCelulaDoUsuario();
 
-  if (!ehUsuarioCelula || !celulaId || !membro) {
+  const usuarioComAcessoTotal =
+    loggedUser?.membro_nome === 'Rodrigo Duarte Luiz';
+
+  if (!ehUsuarioCelula || !celulaId || !membro || usuarioComAcessoTotal) {
     return true;
   }
 
@@ -1344,43 +1347,69 @@ return (
             📊 Relatórios
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('membros')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            👥 Membros
-          </button>
+          <div className="relative">
+  <button
+    type="button"
+    onClick={() =>
+      setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')
+    }
+    className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${
+      openDropdown === 'cadastros'
+        ? 'bg-blue-900 text-white'
+        : 'bg-slate-100 text-slate-700 hover:bg-blue-100'
+    }`}
+  >
+    📁 Cadastros {openDropdown === 'cadastros' ? '▲' : '▼'}
+  </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('usuarios')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            👤 Usuários
-          </button>
+  {openDropdown === 'cadastros' && (
+    <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab('membros');
+          setOpenDropdown(null);
+        }}
+        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+      >
+        👥 Membros
+      </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('fornecedores')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            🚚 Fornecedores
-          </button>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab('usuarios');
+          setOpenDropdown(null);
+        }}
+        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+      >
+        👤 Usuários
+      </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('ministerios')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
-            🙌 Ministérios
-          </button>
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab('fornecedores');
+          setOpenDropdown(null);
+        }}
+        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+      >
+        🚚 Fornecedores
+      </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('celulas')}
-            className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer"
-          >
+      <button
+        type="button"
+        onClick={() => {
+          setActiveTab('ministerios');
+          setOpenDropdown(null);
+        }}
+        className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer"
+      >
+        🙌 Ministérios
+      </button>
+    </div>
+  )}
+</div>
             🌱 Células
           </button>
 

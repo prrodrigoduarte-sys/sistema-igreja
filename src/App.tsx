@@ -425,16 +425,6 @@ export default function App() {
         ...usuario,
         perfil_acesso: admCheck ? 'admin' : 'usuario'
       });
-      <div
-  onClick={() => {
-    setActiveTab('relatorios');
-    setOpenDropdown(null);
-  }}
-  className="cursor-pointer select-none leading-tight"
->
-  <span className="block text-lg font-black text-blue-900">BR-System</span>
-  <span className="block text-[10px] font-bold text-slate-500 tracking-wider -mt-1">TECNOLOGIA</span>
-</div>
   
       setActiveTab('relatorios');
       setIsLoggedIn(true);

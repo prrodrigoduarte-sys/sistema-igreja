@@ -2604,6 +2604,7 @@ export default function App() {
         </div>
         <div>
           <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
+
           <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
             <option value="">Selecione a conta de débito...</option>
             {planoContasContabil && planoContasContabil.map((pc: any) => (
@@ -2612,6 +2613,7 @@ export default function App() {
               </option>
             ))}
           </select>
+          
         </div>
         <div>
           <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>

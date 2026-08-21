@@ -269,6 +269,7 @@ export default function App() {
   const [showLancamentoModal, setShowLancamentoModal] = useState(false);
   const [showContaModal, setShowContaModal] = useState(false);
   const [editingConta, setEditingConta] = useState<any>(null);
+  const [editingLancamento, setEditingLancamento] = useState<any>(null);
 
   const [formLancData, setFormLancData] = useState('');
   const [formLancValor, setFormLancValor] = useState('');
@@ -1102,7 +1103,7 @@ export default function App() {
       alert('Preencha a data, o valor, a conta a débito e a conta a crédito.');
       return;
     }
-
+  
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       data_lancamento: formLancData,
@@ -1112,7 +1113,27 @@ export default function App() {
       membro_id: editingMember ? editingMember.id : null,
       descricao: formLancObs.trim() || 'Lançamento financeiro'
     };
-
+  
+    try {
+      if (editingLancamento && editingLancamento.id) {
+        const { error } = await supabase.from('lancamentos_financeiros').update(payload).eq('id', editingLancamento.id);
+        if (error) throw error;
+        alert('Lançamento atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+        if (error) throw error;
+        alert('Lançamento salvo com sucesso!');
+      }
+      setShowLancamentoModal(false);
+      setEditingLancamento(null);
+      setFormLancData('');
+      setFormLancValor('');
+      setFormLancObs('');
+      setFormLancContaDebitoId('');
+      setFormLancContaCreditoId('');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) { alert('Erro: ' + err.message); }
+  };
     try {
       const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
       if (error) throw error;
@@ -1132,7 +1153,11 @@ export default function App() {
     if (senhaInformada !== loggedUser.senha) { alert('Senha incorreta.'); return; }
   
     setEditingLancamento(lancamento);
-    // preencher os campos do formulário aqui com os dados do lançamento
+    setFormLancData(lancamento.data_lancamento || '');
+    setFormLancValor(lancamento.valor?.toString() || '');
+    setFormLancContaDebitoId(lancamento.conta_debito_id || '');
+    setFormLancContaCreditoId(lancamento.conta_credito_id || '');
+    setFormLancObs(lancamento.descricao || '');
     setShowLancamentoModal(true);
   };
 

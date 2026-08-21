@@ -2538,7 +2538,7 @@ export default function App() {
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Débito e Crédito)</h3>
+              <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Contábil)</h3>
               <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
             </div>
             
@@ -2548,17 +2548,17 @@ export default function App() {
                 <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
               </div>
               <div>
-                <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Origem/Saída) *</label>
+                <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
                 <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
-                  <option value="">Selecione a conta a débito...</option>
-                  {contasFinanceiras.map((c: any) => (<option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>))}
+                  <option value="">Selecione a conta de débito...</option>
+                  {planoContasContabil.map((pc: any) => (<option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>{pc.codigo_conta} - {pc.nome_conta} ({pc.tipo_natureza})</option>))}
                 </select>
               </div>
               <div>
-                <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Destino/Entrada) *</label>
+                <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>
                 <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
-                  <option value="">Selecione a conta a crédito...</option>
-                  {contasFinanceiras.map((c: any) => (<option key={c.id} value={c.id}>{c.nome_conta} ({c.codigo_conta})</option>))}
+                  <option value="">Selecione a conta de crédito...</option>
+                  {planoContasContabil.map((pc: any) => (<option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>{pc.codigo_conta} - {pc.nome_conta} ({pc.tipo_natureza})</option>))}
                 </select>
               </div>
               <div>

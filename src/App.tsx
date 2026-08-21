@@ -2278,13 +2278,13 @@ export default function App() {
                   <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
                   <td className="p-3 text-center print:hidden">
                     <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                      <button onClick={() => handleEditLancamento(l)} className="px-2 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
+                      <button onClick={() => handleEditLancamento(l)} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
                         Editar
                       </button>
-                      <button onClick={() => handleDeleteLancamento(l.id)} className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
+                      <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
                         Excluir
                       </button>
-                      <label className="px-2 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
+                      <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
                         📁 Anexar
                         <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
                       </label>
@@ -2303,8 +2303,7 @@ export default function App() {
       </div>
     )}
   </div>
-)}
-            {financeiroSubTab === 'contas' && (
+)}            {financeiroSubTab === 'contas' && (
               <div className="space-y-4">
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">

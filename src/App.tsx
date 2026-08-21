@@ -1077,24 +1077,6 @@ export default function App() {
     }
     setShowContaModal(true);
   };
-    const payload = {
-      codigo_igreja: loggedUser.codigo_igreja,
-      nome_conta: formNomeConta.trim().toUpperCase(),
-      codigo_conta: formTipoConta
-    };
-  
-    try {
-      const { error } = await supabase.from('contas_financeiras').insert([payload]);
-      if (error) throw error;
-      
-      alert('Conta cadastrada com sucesso!');
-      setShowContaModal(false);
-      setFormNomeConta('');
-      carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) { 
-      alert('Erro: ' + err.message); 
-    }
-  };
 
   const handleSaveLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2247,62 +2229,64 @@ export default function App() {
               </div>
             )}
 
-{financeiroSubTab === 'extrato' && (
-  <div className="space-y-4">
-    {loadingFinanceiro ? (
-      <p className="text-center py-6 text-slate-500">Carregando extrato...</p>
-    ) : (
-      <div className="overflow-x-auto border rounded-xl">
-        <table className="w-full text-left border-collapse text-xs">
-          <thead>
-            <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
-              <th className="p-3">Data</th>
-              <th className="p-3">Débito (Saída)</th>
-              <th className="p-3">Crédito (Entrada)</th>
-              <th className="p-3">Descrição</th>
-              <th className="p-3">Saldo</th>
-              <th className="p-3 text-center print:hidden">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y text-slate-700">
-            {lancamentosComSaldo.length === 0 ? (
-              <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
-            ) : (
-              lancamentosComSaldo.map((l: any) => (
-                <tr key={l.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-mono">{l.data_lancamento}</td>
-                  <td className="p-3 font-mono font-bold text-rose-600">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-                  <td className="p-3 font-mono font-bold text-emerald-600">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-                  <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
-                  <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
-                  <td className="p-3 text-center print:hidden">
-                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                      <button onClick={() => handleEditLancamento(l)} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
-                        Editar
-                      </button>
-                      <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
-                        Excluir
-                      </button>
-                      <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
-                        📁 Anexar
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
-                      </label>
-                      {l.comprovante_url && (
-                        <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
-                          Abrir
-                        </a>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))
+            {financeiroSubTab === 'extrato' && (
+              <div className="space-y-4">
+                {loadingFinanceiro ? (
+                  <p className="text-center py-6 text-slate-500">Carregando extrato...</p>
+                ) : (
+                  <div className="overflow-x-auto border rounded-xl">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
+                          <th className="p-3">Data</th>
+                          <th className="p-3">Débito (Saída)</th>
+                          <th className="p-3">Crédito (Entrada)</th>
+                          <th className="p-3">Descrição</th>
+                          <th className="p-3">Saldo</th>
+                          <th className="p-3 text-center print:hidden">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-slate-700">
+                        {lancamentosComSaldo.length === 0 ? (
+                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
+                        ) : (
+                          lancamentosComSaldo.map((l: any) => (
+                            <tr key={l.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono">{l.data_lancamento}</td>
+                              <td className="p-3 font-mono font-bold text-rose-600">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                              <td className="p-3 font-mono font-bold text-emerald-600">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                              <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                              <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
+                              <td className="p-3 text-center print:hidden">
+                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                  <button onClick={() => handleEditLancamento(l)} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
+                                    Editar
+                                  </button>
+                                  <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
+                                    Excluir
+                                  </button>
+                                  <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
+                                    📁 Anexar
+                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
+                                  </label>
+                                  {l.comprovante_url && (
+                                    <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
+                                      Abrir
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>
-    )}
-  </div>
-)}            {financeiroSubTab === 'contas' && (
+
+            {financeiroSubTab === 'contas' && (
               <div className="space-y-4">
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">
@@ -3079,9 +3063,9 @@ export default function App() {
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Número</label>
                         <input type="text" value={formMember.numero} onChange={(e) => setFormMember({ ...formMember, numero: e.target.value.toUpperCase() })} placeholder="Nº" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />
                       </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="text-[11px] font-bold text-slate-500 ml-1">Bairro</label>
                         <input type="text" value={formMember.bairro} onChange={(e) => setFormMember({ ...formMember, bairro: e.target.value.toUpperCase() })} placeholder="Bairro" className="w-full rounded-xl border p-2.5 text-sm bg-white focus:outline-none focus:border-blue-900 uppercase" />

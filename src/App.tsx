@@ -2602,9 +2602,9 @@ export default function App() {
 {/* 8.4 MODAL: LANÇAMENTO FINANCEIRO */}
 {showLancamentoModal && (
   <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+    <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
       <div className="flex justify-between items-center border-b pb-4">
-        <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Contábil)</h3>
+        <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Financeiro & Contábil)</h3>
         <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
       </div>
       
@@ -2614,49 +2614,45 @@ export default function App() {
           <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
         </div>
 
-        {/* CONTA A DÉBITO */}
+        {/* ORIGEM / CONTA FINANCEIRA DE DÉBITO */}
         <div>
-          <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
-          <div className="flex gap-2 mt-1">
-            <select 
-              required 
-              value={formLancContaDebitoId || ''} 
-              onChange={(e) => setFormLancContaDebitoId(e.target.value)} 
-              className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700"
-            >
-              <option value="">Selecione a conta de débito...</option>
-              {planoContasContabil && planoContasContabil.length > 0 ? (
-                planoContasContabil.map((pc: any) => (
-                  <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
-                    {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
-                  </option>
-                ))
-              ) : (
-                <option value="" disabled>Carregando plano de contas...</option>
-              )}
-            </select>
-            <button
-              type="button"
-              onClick={handleCarregarPlanoContasClick}
-              className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
-              title="Recarregar Plano de Contas"
-            >
-              🔄
-            </button>
-          </div>
+          <label className="text-xs font-bold text-rose-700 ml-1">Conta de Origem / Saída (Banco ou Caixa) *</label>
+          <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
+            <option value="">Selecione a conta financeira...</option>
+            {contasFinanceiras && contasFinanceiras.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {c.nome_conta} ({c.codigo_conta})
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* CONTA A CRÉDITO */}
+        {/* DESTINO / CONTA FINANCEIRA DE CRÉDITO */}
         <div>
-          <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>
-          <div className="flex gap-2 mt-1">
+          <label className="text-xs font-bold text-emerald-700 ml-1">Conta de Destino / Entrada (Banco ou Caixa) *</label>
+          <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
+            <option value="">Selecione a conta financeira...</option>
+            {contasFinanceiras && contasFinanceiras.map((c: any) => (
+              <option key={c.id} value={c.id}>
+                {c.nome_conta} ({c.codigo_conta})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* ---> NOVO CAMPO: PLANO DE CONTAS CONTÁBIL <--- */}
+        <div>
+          <label className="text-xs font-bold text-blue-900 ml-1 block mb-1">
+            Plano de Contas / Categoria Contábil *
+          </label>
+          <div className="flex gap-2">
             <select 
               required 
-              value={formLancContaCreditoId || ''} 
-              onChange={(e) => setFormLancContaCreditoId(e.target.value)} 
-              className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700"
+              value={formLancPlanoContaId || ''} 
+              onChange={(e) => setFormLancPlanoContaId(e.target.value)} 
+              className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900 shadow-sm"
             >
-              <option value="">Selecione a conta de crédito...</option>
+              <option value="">Selecione a categoria contábil...</option>
               {planoContasContabil && planoContasContabil.length > 0 ? (
                 planoContasContabil.map((pc: any) => (
                   <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>

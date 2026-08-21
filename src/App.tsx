@@ -209,10 +209,15 @@ export default function App() {
   };
 
   const aplicarMascaraCelular = (valor: string) => {
-    const apenasDigitos = valor.replace(/\D/g, '').slice(0, 11);
-    if (apenasDigitos.length <= 2) return apenasDigitos;
-    if (apenasDigitos.length <= 7) return `(${apenasDigitos.slice(0, 2)}) ${apenasDigitos.slice(2)}`;
-    return `(${apenasDigitos.slice(0, 2)}) ${apenasDigitos.slice(2, 7)}-${apenasDigitos.slice(7)}`;
+    const apenasDigitos = valor.replace(/\D/g, '').substring(0, 11);
+    let formatado = apenasDigitos;
+    if (apenasDigitos.length > 2) {
+      formatado = `(${apenasDigitos.substring(0, 2)}) ${apenasDigitos.substring(2)}`;
+    }
+    if (apenasDigitos.length > 7) {
+      formatado = `(${apenasDigitos.substring(0, 2)}) ${apenasDigitos.substring(2, 7)}-${apenasDigitos.substring(7)}`;
+    }
+    return formatado;
   };
 
   const [formMember, setFormMember] = useState({
@@ -2612,8 +2617,13 @@ export default function App() {
         {/* CONTA A DÉBITO */}
         <div>
           <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
-          <div className="flex gap-2">
-            <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
+          <div className="flex gap-2 mt-1">
+            <select 
+              required 
+              value={formLancContaDebitoId || ''} 
+              onChange={(e) => setFormLancContaDebitoId(e.target.value)} 
+              className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700"
+            >
               <option value="">Selecione a conta de débito...</option>
               {planoContasContabil && planoContasContabil.length > 0 ? (
                 planoContasContabil.map((pc: any) => (
@@ -2627,9 +2637,7 @@ export default function App() {
             </select>
             <button
               type="button"
-              onClick={async () => {
-                if (loggedUser?.codigo_igreja) await carregarPlanoContas();
-              }}
+              onClick={handleCarregarPlanoContasClick}
               className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
               title="Recarregar Plano de Contas"
             >
@@ -2641,8 +2649,13 @@ export default function App() {
         {/* CONTA A CRÉDITO */}
         <div>
           <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>
-          <div className="flex gap-2">
-            <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
+          <div className="flex gap-2 mt-1">
+            <select 
+              required 
+              value={formLancContaCreditoId || ''} 
+              onChange={(e) => setFormLancContaCreditoId(e.target.value)} 
+              className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700"
+            >
               <option value="">Selecione a conta de crédito...</option>
               {planoContasContabil && planoContasContabil.length > 0 ? (
                 planoContasContabil.map((pc: any) => (
@@ -2656,9 +2669,7 @@ export default function App() {
             </select>
             <button
               type="button"
-              onClick={async () => {
-                if (loggedUser?.codigo_igreja) await carregarPlanoContas();
-              }}
+              onClick={handleCarregarPlanoContasClick}
               className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
               title="Recarregar Plano de Contas"
             >

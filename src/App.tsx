@@ -2211,30 +2211,33 @@ export default function App() {
         {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL */}
         {/* ========================================== */}
         {activeTab === 'financeiro' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
-                <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos e plano de contas.</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
-                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Geral</button>
-                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
-                  <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
-                  <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
-                </div>
-                <button 
-  onClick={async () => {
-    if (loggedUser?.codigo_igreja) {
-      await carregarPlanoContas();
-    }
-    setShowLancamentoModal(true);
-  }} 
-  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
->
-  + Novo Lançamento
-</button>
+  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+      <div>
+        <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
+        <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos e plano de contas.</p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
+          <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Geral</button>
+          <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
+          <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
+          <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
+        </div>
+        
+        <button 
+          onClick={async () => {
+            if (loggedUser?.codigo_igreja) {
+              await carregarPlanoContas();
+            }
+            setShowLancamentoModal(true);
+          }} 
+          className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
+        >
+          + Novo Lançamento
+        </button>
+      </div>
+    </div>
 
             {financeiroSubTab === 'plano_contas' && (
               <div className="space-y-4">
@@ -2526,15 +2529,14 @@ export default function App() {
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <button type="button" onClick={() => setShowPlanoContaModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-                <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Conta Contábil</button>
-              </div>
-            </form>
-          </div>
+          <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+          <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
         </div>
-      )}
-
-      {/* 8.2 MODAL: SETORES */}
+      </form>
+    </div>
+  </div>
+  )}
+{/* 8.2 MODAL: SETORES */}
       {showSetorModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2680,6 +2682,7 @@ export default function App() {
       </form>
     </div>
   </div>
+)}
 
       {/* 8.5 MODAL: CONTA FINANCEIRA */}
       {showContaModal && (

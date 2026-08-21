@@ -1055,8 +1055,8 @@ export default function App() {
       setEditingConta(null);
       setFormNomeConta('');
       carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) {
-      alert('Erro: ' + err.message);
+    } catch (err: any) { 
+      alert('Erro: ' + err.message); 
     }
   };
   

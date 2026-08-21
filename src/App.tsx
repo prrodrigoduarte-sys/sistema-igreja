@@ -104,14 +104,16 @@ export default function App() {
     }
   };
 
+  // INSIRA A FUNÇÃO PONTE AQUI, LOGO APÓS A ACIMA:
+  const handleCarregarPlanoContasClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault(); // Garante que o botão não dispare submit indesejado
+    console.log("Botão clicado, chamando carregarPlanoContas...");
+    
+    await carregarPlanoContas();
+  };
+
   const salvarPlanoConta = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formPlanoCodigo.trim() || !formPlanoNome.trim()) {
-      alert('Preencha o código e o nome da conta contábil.');
-      return;
-    }
-
+    // ... restante do seu código
     const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
 
     try {

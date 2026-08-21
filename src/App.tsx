@@ -2606,30 +2606,65 @@ export default function App() {
           <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
           <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
         </div>
+
+        {/* CONTA A DÉBITO */}
         <div>
           <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
-
-          <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
-            <option value="">Selecione a conta de débito...</option>
-            {planoContasContabil && planoContasContabil.map((pc: any) => (
-              <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
-                {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
-              </option>
-            ))}
-          </select>
-          
+          <div className="flex gap-2">
+            <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
+              <option value="">Selecione a conta de débito...</option>
+              {planoContasContabil && planoContasContabil.length > 0 ? (
+                planoContasContabil.map((pc: any) => (
+                  <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
+                    {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled>Carregando plano de contas...</option>
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={async () => {
+                if (loggedUser?.codigo_igreja) await carregarPlanoContas();
+              }}
+              className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+              title="Recarregar Plano de Contas"
+            >
+              🔄
+            </button>
+          </div>
         </div>
+
+        {/* CONTA A CRÉDITO */}
         <div>
           <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>
-          <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
-            <option value="">Selecione a conta de crédito...</option>
-            {planoContasContabil && planoContasContabil.map((pc: any) => (
-              <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
-                {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2">
+            <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
+              <option value="">Selecione a conta de crédito...</option>
+              {planoContasContabil && planoContasContabil.length > 0 ? (
+                planoContasContabil.map((pc: any) => (
+                  <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
+                    {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
+                  </option>
+                ))
+              ) : (
+                <option value="" disabled>Carregando plano de contas...</option>
+              )}
+            </select>
+            <button
+              type="button"
+              onClick={async () => {
+                if (loggedUser?.codigo_igreja) await carregarPlanoContas();
+              }}
+              className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+              title="Recarregar Plano de Contas"
+            >
+              🔄
+            </button>
+          </div>
         </div>
+
         <div>
           <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
           <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />

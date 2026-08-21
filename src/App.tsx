@@ -84,23 +84,27 @@ export default function App() {
   // CARREGAMENTO DO PLANO DE CONTAS (UNIFICADO)
   // ==========================================
   const carregarPlanoContas = async () => {
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
+    console.log("Buscando para a igreja:", codigoIgrejaAtual); // <--- Adicione este log
+
     try {
-      console.log("Buscando plano de contas...");
       const { data, error } = await supabase
         .from('plano_contas_contabil')
         .select('*')
+        .eq('codigo_igreja', codigoIgrejaAtual)
         .order('codigo_conta', { ascending: true });
 
       if (error) {
-        console.error("Erro do Supabase:", error.message);
-        alert("Erro ao buscar plano de contas: " + error.message);
+        console.error("Erro do Supabase no plano de contas:", error.message); // <--- Adicione este log
+        setPlanoContasContabil([]);
         return;
       }
 
-      console.log("Dados encontrados:", data);
+      console.log("Plano de contas encontrado com sucesso:", data); // <--- Adicione este log
       setPlanoContasContabil(data || []);
     } catch (err: any) {
-      console.error("Erro inesperado:", err.message);
+      console.error("Erro inesperado:", err.message); // <--- Adicione este log
+      setPlanoContasContabil([]);
     }
   };
 

@@ -94,12 +94,15 @@ export default function App() {
         .order('codigo_conta', { ascending: true });
 
       if (error) {
+        console.error('Erro ao buscar plano de contas:', error.message);
         setPlanoContasContabil([]);
         return;
       }
 
+      console.log('Plano de Contas carregado com sucesso:', data);
       setPlanoContasContabil(data || []);
     } catch (err: any) {
+      console.error('Exceção ao carregar plano de contas:', err.message);
       setPlanoContasContabil([]);
     }
   };

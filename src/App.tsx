@@ -141,10 +141,30 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isLoggedIn && loggedUser?.codigo_igreja && financeiroSubTab === 'plano_contas') {
-      carregarPlanoContas();
+    if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
+    const cod = loggedUser.codigo_igreja;
+    
+    async function carregarDados() {
+      await Promise.all([
+        carregarMembros(cod),
+        carregarMinisterios(cod),
+        carregarInscricoes(cod),
+        carregarPlanoContas(), // <--- ADICIONADO AQUI PARA CARREGAR GLOBALMENTE
+        carregarAgenda(cod),
+        carregarCelulas(cod),
+        carregarSetores(cod),
+        carregarRedes(cod),
+        carregarFinanceiro(cod)
+      ]);
+
+      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
+      setUsuariosList(uData || []);
+      
+      const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
+      setFornecedoresList(fData || []);
     }
-  }, [financeiroSubTab, isLoggedIn, loggedUser?.codigo_igreja]);
+    carregarDados();
+  }, [isLoggedIn, loggedUser]);
 
   // ==========================================
   // 2.5 MEMBROS E FORMULÁRIOS

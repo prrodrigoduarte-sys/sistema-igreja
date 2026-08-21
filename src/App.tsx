@@ -105,12 +105,12 @@ export default function App() {
   };
 
   // INSIRA A FUNÇÃO PONTE AQUI, LOGO APÓS A ACIMA:
-  const handleCarregarPlanoContasClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault(); // Garante que o botão não dispare submit indesejado
-    console.log("Botão clicado, chamando carregarPlanoContas...");
-    
-    await carregarPlanoContas();
-  };
+ const handleCarregarPlanoContasClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+  event.preventDefault(); // Garante que o botão não dispare submit indesejado
+  console.log("Botão clicado, chamando carregarPlanoContas...");
+  
+  await carregarPlanoContas();
+};
 
   const salvarPlanoConta = async (e: React.FormEvent) => {
     // ... restante do seu código
@@ -2236,7 +2236,13 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-slate-800 text-lg">Plano de Contas Contábil</h3>
-                  <button onClick={() => setShowPlanoContaModal(true)} className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer">+ Nova Conta Contábil</button>
+                  <button 
+  type="button"
+  onClick={handleAbrirModalPlanoContaClick} 
+  className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+>
+  + Nova Conta Contábil
+</button>
                 </div>
                 <div className="overflow-x-auto border rounded-xl bg-white">
                   <table className="w-full text-left text-sm">

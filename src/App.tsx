@@ -2577,18 +2577,17 @@ export default function App() {
               <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
               <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value.toUpperCase())} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
             </div>
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-              <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
-            </div>
-          </form>
-        </div>
+            <<div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+            <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
+          </div>
+        </form>
       </div>
-    
-
-      {/* 8.5 MODAL: CONTA FINANCEIRA */}
-      {showContaModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    </div>
+  
+  {/* 8.5 MODAL: CONTA FINANCEIRA */}
+  {showContaModal && (
+    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-lg font-black text-blue-900">Cadastrar Nova Conta</h3>

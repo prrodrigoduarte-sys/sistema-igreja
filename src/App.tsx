@@ -1134,19 +1134,7 @@ export default function App() {
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) { alert('Erro: ' + err.message); }
   };
-    try {
-      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-      if (error) throw error;
-      alert('Lançamento salvo com sucesso!');
-      setShowLancamentoModal(false);
-      setFormLancData('');
-      setFormLancValor('');
-      setFormLancObs('');
-      setFormLancContaDebitoId('');
-      setFormLancContaCreditoId('');
-      carregarFinanceiro(loggedUser.codigo_igreja);
-    } catch (err: any) { alert('Erro: ' + err.message); }
-  };
+  
   const handleEditLancamento = (lancamento: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para editar este lançamento:');
     if (!senhaInformada) return;
@@ -1160,12 +1148,12 @@ export default function App() {
     setFormLancObs(lancamento.descricao || '');
     setShowLancamentoModal(true);
   };
-
+  
   const handleDeleteLancamento = async (lancamentoId: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir este lançamento:');
     if (!senhaInformada) return;
     if (senhaInformada !== loggedUser.senha) { alert('Senha incorreta.'); return; }
-
+  
     try {
       const { error } = await supabase.from('lancamentos_financeiros').delete().eq('id', lancamentoId);
       if (error) throw error;
@@ -1173,7 +1161,7 @@ export default function App() {
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) { alert('Erro: ' + err.message); }
   };
-
+  
   const handleAnexarComprovante = async (lancamentoId: any, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;

@@ -567,6 +567,26 @@ export default function App() {
     const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod);
     setInscricoesList(data || []);
   };
+  const carregarPlanoContas = async () => {
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
+
+    try {
+      const { data, error } = await supabase
+        .from('plano_contas_contabil')
+        .select('*')
+        .eq('codigo_igreja', codigoIgrejaAtual)
+        .order('codigo_conta', { ascending: true });
+
+      if (error) {
+        setPlanoContasContabil([]);
+        return;
+      }
+
+      setPlanoContasContabil(data || []);
+    } catch (err: any) {
+      setPlanoContasContabil([]);
+    }
+  };
 
   const carregarFinanceiro = async (cod: string) => {
     if (!cod) return;
@@ -2201,10 +2221,17 @@ export default function App() {
                   <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
                   <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
                 </div>
-                <button onClick={() => setShowLancamentoModal(true)} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Lançamento</button>
-                <button onClick={() => setShowContaModal(true)} className="px-4 py-2 bg-emerald-800 hover:bg-emerald-700 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Nova Conta</button>
-              </div>
-            </div>
+                <button 
+  onClick={async () => {
+    if (loggedUser?.codigo_igreja) {
+      await carregarPlanoContas();
+    }
+    setShowLancamentoModal(true);
+  }} 
+  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
+>
+  + Novo Lançamento
+</button>
 
             {financeiroSubTab === 'plano_contas' && (
               <div className="space-y-4">
@@ -2556,61 +2583,61 @@ export default function App() {
         </div>
       )}
 
-     {/* 8.4 MODAL: LANÇAMENTO FINANCEIRO */}
-     {showLancamentoModal && (
-      <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-        <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
-          <div className="flex justify-between items-center border-b pb-4">
-            <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Contábil)</h3>
-            <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
-          </div>
-          
-          <form onSubmit={handleSaveLancamento} className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
-              <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
-              <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
-                <option value="">Selecione a conta contábil de débito...</option>
-                {planoContasContabil && planoContasContabil.map((pc: any) => (
-                  <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
-                    {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>
-              <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
-                <option value="">Selecione a conta contábil de crédito...</option>
-                {planoContasContabil && planoContasContabil.map((pc: any) => (
-                  <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
-                    {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
-              <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
-              <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value.toUpperCase())} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
-            </div>
-            <<div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-            <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
-          </div>
-        </form>
+{/* 8.4 MODAL: LANÇAMENTO FINANCEIRO */}
+{showLancamentoModal && (
+  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+      <div className="flex justify-between items-center border-b pb-4">
+        <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Contábil)</h3>
+        <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
       </div>
+      
+      <form onSubmit={handleSaveLancamento} className="space-y-4">
+        <div>
+          <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
+          <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-rose-700 ml-1">Conta a Débito (Plano de Contas) *</label>
+          <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
+            <option value="">Selecione a conta de débito...</option>
+            {planoContasContabil && planoContasContabil.map((pc: any) => (
+              <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
+                {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-emerald-700 ml-1">Conta a Crédito (Plano de Contas) *</label>
+          <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
+            <option value="">Selecione a conta de crédito...</option>
+            {planoContasContabil && planoContasContabil.map((pc: any) => (
+              <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
+                {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
+          <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
+          <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value.toUpperCase())} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
+        </div>
+        <div className="flex justify-end gap-3 pt-4 border-t">
+          <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+          <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
+        </div>
+      </form>
     </div>
-  
-  {/* 8.5 MODAL: CONTA FINANCEIRA */}
-  {showContaModal && (
-    <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+  </div>
+
+      {/* 8.5 MODAL: CONTA FINANCEIRA */}
+      {showContaModal && (
+  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-lg font-black text-blue-900">Cadastrar Nova Conta</h3>

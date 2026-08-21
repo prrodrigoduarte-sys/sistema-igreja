@@ -1126,6 +1126,15 @@ export default function App() {
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) { alert('Erro: ' + err.message); }
   };
+  const handleEditLancamento = (lancamento: any) => {
+    const senhaInformada = prompt('Digite a senha de administrador para editar este lançamento:');
+    if (!senhaInformada) return;
+    if (senhaInformada !== loggedUser.senha) { alert('Senha incorreta.'); return; }
+  
+    setEditingLancamento(lancamento);
+    // preencher os campos do formulário aqui com os dados do lançamento
+    setShowLancamentoModal(true);
+  };
 
   const handleDeleteLancamento = async (lancamentoId: any) => {
     const senhaInformada = prompt('Digite a senha de administrador para excluir este lançamento:');

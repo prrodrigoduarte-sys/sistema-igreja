@@ -1059,7 +1059,24 @@ export default function App() {
       alert('Erro: ' + err.message); 
     }
   };
-  
+
+  const abrirModalConta = (conta?: any) => {
+    if (conta) {
+      const senha = prompt('Digite a senha para editar esta conta:');
+      if (!senha || senha.toLowerCase() !== 'ok01') {
+        alert('Senha incorreta.');
+        return;
+      }
+      setEditingConta(conta);
+      setFormNomeConta(conta.nome_conta || '');
+      setFormTipoConta(conta.codigo_conta || 'Caixa Geral');
+    } else {
+      setEditingConta(null);
+      setFormNomeConta('');
+      setFormTipoConta('Caixa Geral');
+    }
+    setShowContaModal(true);
+  };
   const abrirModalConta = (conta?: any) => {
     if (conta) {
       const senha = prompt('Digite a senha para editar esta conta:');

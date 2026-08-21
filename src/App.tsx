@@ -268,6 +268,7 @@ export default function App() {
   const [loadingFinanceiro, setLoadingFinanceiro] = useState(false);
   const [showLancamentoModal, setShowLancamentoModal] = useState(false);
   const [showContaModal, setShowContaModal] = useState(false);
+  const [editingConta, setEditingConta] = useState<any>(null);
 
   const [formLancData, setFormLancData] = useState('');
   const [formLancValor, setFormLancValor] = useState('');
@@ -1032,6 +1033,49 @@ export default function App() {
   const handleSaveConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNomeConta.trim()) { alert('Informe o nome da conta.'); return; }
+  
+    const payload = {
+      codigo_igreja: loggedUser.codigo_igreja,
+      nome_conta: formNomeConta.trim().toUpperCase(),
+      codigo_conta: formTipoConta
+    };
+  
+    try {
+      if (editingConta && editingConta.id) {
+        const { error } = await supabase.from('contas_financeiras').update(payload).eq('id', editingConta.id);
+        if (error) throw error;
+        alert('Conta atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('contas_financeiras').insert([payload]);
+        if (error) throw error;
+        alert('Conta cadastrada com sucesso!');
+      }
+      setShowContaModal(false);
+      setEditingConta(null);
+      setFormNomeConta('');
+      carregarFinanceiro(loggedUser.codigo_igreja);
+    } catch (err: any) {
+      alert('Erro: ' + err.message);
+    }
+  };
+  
+  const abrirModalConta = (conta?: any) => {
+    if (conta) {
+      const senha = prompt('Digite a senha para editar esta conta:');
+      if (!senha || senha.toLowerCase() !== 'ok01') {
+        alert('Senha incorreta.');
+        return;
+      }
+      setEditingConta(conta);
+      setFormNomeConta(conta.nome_conta || '');
+      setFormTipoConta(conta.codigo_conta || 'Caixa Geral');
+    } else {
+      setEditingConta(null);
+      setFormNomeConta('');
+      setFormTipoConta('Caixa Geral');
+    }
+    setShowContaModal(true);
+  };
     
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,

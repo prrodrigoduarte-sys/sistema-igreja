@@ -15,6 +15,10 @@ export default function App() {
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
   // ==========================================
+  // COLE AQUI EMBAIXO DOS OUTROS ESTADOS:
+  // ==========================================
+  const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
+  // ==========================================
   // 2.1 SUB-ABAS DO SISTEMA
   // ==========================================
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
@@ -2523,60 +2527,100 @@ export default function App() {
               </div>
             )}
 
-            {financeiroSubTab === 'extrato' && !contaAnaliticaSelecionada && (
+{financeiroSubTab === 'extrato' && !contaAnaliticaSelecionada && (
               <div className="space-y-4">
+                {/* SELETOR DE CONTA (INBOX / DROPDOWN) */}
+                <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-base">📊 Extrato de Conta Corrente e Caixa</h3>
+                    <p className="text-xs text-slate-500">Selecione uma conta específica ou visualize o consolidado de todas.</p>
+                  </div>
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={selectedContaExtrato || 'todas'}
+                      onChange={(e) => setSelectedContaExtrato(e.target.value)}
+                      className="w-full sm:w-72 rounded-xl border p-2.5 text-xs bg-white font-bold text-blue-900 focus:outline-none focus:border-blue-900 shadow-sm"
+                    >
+                      <option value="todas">📁 Todas as Contas (Consolidado)</option>
+                      {contasFinanceiras.map((c: any) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nome_conta} ({c.codigo_conta})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 {loadingFinanceiro ? (
                   <p className="text-center py-6 text-slate-500">Carregando extrato...</p>
                 ) : (
-                  <div className="overflow-x-auto border rounded-xl">
+                  <div className="overflow-x-auto border rounded-xl bg-white">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
+                        <tr className="bg-slate-100 border-b text-slate-700 font-bold">
                           <th className="p-3">Data</th>
-                          <th className="p-3">Débito (Saída)</th>
-                          <th className="p-3">Crédito (Entrada)</th>
-                          <th className="p-3">Descrição</th>
-                          <th className="p-3">Saldo</th>
-                          <th className="p-3 text-center print:hidden">Ações (Editar / Excluir / Anexar)</th>
+                          <th className="p-3">Conta Origem (Saída)</th>
+                          <th className="p-3">Conta Destino (Entrada)</th>
+                          <th className="p-3">Descrição / Histórico</th>
+                          <th className="p-3 text-right">Valor (R$)</th>
+                          <th className="p-3 text-center print:hidden">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-700">
-                        {lancamentosComSaldo.length === 0 ? (
-                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
-                        ) : (
-                          lancamentosComSaldo.map((l: any) => (
-                            <tr key={l.id} className="hover:bg-slate-50">
-                              <td className="p-3 font-mono">{l.data_lancamento}</td>
-                              <td className="p-3 font-mono font-bold text-rose-600">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-                              <td className="p-3 font-mono font-bold text-emerald-600">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-                              <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
-                              <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
-                              <td className="p-3 text-center print:hidden">
-                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                  <button onClick={() => handleEditLancamento(l)} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
-                                    Editar
-                                  </button>
-                                  <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
-                                    Excluir
-                                  </button>
-                                  <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
-                                    📁 Anexar
-                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
-                                  </label>
-                                  {l.comprovante_url && (
-                                    <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
-                                      Abrir
-                                    </a>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))
-                        )}
+                        {(() => {
+                          // Filtra os lançamentos com base na conta selecionada no dropdown
+                          const lancamentosFiltrados = selectedContaExtrato && selectedContaExtrato !== 'todas'
+                            ? lancamentosCorrente.filter((l: any) => 
+                                String(l.conta_debito_id) === String(selectedContaExtrato) || 
+                                String(l.conta_credito_id) === String(selectedContaExtrato)
+                              )
+                            : lancamentosCorrente;
+
+                          if (lancamentosFiltrados.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={6} className="py-8 text-center text-slate-400">
+                                  Nenhum lançamento registrado para esta seleção.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return lancamentosFiltrados.map((l: any) => {
+                            const valorNum = parseFloat(l.valor || 0);
+                            const contaDebito = contasFinanceiras.find(c => String(c.id) === String(l.conta_debito_id));
+                            const contaCredito = contasFinanceiras.find(c => String(c.id) === String(l.conta_credito_id));
+
+                            // Se a conta selecionada for a de débito (saída), o valor sai dela. Se for crédito (entrada), entra nela.
+                            const eSaida = selectedContaExtrato && selectedContaExtrato !== 'todas' 
+                              ? String(l.conta_debito_id) === String(selectedContaExtrato)
+                              : false;
+
+                            return (
+                              <tr key={l.id} className="hover:bg-slate-50">
+                                <td className="p-3 font-mono">{l.data_lancamento}</td>
+                                <td className="p-3 text-rose-700 font-semibold">{contaDebito ? contaDebito.nome_conta : '-'}</td>
+                                <td className="p-3 text-emerald-700 font-semibold">{contaCredito ? contaCredito.nome_conta : '-'}</td>
+                                <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                                <td className={`p-3 font-mono font-bold text-right ${eSaida ? 'text-rose-600' : 'text-emerald-700'}`}>
+                                  {eSaida ? `- R$ ${valorNum.toFixed(2)}` : `+ R$ ${valorNum.toFixed(2)}`}
+                                </td>
+                                <td className="p-3 text-center print:hidden">
+                                  <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                    <button onClick={() => handleEditLancamento(l)} className="px-2 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded transition-all cursor-pointer text-[10px]">Editar</button>
+                                    <button onClick={() => handleDeleteLancamento(l.id)} className="px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded transition-all cursor-pointer text-[10px]">Excluir</button>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          });
+                        })()}
                       </tbody>
                     </table>
                   </div>
                 )}
+              </div>
+            )}
               </div>
             )}
 

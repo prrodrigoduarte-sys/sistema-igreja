@@ -11,7 +11,7 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('relatorios');
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('financeiro');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
   // ==========================================
@@ -19,7 +19,7 @@ export default function App() {
   // ==========================================
   const [relatorioSubTab, setRelatorioSubTab] = useState<'geral' | 'aniversariantes_dia' | 'aniversariantes_mes' | 'completa'>('geral');
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
-  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'plano_contas' | 'relatorio'>('extrato');
+  const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'plano_contas' | 'diario' | 'balancete' | 'dre' | 'relatorio'>('diario');
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
   const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
@@ -37,13 +37,16 @@ export default function App() {
   const [formInscricaoMembroId, setFormInscricaoMembroId] = useState<any>(null);
 
   // ==========================================
-  // 2.3 PLANO DE CONTAS CONTÁBIL
+  // 2.3 PLANO DE CONTAS CONTÁBIL & ANALÍTICO
   // ==========================================
   const [planoContasContabil, setPlanoContasContabil] = useState<any[]>([]);
   const [showPlanoContaModal, setShowPlanoContaModal] = useState(false);
   const [formPlanoCodigo, setFormPlanoCodigo] = useState('');
   const [formPlanoNome, setFormPlanoNome] = useState('');
   const [formPlanoNatureza, setFormPlanoNatureza] = useState('Receita');
+
+  // Estado para o relatório analítico (drill-down) de uma conta específica
+  const [contaAnaliticaSelecionada, setContaAnaliticaSelecionada] = useState<any>(null);
 
   // ==========================================
   // 2.4 AUTENTICAÇÃO E DADOS DE USUÁRIO
@@ -58,15 +61,9 @@ export default function App() {
   // CONTROLE DE ACESSO DO MÓDULO MOBILE
   // ==========================================
   const ehUsuarioCelula = loggedUser?.perfil_acesso === 'celula';
-  const ehAdministrador = loggedUser?.perfil_acesso === 'admin';
-  const podeAcessarSistemaCompleto = !ehUsuarioCelula;
-
-  const obterIdCelulaDoUsuario = () => {
-    return loggedUser?.celula_id || null;
-  };
 
   const membroPodeAcessarCelula = (membro: any) => {
-    const celulaId = obterIdCelulaDoUsuario();
+    const celulaId = loggedUser?.celula_id || null;
     const usuarioComAcessoTotal = loggedUser?.membro_nome === 'Rodrigo Duarte Luiz';
 
     if (!ehUsuarioCelula || !celulaId || !membro || usuarioComAcessoTotal) {
@@ -432,7 +429,7 @@ export default function App() {
         perfil_acesso: admCheck ? 'admin' : 'usuario'
       });
     
-      setActiveTab('relatorios');
+      setActiveTab('financeiro');
       setIsLoggedIn(true);
     } catch (err: any) {
       alert('Erro no login: ' + err.message);
@@ -1269,7 +1266,6 @@ export default function App() {
   // 6. ESTRUTURA PRINCIPAL E HEADER
   // ==========================================
   return (
-    
     <div className="min-h-screen bg-slate-100 flex flex-col relative overflow-x-hidden">
       {isLoggedIn && loginModo === 'normal' && (
         <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
@@ -1296,7 +1292,7 @@ export default function App() {
 
             <button type="button" onClick={() => setActiveTab('celulas')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🌱 Células</button>
             <button type="button" onClick={() => setActiveTab('agenda')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">📅 Agenda</button>
-            <button type="button" onClick={() => setActiveTab('financeiro')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">💰 Financeiro</button>
+            <button type="button" onClick={() => setActiveTab('financeiro')} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer">💰 Financeiro</button>
             <button type="button" onClick={() => setActiveTab('igreja')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🏛️ Igreja</button>
             <button type="button" onClick={() => setActiveTab('projetos')} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🚀 Projetos</button>
 
@@ -2176,14 +2172,16 @@ export default function App() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
-                <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos e plano de contas.</p>
+                <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos, Livro Diário, Balancete e DRE.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
-                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Geral</button>
-                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
-                  <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
-                  <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
+                  <button onClick={() => { setFinanceiroSubTab('diario'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'diario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📖 Livro Diário</button>
+                  <button onClick={() => { setFinanceiroSubTab('balancete'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'balancete' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>⚖️ Balancete</button>
+                  <button onClick={() => { setFinanceiroSubTab('dre'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'dre' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📈 DRE</button>
+                  <button onClick={() => { setFinanceiroSubTab('plano_contas'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
+                  <button onClick={() => { setFinanceiroSubTab('extrato'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato</button>
+                  <button onClick={() => { setFinanceiroSubTab('contas'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
                 </div>
                 
                 <button 
@@ -2200,10 +2198,75 @@ export default function App() {
               </div>
             </div>
 
-            {financeiroSubTab === 'plano_contas' && (
+            {/* RELATÓRIO ANALÍTICO (DRILL-DOWN) POR CONTA DO PLANO DE CONTAS */}
+            {contaAnaliticaSelecionada ? (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex justify-between items-center">
+                  <div>
+                    <span className="text-xs font-bold text-blue-700 uppercase">Extrato Analítico / Razão da Conta</span>
+                    <h3 className="text-lg font-black text-blue-950">{contaAnaliticaSelecionada.codigo_conta} — {contaAnaliticaSelecionada.nome_conta}</h3>
+                  </div>
+                  <button 
+                    onClick={() => setContaAnaliticaSelecionada(null)}
+                    className="px-4 py-2 bg-white border border-blue-300 text-blue-900 text-xs font-bold rounded-xl hover:bg-blue-100 cursor-pointer shadow-xs"
+                  >
+                    ← Voltar ao Plano de Contas
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto border rounded-xl bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 border-b">
+                      <tr>
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Histórico / Descrição</th>
+                        <th className="p-3">Origem (Débito/Saída)</th>
+                        <th className="p-3">Destino (Crédito/Entrada)</th>
+                        <th className="p-3 text-right">Valor (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {(() => {
+                        const lancsDaConta = lancamentosCorrente.filter(l => String(l.plano_conta_id) === String(contaAnaliticaSelecionada.codigo_conta));
+                        if (lancsDaConta.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={5} className="p-8 text-center text-slate-400">
+                                Nenhum lançamento encontrado para esta conta contábil.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        let totalConta = 0;
+                        return lancsDaConta.map(l => {
+                          const valorNum = parseFloat(l.valor || 0);
+                          totalConta += valorNum;
+                          const contaDebito = contasFinanceiras.find(c => String(c.id) === String(l.conta_debito_id));
+                          const contaCredito = contasFinanceiras.find(c => String(c.id) === String(l.conta_credito_id));
+
+                          return (
+                            <tr key={l.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono">{l.data_lancamento}</td>
+                              <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                              <td className="p-3">{contaDebito ? contaDebito.nome_conta : '-'}</td>
+                              <td className="p-3">{contaCredito ? contaCredito.nome_conta : '-'}</td>
+                              <td className="p-3 font-mono font-bold text-right text-blue-900">R$ {valorNum.toFixed(2)}</td>
+                            </tr>
+                          );
+                        });
+                      })()}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : financeiroSubTab === 'plano_contas' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-slate-800 text-lg">Plano de Contas Contábil</h3>
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg">Plano de Contas Contábil</h3>
+                    <p className="text-xs text-slate-500">Clique em qualquer conta abaixo para abrir o **Relatório Analítico (Razão)** com os lançamentos dela.</p>
+                  </div>
                   <button 
                     type="button"
                     onClick={handleAbrirModalPlanoContaClick} 
@@ -2217,17 +2280,16 @@ export default function App() {
                     <thead className="bg-slate-100 border-b">
                       <tr>
                         <th className="p-3 font-bold">Código</th>
-                        <th className="p-3 font-bold">Conta Pai</th>
-                        <th className="p-3 font-bold">Conta</th>
+                        <th className="p-3 font-bold">Nome da Conta</th>
                         <th className="p-3 font-bold">Natureza</th>
+                        <th className="p-3 text-center font-bold">Ação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y text-slate-700">
                       {planoContasContabil && planoContasContabil.length > 0 ? (
                         planoContasContabil.map((pc) => (
-                          <tr key={pc.id || pc.codigo_conta} className="hover:bg-slate-50">
+                          <tr key={pc.id || pc.codigo_conta} className="hover:bg-blue-50/50 cursor-pointer" onClick={() => setContaAnaliticaSelecionada(pc)}>
                             <td className="p-3 font-mono text-blue-900 font-bold">{pc.codigo_conta}</td>
-                            <td className="p-3 font-mono text-slate-500">{pc.conta_pai || '-'}</td>
                             <td className="p-3 font-semibold text-slate-900">{pc.nome_conta}</td>
                             <td className="p-3">
                               <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -2236,6 +2298,14 @@ export default function App() {
                               }`}>
                                 {pc.tipo_natureza}
                               </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setContaAnaliticaSelecionada(pc); }}
+                                className="px-3 py-1 bg-blue-100 hover:bg-blue-900 hover:text-white text-blue-900 font-bold text-xs rounded-lg transition-all"
+                              >
+                                Ver Extrato ➔
+                              </button>
                             </td>
                           </tr>
                         ))
@@ -2252,7 +2322,208 @@ export default function App() {
               </div>
             )}
 
-            {financeiroSubTab === 'extrato' && (
+            {/* LIVRO DIÁRIO */}
+            {financeiroSubTab === 'diario' && !contaAnaliticaSelecionada && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg">📖 Livro Diário</h3>
+                    <p className="text-xs text-slate-500">Registro cronológico de todas as operações contábeis e financeiras da instituição.</p>
+                  </div>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all">🖨️ Imprimir Diário</button>
+                </div>
+
+                <div className="overflow-x-auto border rounded-xl bg-white">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 border-b font-bold text-slate-700">
+                      <tr>
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Histórico / Descrição</th>
+                        <th className="p-3">Conta Débito (Saída)</th>
+                        <th className="p-3">Conta Crédito (Entrada)</th>
+                        <th className="p-3">Conta Contábil</th>
+                        <th className="p-3 text-right">Valor (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {lancamentosCorrente.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-400">Nenhum lançamento registrado no Livro Diário.</td>
+                        </tr>
+                      ) : (
+                        lancamentosCorrente.map((l: any) => {
+                          const contaDebito = contasFinanceiras.find(c => String(c.id) === String(l.conta_debito_id));
+                          const contaCredito = contasFinanceiras.find(c => String(c.id) === String(l.conta_credito_id));
+                          const planoConta = planoContasContabil.find(p => String(p.codigo_conta) === String(l.plano_conta_id));
+
+                          return (
+                            <tr key={l.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono">{l.data_lancamento}</td>
+                              <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                              <td className="p-3 text-rose-700 font-semibold">{contaDebito ? contaDebito.nome_conta : '-'}</td>
+                              <td className="p-3 text-emerald-700 font-semibold">{contaCredito ? contaCredito.nome_conta : '-'}</td>
+                              <td className="p-3 font-mono text-blue-900">{planoConta ? `${planoConta.codigo_conta} — ${planoConta.nome_conta}` : (l.plano_conta_id || '-')}</td>
+                              <td className="p-3 font-mono font-bold text-right text-slate-900">R$ {parseFloat(l.valor || 0).toFixed(2)}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* BALANCETE DE VERIFICAÇÃO */}
+            {financeiroSubTab === 'balancete' && !contaAnaliticaSelecionada && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg">⚖️ Balancete de Verificação</h3>
+                    <p className="text-xs text-slate-500">Resumo acumulado por conta do plano de contas.</p>
+                  </div>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all">🖨️ Imprimir Balancete</button>
+                </div>
+
+                <div className="overflow-x-auto border rounded-xl bg-white">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-100 border-b font-bold text-slate-700">
+                      <tr>
+                        <th className="p-3">Código</th>
+                        <th className="p-3">Conta Contábil</th>
+                        <th className="p-3">Natureza</th>
+                        <th className="p-3 text-right">Saldo Acumulado (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {planoContasContabil.length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="p-8 text-center text-slate-400">Nenhuma conta no plano de contas para gerar o balancete.</td>
+                        </tr>
+                      ) : (
+                        planoContasContabil.map((pc: any) => {
+                          const lancsDaConta = lancamentosCorrente.filter(l => String(l.plano_conta_id) === String(pc.codigo_conta));
+                          const saldoTotal = lancsDaConta.reduce((acc, l) => acc + parseFloat(l.valor || 0), 0);
+
+                          return (
+                            <tr key={pc.id || pc.codigo_conta} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono font-bold text-blue-900">{pc.codigo_conta}</td>
+                              <td className="p-3 font-semibold text-slate-900">{pc.nome_conta}</td>
+                              <td className="p-3">
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                  pc.tipo_natureza === 'Receita' ? 'bg-emerald-100 text-emerald-800' :
+                                  pc.tipo_natureza === 'Despesa' ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-800'
+                                }`}>
+                                  {pc.tipo_natureza}
+                                </span>
+                              </td>
+                              <td className="p-3 font-mono font-bold text-right text-slate-900">R$ {saldoTotal.toFixed(2)}</td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* DRE (DEMONSTRAÇÃO DO RESULTADO DO EXERCÍCIO) */}
+            {financeiroSubTab === 'dre' && !contaAnaliticaSelecionada && (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-slate-800 text-lg">📈 DRE (Demonstração do Resultado do Exercício)</h3>
+                    <p className="text-xs text-slate-500">Apuração do Superávit ou Déficit do período (Receitas menos Despesas).</p>
+                  </div>
+                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all">🖨️ Imprimir DRE</button>
+                </div>
+
+                {(() => {
+                  let totalReceitas = 0;
+                  let totalDespesas = 0;
+
+                  const receitasList = planoContasContabil.filter(p => p.tipo_natureza === 'Receita');
+                  const despesaslist = planoContasContabil.filter(p => p.tipo_natureza === 'Despesa');
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Bloco de Receitas */}
+                      <div className="border rounded-2xl overflow-hidden bg-white">
+                        <div className="bg-emerald-50 px-4 py-3 border-b flex justify-between items-center">
+                          <h4 className="font-bold text-emerald-900 text-sm">(+) Total de Receitas</h4>
+                        </div>
+                        <table className="w-full text-left text-xs">
+                          <tbody className="divide-y text-slate-700">
+                            {receitasList.length === 0 ? (
+                              <tr><td colSpan={2} className="p-4 text-center text-slate-400">Nenhuma conta de receita cadastrada.</td></tr>
+                            ) : (
+                              receitasList.map(pc => {
+                                const val = lancamentosCorrente
+                                  .filter(l => String(l.plano_conta_id) === String(pc.codigo_conta))
+                                  .reduce((acc, l) => acc + parseFloat(l.valor || 0), 0);
+                                totalReceitas += val;
+                                return (
+                                  <tr key={pc.codigo_conta} className="hover:bg-slate-50">
+                                    <td className="p-3 font-semibold text-slate-800">{pc.codigo_conta} — {pc.nome_conta}</td>
+                                    <td className="p-3 font-mono font-bold text-right text-emerald-700">R$ {val.toFixed(2)}</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Bloco de Despesas */}
+                      <div className="border rounded-2xl overflow-hidden bg-white">
+                        <div className="bg-rose-50 px-4 py-3 border-b flex justify-between items-center">
+                          <h4 className="font-bold text-rose-900 text-sm">(-) Total de Despesas</h4>
+                        </div>
+                        <table className="w-full text-left text-xs">
+                          <tbody className="divide-y text-slate-700">
+                            {despesaslist.length === 0 ? (
+                              <tr><td colSpan={2} className="p-4 text-center text-slate-400">Nenhuma conta de despesa cadastrada.</td></tr>
+                            ) : (
+                              despesaslist.map(pc => {
+                                const val = lancamentosCorrente
+                                  .filter(l => String(l.plano_conta_id) === String(pc.codigo_conta))
+                                  .reduce((acc, l) => acc + parseFloat(l.valor || 0), 0);
+                                totalDespesas += val;
+                                return (
+                                  <tr key={pc.codigo_conta} className="hover:bg-slate-50">
+                                    <td className="p-3 font-semibold text-slate-800">{pc.codigo_conta} — {pc.nome_conta}</td>
+                                    <td className="p-3 font-mono font-bold text-right text-rose-700">R$ {val.toFixed(2)}</td>
+                                  </tr>
+                                );
+                              })
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Resultado Final (DRE) */}
+                      {(() => {
+                        const resultadoLiquido = totalReceitas - totalDespesas;
+                        return (
+                          <div className={`p-5 rounded-2xl border flex justify-between items-center shadow-sm ${resultadoLiquido >= 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-rose-50 border-rose-200 text-rose-950'}`}>
+                            <div>
+                              <span className="text-xs font-bold uppercase tracking-wider">Resultado Líquido do Exercício (Superávit / Déficit)</span>
+                              <h4 className="text-2xl font-black">{resultadoLiquido >= 0 ? 'SUPERÁVIT' : 'DÉFICIT'}</h4>
+                            </div>
+                            <div className="text-3xl font-black font-mono">
+                              R$ {resultadoLiquido.toFixed(2)}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {financeiroSubTab === 'extrato' && !contaAnaliticaSelecionada && (
               <div className="space-y-4">
                 {loadingFinanceiro ? (
                   <p className="text-center py-6 text-slate-500">Carregando extrato...</p>
@@ -2309,7 +2580,7 @@ export default function App() {
               </div>
             )}
 
-            {financeiroSubTab === 'contas' && (
+            {financeiroSubTab === 'contas' && !contaAnaliticaSelecionada && (
               <div className="space-y-4">
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">
@@ -2339,49 +2610,6 @@ export default function App() {
                             </tr>
                           );
                         })
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {financeiroSubTab === 'relatorio' && (
-              <div className="space-y-6">
-                <div className="p-5 bg-blue-50 border border-blue-200 rounded-2xl flex justify-between items-center print:border-slate-400">
-                  <div>
-                    <h3 className="font-bold text-blue-950 text-base">Saldo Atual da Conta Corrente</h3>
-                    <p className="text-xs text-blue-700">Calculado através do último resultado acumulado.</p>
-                  </div>
-                  <div className={`text-2xl font-black font-mono ${saldoFinalRelatorio >= 0 ? 'text-blue-900' : 'text-rose-600'}`}>
-                    R$ {saldoFinalRelatorio.toFixed(2)}
-                  </div>
-                </div>
-                
-                <div className="overflow-x-auto border rounded-xl">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-100 border-b text-slate-700 font-bold">
-                        <th className="p-3">Data</th>
-                        <th className="p-3">Débito (Saída)</th>
-                        <th className="p-3">Crédito (Entrada)</th>
-                        <th className="p-3">Descrição</th>
-                        <th className="p-3">Saldo Parcial</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {lancamentosComSaldo.length === 0 ? (
-                        <tr><td colSpan={5} className="py-8 text-center text-slate-400">Nenhum registro para exibir no relatório.</td></tr>
-                      ) : (
-                        lancamentosComSaldo.map((l: any) => (
-                          <tr key={l.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-mono">{l.data_lancamento}</td>
-                            <td className="p-3 font-mono text-rose-600 font-bold">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-                            <td className="p-3 font-mono text-emerald-600 font-bold">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-                            <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
-                            <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
-                          </tr>
-                        ))
                       )}
                     </tbody>
                   </table>
@@ -2479,7 +2707,7 @@ export default function App() {
             <form onSubmit={salvarPlanoConta} className="space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Código da Conta *</label>
-                <input type="text" required value={formPlanoCodigo} onChange={(e) => setFormPlanoCodigo(e.target.value)} placeholder="Ex: 1.1.1.01" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" />
+                <input type="text" required value={formPlanoCodigo} onChange={(e) => setFormPlanoCodigo(e.target.value)} placeholder="Ex: 3.1.1.01" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 font-mono" />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-600 ml-1">Nome da Conta *</label>

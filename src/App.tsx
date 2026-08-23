@@ -2175,14 +2175,14 @@ export default function App() {
                 <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos, Livro Diário, Balancete e DRE.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
-                  <button onClick={() => { setFinanceiroSubTab('diario'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'diario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📖 Livro Diário</button>
-                  <button onClick={() => { setFinanceiroSubTab('balancete'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'balancete' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>⚖️ Balancete</button>
-                  <button onClick={() => { setFinanceiroSubTab('dre'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'dre' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📈 DRE</button>
-                  <button onClick={() => { setFinanceiroSubTab('plano_contas'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
-                  <button onClick={() => { setFinanceiroSubTab('extrato'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato</button>
-                  <button onClick={() => { setFinanceiroSubTab('contas'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
-                </div>
+              <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
+  <button onClick={() => { setFinanceiroSubTab('diario'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'diario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📖 Livro Diário</button>
+  <button onClick={() => { setFinanceiroSubTab('balancete'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'balancete' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>⚖️ Balancete</button>
+  <button onClick={() => { setFinanceiroSubTab('dre'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'dre' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📈 DRE</button>
+  <button onClick={() => { setFinanceiroSubTab('extrato'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>📊 Extrato Conta</button>
+  <button onClick={() => { setFinanceiroSubTab('plano_contas'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
+  <button onClick={() => { setFinanceiroSubTab('contas'); setContaAnaliticaSelecionada(null); }} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
+</div>
                 
                 <button 
                   onClick={async () => {

@@ -85,7 +85,6 @@ export default function App() {
   // ==========================================
   const carregarPlanoContas = async () => {
     const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
-    console.log("Buscando para a igreja:", codigoIgrejaAtual); // <--- Adicione este log
 
     try {
       const { data, error } = await supabase
@@ -95,29 +94,28 @@ export default function App() {
         .order('codigo_conta', { ascending: true });
 
       if (error) {
-        console.error("Erro do Supabase no plano de contas:", error.message); // <--- Adicione este log
         setPlanoContasContabil([]);
         return;
       }
 
-      console.log("Plano de contas encontrado com sucesso:", data); // <--- Adicione este log
       setPlanoContasContabil(data || []);
     } catch (err: any) {
-      console.error("Erro inesperado:", err.message); // <--- Adicione este log
       setPlanoContasContabil([]);
     }
   };
 
-  // INSIRA A FUNÇÃO PONTE AQUI, LOGO APÓS A ACIMA:
- const handleCarregarPlanoContasClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
-  event.preventDefault(); // Garante que o botão não dispare submit indesejado
-  console.log("Botão clicado, chamando carregarPlanoContas...");
-  
-  await carregarPlanoContas();
-};
+  const handleCarregarPlanoContasClick = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    await carregarPlanoContas();
+  };
+
+  const handleAbrirModalPlanoContaClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    setShowPlanoContaModal(true);
+  };
 
   const salvarPlanoConta = async (e: React.FormEvent) => {
-    // ... restante do seu código
+    e.preventDefault();
     const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
 
     try {
@@ -145,32 +143,6 @@ export default function App() {
       alert('Erro ao salvar conta contábil: ' + err.message);
     }
   };
-
-  useEffect(() => {
-    if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
-    const cod = loggedUser.codigo_igreja;
-    
-    async function carregarDados() {
-      await Promise.all([
-        carregarMembros(cod),
-        carregarMinisterios(cod),
-        carregarInscricoes(cod),
-        carregarPlanoContas(), // <--- ADICIONADO AQUI PARA CARREGAR GLOBALMENTE
-        carregarAgenda(cod),
-        carregarCelulas(cod),
-        carregarSetores(cod),
-        carregarRedes(cod),
-        carregarFinanceiro(cod)
-      ]);
-
-      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
-      setUsuariosList(uData || []);
-      
-      const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
-      setFornecedoresList(fData || []);
-    }
-    carregarDados();
-  }, [isLoggedIn, loggedUser]);
 
   // ==========================================
   // 2.5 MEMBROS E FORMULÁRIOS
@@ -307,6 +279,7 @@ export default function App() {
   const [formLancContaDebitoId, setFormLancContaDebitoId] = useState('');
   const [formLancContaCreditoId, setFormLancContaCreditoId] = useState('');
   const [formLancObs, setFormLancObs] = useState('');
+  const [formLancPlanoContaId, setFormLancPlanoContaId] = useState('');
 
   const [formNomeConta, setFormNomeConta] = useState('');
   const [formTipoConta, setFormTipoConta] = useState('Caixa Geral');
@@ -393,15 +366,15 @@ export default function App() {
           const viceId = String(item.vice_id ?? '');
           return liderId === membroId || viceId === membroId;
         });
-
+  
         if (!celula) {
           alert('Acesso negado. Este CPF não é de líder ou vice-líder de célula.');
           return;
         }
-
+  
         const funcaoCelula = String(celula.lider_id) === String(membro.id) ? 'lider' : 'vice_lider';
         const participantes = Array.isArray(celula.participantes) ? celula.participantes : [];
-
+  
         const idsPermitidos = Array.from(
           new Set(
             [
@@ -420,7 +393,7 @@ export default function App() {
               .map((id: any) => String(id))
           )
         );
-
+  
         setLoggedUser({
           perfil_acesso: 'celula',
           funcao_celula: funcaoCelula,
@@ -432,12 +405,12 @@ export default function App() {
           codigo_igreja: codigoIgreja,
           nome_usuario: membro.nome
         });
-
+  
         setActiveTab('membros_mobile');
         setIsLoggedIn(true);
         return;
       }
-
+  
       const { data: usuario, error: erroUsuario } = await supabase
         .from('usuarios')
         .select('*, igrejas(*)')
@@ -446,19 +419,19 @@ export default function App() {
         .eq('senha', senha)
         .eq('ativo', true)
         .maybeSingle();
-  
+    
       if (erroUsuario || !usuario) {
         alert('Usuário ou senha incorretos.');
         return;
       }
-  
+    
       const admCheck = usuario.usuario === 'admin' || usuario.perfil === 'admin' || usuario.tipo_usuario === 'admin';
-  
+    
       setLoggedUser({
         ...usuario,
         perfil_acesso: admCheck ? 'admin' : 'usuario'
       });
-  
+    
       setActiveTab('relatorios');
       setIsLoggedIn(true);
     } catch (err: any) {
@@ -467,7 +440,7 @@ export default function App() {
       setLoginLoading(false);
     }
   };
-
+  
   const carregarMembros = async (cod: string) => {
     if (!cod) {
       setMembers([]);
@@ -481,7 +454,7 @@ export default function App() {
         .select('*')
         .eq('codigo_igreja', codigoNormalizado)
         .order('nome', { ascending: true });
-
+  
       if (error) {
         setMembers([]);
         return;
@@ -493,31 +466,31 @@ export default function App() {
       setLoadingMembros(false);
     }
   };
-
+  
   const carregarMinisterios = async (cod: string) => {
     const { data, error } = await supabase
       .from('ministerios')
       .select('*')
       .eq('codigo_igreja', cod)
       .order('nome', { ascending: true });
-
+  
     if (error) {
       setMinisteriosList([]);
       return;
     }
     setMinisteriosList(data || []);
   };
-
+  
   const salvarMinisterio = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formMinisterioNome.trim()) { alert('O nome do ministério é obrigatório.'); return; }
-
+  
     const payload = {
       codigo_igreja: loggedUser.codigo_igreja,
       nome: formMinisterioNome.trim().toUpperCase(),
       descricao: formMinisterioDesc.trim().toUpperCase()
     };
-
+  
     try {
       if (editingMinisterio && editingMinisterio.id) {
         const { error } = await supabase.from('ministerios').update(payload).eq('id', editingMinisterio.id);
@@ -574,26 +547,6 @@ export default function App() {
   const carregarInscricoes = async (cod: string) => {
     const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod);
     setInscricoesList(data || []);
-  };
-  const carregarPlanoContas = async () => {
-    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
-
-    try {
-      const { data, error } = await supabase
-        .from('plano_contas_contabil')
-        .select('*')
-        .eq('codigo_igreja', codigoIgrejaAtual)
-        .order('codigo_conta', { ascending: true });
-
-      if (error) {
-        setPlanoContasContabil([]);
-        return;
-      }
-
-      setPlanoContasContabil(data || []);
-    } catch (err: any) {
-      setPlanoContasContabil([]);
-    }
   };
 
   const carregarFinanceiro = async (cod: string) => {
@@ -1143,7 +1096,8 @@ export default function App() {
       conta_debito_id: formLancContaDebitoId,
       conta_credito_id: formLancContaCreditoId,
       membro_id: editingMember ? editingMember.id : null,
-      descricao: formLancObs.trim() || 'Lançamento financeiro'
+      descricao: formLancObs.trim() || 'Lançamento financeiro',
+      plano_conta_id: formLancPlanoContaId || null
     };
   
     try {
@@ -1163,6 +1117,7 @@ export default function App() {
       setFormLancObs('');
       setFormLancContaDebitoId('');
       setFormLancContaCreditoId('');
+      setFormLancPlanoContaId('');
       carregarFinanceiro(loggedUser.codigo_igreja);
     } catch (err: any) { alert('Erro: ' + err.message); }
   };
@@ -1178,6 +1133,7 @@ export default function App() {
     setFormLancContaDebitoId(lancamento.conta_debito_id || '');
     setFormLancContaCreditoId(lancamento.conta_credito_id || '');
     setFormLancObs(lancamento.descricao || '');
+    setFormLancPlanoContaId(lancamento.plano_conta_id || '');
     setShowLancamentoModal(true);
   };
   
@@ -2216,45 +2172,45 @@ export default function App() {
         {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL */}
         {/* ========================================== */}
         {activeTab === 'financeiro' && (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
-        <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos e plano de contas.</p>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
-          <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Geral</button>
-          <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
-          <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
-          <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
-        </div>
-        
-        <button 
-          onClick={async () => {
-            if (loggedUser?.codigo_igreja) {
-              await carregarPlanoContas();
-            }
-            setShowLancamentoModal(true);
-          }} 
-          className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
-        >
-          + Novo Lançamento
-        </button>
-      </div>
-    </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
+                <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos e plano de contas.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex bg-slate-100 p-1 rounded-xl flex-wrap">
+                  <button onClick={() => setFinanceiroSubTab('extrato')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'extrato' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Extrato Geral</button>
+                  <button onClick={() => setFinanceiroSubTab('contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Contas</button>
+                  <button onClick={() => setFinanceiroSubTab('plano_contas')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'plano_contas' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Plano de Contas</button>
+                  <button onClick={() => setFinanceiroSubTab('relatorio')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${financeiroSubTab === 'relatorio' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Relatório</button>
+                </div>
+                
+                <button 
+                  onClick={async () => {
+                    if (loggedUser?.codigo_igreja) {
+                      await carregarPlanoContas();
+                    }
+                    setShowLancamentoModal(true);
+                  }} 
+                  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
+                >
+                  + Novo Lançamento
+                </button>
+              </div>
+            </div>
 
             {financeiroSubTab === 'plano_contas' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-bold text-slate-800 text-lg">Plano de Contas Contábil</h3>
                   <button 
-  type="button"
-  onClick={handleAbrirModalPlanoContaClick} 
-  className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer"
->
-  + Nova Conta Contábil
-</button>
+                    type="button"
+                    onClick={handleAbrirModalPlanoContaClick} 
+                    className="px-4 py-2 bg-blue-900 text-white text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    + Nova Conta Contábil
+                  </button>
                 </div>
                 <div className="overflow-x-auto border rounded-xl bg-white">
                   <table className="w-full text-left text-sm">
@@ -2303,50 +2259,55 @@ export default function App() {
                 ) : (
                   <div className="overflow-x-auto border rounded-xl">
                     <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-  <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
-    <th className="p-3">Data</th>
-    <th className="p-3">Débito (Saída)</th>
-    <th className="p-3">Crédito (Entrada)</th>
-    <th className="p-3">Descrição</th>
-    <th className="p-3">Saldo</th>
-    <th className="p-3 text-center print:hidden">Ações (Editar / Excluir / Anexar)</th>
-  </tr>
-</thead>
-<tbody className="divide-y text-slate-700">
-  {lancamentosComSaldo.length === 0 ? (
-    <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
-  ) : (
-    lancamentosComSaldo.map((l: any) => (
-      <tr key={l.id} className="hover:bg-slate-50">
-        <td className="p-3 font-mono">{l.data_lancamento}</td>
-        <td className="p-3 font-mono font-bold text-rose-600">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-        <td className="p-3 font-mono font-bold text-emerald-600">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
-        <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
-        <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
-        <td className="p-3 text-center print:hidden">
-          <div className="flex items-center justify-center gap-1.5 flex-wrap">
-            <button onClick={() => handleEditLancamento(l)} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
-              Editar
-            </button>
-            <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
-              Excluir
-            </button>
-            <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
-              📁 Anexar
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
-            </label>
-            {l.comprovante_url && (
-              <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
-                Abrir
-              </a>
+                      <thead>
+                        <tr className="bg-slate-50 border-b text-slate-600 font-semibold">
+                          <th className="p-3">Data</th>
+                          <th className="p-3">Débito (Saída)</th>
+                          <th className="p-3">Crédito (Entrada)</th>
+                          <th className="p-3">Descrição</th>
+                          <th className="p-3">Saldo</th>
+                          <th className="p-3 text-center print:hidden">Ações (Editar / Excluir / Anexar)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-slate-700">
+                        {lancamentosComSaldo.length === 0 ? (
+                          <tr><td colSpan={6} className="py-8 text-center text-slate-400">Nenhum lançamento registrado nesta conta corrente.</td></tr>
+                        ) : (
+                          lancamentosComSaldo.map((l: any) => (
+                            <tr key={l.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-mono">{l.data_lancamento}</td>
+                              <td className="p-3 font-mono font-bold text-rose-600">{!l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                              <td className="p-3 font-mono font-bold text-emerald-600">{l.isCredito ? `R$ ${l.valorNum.toFixed(2)}` : '-'}</td>
+                              <td className="p-3 font-bold text-slate-900">{l.descricao}</td>
+                              <td className={`p-3 font-mono font-bold ${l.saldoAtual >= 0 ? 'text-blue-950' : 'text-rose-600'}`}>R$ {l.saldoAtual.toFixed(2)}</td>
+                              <td className="p-3 text-center print:hidden">
+                                <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                                  <button onClick={() => handleEditLancamento(l)} className="px-2.5 py-1 bg-amber-50 hover:bg-amber-600 text-amber-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Editar lançamento">
+                                    Editar
+                                  </button>
+                                  <button onClick={() => handleDeleteLancamento(l.id)} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px]" title="Excluir lançamento">
+                                    Excluir
+                                  </button>
+                                  <label className="px-2.5 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white font-bold rounded-lg transition-all cursor-pointer text-[11px] inline-flex items-center gap-1" title="Carregar comprovante">
+                                    📁 Anexar
+                                    <input type="file" accept="image/*" className="hidden" onChange={(e) => handleAnexarComprovante(l.id, e)} />
+                                  </label>
+                                  {l.comprovante_url && (
+                                    <a href={l.comprovante_url} target="_blank" rel="noopener noreferrer" className="text-emerald-700 font-bold text-[11px] underline">
+                                      Abrir
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
-        </td>
-      </tr>
-    ))
-  )}
-</tbody>
 
             {financeiroSubTab === 'contas' && (
               <div className="space-y-4">
@@ -2534,14 +2495,15 @@ export default function App() {
                 </select>
               </div>
               <div className="flex justify-end gap-3 pt-4 border-t">
-          <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-          <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
+                <button type="button" onClick={() => setShowPlanoContaModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Conta</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </form>
-    </div>
-  </div>
-  )}
-{/* 8.2 MODAL: SETORES */}
+      )}
+
+      {/* 8.2 MODAL: SETORES */}
       {showSetorModal && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
@@ -2599,102 +2561,101 @@ export default function App() {
         </div>
       )}
 
-{/* 8.4 MODAL: LANÇAMENTO FINANCEIRO */}
-{showLancamentoModal && (
-  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-    <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center border-b pb-4">
-        <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Financeiro & Contábil)</h3>
-        <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
-      </div>
-      
-      <form onSubmit={handleSaveLancamento} className="space-y-4">
-        <div>
-          <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
-          <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-        </div>
+      {/* 8.4 MODAL: LANÇAMENTO FINANCEIRO */}
+      {showLancamentoModal && (
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4">
+              <h3 className="text-lg font-black text-blue-900">Novo Lançamento (Financeiro & Contábil)</h3>
+              <button onClick={() => setShowLancamentoModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">✕</button>
+            </div>
+            
+            <form onSubmit={handleSaveLancamento} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Data *</label>
+                <input type="date" required value={formLancData} onChange={(e) => setFormLancData(e.target.value)} className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
 
-        {/* ORIGEM / CONTA FINANCEIRA DE DÉBITO */}
-        <div>
-          <label className="text-xs font-bold text-rose-700 ml-1">Conta de Origem / Saída (Banco ou Caixa) *</label>
-          <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
-            <option value="">Selecione a conta financeira...</option>
-            {contasFinanceiras && contasFinanceiras.map((c: any) => (
-              <option key={c.id} value={c.id}>
-                {c.nome_conta} ({c.codigo_conta})
-              </option>
-            ))}
-          </select>
-        </div>
+              {/* ORIGEM / CONTA FINANCEIRA DE DÉBITO */}
+              <div>
+                <label className="text-xs font-bold text-rose-700 ml-1">Conta de Origem / Saída (Banco ou Caixa) *</label>
+                <select required value={formLancContaDebitoId} onChange={(e) => setFormLancContaDebitoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-rose-700">
+                  <option value="">Selecione a conta financeira...</option>
+                  {contasFinanceiras && contasFinanceiras.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome_conta} ({c.codigo_conta})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        {/* DESTINO / CONTA FINANCEIRA DE CRÉDITO */}
-        <div>
-          <label className="text-xs font-bold text-emerald-700 ml-1">Conta de Destino / Entrada (Banco ou Caixa) *</label>
-          <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
-            <option value="">Selecione a conta financeira...</option>
-            {contasFinanceiras && contasFinanceiras.map((c: any) => (
-              <option key={c.id} value={c.id}>
-                {c.nome_conta} ({c.codigo_conta})
-              </option>
-            ))}
-          </select>
-        </div>
+              {/* DESTINO / CONTA FINANCEIRA DE CRÉDITO */}
+              <div>
+                <label className="text-xs font-bold text-emerald-700 ml-1">Conta de Destino / Entrada (Banco ou Caixa) *</label>
+                <select required value={formLancContaCreditoId} onChange={(e) => setFormLancContaCreditoId(e.target.value)} className="w-full rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-emerald-700">
+                  <option value="">Selecione a conta financeira...</option>
+                  {contasFinanceiras && contasFinanceiras.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome_conta} ({c.codigo_conta})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        {/* ---> NOVO CAMPO: PLANO DE CONTAS CONTÁBIL <--- */}
-        <div>
-          <label className="text-xs font-bold text-blue-900 ml-1 block mb-1">
-            Plano de Contas / Categoria Contábil *
-          </label>
-          <div className="flex gap-2">
-            <select 
-              required 
-              value={formLancPlanoContaId || ''} 
-              onChange={(e) => setFormLancPlanoContaId(e.target.value)} 
-              className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900 shadow-sm"
-            >
-              <option value="">Selecione a categoria contábil...</option>
-              {planoContasContabil && planoContasContabil.length > 0 ? (
-                planoContasContabil.map((pc: any) => (
-                  <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
-                    {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
-                  </option>
-                ))
-              ) : (
-                <option value="" disabled>Carregando plano de contas...</option>
-              )}
-            </select>
-            <button
-              type="button"
-              onClick={handleCarregarPlanoContasClick}
-              className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
-              title="Recarregar Plano de Contas"
-            >
-              🔄
-            </button>
+              {/* PLANO DE CONTAS CONTÁBIL */}
+              <div>
+                <label className="text-xs font-bold text-blue-900 ml-1 block mb-1">
+                  Plano de Contas / Categoria Contábil *
+                </label>
+                <div className="flex gap-2">
+                  <select 
+                    required 
+                    value={formLancPlanoContaId || ''} 
+                    onChange={(e) => setFormLancPlanoContaId(e.target.value)} 
+                    className="flex-1 rounded-xl border p-3 text-sm bg-white focus:outline-none focus:border-blue-900 font-bold text-blue-900 shadow-sm"
+                  >
+                    <option value="">Selecione a categoria contábil...</option>
+                    {planoContasContabil && planoContasContabil.length > 0 ? (
+                      planoContasContabil.map((pc: any) => (
+                        <option key={pc.id || pc.codigo_conta} value={pc.codigo_conta}>
+                          {pc.codigo_conta} — {pc.nome_conta} ({pc.tipo_natureza})
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>Carregando plano de contas...</option>
+                    )}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={handleCarregarPlanoContasClick}
+                    className="px-3 bg-slate-100 hover:bg-slate-200 border rounded-xl text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+                    title="Recarregar Plano de Contas"
+                  >
+                    🔄
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
+                <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
+                <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value.toUpperCase())} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
+              </div>
+            </form>
           </div>
         </div>
-
-        <div>
-          <label className="text-xs font-bold text-slate-600 ml-1">Valor (R$) *</label>
-          <input type="number" step="0.01" required value={formLancValor} onChange={(e) => setFormLancValor(e.target.value)} placeholder="0.00" className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900" />
-        </div>
-        <div>
-          <label className="text-xs font-bold text-slate-600 ml-1">Descrição / Histórico</label>
-          <textarea rows={2} value={formLancObs} onChange={(e) => setFormLancObs(e.target.value.toUpperCase())} placeholder="Detalhes do lançamento..." className="w-full rounded-xl border p-3 text-sm focus:outline-none focus:border-blue-900 uppercase" />
-        </div>
-        <div className="flex justify-end gap-3 pt-4 border-t">
-          <button type="button" onClick={() => setShowLancamentoModal(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
-          <button type="submit" className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer">Salvar Lançamento</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-    
+      )}
 
       {/* 8.5 MODAL: CONTA FINANCEIRA */}
       {showContaModal && (
-  <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-lg font-black text-blue-900">Cadastrar Nova Conta</h3>

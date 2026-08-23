@@ -18,6 +18,7 @@ export default function App() {
   // COLE AQUI EMBAIXO DOS OUTROS ESTADOS:
   // ==========================================
   const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
+  
   // ==========================================
   // 2.1 SUB-ABAS DO SISTEMA
   // ==========================================
@@ -2529,19 +2530,19 @@ export default function App() {
 
 {financeiroSubTab === 'extrato' && !contaAnaliticaSelecionada && (
               <div className="space-y-4">
-                {/* SELETOR DE CONTA (INBOX / DROPDOWN) */}
+                {/* SELETOR DE CONTA PARA O EXTRATO */}
                 <div className="p-4 bg-slate-50 border rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div>
-                    <h3 className="font-bold text-slate-800 text-base">📊 Extrato de Conta Corrente e Caixa</h3>
-                    <p className="text-xs text-slate-500">Selecione uma conta específica ou visualize o consolidado de todas.</p>
+                    <h3 className="font-bold text-slate-800 text-base">📊 Relatório de Conta Corrente e Caixa</h3>
+                    <p className="text-xs text-slate-500">Selecione uma conta específica ou visualize o consolidado de todas juntas.</p>
                   </div>
                   <div className="w-full sm:w-auto">
                     <select
-                      value={selectedContaExtrato || 'todas'}
+                      value={selectedContaExtrato}
                       onChange={(e) => setSelectedContaExtrato(e.target.value)}
-                      className="w-full sm:w-72 rounded-xl border p-2.5 text-xs bg-white font-bold text-blue-900 focus:outline-none focus:border-blue-900 shadow-sm"
+                      className="w-full sm:w-72 rounded-xl border p-2.5 text-xs bg-white font-bold text-blue-900 focus:outline-none focus:border-blue-900 shadow-sm cursor-pointer"
                     >
-                      <option value="todas">📁 Todas as Contas (Consolidado)</option>
+                      <option value="todas">📁 Todas as Contas (Consolidado juntas)</option>
                       {contasFinanceiras.map((c: any) => (
                         <option key={c.id} value={c.id}>
                           {c.nome_conta} ({c.codigo_conta})
@@ -2568,7 +2569,6 @@ export default function App() {
                       </thead>
                       <tbody className="divide-y text-slate-700">
                         {(() => {
-                          // Filtra os lançamentos com base na conta selecionada no dropdown
                           const lancamentosFiltrados = selectedContaExtrato && selectedContaExtrato !== 'todas'
                             ? lancamentosCorrente.filter((l: any) => 
                                 String(l.conta_debito_id) === String(selectedContaExtrato) || 
@@ -2591,7 +2591,6 @@ export default function App() {
                             const contaDebito = contasFinanceiras.find(c => String(c.id) === String(l.conta_debito_id));
                             const contaCredito = contasFinanceiras.find(c => String(c.id) === String(l.conta_credito_id));
 
-                            // Se a conta selecionada for a de débito (saída), o valor sai dela. Se for crédito (entrada), entra nela.
                             const eSaida = selectedContaExtrato && selectedContaExtrato !== 'todas' 
                               ? String(l.conta_debito_id) === String(selectedContaExtrato)
                               : false;
@@ -2620,11 +2619,7 @@ export default function App() {
                   </div>
                 )}
               </div>
-            )}
-              </div>
-            )}
-
-            {financeiroSubTab === 'contas' && !contaAnaliticaSelecionada && (
+            )}            {financeiroSubTab === 'contas' && !contaAnaliticaSelecionada && (
               <div className="space-y-4">
                 <div className="overflow-x-auto border rounded-xl">
                   <table className="w-full text-left border-collapse text-sm">

@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
-// ==========================================
+/// ==========================================
 // 2. COMPONENTE PRINCIPAL E ESTADOS GLOBAIS
 // ==========================================
 export default function App() {
@@ -13,6 +13,35 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('financeiro');
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
+
+  // ==========================================
+  // USEEFFECT DO ESC
+  // ==========================================
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenDropdown(null);
+        setShowMemberModal(false);
+        setShowLancamentoModal(false);
+        setShowContaModal(false);
+        setShowAgendaModal(false);
+        setShowCelulaModal(false);
+        setShowMinisterioModal(false);
+        setShowPlanoContaModal(false);
+        setContaAnaliticaSelecionada(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+  
+    // Outros estados do sistema continuam logo abaixo...
+    const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
 
   // ==========================================
   // COLE AQUI EMBAIXO DOS OUTROS ESTADOS:
@@ -32,6 +61,28 @@ export default function App() {
   // ==========================================
   // 2.2 ESTADOS DE PROJETOS E INSCRIÇÕES
   // ==========================================
+  const [projetosList, setProjetosList] = useState<any[]>([]);
+  const [showProjetoModal, setShowProjetoModal] = useState(false);
+  const [editingProjeto, setEditingProjeto] = useState<any>(null);
+
+  // Campos do formulário de projeto
+  const [formProjNome, setFormProjNome] = useState('');
+  
+  // Controle para Responsável: 'livre' ou 'membro'
+  const [tipoRespProj, setTipoRespProj] = useState<'livre' | 'membro'>('livre');
+  const [formProjResponsavelLivre, setFormProjResponsavelLivre] = useState('');
+  const [formProjResponsavelMembroId, setFormProjResponsavelMembroId] = useState('');
+
+  // Controle para Responsável Financeiro: 'livre' ou 'membro'
+  const [tipoFinProj, setTipoFinProj] = useState<'livre' | 'membro'>('livre');
+  const [formProjFinLivre, setFormProjFinLivre] = useState('');
+  const [formProjFinMembroId, setFormProjFinMembroId] = useState('');
+
+  const [formProjCusto, setFormProjCusto] = useState('');
+  const [formProjPublico, setFormProjPublico] = useState('');
+
+  // Projeto selecionado para visualização detalhada
+  const [projetoSelecionadoDetalhe, setProjetoSelecionadoDetalhe] = useState<any>(null);
   const [inscricoesList, setInscricoesList] = useState<any[]>([]);
   const [showInscricaoModal, setShowInscricaoModal] = useState(false);
   const [editingInscricao, setEditingInscricao] = useState<any>(null);
@@ -82,11 +133,27 @@ export default function App() {
     return participantes.includes(String(membro.id));
   };
 
+ // ==========================================
+  // CARREGAMENTO DE PROJETOS E PLANO DE CONTAS
   // ==========================================
-  // CARREGAMENTO DO PLANO DE CONTAS (UNIFICADO)
-  // ==========================================
+  const carregarProjetos = async (cod: string) => {
+    if (!cod) return;
+    const { data, error } = await supabase
+      .from('projetos_igreja')
+      .select('*')
+      .eq('codigo_igreja', cod)
+      .order('nome_projeto', { ascending: true });
+
+    if (error) {
+      setProjetosList([]);
+      return;
+    }
+    setProjetosList(data || []);
+  };
+
   const carregarPlanoContas = async () => {
-    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja;
+    if (!codigoIgrejaAtual) return;
 
     try {
       const { data, error } = await supabase
@@ -118,7 +185,11 @@ export default function App() {
 
   const salvarPlanoConta = async (e: React.FormEvent) => {
     e.preventDefault();
-    const codigoIgrejaAtual = loggedUser?.codigo_igreja || loginCodigo || 'IGR-001';
+    const codigoIgrejaAtual = loggedUser?.codigo_igreja;
+    if (!codigoIgrejaAtual) {
+      alert('Erro: Igreja não identificada.');
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -145,7 +216,6 @@ export default function App() {
       alert('Erro ao salvar conta contábil: ' + err.message);
     }
   };
-
   // ==========================================
   // 2.5 MEMBROS E FORMULÁRIOS
   // ==========================================
@@ -1267,7 +1337,7 @@ export default function App() {
     );
   }
 
-  // ==========================================
+ // ==========================================
   // 6. ESTRUTURA PRINCIPAL E HEADER
   // ==========================================
   return (
@@ -1299,7 +1369,74 @@ export default function App() {
             <button type="button" onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>📅 Agenda</button>
             <button type="button" onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>💰 Financeiro</button>
             <button type="button" onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'igreja' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🏛️ Igreja</button>
-            <button type="button" onClick={() => { setActiveTab('projetos'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'projetos' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🚀 Projetos</button>
+
+            {/* MENU DROPDOWN DINÂMICO DE PROJETOS */}
+            <div className="relative inline-block">
+              <button
+                type="button"
+                onClick={() => setOpenDropdown(openDropdown === 'projetos' ? null : 'projetos')}
+                className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${openDropdown === 'projetos' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+              > 
+                🚀 Projetos {openDropdown === 'projetos' ? '▲' : '▼'}
+              </button>
+
+              {openDropdown === 'projetos' && (
+                <div className="absolute left-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <div className="p-2 border-b bg-slate-50 flex justify-between items-center">
+                    <span className="text-[11px] font-black text-slate-500 uppercase">Lista de Projetos</span>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setEditingProjeto(null);
+                        setFormProjNome('');
+                        setTipoRespProj('livre');
+                        setFormProjResponsavelLivre('');
+                        setFormProjResponsavelMembroId('');
+                        setTipoFinProj('livre');
+                        setFormProjFinLivre('');
+                        setFormProjFinMembroId('');
+                        setFormProjCusto('');
+                        setFormProjPublico('');
+                        setShowProjetoModal(true);
+                        setOpenDropdown(null);
+                      }}
+                      className="px-2 py-1 bg-blue-900 text-white font-bold text-[10px] rounded-lg cursor-pointer"
+                    >
+                      + Novo Projeto
+                    </button>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto">
+                    <button 
+                      type="button" 
+                      onClick={() => { setActiveTab('projetos'); setProjetoSelecionadoDetalhe(null); setOpenDropdown(null); }} 
+                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-blue-900 hover:bg-blue-50 cursor-pointer border-b border-slate-50 flex items-center gap-2"
+                    >
+                      📋 Ver Todos os Projetos
+                    </button>
+
+                    {projetosList.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-slate-400 italic">Nenhum projeto cadastrado.</div>
+                    ) : (
+                      projetosList.map((proj: any) => (
+                        <button 
+                          key={proj.id} 
+                          type="button" 
+                          onClick={() => { 
+                            setActiveTab('projetos'); 
+                            setProjetoSelecionadoDetalhe(proj); 
+                            setOpenDropdown(null); 
+                          }} 
+                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer border-b border-slate-50 truncate"
+                        >
+                          📌 {proj.nome_projeto}
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <button
               type="button"

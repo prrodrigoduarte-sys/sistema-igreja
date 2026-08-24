@@ -1275,7 +1275,7 @@ export default function App() {
       {isLoggedIn && loginModo === 'normal' && (
         <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-            <div className="relative">
+          <div className="relative">
               <button
                 type="button"
                 onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')}

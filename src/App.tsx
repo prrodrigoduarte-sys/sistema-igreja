@@ -1275,8 +1275,7 @@ export default function App() {
       {isLoggedIn && loginModo === 'normal' && (
         <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-          <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-          <div className="relative inline-block">
+            <div className="relative inline-block">
               <button
                 type="button"
                 onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')}
@@ -1296,23 +1295,22 @@ export default function App() {
               )}
             </div>
 
-            <button type="button" onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🌱 Células</button>
-            <button type="button" onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">📅 Agenda</button>
-            <button type="button" onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className="px-4 py-2 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer">💰 Financeiro</button>
-            <button type="button" onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🏛️ Igreja</button>
-            <button type="button" onClick={() => { setActiveTab('projetos'); setOpenDropdown(null); }} className="px-4 py-2 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-blue-100 cursor-pointer">🚀 Projetos</button>
+            <button type="button" onClick={() => { setActiveTab('celulas'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'celulas' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🌱 Células</button>
+            <button type="button" onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>📅 Agenda</button>
+            <button type="button" onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>💰 Financeiro</button>
+            <button type="button" onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'igreja' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🏛️ Igreja</button>
+            <button type="button" onClick={() => { setActiveTab('projetos'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'projetos' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🚀 Projetos</button>
 
             <button
               type="button"
-              onClick={() => { setIsLoggedIn(false); setLoggedUser(null); setActiveTab('relatorios'); }}
-              className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer"
+              onClick={() => { setIsLoggedIn(false); setLoggedUser(null); setActiveTab('relatorios'); setOpenDropdown(null); }}
+              className="ml-auto px-4 py-2 bg-rose-50 text-rose-700 font-bold text-xs rounded-xl hover:bg-rose-600 hover:text-white cursor-pointer transition-all"
             >
               Sair
             </button>
           </div>
         </header>
       )}
-
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
         {/* ========================================== */}

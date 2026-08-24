@@ -607,11 +607,6 @@ export default function App() {
     setRedesList(data || []);
   };
 
-  const carregarInscricoes = async (cod: string) => {
-    const { data } = await supabase.from('inscricoes_projetos').select('*').eq('codigo_igreja', cod);
-    setInscricoesList(data || []);
-  };
-
   const carregarFinanceiro = async (cod: string) => {
     if (!cod) return;
     setLoadingFinanceiro(true);

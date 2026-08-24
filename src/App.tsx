@@ -1276,22 +1276,22 @@ export default function App() {
         <header className="bg-white border-b border-slate-200 px-6 py-4 shadow-sm relative z-50 print:hidden">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
           <div className="max-w-7xl mx-auto flex items-center gap-2 flex-wrap">
-            <div className="relative">
+          <div className="relative inline-block">
               <button
                 type="button"
                 onClick={() => setOpenDropdown(openDropdown === 'cadastros' ? null : 'cadastros')}
-                className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${openDropdown === 'cadastros' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
+                className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${openDropdown === 'cadastros' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
               > 
                 📁 Cadastros {openDropdown === 'cadastros' ? '▲' : '▼'}
               </button>
 
               {openDropdown === 'cadastros' && (
-                <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-50 overflow-hidden">
-                  <button type="button" onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">📊 Relatórios</button>
-                  <button type="button" onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">👥 Membros</button>
-                  <button type="button" onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">👤 Usuários</button>
-                  <button type="button" onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">🚚 Fornecedores</button>
-                  <button type="button" onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer">🙌 Ministérios</button>
+                <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                  <button type="button" onClick={() => { setActiveTab('relatorios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-50">📊 Relatórios</button>
+                  <button type="button" onClick={() => { setActiveTab('membros'); setOpenDropdown(null); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-50">👥 Membros</button>
+                  <button type="button" onClick={() => { setActiveTab('usuarios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-50">👤 Usuários</button>
+                  <button type="button" onClick={() => { setActiveTab('fornecedores'); setOpenDropdown(null); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors border-b border-slate-50">🚚 Fornecedores</button>
+                  <button type="button" onClick={() => { setActiveTab('ministerios'); setOpenDropdown(null); }} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer transition-colors">🙌 Ministérios</button>
                 </div>
               )}
             </div>

@@ -58,8 +58,8 @@ export default function App() {
 
   const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
 
-  // ==========================================
-  // 2.2 ESTADOS DE PROJETOS E INSCRIÇÕES
+ // ==========================================
+  // ESTADOS DE PROJETOS
   // ==========================================
   const [projetosList, setProjetosList] = useState<any[]>([]);
   const [showProjetoModal, setShowProjetoModal] = useState(false);
@@ -83,15 +83,6 @@ export default function App() {
 
   // Projeto selecionado para visualização detalhada
   const [projetoSelecionadoDetalhe, setProjetoSelecionadoDetalhe] = useState<any>(null);
-  const [inscricoesList, setInscricoesList] = useState<any[]>([]);
-  const [showInscricaoModal, setShowInscricaoModal] = useState(false);
-  const [editingInscricao, setEditingInscricao] = useState<any>(null);
-  const [formInscricaoNome, setFormInscricaoNome] = useState('');
-  const [formInscricaoCpf, setFormInscricaoCpf] = useState('');
-  const [formInscricaoTel, setFormInscricaoTel] = useState('');
-  const [formInscricaoEmail, setFormInscricaoEmail] = useState('');
-  const [formInscricaoMembroId, setFormInscricaoMembroId] = useState<any>(null);
-
   // ==========================================
   // 2.3 PLANO DE CONTAS CONTÁBIL & ANALÍTICO
   // ==========================================
@@ -2797,75 +2788,134 @@ export default function App() {
         {/* ========================================== */}
         {/* 7.11 MÓDULO: PROJETOS */}
         {/* ========================================== */}
+       {/* ========================================== */}
+        {/* MÓDULO: PROJETOS (LISTAGEM / DETALHE) */}
+        {/* ========================================== */}
         {activeTab === 'projetos' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <div className="flex justify-between items-center border-b pb-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-800">
-                  🚀 Gestão de Projetos: {
-                    projetoAtivo === 'missoes' ? 'Missões' :
-                    projetoAtivo === 'proj_1' ? 'Proj 1 - Ilimitados' :
-                    projetoAtivo === 'proj_2' ? 'Proj 2 - Casais' :
-                    projetoAtivo === 'proj_3' ? 'Proj 3 - Escola de Célula' :
-                    projetoAtivo === 'proj_4' ? 'Proj 4 - Escola de Líderes' : 'Proj 5 - Escola de Pastores'
-                  }
-                </h2>
-                <p className="text-xs text-slate-500">Inscrições e participantes vinculados a este projeto.</p>
-              </div>
-              <button onClick={() => {
-                setEditingInscricao(null);
-                setFormInscricaoNome('');
-                setFormInscricaoCpf('');
-                setFormInscricaoTel('');
-                setFormInscricaoEmail('');
-                setFormInscricaoMembroId('');
-                setShowInscricaoModal(true);
-              }} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer">
-                + Nova Inscrição
-              </button>
-            </div>
+            {projetoSelecionadoDetalhe ? (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center border-b pb-4">
+                  <div>
+                    <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">Ficha Técnica do Projeto</span>
+                    <h2 className="text-2xl font-black text-slate-900">📌 {projetoSelecionadoDetalhe.nome_projeto}</h2>
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => {
+                        const p = projetoSelecionadoDetalhe;
+                        setEditingProjeto(p);
+                        setFormProjNome(p.nome_projeto || '');
+                        
+                        const membroResp = members.find(m => String(m.id) === String(p.responsavel));
+                        if (membroResp) {
+                          setTipoRespProj('membro');
+                          setFormProjResponsavelMembroId(p.responsavel);
+                          setFormProjResponsavelLivre('');
+                        } else {
+                          setTipoRespProj('livre');
+                          setFormProjResponsavelLivre(p.responsavel || '');
+                          setFormProjResponsavelMembroId('');
+                        }
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-sm">
-                <thead>
-                  <tr className="border-b bg-slate-50 text-slate-600 font-semibold">
-                    <th className="p-3">Nome</th>
-                    <th className="p-3">CPF</th>
-                    <th className="p-3">Telefone</th>
-                    <th className="p-3">E-mail</th>
-                    <th className="p-3 text-center">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-slate-700">
-                  {inscricoesList.filter(i => i.tipo_projeto === projetoAtivo).length === 0 ? (
-                    <tr><td colSpan={5} className="py-8 text-center text-slate-400">Nenhuma inscrição registrada para este projeto.</td></tr>
+                        const membroFin = members.find(m => String(m.id) === String(p.responsavel_financeiro));
+                        if (membroFin) {
+                          setTipoFinProj('membro');
+                          setFormProjFinMembroId(p.responsavel_financeiro);
+                          setFormProjFinLivre('');
+                        } else {
+                          setTipoFinProj('livre');
+                          setFormProjFinLivre(p.responsavel_financeiro || '');
+                          setFormProjFinMembroId('');
+                        }
+
+                        setFormProjCusto(p.custo ? String(p.custo) : '');
+                        setFormProjPublico(p.publico_alvo || '');
+                        setShowProjetoModal(true);
+                      }}
+                      className="px-4 py-2 bg-amber-600 text-white font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      ✏️ Editar Projeto
+                    </button>
+                    <button 
+                      onClick={() => setProjetoSelecionadoDetalhe(null)} 
+                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      ← Voltar para Todos
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
+                    <span className="text-xs font-bold text-slate-400">Responsável pelo Projeto</span>
+                    <p className="font-bold text-slate-800">
+                      {members.find(m => String(m.id) === String(projetoSelecionadoDetalhe.responsavel))?.nome || projetoSelecionadoDetalhe.responsavel}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
+                    <span className="text-xs font-bold text-slate-400">Responsável Financeiro</span>
+                    <p className="font-bold text-slate-800">
+                      {members.find(m => String(m.id) === String(projetoSelecionadoDetalhe.responsavel_financeiro))?.nome || projetoSelecionadoDetalhe.responsavel_financeiro}
+                    </p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
+                    <span className="text-xs font-bold text-slate-400">Custo Estimado / Real</span>
+                    <p className="font-mono font-black text-emerald-700 text-lg">R$ {parseFloat(projetoSelecionadoDetalhe.custo || 0).toFixed(2)}</p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
+                    <span className="text-xs font-bold text-slate-400">Público-Alvo</span>
+                    <p className="font-semibold text-slate-800">{projetoSelecionadoDetalhe.publico_alvo || 'Não informado'}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                <div className="flex justify-between items-center border-b pb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-800">🚀 Gestão de Projetos ({projetosList.length})</h2>
+                    <p className="text-xs text-slate-500">Selecione um projeto acima no menu ou cadastre um novo.</p>
+                  </div>
+                  <button onClick={() => {
+                    setEditingProjeto(null);
+                    setFormProjNome('');
+                    setTipoRespProj('livre');
+                    setFormProjResponsavelLivre('');
+                    setFormProjResponsavelMembroId('');
+                    setTipoFinProj('livre');
+                    setFormProjFinLivre('');
+                    setFormProjFinMembroId('');
+                    setFormProjCusto('');
+                    setFormProjPublico('');
+                    setShowProjetoModal(true);
+                  }} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer">
+                    + Novo Projeto
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projetosList.length === 0 ? (
+                    <p className="col-span-full py-8 text-center text-slate-400">Nenhum projeto cadastrado.</p>
                   ) : (
-                    inscricoesList.filter(i => i.tipo_projeto === projetoAtivo).map((insc: any) => (
-                      <tr key={insc.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-bold text-slate-900">{insc.nome}</td>
-                        <td className="p-3 font-mono">{insc.cpf || '-'}</td>
-                        <td className="p-3">{insc.telefone || '-'}</td>
-                        <td className="p-3">{insc.email || '-'}</td>
-                        <td className="p-3 text-center">
-                          <button onClick={async () => {
-                            if (!window.confirm('Excluir esta inscrição?')) return;
-                            const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', insc.id);
-                            if (error) { alert('Erro: ' + error.message); return; }
-                            carregarInscricoes(loggedUser.codigo_igreja);
-                          }} className="px-2.5 py-1 bg-rose-50 hover:bg-rose-600 hover:text-white text-rose-600 font-bold text-xs rounded-lg transition-all cursor-pointer">
-                            Excluir
-                          </button>
-                        </td>
-                      </tr>
+                    projetosList.map((p: any) => (
+                      <div key={p.id} onClick={() => setProjetoSelecionadoDetalhe(p)} className="p-5 border rounded-2xl bg-white shadow-xs space-y-3 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900">
+                        <h3 className="font-bold text-slate-900 text-base">📌 {p.nome_projeto}</h3>
+                        <div className="text-xs text-slate-600 space-y-1">
+                          <div>👤 Resp: <strong className="text-slate-800">{members.find(m => String(m.id) === String(p.responsavel))?.nome || p.responsavel}</strong></div>
+                          <div>💰 Custo: <strong className="font-mono text-emerald-700">R$ {parseFloat(p.custo || 0).toFixed(2)}</strong></div>
+                        </div>
+                        <span className="text-xs text-blue-900 font-bold block pt-1">Ver Ficha Completa ➔</span>
+                      </div>
                     ))
                   )}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
-
-      </main>
 
       {/* ========================================== */}
       {/* 8. MODAIS DE CADASTRO E EDIÇÃO */}

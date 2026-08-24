@@ -36,17 +36,6 @@ export default function App() {
   }, []);
 
   const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
-      window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
-  
-    // Outros estados do sistema continuam logo abaixo...
-    const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
-
-  // ==========================================
-  // COLE AQUI EMBAIXO DOS OUTROS ESTADOS:
-  // ==========================================
-  const [selectedContaExtrato, setSelectedContaExtrato] = useState('todas');
   
   // ==========================================
   // 2.1 SUB-ABAS DO SISTEMA
@@ -57,7 +46,6 @@ export default function App() {
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
   const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
-
  // ==========================================
   // ESTADOS DE PROJETOS
   // ==========================================

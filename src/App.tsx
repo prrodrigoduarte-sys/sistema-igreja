@@ -4,7 +4,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
-/// ==========================================
+// ==========================================
 // 2. COMPONENTE PRINCIPAL E ESTADOS GLOBAIS
 // ==========================================
 export default function App() {
@@ -15,20 +15,13 @@ export default function App() {
   const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
 
   // ==========================================
-  // USEEFFECT DO ESC
+  // 2.0 USEEFFECT DO ESC
   // ==========================================
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpenDropdown(null);
-        setShowMemberModal(false);
-        setShowLancamentoModal(false);
-        setShowContaModal(false);
-        setShowAgendaModal(false);
-        setShowCelulaModal(false);
-        setShowMinisterioModal(false);
-        setShowPlanoContaModal(false);
-        setContaAnaliticaSelecionada(null);
+        // Adicione aqui os modais que fecham com o ESC se houverem
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -46,8 +39,9 @@ export default function App() {
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
 
   const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
- // ==========================================
-  // ESTADOS DE PROJETOS
+
+  // ==========================================
+  // 2.2 ESTADOS DE PROJETOS
   // ==========================================
   const [projetosList, setProjetosList] = useState<any[]>([]);
   const [showProjetoModal, setShowProjetoModal] = useState(false);
@@ -71,6 +65,7 @@ export default function App() {
 
   // Projeto selecionado para visualização detalhada
   const [projetoSelecionadoDetalhe, setProjetoSelecionadoDetalhe] = useState<any>(null);
+
   // ==========================================
   // 2.3 PLANO DE CONTAS CONTÁBIL & ANALÍTICO
   // ==========================================
@@ -93,7 +88,7 @@ export default function App() {
   const [loginModo, setLoginModo] = useState<'mobile' | 'normal'>('normal');
 
   // ==========================================
-  // CONTROLE DE ACESSO DO MÓDULO MOBILE
+  // 2.5 CONTROLE DE ACESSO DO MÓDULO MOBILE
   // ==========================================
   const ehUsuarioCelula = loggedUser?.perfil_acesso === 'celula';
 
@@ -111,7 +106,6 @@ export default function App() {
 
     return participantes.includes(String(membro.id));
   };
-
  // ==========================================
   // CARREGAMENTO DE PROJETOS E PLANO DE CONTAS
   // ==========================================
@@ -1343,6 +1337,7 @@ export default function App() {
             <button type="button" onClick={() => { setActiveTab('agenda'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'agenda' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>📅 Agenda</button>
             <button type="button" onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>💰 Financeiro</button>
             <button type="button" onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'igreja' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🏛️ Igreja</button>
+            
 
             {/* MENU DROPDOWN DINÂMICO DE PROJETOS */}
             <div className="relative inline-block">
@@ -2111,7 +2106,41 @@ export default function App() {
           </div>
         )}
 
+      {/* ========================================== */}
+        {/* 7.8 MÓDULO: CADASTRO DA IGREJA */}
         {/* ========================================== */}
+        {activeTab === 'igreja' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-bold text-slate-800">🏛️ Cadastro Oficial da Instituição (Igreja)</h2>
+              <p className="text-xs text-slate-500">Dados institucionais cadastrados e vinculados ao sistema.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">Código da Igreja</span>
+                <span className="font-mono text-base font-bold text-blue-900">{loggedUser?.igrejas?.codigo_igreja || 'IGR-001'}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">Nome / Razão Social</span>
+                <span className="font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja Sede'}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">CNPJ</span>
+                <span className="font-mono text-slate-800">{loggedUser?.igrejas?.cnpj || '00.000.000/0001-00'}</span>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">E-mail Institucional</span>
+                <span className="text-slate-800">{loggedUser?.igrejas?.email || 'contato@igreja.com'}</span>
+              </div>
+              <div className="md:col-span-2 p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
+                <span className="text-xs font-bold text-slate-400">Endereço Completo</span>
+                <span className="text-slate-800">{loggedUser?.igrejas?.endereco || 'Endereço não cadastrado'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+      {/* ========================================== */}
         {/* 7.8 MÓDULO: CADASTRO DA IGREJA */}
         {/* ========================================== */}
         {activeTab === 'igreja' && (
@@ -2146,6 +2175,11 @@ export default function App() {
         )}
 
         {/* ========================================== */}
+        {/* 7.9 MÓDULO: PROJETOS */}
+        {/* ========================================== */}
+        {activeTab === 'projetos' && <ModuloProjetos />}
+
+        {/* ========================================== */}
         {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS */}
         {/* ========================================== */}
         {activeTab === 'agenda' && (
@@ -2157,11 +2191,31 @@ export default function App() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex bg-slate-100 p-1 rounded-xl">
-                  <button onClick={() => setAgendaSubTab('lista')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>Lista</button>
-                  <button onClick={() => setAgendaSubTab('calendario')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'calendario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🗓️ Calendário</button>
-                  <button onClick={() => setAgendaSubTab('impressao')} className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'impressao' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}>🖨️ Relatório A4</button>
+                  <button 
+                    onClick={() => setAgendaSubTab('lista')} 
+                    className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'lista' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}
+                  >
+                    Lista
+                  </button>
+                  <button 
+                    onClick={() => setAgendaSubTab('calendario')} 
+                    className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'calendario' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}
+                  >
+                    🗓️ Calendário
+                  </button>
+                  <button 
+                    onClick={() => setAgendaSubTab('impressao')} 
+                    className={`px-3 py-2 text-xs font-bold rounded-lg cursor-pointer transition-all ${agendaSubTab === 'impressao' ? 'bg-blue-900 text-white' : 'text-slate-600 hover:bg-white'}`}
+                  >
+                    🖨️ Relatório A4
+                  </button>
                 </div>
-                <button onClick={handleOpenNewAgenda} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap">+ Novo Compromisso</button>
+                <button 
+                  onClick={handleOpenNewAgenda} 
+                  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap"
+                >
+                  + Novo Compromisso
+                </button>
               </div>
             </div>
 
@@ -2192,7 +2246,14 @@ export default function App() {
                               <div>⏰ Início: <span className="font-mono text-slate-700">{c.hora_compromisso || '00:00'}</span> | Fim: <span className="font-mono text-slate-700">{c.hora_fim || '00:00'}</span></div>
                               <div className="flex justify-between items-center">
                                 <span>👤 Responsável: <span className="text-blue-900 font-bold">{membroResp ? membroResp.nome : 'Não vinculado'}</span></span>
-                                {membroResp && <button onClick={(e) => { e.stopPropagation(); handleOpenEditMemberFromContext(membroResp.id, 'agenda'); }} className="text-[10px] text-blue-700 underline font-bold cursor-pointer">Ver</button>}
+                                {membroResp && (
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); handleOpenEditMemberFromContext(membroResp.id, 'agenda'); }} 
+                                    className="text-[10px] text-blue-700 underline font-bold cursor-pointer"
+                                  >
+                                    Ver
+                                  </button>
+                                )}
                               </div>
                             </div>
 
@@ -2203,10 +2264,17 @@ export default function App() {
                           </div>
 
                           <div className="pt-2 flex gap-2">
-                            <button onClick={() => handleOpenEditAgenda(c)} className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer">
+                            <button 
+                              onClick={() => handleOpenEditAgenda(c)} 
+                              className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                            >
                               Editar / Ver Detalhes
                             </button>
-                            <button onClick={() => handleDeleteAgenda(c.id)} className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" title="Excluir Compromisso">
+                            <button 
+                              onClick={() => handleDeleteAgenda(c.id)} 
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer" 
+                              title="Excluir Compromisso"
+                            >
                               Excluir
                             </button>
                           </div>
@@ -2232,7 +2300,11 @@ export default function App() {
                   
                   <div className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                     {compromissos.map((c: any) => (
-                      <div key={c.id} onClick={() => handleOpenEditAgenda(c)} className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900">
+                      <div 
+                        key={c.id} 
+                        onClick={() => handleOpenEditAgenda(c)} 
+                        className="p-4 border rounded-2xl bg-white shadow-xs space-y-2 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900"
+                      >
                         <div className="flex justify-between items-center">
                           <span className="text-xs font-mono font-bold bg-blue-50 text-blue-900 px-2 py-0.5 rounded">{c.data_compromisso}</span>
                         </div>
@@ -2249,7 +2321,12 @@ export default function App() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center print:hidden">
                   <h3 className="font-bold text-slate-800 text-lg">Visualização para Impressão (Ordem de Data e Hora)</h3>
-                  <button onClick={handlePrint} className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1">🖨️ Imprimir Agenda A4</button>
+                  <button 
+                    onClick={handlePrint} 
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg cursor-pointer transition-all flex items-center gap-1"
+                  >
+                    🖨️ Imprimir Agenda A4
+                  </button>
                 </div>
 
                 <div className="overflow-x-auto border rounded-xl">
@@ -2281,8 +2358,7 @@ export default function App() {
 
         {/* ========================================== */}
         {/* 7.10 MÓDULO: FINANCEIRO E CONTÁBIL */}
-        {/* ========================================== */}
-        {activeTab === 'financeiro' && (
+        {/* ========================================== */}  {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 print:border-none print:shadow-none print:p-0">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 print:hidden">
               <div>

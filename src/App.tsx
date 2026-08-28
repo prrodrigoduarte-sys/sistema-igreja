@@ -2143,22 +2143,22 @@ export default function App() {
       
 
        {/* ========================================== */}
-        {/* 7.9 MÓDULO: PROJETOS */}
+        {/* ÍNDICE RÁPIDO DO MÓDULO DE PROJETOS */}
+        {/* 1. Cabeçalho e Botão Novo Projeto          */}
+        {/* 2. Tabela de Listagem de Projetos          */}
+        {/* 3. Modal de Cadastro de Novo Projeto       */}
         {/* ========================================== */}
         {activeTab === 'projetos' && (() => {
-          // Estados locais para gerenciar os projetos se não existirem no escopo global
           const [projetosList, setProjetosList] = React.useState([]);
           const [loadingProjetos, setLoadingProjetos] = React.useState(true);
           const [modalProjetoOpen, setModalProjetoOpen] = React.useState(false);
           const [novoTipoProjeto, setNovoTipoProjeto] = React.useState('');
           const [novoNomeProjeto, setNovoNomeProjeto] = React.useState('');
 
-          // Função para buscar os projetos da igreja logada
           const carregarProjetos = async () => {
             setLoadingProjetos(true);
             try {
               const codIgreja = loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
-              // Se você já tiver uma função global, pode usá-la. Caso use supabase direto:
               const { data, error } = await supabase
                 .from('projetos')
                 .select('*')
@@ -2181,7 +2181,6 @@ export default function App() {
             }
           }, [activeTab]);
 
-          // Função para salvar novo projeto
           const handleSalvarProjeto = async (e) => {
             e.preventDefault();
             if (!novoNomeProjeto.trim()) return;
@@ -2209,7 +2208,6 @@ export default function App() {
             }
           };
 
-          // Função para excluir projeto
           const handleExcluirProjeto = async (id) => {
             if (!confirm('Deseja realmente excluir este projeto?')) return;
             try {
@@ -2226,54 +2224,61 @@ export default function App() {
 
           return (
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-5xl mx-auto">
+              
+              {/* ========================================== */}
+              {/* 1. CABEÇALHO E BOTÃO NOVO PROJETO          */}
+              {/* ========================================== */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-800">🚀 Gestão de Projetos</h2>
-                  <p className="text-xs text-slate-500">Projetos cadastrados e vinculados à instituição.</p>
+                  <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Gestão de Projetos</h2>
+                  <p className="text-xs font-semibold text-slate-500 mt-1">Projetos cadastrados e vinculados à instituição.</p>
                 </div>
                 <button
                   onClick={() => setModalProjetoOpen(true)}
-                  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap transition-all"
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer whitespace-nowrap transition-all"
                 >
                   + Novo Projeto
                 </button>
               </div>
 
-              {/* Tabela de Projetos */}
+              {/* ========================================== */}
+              {/* 2. TABELA DE LISTAGEM DE PROJETOS          */}
+              {/* ========================================== */}
               <div>
+                <h3 className="text-lg font-bold text-slate-800 mb-3">📋 Lista de Projetos Ativos</h3>
                 {loadingProjetos ? (
-                  <p className="text-center py-8 text-slate-500">Carregando projetos...</p>
+                  <p className="text-center py-8 text-slate-500 font-medium">Carregando projetos...</p>
                 ) : projetosList.length === 0 ? (
-                  <p className="text-center py-8 text-slate-400">Nenhum projeto cadastrado para esta instituição.</p>
+                  <p className="text-center py-8 text-slate-400 font-medium">Nenhum projeto cadastrado para esta instituição.</p>
                 ) : (
-                  <div className="overflow-x-auto border rounded-xl">
+                  <div className="overflow-x-auto border rounded-xl shadow-xs">
                     <table className="w-full text-left text-sm">
-                      <thead className="bg-slate-50 border-b text-slate-600">
+                      <thead className="bg-slate-100 border-b text-slate-700">
                         <tr>
-                          <th className="p-3">Nome do Projeto</th>
-                          <th className="p-3">Tipo de Projeto</th>
-                          <th className="p-3">Código da Igreja</th>
-                          <th className="p-3">Data de Criação</th>
-                          <th className="p-3 text-right">Ações</th>
+                          <th className="p-3.5 font-bold">Nome do Projeto</th>
+                          <th className="p-3.5 font-bold">Tipo de Projeto</th>
+                          <th className="p-3.5 font-bold">Código da Igreja</th>
+                          <th className="p-3.5 font-bold">Data de Criação</th>
+                          <th className="p-3.5 font-bold text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y text-slate-700">
                         {projetosList.map((p) => (
-                          <tr key={p.id} className="hover:bg-slate-50 transition-all">
-                            <td className="p-3 font-bold text-slate-900">{p.nome_projeto}</td>
-                            <td className="p-3">
-                              <span className="px-2.5 py-1 bg-blue-50 text-blue-800 rounded-lg text-xs font-bold uppercase tracking-wide">
+                          <tr key={p.id} className="hover:bg-slate-50/80 transition-all">
+                            <td className="p-3.5 font-bold text-slate-900">{p.nome_projeto}</td>
+                            <td className="p-3.5">
+                              <span className="px-2.5 py-1 bg-blue-100 text-blue-900 rounded-lg text-xs font-black uppercase tracking-wide">
                                 {p.tipo_projeto || 'Geral'}
                               </span>
                             </td>
-                            <td className="p-3 font-mono text-xs text-slate-500">{p.codigo_igreja}</td>
-                            <td className="p-3 font-mono text-xs text-slate-500">
+                            <td className="p-3.5 font-mono text-xs text-slate-600 font-bold">{p.codigo_igreja}</td>
+                            <td className="p-3.5 font-mono text-xs text-slate-600">
                               {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}
                             </td>
-                            <td className="p-3 text-right">
+                            <td className="p-3.5 text-right">
                               <button
                                 onClick={() => handleExcluirProjeto(p.id)}
-                                className="px-3 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs font-bold rounded-lg transition-all cursor-pointer"
+                                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs font-bold rounded-lg transition-all cursor-pointer shadow-xs"
                               >
                                 Excluir
                               </button>
@@ -2286,47 +2291,49 @@ export default function App() {
                 )}
               </div>
 
-              {/* Modal Simples de Cadastro de Novo Projeto */}
+              {/* ========================================== */}
+              {/* 3. MODAL DE CADASTRO DE NOVO PROJETO       */}
+              {/* ========================================== */}
               {modalProjetoOpen && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+                <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
                     <div className="flex justify-between items-center border-b pb-3">
-                      <h3 className="font-bold text-lg text-slate-800">Cadastrar Novo Projeto</h3>
-                      <button onClick={() => setModalProjetoOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+                      <h3 className="font-black text-xl text-blue-900">✨ Cadastrar Novo Projeto</h3>
+                      <button onClick={() => setModalProjetoOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">✕</button>
                     </div>
                     <form onSubmit={handleSalvarProjeto} className="space-y-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Nome do Projeto</label>
+                        <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">Nome do Projeto</label>
                         <input
                           type="text"
                           required
                           value={novoNomeProjeto}
                           onChange={(e) => setNovoNomeProjeto(e.target.value)}
                           placeholder="Ex: Reforma do Templo"
-                          className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                          className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Tipo de Projeto</label>
+                        <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">Tipo de Projeto</label>
                         <input
                           type="text"
                           value={novoTipoProjeto}
                           onChange={(e) => setNovoTipoProjeto(e.target.value)}
                           placeholder="Ex: Social, Construção, Missões"
-                          className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                          className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
                         />
                       </div>
-                      <div className="flex justify-end gap-2 pt-2 border-t">
+                      <div className="flex justify-end gap-2 pt-3 border-t">
                         <button
                           type="button"
                           onClick={() => setModalProjetoOpen(false)}
-                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
                         >
                           Cancelar
                         </button>
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                          className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md transition-all"
                         >
                           Salvar Projeto
                         </button>

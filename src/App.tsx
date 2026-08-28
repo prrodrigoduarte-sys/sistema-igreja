@@ -2140,45 +2140,204 @@ export default function App() {
           </div>
         )}
 
-      {/* ========================================== */}
-        {/* 7.8 MÓDULO: CADASTRO DA IGREJA */}
-        {/* ========================================== */}
-        {activeTab === 'igreja' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-3xl mx-auto">
-            <div className="border-b pb-4">
-              <h2 className="text-2xl font-bold text-slate-800">🏛️ Cadastro Oficial da Instituição (Igreja)</h2>
-              <p className="text-xs text-slate-500">Dados institucionais cadastrados e vinculados ao sistema.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-slate-700">
-              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
-                <span className="text-xs font-bold text-slate-400">Código da Igreja</span>
-                <span className="font-mono text-base font-bold text-blue-900">{loggedUser?.igrejas?.codigo_igreja || 'IGR-001'}</span>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
-                <span className="text-xs font-bold text-slate-400">Nome / Razão Social</span>
-                <span className="font-bold text-slate-800">{loggedUser?.igrejas?.nome_fantasia || 'Igreja Sede'}</span>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
-                <span className="text-xs font-bold text-slate-400">CNPJ</span>
-                <span className="font-mono text-slate-800">{loggedUser?.igrejas?.cnpj || '00.000.000/0001-00'}</span>
-              </div>
-              <div className="p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
-                <span className="text-xs font-bold text-slate-400">E-mail Institucional</span>
-                <span className="text-slate-800">{loggedUser?.igrejas?.email || 'contato@igreja.com'}</span>
-              </div>
-              <div className="md:col-span-2 p-4 bg-slate-50 rounded-xl border flex flex-col gap-1">
-                <span className="text-xs font-bold text-slate-400">Endereço Completo</span>
-                <span className="text-slate-800">{loggedUser?.igrejas?.endereco || 'Endereço não cadastrado'}</span>
-              </div>
-            </div>
-          </div>
-        )}
+      
 
-        {/* ========================================== */}
+       {/* ========================================== */}
         {/* 7.9 MÓDULO: PROJETOS */}
         {/* ========================================== */}
-        {activeTab === 'projetos' && <ModuloProjetos />}
+        {activeTab === 'projetos' && (() => {
+          // Estados locais para gerenciar os projetos se não existirem no escopo global
+          const [projetosList, setProjetosList] = React.useState([]);
+          const [loadingProjetos, setLoadingProjetos] = React.useState(true);
+          const [modalProjetoOpen, setModalProjetoOpen] = React.useState(false);
+          const [novoTipoProjeto, setNovoTipoProjeto] = React.useState('');
+          const [novoNomeProjeto, setNovoNomeProjeto] = React.useState('');
 
+          // Função para buscar os projetos da igreja logada
+          const carregarProjetos = async () => {
+            setLoadingProjetos(true);
+            try {
+              const codIgreja = loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+              // Se você já tiver uma função global, pode usá-la. Caso use supabase direto:
+              const { data, error } = await supabase
+                .from('projetos')
+                .select('*')
+                .eq('codigo_igreja', codIgreja)
+                .order('created_at', { ascending: false });
+
+              if (!error && data) {
+                setProjetosList(data);
+              }
+            } catch (err) {
+              console.error('Erro ao carregar projetos:', err);
+            } finally {
+              setLoadingProjetos(false);
+            }
+          };
+
+          React.useEffect(() => {
+            if (activeTab === 'projetos') {
+              carregarProjetos();
+            }
+          }, [activeTab]);
+
+          // Função para salvar novo projeto
+          const handleSalvarProjeto = async (e) => {
+            e.preventDefault();
+            if (!novoNomeProjeto.trim()) return;
+
+            try {
+              const codIgreja = loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+              const { error } = await supabase.from('projetos').insert([
+                {
+                  codigo_igreja: codIgreja,
+                  tipo_projeto: novoTipoProjeto,
+                  nome_projeto: novoNomeProjeto
+                }
+              ]);
+
+              if (!error) {
+                setNovoNomeProjeto('');
+                setNovoTipoProjeto('');
+                setModalProjetoOpen(false);
+                carregarProjetos();
+              } else {
+                alert('Erro ao salvar projeto: ' + error.message);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          };
+
+          // Função para excluir projeto
+          const handleExcluirProjeto = async (id) => {
+            if (!confirm('Deseja realmente excluir este projeto?')) return;
+            try {
+              const { error } = await supabase.from('projetos').delete().eq('id', id);
+              if (!error) {
+                carregarProjetos();
+              } else {
+                alert('Erro ao excluir: ' + error.message);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          };
+
+          return (
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-5xl mx-auto">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-800">🚀 Gestão de Projetos</h2>
+                  <p className="text-xs text-slate-500">Projetos cadastrados e vinculados à instituição.</p>
+                </div>
+                <button
+                  onClick={() => setModalProjetoOpen(true)}
+                  className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer whitespace-nowrap transition-all"
+                >
+                  + Novo Projeto
+                </button>
+              </div>
+
+              {/* Tabela de Projetos */}
+              <div>
+                {loadingProjetos ? (
+                  <p className="text-center py-8 text-slate-500">Carregando projetos...</p>
+                ) : projetosList.length === 0 ? (
+                  <p className="text-center py-8 text-slate-400">Nenhum projeto cadastrado para esta instituição.</p>
+                ) : (
+                  <div className="overflow-x-auto border rounded-xl">
+                    <table className="w-full text-left text-sm">
+                      <thead className="bg-slate-50 border-b text-slate-600">
+                        <tr>
+                          <th className="p-3">Nome do Projeto</th>
+                          <th className="p-3">Tipo de Projeto</th>
+                          <th className="p-3">Código da Igreja</th>
+                          <th className="p-3">Data de Criação</th>
+                          <th className="p-3 text-right">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y text-slate-700">
+                        {projetosList.map((p) => (
+                          <tr key={p.id} className="hover:bg-slate-50 transition-all">
+                            <td className="p-3 font-bold text-slate-900">{p.nome_projeto}</td>
+                            <td className="p-3">
+                              <span className="px-2.5 py-1 bg-blue-50 text-blue-800 rounded-lg text-xs font-bold uppercase tracking-wide">
+                                {p.tipo_projeto || 'Geral'}
+                              </span>
+                            </td>
+                            <td className="p-3 font-mono text-xs text-slate-500">{p.codigo_igreja}</td>
+                            <td className="p-3 font-mono text-xs text-slate-500">
+                              {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                onClick={() => handleExcluirProjeto(p.id)}
+                                className="px-3 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs font-bold rounded-lg transition-all cursor-pointer"
+                              >
+                                Excluir
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Simples de Cadastro de Novo Projeto */}
+              {modalProjetoOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl">
+                    <div className="flex justify-between items-center border-b pb-3">
+                      <h3 className="font-bold text-lg text-slate-800">Cadastrar Novo Projeto</h3>
+                      <button onClick={() => setModalProjetoOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+                    </div>
+                    <form onSubmit={handleSalvarProjeto} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Nome do Projeto</label>
+                        <input
+                          type="text"
+                          required
+                          value={novoNomeProjeto}
+                          onChange={(e) => setNovoNomeProjeto(e.target.value)}
+                          placeholder="Ex: Reforma do Templo"
+                          className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">Tipo de Projeto</label>
+                        <input
+                          type="text"
+                          value={novoTipoProjeto}
+                          onChange={(e) => setNovoTipoProjeto(e.target.value)}
+                          placeholder="Ex: Social, Construção, Missões"
+                          className="w-full px-3 py-2 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-900"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2 pt-2 border-t">
+                        <button
+                          type="button"
+                          onClick={() => setModalProjetoOpen(false)}
+                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="submit"
+                          className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer"
+                        >
+                          Salvar Projeto
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {/* ========================================== */}
         {/* 7.9 MÓDULO: AGENDA E COMPROMISSOS */}
         {/* ========================================== */}

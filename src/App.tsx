@@ -1393,6 +1393,7 @@ export default function App() {
 
 <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
+        
         {/* 1. TELA INICIAL: Só aparece se nenhuma aba estiver selecionada */}
         {activeTab === '' && (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
@@ -1409,14 +1410,14 @@ export default function App() {
         {/* 2. MÓDULO FINANCEIRO: Só aparece se activeTab for 'financeiro' */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {/* Seu código real do financeiro fica aqui dentro */}
+            {/* Seu código real do financeiro vai aqui dentro */}
           </div>
         )}
 
-        {/* 3. MÓDULO DE MEMBROS: O formulário e a tabela DEVEM ficar aqui dentro */}
+        {/* 3. MÓDULO DE MEMBROS: Só aparece se activeTab for 'membros' */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {/* Cole aqui todo o seu código real de membros, incluindo o formulário da foto */}
+            {/* Seu código real de membros e o formulário vão aqui dentro */}
           </div>
         )}
 

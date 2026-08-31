@@ -613,7 +613,6 @@ export default function App() {
       await Promise.all([
         carregarMembros(cod),
         carregarMinisterios(cod),
-        carregarInscricoes(cod),
         carregarPlanoContas(),
         carregarAgenda(cod),
         carregarCelulas(cod),
@@ -621,6 +620,7 @@ export default function App() {
         carregarRedes(cod),
         carregarFinanceiro(cod)
       ]);
+    }
 
       const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
       setUsuariosList(uData || []);

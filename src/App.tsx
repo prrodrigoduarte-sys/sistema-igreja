@@ -3023,6 +3023,9 @@ export default function App() {
       {/* ========================================== */}
         {/* MÓDULO: PROJETOS LIMPO E PADRONIZADO       */}
         {/* ========================================== */}
+       {/* ========================================== */}
+        {/* MÓDULO DE PROJETOS LIMPO (SEM INSCRIÇÕES) */}
+        {/* ========================================== */}
         {activeTab === 'projetos' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-5xl mx-auto">
             
@@ -3158,7 +3161,6 @@ export default function App() {
             )}
           </div>
         )}
-
       {/* ========================================== */}
       {/* 8. MODAIS DE CADASTRO E EDIÇÃO */}
       {/* ========================================== */}

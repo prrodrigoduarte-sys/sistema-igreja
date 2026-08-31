@@ -11,8 +11,8 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
-  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | 'projetos'>('financeiro');
-  const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | 'projetos' | null>(null);
+  const [activeTab, setActiveTab] = useState<'membros' | 'usuarios' | 'fornecedores' | 'relatorios' | 'agenda' | 'celulas' | 'financeiro' | 'igreja' | 'ministerios' | 'membros_mobile' | ''>('');
+  const [openDropdown, setOpenDropdown] = useState<'cadastros' | 'controle' | null>(null);
 
   // ==========================================
   // 2.0 USEEFFECT DO ESC
@@ -37,35 +37,6 @@ export default function App() {
   const [agendaSubTab, setAgendaSubTab] = useState<'lista' | 'calendario' | 'impressao'>('lista');
   const [financeiroSubTab, setFinanceiroSubTab] = useState<'extrato' | 'contas' | 'plano_contas' | 'diario' | 'balancete' | 'dre' | 'relatorio'>('diario');
   const [celulasSubTab, setCelulasSubTab] = useState<'lista' | 'relatorio_simples' | 'relatorio_completo' | 'relatorio_arvore'>('lista');
-
-  const [projetoAtivo, setProjetoAtivo] = useState<'missoes' | 'proj_1' | 'proj_2' | 'proj_3' | 'proj_4' | 'proj_5'>('missoes');
-
-  // ==========================================
-  // 2.2 ESTADOS DE PROJETOS
-  // ==========================================
-  const [projetosList, setProjetosList] = useState<any[]>([]);
-  const [showProjetoModal, setShowProjetoModal] = useState(false);
-  const [editingProjeto, setEditingProjeto] = useState<any>(null);
-
-  // Campos do formulário de projeto
-  const [formProjNome, setFormProjNome] = useState('');
-  
-  // Controle para Responsável: 'livre' ou 'membro'
-  const [tipoRespProj, setTipoRespProj] = useState<'livre' | 'membro'>('livre');
-  const [formProjResponsavelLivre, setFormProjResponsavelLivre] = useState('');
-  const [formProjResponsavelMembroId, setFormProjResponsavelMembroId] = useState('');
-
-  // Controle para Responsável Financeiro: 'livre' ou 'membro'
-  const [tipoFinProj, setTipoFinProj] = useState<'livre' | 'membro'>('livre');
-  const [formProjFinLivre, setFormProjFinLivre] = useState('');
-  const [formProjFinMembroId, setFormProjFinMembroId] = useState('');
-
-  const [formProjCusto, setFormProjCusto] = useState('');
-  const [formProjPublico, setFormProjPublico] = useState('');
-
-  // Projeto selecionado para visualização detalhada
-  const [projetoSelecionadoDetalhe, setProjetoSelecionadoDetalhe] = useState<any>(null);
-
   // ==========================================
   // 2.3 PLANO DE CONTAS CONTÁBIL & ANALÍTICO
   // ==========================================

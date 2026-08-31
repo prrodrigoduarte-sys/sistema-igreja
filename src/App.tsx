@@ -1333,7 +1333,7 @@ export default function App() {
 
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
-        {/* ========================================== */}
+     {/* ========================================== */}
       {/* 7. ÁREA PRINCIPAL DO SISTEMA */}
       {/* ========================================== */}
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
@@ -1347,6 +1347,73 @@ export default function App() {
             <div>
               <h2 className="text-xl font-black text-slate-800 tracking-tight">Sistema Pronto para Uso</h2>
               <p className="text-xs font-semibold text-slate-500 mt-1">Selecione uma opção no menu superior para começar.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* 7.0 MÓDULO: FINANCEIRO */}
+        {/* ========================================== */}
+        {activeTab === 'financeiro' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-slate-800">💰 Controle Financeiro & Contábil</h2>
+                <p className="text-xs text-slate-500">Gestão de contas, extratos, lançamentos, Livro Diário, Balancete e DRE.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setActiveTab('financeiro')} className="px-3 py-1.5 bg-blue-900 text-white font-bold text-xs rounded-xl shadow-sm">Livro Diário</button>
+                <button onClick={() => alert('Módulo Balancete')} className="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200">Balancete</button>
+                <button onClick={() => alert('Módulo DRE')} className="px-3 py-1.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-200">DRE</button>
+              </div>
+            </div>
+            
+            {/* Tabela do Livro Diário que aparece na sua foto */}
+            <div>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-bold text-slate-800">📖 Livro Diário</h3>
+                <button onClick={() => window.print()} className="px-3 py-1.5 bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-sm">Imprimir Diário</button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-slate-600 font-semibold text-xs">
+                      <th className="p-3">Data</th>
+                      <th className="p-3">Histórico / Descrição</th>
+                      <th className="p-3">Conta Débito (Saída)</th>
+                      <th className="p-3">Conta Crédito (Entrada)</th>
+                      <th className="p-3">Conta Contábil</th>
+                      <th className="p-3">Valor (R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-slate-700 text-xs">
+                    <tr>
+                      <td className="p-3 font-mono">2026-09-01</td>
+                      <td className="p-3 font-bold">SALDO INICIAL</td>
+                      <td className="p-3 text-rose-600 font-bold">CAIXA</td>
+                      <td className="p-3 text-emerald-700 font-bold">BANCO SICOOB CREDIVALE</td>
+                      <td className="p-3 font-mono text-slate-500">1.1.2.01 - Conta Movimento Banco Sicoob / Sicredi</td>
+                      <td className="p-3 font-bold">R$ 1000.00</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono">2026-09-02</td>
+                      <td className="p-3 font-bold">OFERTA</td>
+                      <td className="p-3 text-rose-600 font-bold">CAIXA</td>
+                      <td className="p-3 text-emerald-700 font-bold">BANCO SICOOB CREDIVALE</td>
+                      <td className="p-3 font-mono text-slate-500">1.1.2.01 - Conta Movimento Banco Sicoob / Sicredi</td>
+                      <td className="p-3 font-bold">R$ 500.00</td>
+                    </tr>
+                    <tr>
+                      <td className="p-3 font-mono">2026-09-03</td>
+                      <td className="p-3 font-bold">OFERTA</td>
+                      <td className="p-3 text-rose-600 font-bold">CAIXA</td>
+                      <td className="p-3 text-emerald-700 font-bold">BANCO SICOOB CREDIVALE</td>
+                      <td className="p-3 font-mono text-slate-500">3.1.1.02 - Ofertas de Cultos Gerais</td>
+                      <td className="p-3 font-bold">R$ 800.00</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

@@ -3593,23 +3593,42 @@ export default function App() {
 
       {/* 8.9 MODAL: MEMBROS */}
       {showMemberModal && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-4">
-              <div>
-                <h3 className="text-lg font-black text-blue-900">
-                  {editingMember ? `Ficha do Membro: ${formMember.nome || editingMember.nome}` : 'Novo Cadastro de Membro'}
-                </h3>
-                {editingMember && (
-                  <div className="flex gap-2 mt-2 flex-wrap">
-                    <button onClick={() => setMemberModalTab('dados')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'dados' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>📁 Dados Cadastrais</button>
-                    <button onClick={() => setMemberModalTab('financeiro')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'financeiro' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>💰 Financeiro</button>
-                    <button onClick={() => setMemberModalTab('evolucao')} className={`px-3 py-1.5 text-xs font-bold rounded-lg cursor-pointer transition-all ${memberModalTab === 'evolucao' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700'}`}>🚀 Evolução Ministerial</button>
-                  </div>
-                )}
-              </div>
-              <button onClick={() => setShowMemberModal(false)} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition-all cursor-pointer">✕ Fechar</button>
-            </div>
+  <div className="fixed inset-0">
+    <div className="bg-white">
+      <form onSubmit={handleSaveMember}>
+        {/* campos do formulário */}
+
+        <div className="flex items-center justify-between pt-4 border-t">
+          {editingMember && !ehUsuarioCelula ? (
+            <button
+              type="button"
+              onClick={() => handleDeleteMember(editingMember.id)}
+            >
+              Excluir Membro
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => setShowMemberModal(false)}
+            >
+              Cancelar
+            </button>
+
+            <button type="submit">
+              {editingMember
+                ? 'Gravar Alterações'
+                : 'Gravar Novo Membro'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
             {memberModalTab === 'financeiro' && editingMember ? (
               <div className="space-y-4">
@@ -3870,12 +3889,8 @@ export default function App() {
                     </div>
                   </div>
                 </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
+                </form>
+    )}
+  </div>
+);
 }

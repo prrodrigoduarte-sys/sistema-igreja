@@ -607,42 +607,52 @@ export default function App() {
 
   useEffect(() => {
     if (!isLoggedIn || !loggedUser?.codigo_igreja) return;
+  
     const cod = loggedUser.codigo_igreja;
-    
+  
     async function carregarDados() {
-      await Promise.all([
-        carregarMembros(cod),
-        carregarMinisterios(cod),
-        carregarPlanoContas(),
-        carregarAgenda(cod),
-        carregarCelulas(cod),
-        carregarSetores(cod),
-        carregarRedes(cod),
-        carregarFinanceiro(cod)
-      ]);
+      try {
+        await Promise.all([
+          carregarMembros(cod),
+          carregarMinisterios(cod),
+          carregarPlanoContas(),
+          carregarAgenda(cod),
+          carregarCelulas(cod),
+          carregarSetores(cod),
+          carregarRedes(cod),
+          carregarFinanceiro(cod),
+        ]);
+  
+        const { data: uData, error: usuariosError } = await supabase
+          .from('usuarios')
+          .select('*')
+          .eq('codigo_igreja', cod);
+  
+        if (usuariosError) {
+          console.error('Erro ao carregar usuários:', usuariosError);
+          setUsuariosList([]);
+        } else {
+          setUsuariosList(uData || []);
+        }
+  
+        const { data: fData, error: fornecedoresError } = await supabase
+          .from('fornecedores')
+          .select('*')
+          .eq('codigo_igreja', cod);
+  
+        if (fornecedoresError) {
+          console.error('Erro ao carregar fornecedores:', fornecedoresError);
+          setFornecedoresList([]);
+        } else {
+          setFornecedoresList(fData || []);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar dados:', err);
+      }
     }
-
-      const { data: uData } = await supabase.from('usuarios').select('*').eq('codigo_igreja', cod);
-      setUsuariosList(uData || []);
-      
-      const { data: fData } = await supabase.from('fornecedores').select('*').eq('codigo_igreja', cod);
-      setFornecedoresList(fData || []);
-    }
+  
     carregarDados();
   }, [isLoggedIn, loggedUser]);
-
-  const handleBuscarCep = async () => {
-    const cepLimpo = formCelCep.replace(/\D/g, '');
-    if (cepLimpo.length !== 8) { alert('Digite um CEP válido com 8 dígitos.'); return; }
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
-      const data = await response.json();
-      if (data.erro) { alert('CEP não encontrado.'); return; }
-      setFormCelRua(data.logradouro || '');
-      setFormCelBairro(data.bairro || '');
-      setFormCelCidade(data.localidade || '');
-    } catch (err) { alert('Erro ao buscar o CEP.'); }
-  };
 
   const handleBuscarCepMembro = async () => {
     const cepLimpo = formMember.cep.replace(/\D/g, '');

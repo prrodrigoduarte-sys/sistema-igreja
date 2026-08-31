@@ -1,4 +1,3 @@
-// ==========================================
 // 1. IMPORTAÇÕES E CONFIGURAÇÃO INICIAL
 // ==========================================
 import React, { useEffect, useState } from 'react';
@@ -8,6 +7,7 @@ import { supabase } from './supabase';
 // 2. COMPONENTE PRINCIPAL E ESTADOS GLOBAIS
 // ==========================================
 export default function App() {
+  // ==========================================
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   
@@ -1334,11 +1334,11 @@ export default function App() {
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
         {/* ========================================== */}
-        {/* 7.1 MÓDULO: MEMBROS MOBILE */}
-        {/* ========================================== */}
-        {/* ========================================== */}
+      {/* 7. ÁREA PRINCIPAL DO SISTEMA */}
+      {/* ========================================== */}
+      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+        
         {/* TELA INICIAL LIMPA (Abre vazia ao iniciar) */}
-        {/* ========================================== */}
         {activeTab === '' && (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
             <div className="w-20 h-20 bg-white text-blue-900 rounded-3xl flex items-center justify-center text-4xl shadow-md border border-slate-200">
@@ -1350,6 +1350,10 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {/* ========================================== */}
+        {/* 7.1 MÓDULO: MEMBROS MOBILE */}
+        {/* ========================================== */}
         {activeTab === 'membros_mobile' && ehUsuarioCelula && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
             <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
@@ -1391,37 +1395,11 @@ export default function App() {
           </div>
         )}
 
-<main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
-        
-        
-        {/* 1. TELA INICIAL: Só aparece se nenhuma aba estiver selecionada */}
-        {activeTab === '' && (
-          <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
-            <div className="w-20 h-20 bg-white text-blue-900 rounded-3xl flex items-center justify-center text-4xl shadow-md border border-slate-200">
-              🏛️
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-800 tracking-tight">Sistema Pronto para Uso</h2>
-              <p className="text-xs font-semibold text-slate-500 mt-1">Selecione uma opção no menu superior para começar.</p>
-            </div>
-          </div>
-        )}
-
-        {/* 2. MÓDULO FINANCEIRO: Só aparece se activeTab for 'financeiro' */}
-        {activeTab === 'financeiro' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {/* Seu código real do financeiro vai aqui dentro */}
-          </div>
-        )}
-
-        {/* 3. MÓDULO DE MEMBROS: Só aparece se activeTab for 'membros' */}
+        {/* ========================================== */}
+        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR */}
+        {/* ========================================== */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {/* Seu código real de membros e o formulário vão aqui dentro */}
-          </div>
-        )}
-
-      </main>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>
@@ -1541,6 +1519,7 @@ export default function App() {
           </div>
         )}
 
+      </main>
         {/* ========================================== */}
         {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES */}
         {/* ========================================== */}

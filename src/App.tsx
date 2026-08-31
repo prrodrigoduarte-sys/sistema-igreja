@@ -1391,11 +1391,39 @@ export default function App() {
           </div>
         )}
 
+     {/* ========================================== */}
+      {/* 7. ÁREA PRINCIPAL DO SISTEMA */}
       {/* ========================================== */}
-        {/* 7.2 MÓDULO: MEMBROS COMPUTADOR */}
-        {/* ========================================== */}
+      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+        
+        {/* 1. TELA INICIAL: Só aparece se nenhuma aba estiver selecionada */}
+        {activeTab === '' && (
+          <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
+            <div className="w-20 h-20 bg-white text-blue-900 rounded-3xl flex items-center justify-center text-4xl shadow-md border border-slate-200">
+              🏛️
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-800 tracking-tight">Sistema Pronto para Uso</h2>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Selecione uma opção no menu superior para começar.</p>
+            </div>
+          </div>
+        )}
+
+        {/* 2. MÓDULO FINANCEIRO: Só aparece se activeTab for 'financeiro' */}
+        {activeTab === 'financeiro' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            {/* COLE AQUI O SEU CÓDIGO REAL DO FINANCEIRO (Livro Diário, Balancete, etc) */}
+          </div>
+        )}
+
+        {/* 3. MÓDULO DE MEMBROS: Só aparece se activeTab for 'membros' */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
+            {/* COLE AQUI O SEU CÓDIGO REAL DE MEMBROS (Cabeçalho, Tabela e Formulário) */}
+          </div>
+        )}
+
+      </main>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
               <div>
                 <h2 className="text-2xl font-bold text-slate-800">Cadastro de Membros ({filteredMembers.length})</h2>

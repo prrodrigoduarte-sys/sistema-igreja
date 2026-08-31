@@ -3026,126 +3026,120 @@ export default function App() {
        {/* ========================================== */}
         {/* MÓDULO: PROJETOS (LISTAGEM / DETALHE) */}
         {/* ========================================== */}
+       {/* ========================================== */}
+        {/* MÓDULO DE PROJETOS LIMPO E ÚNICO           */}
+        {/* ========================================== */}
         {activeTab === 'projetos' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {projetoSelecionadoDetalhe ? (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center border-b pb-4">
-                  <div>
-                    <span className="text-xs font-bold text-blue-800 uppercase tracking-wider">Ficha Técnica do Projeto</span>
-                    <h2 className="text-2xl font-black text-slate-900">📌 {projetoSelecionadoDetalhe.nome_projeto}</h2>
-                  </div>
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={() => {
-                        const p = projetoSelecionadoDetalhe;
-                        setEditingProjeto(p);
-                        setFormProjNome(p.nome_projeto || '');
-                        
-                        const membroResp = members.find(m => String(m.id) === String(p.responsavel));
-                        if (membroResp) {
-                          setTipoRespProj('membro');
-                          setFormProjResponsavelMembroId(p.responsavel);
-                          setFormProjResponsavelLivre('');
-                        } else {
-                          setTipoRespProj('livre');
-                          setFormProjResponsavelLivre(p.responsavel || '');
-                          setFormProjResponsavelMembroId('');
-                        }
-
-                        const membroFin = members.find(m => String(m.id) === String(p.responsavel_financeiro));
-                        if (membroFin) {
-                          setTipoFinProj('membro');
-                          setFormProjFinMembroId(p.responsavel_financeiro);
-                          setFormProjFinLivre('');
-                        } else {
-                          setTipoFinProj('livre');
-                          setFormProjFinLivre(p.responsavel_financeiro || '');
-                          setFormProjFinMembroId('');
-                        }
-
-                        setFormProjCusto(p.custo ? String(p.custo) : '');
-                        setFormProjPublico(p.publico_alvo || '');
-                        setShowProjetoModal(true);
-                      }}
-                      className="px-4 py-2 bg-amber-600 text-white font-bold text-xs rounded-xl cursor-pointer"
-                    >
-                      ✏️ Editar Projeto
-                    </button>
-                    <button 
-                      onClick={() => setProjetoSelecionadoDetalhe(null)} 
-                      className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
-                    >
-                      ← Voltar para Todos
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
-                    <span className="text-xs font-bold text-slate-400">Responsável pelo Projeto</span>
-                    <p className="font-bold text-slate-800">
-                      {members.find(m => String(m.id) === String(projetoSelecionadoDetalhe.responsavel))?.nome || projetoSelecionadoDetalhe.responsavel}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
-                    <span className="text-xs font-bold text-slate-400">Responsável Financeiro</span>
-                    <p className="font-bold text-slate-800">
-                      {members.find(m => String(m.id) === String(projetoSelecionadoDetalhe.responsavel_financeiro))?.nome || projetoSelecionadoDetalhe.responsavel_financeiro}
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
-                    <span className="text-xs font-bold text-slate-400">Custo Estimado / Real</span>
-                    <p className="font-mono font-black text-emerald-700 text-lg">R$ {parseFloat(projetoSelecionadoDetalhe.custo || 0).toFixed(2)}</p>
-                  </div>
-
-                  <div className="p-4 bg-slate-50 border rounded-xl space-y-1">
-                    <span className="text-xs font-bold text-slate-400">Público-Alvo</span>
-                    <p className="font-semibold text-slate-800">{projetoSelecionadoDetalhe.publico_alvo || 'Não informado'}</p>
-                  </div>
-                </div>
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-5xl mx-auto">
+            
+            {/* Cabeçalho e Botão Novo Projeto */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
+              <div>
+                <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Gestão de Projetos</h2>
+                <p className="text-xs font-semibold text-slate-500 mt-1">Projetos cadastrados e vinculados à instituição para alimentar os dropdowns.</p>
               </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center border-b pb-4">
-                  <div>
-                    <h2 className="text-2xl font-bold text-slate-800">🚀 Gestão de Projetos ({projetosList.length})</h2>
-                    <p className="text-xs text-slate-500">Selecione um projeto acima no menu ou cadastre um novo.</p>
-                  </div>
-                  <button onClick={() => {
-                    setEditingProjeto(null);
-                    setFormProjNome('');
-                    setTipoRespProj('livre');
-                    setFormProjResponsavelLivre('');
-                    setFormProjResponsavelMembroId('');
-                    setTipoFinProj('livre');
-                    setFormProjFinLivre('');
-                    setFormProjFinMembroId('');
-                    setFormProjCusto('');
-                    setFormProjPublico('');
-                    setShowProjetoModal(true);
-                  }} className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-sm cursor-pointer">
-                    + Novo Projeto
-                  </button>
-                </div>
+              <button
+                onClick={() => setModalProjetoOpen(true)}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer whitespace-nowrap transition-all"
+              >
+                + Novo Projeto
+              </button>
+            </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {projetosList.length === 0 ? (
-                    <p className="col-span-full py-8 text-center text-slate-400">Nenhum projeto cadastrado.</p>
-                  ) : (
-                    projetosList.map((p: any) => (
-                      <div key={p.id} onClick={() => setProjetoSelecionadoDetalhe(p)} className="p-5 border rounded-2xl bg-white shadow-xs space-y-3 cursor-pointer hover:border-blue-900 transition-all border-l-4 border-l-blue-900">
-                        <h3 className="font-bold text-slate-900 text-base">📌 {p.nome_projeto}</h3>
-                        <div className="text-xs text-slate-600 space-y-1">
-                          <div>👤 Resp: <strong className="text-slate-800">{members.find(m => String(m.id) === String(p.responsavel))?.nome || p.responsavel}</strong></div>
-                          <div>💰 Custo: <strong className="font-mono text-emerald-700">R$ {parseFloat(p.custo || 0).toFixed(2)}</strong></div>
-                        </div>
-                        <span className="text-xs text-blue-900 font-bold block pt-1">Ver Ficha Completa ➔</span>
-                      </div>
-                    ))
-                  )}
+            {/* Tabela de Listagem de Projetos */}
+            <div>
+              <h3 className="text-lg font-bold text-slate-800 mb-3">📋 Lista de Projetos Ativos</h3>
+              {loadingProjetos ? (
+                <p className="text-center py-8 text-slate-500 font-medium">Carregando projetos...</p>
+              ) : projetosList.length === 0 ? (
+                <p className="text-center py-8 text-slate-400 font-medium">Nenhum projeto cadastrado para esta instituição.</p>
+              ) : (
+                <div className="overflow-x-auto border rounded-xl shadow-xs">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-100 border-b text-slate-700">
+                      <tr>
+                        <th className="p-3.5 font-bold">Nome do Projeto</th>
+                        <th className="p-3.5 font-bold">Tipo de Projeto</th>
+                        <th className="p-3.5 font-bold">Código da Igreja</th>
+                        <th className="p-3.5 font-bold">Data de Criação</th>
+                        <th className="p-3.5 font-bold text-right">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-slate-700">
+                      {projetosList.map((p: any) => (
+                        <tr key={p.id} className="hover:bg-slate-50/80 transition-all">
+                          <td className="p-3.5 font-bold text-slate-900">{p.nome_projeto}</td>
+                          <td className="p-3.5">
+                            <span className="px-2.5 py-1 bg-blue-100 text-blue-900 rounded-lg text-xs font-black uppercase tracking-wide">
+                              {p.tipo_projeto || 'Geral'}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-mono text-xs text-slate-600 font-bold">{p.codigo_igreja}</td>
+                          <td className="p-3.5 font-mono text-xs text-slate-600">
+                            {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}
+                          </td>
+                          <td className="p-3.5 text-right">
+                            <button
+                              onClick={() => handleExcluirProjeto(p.id)}
+                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs font-bold rounded-lg transition-all cursor-pointer shadow-xs"
+                            >
+                              Excluir
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Modal de Cadastro de Novo Projeto */}
+            {modalProjetoOpen && (
+              <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <h3 className="font-black text-xl text-blue-900">✨ Cadastrar Novo Projeto</h3>
+                    <button onClick={() => setModalProjetoOpen(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">✕</button>
+                  </div>
+                  <form onSubmit={handleSalvarProjeto} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">Nome do Projeto</label>
+                      <input
+                        type="text"
+                        required
+                        value={novoNomeProjeto}
+                        onChange={(e) => setNovoNomeProjeto(e.target.value)}
+                        placeholder="Ex: Reforma do Templo"
+                        className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">Tipo de Projeto</label>
+                      <input
+                        type="text"
+                        value={novoTipoProjeto}
+                        onChange={(e) => setNovoTipoProjeto(e.target.value)}
+                        placeholder="Ex: Social, Construção, Missões"
+                        className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-3 border-t">
+                      <button
+                        type="button"
+                        onClick={() => setModalProjetoOpen(false)}
+                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md transition-all"
+                      >
+                        Salvar Projeto
+                      </button>
+                    </div>
+                  </form>
                 </div>
               </div>
             )}

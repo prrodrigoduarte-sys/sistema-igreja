@@ -1315,7 +1315,7 @@ export default function App() {
     );
   }
 
- // ==========================================
+// ==========================================
   // 6. ESTRUTURA PRINCIPAL E HEADER
   // ==========================================
   return (
@@ -1348,81 +1348,7 @@ export default function App() {
             <button type="button" onClick={() => { setActiveTab('financeiro'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'financeiro' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>💰 Financeiro</button>
             <button type="button" onClick={() => { setActiveTab('igreja'); setOpenDropdown(null); }} className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all ${activeTab === 'igreja' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}>🏛️ Igreja</button>
             
-
-            {/* MENU DROPDOWN DINÂMICO DE PROJETOS */}
-            <div className="relative inline-block">
-              <button
-                type="button"
-                onClick={() => setOpenDropdown(openDropdown === 'projetos' ? null : 'projetos')}
-                className={`px-4 py-2 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1 ${openDropdown === 'projetos' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-blue-100'}`}
-              > 
-                🚀 Projetos {openDropdown === 'projetos' ? '▲' : '▼'}
-              </button>
-
-              {openDropdown === 'projetos' && (
-                <div className="absolute left-0 mt-2 w-64 bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
-                  <div className="p-2 border-b bg-slate-50 flex justify-between items-center">
-                    <span className="text-[11px] font-black text-slate-500 uppercase">Lista de Projetos</span>
-                    <button 
-                      type="button"
-                      onClick={() => {
-                        setEditingProjeto(null);
-                        setFormProjNome('');
-                        setTipoRespProj('livre');
-                        setFormProjResponsavelLivre('');
-                        setFormProjResponsavelMembroId('');
-                        setTipoFinProj('livre');
-                        setFormProjFinLivre('');
-                        setFormProjFinMembroId('');
-                        setFormProjCusto('');
-                        setFormProjPublico('');
-                        setShowProjetoModal(true);
-                        setOpenDropdown(null);
-                      }}
-                      className="px-2 py-1 bg-blue-900 text-white font-bold text-[10px] rounded-lg cursor-pointer"
-                    >
-                      + Novo Projeto
-                    </button>
-                  </div>
-
-                  <div className="max-h-60 overflow-y-auto">
-                  <button 
-  type="button" 
-  onClick={() => { 
-    setActiveTab('projetos'); 
-    setProjetoSelecionadoDetalhe(null); // <-- Garanta que isso está aqui
-    setOpenDropdown(null); 
-  }} 
-  className="w-full text-left px-4 py-2.5 text-xs font-bold text-blue-900 hover:bg-blue-50 cursor-pointer border-b border-slate-50 flex items-center gap-2"
->
-  📋 Ver Todos os Projetos
-</button>
-                      📋 Ver Todos os Projetos
-                    </button>
-
-                    {projetosList.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400 italic">Nenhum projeto cadastrado.</div>
-                    ) : (
-                      projetosList.map((proj: any) => (
-                        <button 
-                          key={proj.id} 
-                          type="button" 
-                          onClick={() => { 
-                            setActiveTab('projetos'); 
-                            setProjetoSelecionadoDetalhe(proj); 
-                            setOpenDropdown(null); 
-                          }} 
-                          className="w-full text-left px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-blue-50 cursor-pointer border-b border-slate-50 truncate"
-                        >
-                          📌 {proj.nome_projeto}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
+            {/* Botão Sair mantido no canto direito */}
             <button
               type="button"
               onClick={() => { setIsLoggedIn(false); setLoggedUser(null); setActiveTab('relatorios'); setOpenDropdown(null); }}
@@ -1433,6 +1359,7 @@ export default function App() {
           </div>
         </header>
       )}
+
       <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
         {/* ========================================== */}
@@ -3032,6 +2959,12 @@ export default function App() {
        {/* ========================================== */}
         {/* MÓDULO DE PROJETOS LIMPO (SEM INSCRIÇÕES) */}
         {/* ========================================== */}
+        {/* ========================================== */}
+        {/* MÓDULO DE PROJETOS LIMPO E DEFINITIVO       */}
+        {/* ========================================== */}
+       {/* ========================================== */}
+        {/* MÓDULO DE PROJETOS BLINDADO (SEM DETALHES) */}
+        {/* ========================================== */}
         {activeTab === 'projetos' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-5xl mx-auto">
             
@@ -3906,6 +3839,7 @@ export default function App() {
                 </div>
                 </form>
     )}
-  </div>
-);
+ </main>
+    </div>
+  );
 }

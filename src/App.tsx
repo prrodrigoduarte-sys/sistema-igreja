@@ -1391,10 +1391,7 @@ export default function App() {
           </div>
         )}
 
-     {/* ========================================== */}
-      {/* 7. ÁREA PRINCIPAL DO SISTEMA */}
-      {/* ========================================== */}
-      <main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
+<main className="max-w-7xl w-full mx-auto p-6 flex-1 relative z-10 print:p-0 print:max-w-none">
         
         {/* 1. TELA INICIAL: Só aparece se nenhuma aba estiver selecionada */}
         {activeTab === '' && (
@@ -1412,14 +1409,14 @@ export default function App() {
         {/* 2. MÓDULO FINANCEIRO: Só aparece se activeTab for 'financeiro' */}
         {activeTab === 'financeiro' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {/* COLE AQUI O SEU CÓDIGO REAL DO FINANCEIRO (Livro Diário, Balancete, etc) */}
+            {/* Seu código real do financeiro fica aqui dentro */}
           </div>
         )}
 
-        {/* 3. MÓDULO DE MEMBROS: Só aparece se activeTab for 'membros' */}
+        {/* 3. MÓDULO DE MEMBROS: O formulário e a tabela DEVEM ficar aqui dentro */}
         {activeTab === 'membros' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            {/* COLE AQUI O SEU CÓDIGO REAL DE MEMBROS (Cabeçalho, Tabela e Formulário) */}
+            {/* Cole aqui todo o seu código real de membros, incluindo o formulário da foto */}
           </div>
         )}
 

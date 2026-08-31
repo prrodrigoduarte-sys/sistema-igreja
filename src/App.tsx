@@ -1386,11 +1386,17 @@ export default function App() {
                   </div>
 
                   <div className="max-h-60 overflow-y-auto">
-                    <button 
-                      type="button" 
-                      onClick={() => { setActiveTab('projetos'); setProjetoSelecionadoDetalhe(null); setOpenDropdown(null); }} 
-                      className="w-full text-left px-4 py-2.5 text-xs font-bold text-blue-900 hover:bg-blue-50 cursor-pointer border-b border-slate-50 flex items-center gap-2"
-                    >
+                  <button 
+  type="button" 
+  onClick={() => { 
+    setActiveTab('projetos'); 
+    setProjetoSelecionadoDetalhe(null); // <-- Garanta que isso está aqui
+    setOpenDropdown(null); 
+  }} 
+  className="w-full text-left px-4 py-2.5 text-xs font-bold text-blue-900 hover:bg-blue-50 cursor-pointer border-b border-slate-50 flex items-center gap-2"
+>
+  📋 Ver Todos os Projetos
+</button>
                       📋 Ver Todos os Projetos
                     </button>
 

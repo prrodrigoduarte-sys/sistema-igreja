@@ -1336,6 +1336,20 @@ export default function App() {
         {/* ========================================== */}
         {/* 7.1 MÓDULO: MEMBROS MOBILE */}
         {/* ========================================== */}
+        {/* ========================================== */}
+        {/* TELA INICIAL LIMPA (Abre vazia ao iniciar) */}
+        {/* ========================================== */}
+        {activeTab === '' && (
+          <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
+            <div className="w-20 h-20 bg-white text-blue-900 rounded-3xl flex items-center justify-center text-4xl shadow-md border border-slate-200">
+              🏛️
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-slate-800 tracking-tight">Sistema Pronto para Uso</h2>
+              <p className="text-xs font-semibold text-slate-500 mt-1">Selecione uma opção no menu superior para começar.</p>
+            </div>
+          </div>
+        )}
         {activeTab === 'membros_mobile' && ehUsuarioCelula && (
           <div className="max-w-md mx-auto bg-white rounded-3xl shadow-lg border border-slate-200 overflow-hidden flex flex-col my-2">
             <div className="bg-blue-900 text-white p-4 flex items-center justify-between">
@@ -1377,7 +1391,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ========================================== */}
+      {/* ========================================== */}
         {/* 7.2 MÓDULO: MEMBROS COMPUTADOR */}
         {/* ========================================== */}
         {activeTab === 'membros' && (

@@ -1,9 +1,19 @@
 // src/App.tsx
-// Versão com login e menu básico, focando na estrutura.
+// Versão com login e menu completo.
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import ProjetosModule from './ProjetosModule'; // Importa o módulo de Projetos
+import ProjetosModule from './ProjetosModule'; // Módulo de Projetos (temporário)
+
+// Importe os módulos para cada nova aba aqui, se já os tiver criado.
+// Exemplo:
+// import CadastrosModule from './CadastrosModule';
+// import AgendaModule from './AgendaModule';
+// import CelulaModule from './CelulaModule';
+// import FinanceiroModule from './FinanceiroModule';
+// import IgrejaModule from './IgrejaModule';
+// import ConfiguracoesModule from './ConfiguracoesModule';
+
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -151,6 +161,54 @@ function App() {
             🏠 Dashboard
           </button>
           <button
+            onClick={() => setActiveTab('cadastros')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'cadastros' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            👥 Cadastros
+          </button>
+          <button
+            onClick={() => setActiveTab('agenda')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            📅 Agenda
+          </button>
+          <button
+            onClick={() => setActiveTab('celula')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'celula' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            🌱 Célula
+          </button>
+          <button
+            onClick={() => setActiveTab('financeiro')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            💰 Financeiro
+          </button>
+          <button
+            onClick={() => setActiveTab('igreja')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'igreja' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            ⛪ Igreja
+          </button>
+          <button
+            onClick={() => setActiveTab('configuracoes')}
+            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'configuracoes' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            ⚙️ Configurações
+          </button>
+          <button
             onClick={() => setActiveTab('projetos')}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
@@ -158,7 +216,6 @@ function App() {
           >
             🚀 Projetos
           </button>
-          {/* Adicione outros itens de menu aqui, se desejar */}
         </nav>
         <div className="p-4 border-t border-blue-800">
           <button
@@ -179,11 +236,51 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'cadastros' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Cadastros.</p>
+          </div>
+        )}
+
+        {activeTab === 'agenda' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Agenda</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Agenda.</p>
+          </div>
+        )}
+
+        {activeTab === 'celula' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Célula</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Célula.</p>
+          </div>
+        )}
+
+        {activeTab === 'financeiro' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Financeiro</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Financeiro.</p>
+          </div>
+        )}
+
+        {activeTab === 'igreja' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Igreja</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Igreja.</p>
+          </div>
+        )}
+
+        {activeTab === 'configuracoes' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Configurações</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Configurações.</p>
+          </div>
+        )}
+
         {activeTab === 'projetos' && (
           <ProjetosModule loggedUser={loggedUser} />
         )}
-
-        {/* Outras abas de conteúdo iriam aqui */}
       </main>
     </div>
   );

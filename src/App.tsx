@@ -1,3 +1,4 @@
+import ProjetosModule from './ProjetosModule';
 // 1. IMPORTAÇÕES E CONFIGURAÇÃO INICIAL
 // ==========================================
 import React, { useEffect, useState } from 'react';
@@ -1586,7 +1587,7 @@ export default function App() {
           </div>
         )}
 
-      </main>
+
         {/* ========================================== */}
         {/* 7.4 MÓDULO: USUÁRIOS E PERMISSÕES */}
         {/* ========================================== */}
@@ -3023,140 +3024,8 @@ export default function App() {
         {/* MÓDULO DE PROJETOS BLINDADO (SEM DETALHES) */}
         {/* ========================================== */}
         {activeTab === 'projetos' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6 max-w-5xl mx-auto">
-            
-            {/* Cabeçalho e Botão Novo Projeto */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4">
-              <div>
-                <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Gestão de Projetos</h2>
-                <p className="text-xs font-semibold text-slate-500 mt-1">Projetos cadastrados e vinculados à instituição.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setEditingProjeto(null);
-                  setFormProjNome('');
-                  setShowProjetoModal(true);
-                }}
-                className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md cursor-pointer whitespace-nowrap transition-all"
-              >
-                + Novo Projeto
-              </button>
-            </div>
-
-            {/* Tabela de Listagem de Projetos */}
-            <div>
-              <h3 className="text-lg font-bold text-slate-800 mb-3">📋 Lista de Projetos Ativos</h3>
-              {projetosList.length === 0 ? (
-                <p className="text-center py-8 text-slate-400 font-medium">Nenhum projeto cadastrado para esta instituição.</p>
-              ) : (
-                <div className="overflow-x-auto border rounded-xl shadow-xs">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-100 border-b text-slate-700">
-                      <tr>
-                        <th className="p-3.5 font-bold">Nome do Projeto</th>
-                        <th className="p-3.5 font-bold">Código da Igreja</th>
-                        <th className="p-3.5 font-bold">Data de Criação</th>
-                        <th className="p-3.5 font-bold text-right">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y text-slate-700">
-                      {projetosList.map((p: any) => (
-                        <tr key={p.id} className="hover:bg-slate-50/80 transition-all">
-                          <td className="p-3.5 font-bold text-slate-900">{p.nome_projeto || p.nome}</td>
-                          <td className="p-3.5 font-mono text-xs text-slate-600 font-bold">{p.codigo_igreja}</td>
-                          <td className="p-3.5 font-mono text-xs text-slate-600">
-                            {p.created_at ? new Date(p.created_at).toLocaleDateString('pt-BR') : '-'}
-                          </td>
-                          <td className="p-3.5 text-right">
-                            <button
-                              onClick={async () => {
-                                if (!confirm('Deseja realmente excluir este projeto?')) return;
-                                try {
-                                  const { error } = await supabase.from('projetos_igreja').delete().eq('id', p.id);
-                                  if (!error) {
-                                    carregarProjetos(loggedUser.codigo_igreja);
-                                  } else {
-                                    alert('Erro ao excluir: ' + error.message);
-                                  }
-                                } catch (err: any) {
-                                  alert('Erro: ' + err.message);
-                                }
-                              }}
-                              className="px-3 py-1.5 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white text-xs font-bold rounded-lg transition-all cursor-pointer shadow-xs"
-                            >
-                              Excluir
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Modal de Cadastro de Novo Projeto */}
-            {showProjetoModal && (
-              <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-slate-100">
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <h3 className="font-black text-xl text-blue-900">✨ Cadastrar Novo Projeto</h3>
-                    <button onClick={() => setShowProjetoModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-xl cursor-pointer">✕</button>
-                  </div>
-                  <form onSubmit={async (e) => {
-                    e.preventDefault();
-                    if (!formProjNome.trim()) return;
-                    try {
-                      const { error } = await supabase.from('projetos_igreja').insert([
-                        {
-                          codigo_igreja: loggedUser.codigo_igreja,
-                          nome_projeto: formProjNome.trim()
-                        }
-                      ]);
-                      if (!error) {
-                        setFormProjNome('');
-                        setShowProjetoModal(false);
-                        carregarProjetos(loggedUser.codigo_igreja);
-                        alert('Projeto cadastrado com sucesso!');
-                      } else {
-                        alert('Erro ao salvar projeto: ' + error.message);
-                      }
-                    } catch (err: any) {
-                      alert('Erro: ' + err.message);
-                    }
-                  }} className="space-y-4">
-                    <div>
-                      <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">Nome do Projeto</label>
-                      <input
-                        type="text"
-                        required
-                        value={formProjNome}
-                        onChange={(e) => setFormProjNome(e.target.value)}
-                        placeholder="Ex: Reforma do Templo"
-                        className="w-full px-3.5 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
-                      />
-                    </div>
-                    <div className="flex justify-end gap-2 pt-3 border-t">
-                      <button
-                        type="button"
-                        onClick={() => setShowProjetoModal(false)}
-                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        type="submit"
-                        className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md transition-all"
-                      >
-                        Salvar Projeto
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+  <ProjetosModule loggedUser={loggedUser} />
+)}
       {/* ========================================== */}
       {/* 8. MODAIS DE CADASTRO E EDIÇÃO */}
       {/* ========================================== */}
@@ -3891,12 +3760,7 @@ export default function App() {
                       >
                         {editingMember ? 'Gravar Alterações' : 'Gravar Novo Membro'}
                       </button>
-                    </div>
-                  </div>
-                </div>
-                </form>
-    )}
- </main>
-    </div>
-  );
+                      </div>
+      </div>
+);
 }

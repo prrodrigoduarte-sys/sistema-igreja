@@ -1,5 +1,6 @@
 // src/App.tsx
 // Versão com login, menu completo e integração do MembrosModule.
+// Correção para o erro de busca de usuário com .maybeSingle()
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
@@ -44,7 +45,7 @@ function App() {
           .from('usuarios')
           .select('*, igrejas(*)')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle(); // ALTERADO AQUI: de .single() para .maybeSingle()
         if (error) {
           console.error('Erro ao buscar usuário:', error);
         } else {

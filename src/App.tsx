@@ -1,5 +1,5 @@
 // src/App.tsx
-// Versão com login e menu completo.
+// Versão com login e menu completo, incluindo submenu para Cadastros.
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
@@ -23,6 +23,7 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true); // Para alternar entre login e cadastro
+  const [isCadastrosOpen, setIsCadastrosOpen] = useState(false); // Estado para controlar a abertura do submenu Cadastros
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -127,7 +128,7 @@ function App() {
               type="submit"
               className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-md transition-all"
             >
-              {isLogin ? 'ENTRAR' : 'CADASTRAR'}
+              {isLogin ? 'ENTRAR' : 'CADASTRE-SE'}
             </button>
           </form>
           <div className="text-center text-sm mt-4">
@@ -153,23 +154,73 @@ function App() {
         </div>
         <nav className="flex-grow p-4 space-y-2">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => { setActiveTab('dashboard'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             🏠 Dashboard
           </button>
+
+          {/* Menu Cadastros com Submenu */}
+          <div>
+            <button
+              onClick={() => { setIsCadastrosOpen(!isCadastrosOpen); setActiveTab('cadastros'); }}
+              className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors flex justify-between items-center ${
+                activeTab.startsWith('cadastros') ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              <span>👥 Cadastros</span>
+              <span>{isCadastrosOpen ? '▲' : '▼'}</span>
+            </button>
+            {isCadastrosOpen && (
+              <div className="ml-4 mt-1 space-y-1">
+                <button
+                  onClick={() => setActiveTab('cadastros-fornecedores')}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700'
+                  }`}
+                >
+                  Fornecedores
+                </button>
+                <button
+                  onClick={() => setActiveTab('cadastros-membros')}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700'
+                  }`}
+                >
+                  Membros
+                </button>
+                <button
+                  onClick={() => setActiveTab('cadastros-ministerios')}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700'
+                  }`}
+                >
+                  Ministérios
+                </button>
+                <button
+                  onClick={() => setActiveTab('cadastros-usuario')}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'cadastros-usuario' ? 'bg-blue-600' : 'hover:bg-blue-700'
+                  }`}
+                >
+                  Usuário
+                </button>
+                <button
+                  onClick={() => setActiveTab('cadastros-relatorio')}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeTab === 'cadastros-relatorio' ? 'bg-blue-600' : 'hover:bg-blue-700'
+                  }`}
+                >
+                  Relatório
+                </button>
+              </div>
+            )}
+          </div>
+
           <button
-            onClick={() => setActiveTab('cadastros')}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'cadastros' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            👥 Cadastros
-          </button>
-          <button
-            onClick={() => setActiveTab('agenda')}
+            onClick={() => { setActiveTab('agenda'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -177,7 +228,7 @@ function App() {
             📅 Agenda
           </button>
           <button
-            onClick={() => setActiveTab('celula')}
+            onClick={() => { setActiveTab('celula'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'celula' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -185,7 +236,7 @@ function App() {
             🌱 Célula
           </button>
           <button
-            onClick={() => setActiveTab('financeiro')}
+            onClick={() => { setActiveTab('financeiro'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -193,7 +244,7 @@ function App() {
             💰 Financeiro
           </button>
           <button
-            onClick={() => setActiveTab('igreja')}
+            onClick={() => { setActiveTab('igreja'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'igreja' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -201,7 +252,7 @@ function App() {
             ⛪ Igreja
           </button>
           <button
-            onClick={() => setActiveTab('configuracoes')}
+            onClick={() => { setActiveTab('configuracoes'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'configuracoes' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -209,7 +260,7 @@ function App() {
             ⚙️ Configurações
           </button>
           <button
-            onClick={() => setActiveTab('projetos')}
+            onClick={() => { setActiveTab('projetos'); setIsCadastrosOpen(false); }}
             className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
               activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -236,10 +287,20 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'cadastros' && (
+        {/* Conteúdo para Cadastros e seus submenus */}
+        {(activeTab === 'cadastros' || activeTab.startsWith('cadastros-')) && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Cadastros.</p>
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">
+              {activeTab === 'cadastros' && 'Cadastros'}
+              {activeTab === 'cadastros-fornecedores' && 'Cadastros: Fornecedores'}
+              {activeTab === 'cadastros-membros' && 'Cadastros: Membros'}
+              {activeTab === 'cadastros-ministerios' && 'Cadastros: Ministérios'}
+              {activeTab === 'cadastros-usuario' && 'Cadastros: Usuário'}
+              {activeTab === 'cadastros-relatorio' && 'Cadastros: Relatório'}
+            </h2>
+            <p className="text-slate-600 mt-2">
+              Conteúdo da seção de {activeTab.replace('cadastros-', '').replace('cadastros', 'Cadastros')}.
+            </p>
           </div>
         )}
 

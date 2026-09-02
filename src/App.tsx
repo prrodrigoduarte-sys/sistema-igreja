@@ -1,7 +1,7 @@
 // src/App.tsx
 // Versão com login e menu básico, focando na estrutura.
 
-import React, { useEffect, useState } => from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule'; // Importa o módulo de Projetos
 

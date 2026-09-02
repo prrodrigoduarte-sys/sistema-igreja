@@ -1,18 +1,15 @@
 // src/App.tsx
-// Versão com login e menu completo, incluindo submenu para Cadastros.
+// Versão com login, menu completo e integração do MembrosModule.
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule'; // Módulo de Projetos (temporário)
+import MembrosModule from './MembrosModule'; // Importa o novo módulo de Membros
 
-// Importe os módulos para cada nova aba aqui, se já os tiver criado.
+// Importe outros módulos aqui conforme forem criados.
 // Exemplo:
-// import CadastrosModule from './CadastrosModule';
-// import AgendaModule from './AgendaModule';
-// import CelulaModule from './CelulaModule';
-// import FinanceiroModule from './FinanceiroModule';
-// import IgrejaModule from './IgrejaModule';
-// import ConfiguracoesModule from './ConfiguracoesModule';
+// import FornecedoresModule from './FornecedoresModule';
+// import UsuariosModule from './UsuariosModule';
 
 
 function App() {
@@ -287,22 +284,44 @@ function App() {
           </div>
         )}
 
-        {/* Conteúdo para Cadastros e seus submenus */}
-        {(activeTab === 'cadastros' || activeTab.startsWith('cadastros-')) && (
+        {/* Renderiza o MembrosModule quando a aba 'cadastros-membros' está ativa */}
+        {activeTab === 'cadastros-membros' && (
+          <MembrosModule loggedUser={loggedUser} />
+        )}
+
+        {/* Conteúdo para outros submenus de Cadastros */}
+        {activeTab === 'cadastros-fornecedores' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">
-              {activeTab === 'cadastros' && 'Cadastros'}
-              {activeTab === 'cadastros-fornecedores' && 'Cadastros: Fornecedores'}
-              {activeTab === 'cadastros-membros' && 'Cadastros: Membros'}
-              {activeTab === 'cadastros-ministerios' && 'Cadastros: Ministérios'}
-              {activeTab === 'cadastros-usuario' && 'Cadastros: Usuário'}
-              {activeTab === 'cadastros-relatorio' && 'Cadastros: Relatório'}
-            </h2>
-            <p className="text-slate-600 mt-2">
-              Conteúdo da seção de {activeTab.replace('cadastros-', '').replace('cadastros', 'Cadastros')}.
-            </p>
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Fornecedores</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Fornecedores.</p>
           </div>
         )}
+        {activeTab === 'cadastros-ministerios' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Ministérios</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Ministérios.</p>
+          </div>
+        )}
+        {activeTab === 'cadastros-usuario' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Usuário</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Usuário.</p>
+          </div>
+        )}
+        {activeTab === 'cadastros-relatorio' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Relatório</h2>
+            <p className="text-slate-600 mt-2">Conteúdo da seção de Relatório.</p>
+          </div>
+        )}
+        {/* Conteúdo genérico para Cadastros se nenhum submenu específico for selecionado */}
+        {activeTab === 'cadastros' && (
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros</h2>
+            <p className="text-slate-600 mt-2">Selecione uma opção no submenu de Cadastros.</p>
+          </div>
+        )}
+
 
         {activeTab === 'agenda' && (
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">

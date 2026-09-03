@@ -43,28 +43,41 @@ function App() {
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.id) {
+        console.log('Nenhuma sessão autenticada encontrada.');
         setLoggedUser(null);
         return;
       }
-
+  
+      console.log('ID do usuário autenticado:', session.user.id);
+  
       const { data, error } = await supabase
         .from('usuarios')
         .select('*, igrejas(*)')
         .eq('id', session.user.id)
         .maybeSingle();
-
+  
+      console.log('Usuário retornado pela tabela usuarios:', data);
+      console.log('Erro ao buscar usuário:', error);
+  
       if (error) {
         console.error('Erro ao buscar usuário:', error);
         setLoggedUser(null);
         return;
       }
-
+  
+      if (!data) {
+        console.error(
+          'Nenhum registro correspondente foi encontrado na tabela usuarios.'
+        );
+        setLoggedUser(null);
+        return;
+      }
+  
       setLoggedUser(data);
     };
-
+  
     carregarUsuario();
   }, [session]);
-
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
 

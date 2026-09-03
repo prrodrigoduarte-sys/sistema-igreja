@@ -48,47 +48,60 @@ export default function MembrosModule({
           loggedUser?.igrejas?.codigo_igreja ||
           loggedUser?.codigo_igreja;
     
-        console.log('Usuário recebido:', loggedUser);
+        console.log('Usuário no módulo:', loggedUser);
         console.log('Código da igreja:', codigoIgreja);
     
         if (!codigoIgreja) {
           throw new Error(
-            'Não foi possível identificar o código da igreja.'
+            'Código da igreja não encontrado.'
           );
         }
     
         const { data, error: erroConsulta } = await supabase
           .from('members')
           .select('*')
-          .eq('codigo_igreja', codigoIgreja)
-          .order('nome', { ascending: true });
-    
-        console.log('Membros recebidos:', data);
-        console.log('Erro da consulta:', erroConsulta);
+          .eq('codigo_igreja', codigoIgreja);
     
         if (erroConsulta) {
           throw erroConsulta;
         }
     
+        console.log('Membros recebidos:', data);
+    
         setMembros(data || []);
       } catch (erro: any) {
         console.error('Erro ao carregar membros:', erro);
     
-        setError(
-          erro?.message || 'Erro ao carregar os membros.'
-        );
-    
         setMembros([]);
+        setError(
+          erro?.message || 'Erro ao carregar membros.'
+        );
       } finally {
         setLoading(false);
       }
     }, [loggedUser]);
 
-  useEffect(() => {
-    if (loggedUser) {
+    useEffect(() => {
+      const codigoIgreja =
+        loggedUser?.igrejas?.codigo_igreja ||
+        loggedUser?.codigo_igreja;
+    
+      if (!loggedUser) {
+        setLoading(false);
+        setError('Usuário não carregado.');
+        return;
+      }
+    
+      if (!codigoIgreja) {
+        setLoading(false);
+        setError(
+          'Código da igreja não encontrado para este usuário.'
+        );
+        return;
+      }
+    
       fetchMembros();
-    }
-  }, [loggedUser, fetchMembros]);
+    }, [loggedUser, fetchMembros]);
 
   const handleOpenNewMemberModal = () => {
     setEditingMember(null);

@@ -39,35 +39,50 @@ export default function MembrosModule({
   const [formMembro, setFormMembro] =
     useState<FormMembro>(formInicial);
 
-  const fetchMembros = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const codigoIgreja =
-        loggedUser?.igrejas?.codigo_igreja ||
-        loggedUser?.codigo_igreja ||
-        'IGR-001';
-
-      const { data, error: supabaseError } = await supabase
-        .from('members')
-        .select('id, nome, email')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome', { ascending: true });
-
-      if (supabaseError) {
-        throw supabaseError;
+    const fetchMembros = useCallback(async () => {
+      setLoading(true);
+      setError(null);
+    
+      try {
+        const codigoIgreja =
+          loggedUser?.igrejas?.codigo_igreja ||
+          loggedUser?.codigo_igreja;
+    
+        console.log('Usuário recebido:', loggedUser);
+        console.log('Código da igreja:', codigoIgreja);
+    
+        if (!codigoIgreja) {
+          throw new Error(
+            'Não foi possível identificar o código da igreja.'
+          );
+        }
+    
+        const { data, error: erroConsulta } = await supabase
+          .from('members')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja)
+          .order('nome', { ascending: true });
+    
+        console.log('Membros recebidos:', data);
+        console.log('Erro da consulta:', erroConsulta);
+    
+        if (erroConsulta) {
+          throw erroConsulta;
+        }
+    
+        setMembros(data || []);
+      } catch (erro: any) {
+        console.error('Erro ao carregar membros:', erro);
+    
+        setError(
+          erro?.message || 'Erro ao carregar os membros.'
+        );
+    
+        setMembros([]);
+      } finally {
+        setLoading(false);
       }
-
-      setMembros(data || []);
-    } catch (err: any) {
-      console.error('Erro ao carregar membros:', err);
-      setError(err.message || 'Erro ao carregar membros.');
-      setMembros([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [loggedUser]);
+    }, [loggedUser]);
 
   useEffect(() => {
     if (loggedUser) {

@@ -1,142 +1,182 @@
 // src/App.tsx
-// Versão com login, menu completo e integração do MembrosModule.
-// Correção para o erro de busca de usuário com .maybeSingle()
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
-import ProjetosModule from './ProjetosModule'; // Módulo de Projetos (temporário)
-import MembrosModule from './MembrosModule'; // Importa o novo módulo de Membros
-
-// Importe outros módulos aqui conforme forem criados.
-// Exemplo:
-// import FornecedoresModule from './FornecedoresModule';
-// import UsuariosModule from './UsuariosModule';
-
+import ProjetosModule from './ProjetosModule';
+import MembrosModule from './MembrosModule';
 
 function App() {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [loggedUser, setLoggedUser] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState('dashboard'); // Aba ativa padrão
+
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLogin, setIsLogin] = useState(true); // Para alternar entre login e cadastro
-  const [isCadastrosOpen, setIsCadastrosOpen] = useState(false); // Estado para controlar a abertura do submenu Cadastros
+  const [isLogin, setIsLogin] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const carregarSessao = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
       setSession(session);
       setLoading(false);
-    });
+    };
+
+    carregarSessao();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+    } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
+      setSession(novaSessao);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      if (session) {
-        const { data: user, error } = await supabase
-          .from('usuarios')
-          .select('*, igrejas(*)')
-          .eq('id', session.user.id)
-          .maybeSingle(); // ALTERADO AQUI: de .single() para .maybeSingle()
-        if (error) {
-          console.error('Erro ao buscar usuário:', error);
-        } else {
-          setLoggedUser(user);
-        }
-      } else {
+    const carregarUsuario = async () => {
+      if (!session?.user?.id) {
         setLoggedUser(null);
+        return;
       }
+
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*, igrejas(*)')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao buscar usuário:', error);
+        setLoggedUser(null);
+        return;
+      }
+
+      setLoggedUser(data);
     };
-    fetchUser();
+
+    carregarUsuario();
   }, [session]);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-    } catch (error: any) {
-      alert(error.error_description || error.message);
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
     }
   };
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) throw error;
-      alert('Verifique seu e-mail para confirmar o cadastro!');
-    } catch (error: any) {
-      alert(error.error_description || error.message);
+  const handleSignUp = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (error) {
+      alert(error.message);
+      return;
     }
+
+    alert('Verifique seu e-mail para confirmar o cadastro.');
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setLoggedUser(null);
-    setActiveTab('dashboard'); // Volta para a dashboard após logout
+    setActiveTab('dashboard');
+  };
+
+  const selecionarAba = (aba: string) => {
+    setActiveTab(aba);
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-700">Carregando...</div>;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700">
+        Carregando...
+      </div>
+    );
   }
 
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full space-y-6">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
           <h2 className="text-3xl font-black text-blue-900 text-center">
             {isLogin ? 'BEM-VINDO DE VOLTA!' : 'CRIE SUA CONTA'}
           </h2>
-          <p className="text-center text-slate-600">
-            {isLogin ? 'Faça login para continuar.' : 'Cadastre-se para acessar o sistema.'}
+
+          <p className="text-center text-slate-600 mt-2 mb-6">
+            {isLogin
+              ? 'Faça login para continuar.'
+              : 'Cadastre-se para acessar o sistema.'}
           </p>
-          <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
+
+          <form
+            onSubmit={isLogin ? handleLogin : handleSignUp}
+            className="space-y-4"
+          >
             <div>
-              <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">E-MAIL</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                E-MAIL
+              </label>
+
               <input
                 type="email"
-                placeholder="seu@email.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu@email.com"
                 required
-                className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
+
             <div>
-              <label className="block text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-1">SENHA</label>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                SENHA
+              </label>
+
               <input
                 type="password"
-                placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Digite sua senha"
                 required
-                className="w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
               />
             </div>
+
             <button
               type="submit"
-              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl shadow-md transition-all"
+              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl"
             >
-              {isLogin ? 'ENTRAR' : 'CADASTRE-SE'}
+              {isLogin ? 'ENTRAR' : 'CADASTRAR'}
             </button>
           </form>
-          <div className="text-center text-sm mt-4">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-blue-700 hover:text-blue-900 font-semibold"
-            >
-              {isLogin ? 'Não tem uma conta? Cadastre-se!' : 'Já tem uma conta? Faça login!'}
-            </button>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsLogin(!isLogin)}
+            className="w-full mt-5 text-blue-700 font-semibold text-sm"
+          >
+            {isLogin
+              ? 'Não tem uma conta? Cadastre-se'
+              : 'Já tem uma conta? Fazer login'}
+          </button>
         </div>
       </div>
     );
@@ -144,225 +184,175 @@ function App() {
 
   return (
     <div className="flex min-h-screen bg-slate-50">
-      {/* MENU LATERAL */}
-      <div className="w-64 bg-blue-900 text-white shadow-lg flex flex-col">
+      <aside className="w-64 bg-blue-900 text-white flex flex-col">
         <div className="p-6 border-b border-blue-800">
-          <h1 className="text-2xl font-black tracking-wide">SISTEMA IGREJA</h1>
-          <p className="text-xs text-blue-200 mt-1">Olá, {loggedUser?.nome || loggedUser?.email || 'Usuário'}!</p>
+          <h1 className="text-2xl font-black">SISTEMA IGREJA</h1>
+
+          <p className="text-xs text-blue-200 mt-2">
+            Olá, {loggedUser?.nome || session.user.email}
+          </p>
         </div>
-        <nav className="flex-grow p-4 space-y-2">
+
+        <nav className="flex-1 p-4 space-y-2">
           <button
-            onClick={() => { setActiveTab('dashboard'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            type="button"
+            onClick={() => selecionarAba('dashboard')}
+            className={`w-full text-left px-4 py-3 rounded-lg ${
+              activeTab === 'dashboard'
+                ? 'bg-blue-700'
+                : 'hover:bg-blue-800'
             }`}
           >
             🏠 Dashboard
           </button>
 
-          {/* Menu Cadastros com Submenu */}
-          <div>
-            <button
-              onClick={() => { setIsCadastrosOpen(!isCadastrosOpen); setActiveTab('cadastros'); }}
-              className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors flex justify-between items-center ${
-                activeTab.startsWith('cadastros') ? 'bg-blue-700' : 'hover:bg-blue-800'
-              }`}
-            >
-              <span>👥 Cadastros</span>
-              <span>{isCadastrosOpen ? '▲' : '▼'}</span>
-            </button>
-            {isCadastrosOpen && (
-              <div className="ml-4 mt-1 space-y-1">
-                <button
-                  onClick={() => setActiveTab('cadastros-fornecedores')}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Fornecedores
-                </button>
-                <button
-                  onClick={() => setActiveTab('cadastros-membros')}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Membros
-                </button>
-                <button
-                  onClick={() => setActiveTab('cadastros-ministerios')}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Ministérios
-                </button>
-                <button
-                  onClick={() => setActiveTab('cadastros-usuario')}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'cadastros-usuario' ? 'bg-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Usuário
-                </button>
-                <button
-                  onClick={() => setActiveTab('cadastros-relatorio')}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    activeTab === 'cadastros-relatorio' ? 'bg-blue-600' : 'hover:bg-blue-700'
-                  }`}
-                >
-                  Relatório
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setIsCadastrosOpen(!isCadastrosOpen);
+              setActiveTab('cadastros');
+            }}
+            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between ${
+              activeTab.startsWith('cadastros')
+                ? 'bg-blue-700'
+                : 'hover:bg-blue-800'
+            }`}
+          >
+            <span>👥 Cadastros</span>
+            <span>{isCadastrosOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {isCadastrosOpen && (
+            <div className="ml-4 space-y-1">
+              <button
+                type="button"
+                onClick={() => selecionarAba('cadastros-membros')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm ${
+                  activeTab === 'cadastros-membros'
+                    ? 'bg-blue-600'
+                    : 'hover:bg-blue-700'
+                }`}
+              >
+                Membros
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('cadastros-fornecedores')}
+                className="w-full text-left px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+              >
+                Fornecedores
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('cadastros-ministerios')}
+                className="w-full text-left px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+              >
+                Ministérios
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('cadastros-usuario')}
+                className="w-full text-left px-4 py-2 rounded-lg text-sm hover:bg-blue-700"
+              >
+                Usuários
+              </button>
+            </div>
+          )}
 
           <button
-            onClick={() => { setActiveTab('agenda'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
+            type="button"
+            onClick={() => selecionarAba('agenda')}
+            className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-800"
           >
             📅 Agenda
           </button>
+
           <button
-            onClick={() => { setActiveTab('celula'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'celula' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            🌱 Célula
-          </button>
-          <button
-            onClick={() => { setActiveTab('financeiro'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
+            type="button"
+            onClick={() => selecionarAba('financeiro')}
+            className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-800"
           >
             💰 Financeiro
           </button>
+
           <button
-            onClick={() => { setActiveTab('igreja'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'igreja' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            ⛪ Igreja
-          </button>
-          <button
-            onClick={() => { setActiveTab('configuracoes'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'configuracoes' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            ⚙️ Configurações
-          </button>
-          <button
-            onClick={() => { setActiveTab('projetos'); setIsCadastrosOpen(false); }}
-            className={`w-full text-left px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
+            type="button"
+            onClick={() => selecionarAba('projetos')}
+            className="w-full text-left px-4 py-3 rounded-lg hover:bg-blue-800"
           >
             🚀 Projetos
           </button>
         </nav>
+
         <div className="p-4 border-t border-blue-800">
           <button
+            type="button"
             onClick={handleLogout}
-            className="w-full text-left px-4 py-2 rounded-lg font-medium text-red-300 hover:bg-blue-800 transition-colors"
+            className="w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-blue-800"
           >
             Sair
           </button>
         </div>
-      </div>
+      </aside>
 
-      {/* CONTEÚDO PRINCIPAL */}
-      <main className="flex-grow p-8">
+      <main className="flex-1 p-8">
         {activeTab === 'dashboard' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Dashboard</h2>
-            <p className="text-slate-600 mt-2">Bem-vindo à sua dashboard!</p>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto">
+            <h2 className="text-3xl font-black text-blue-900">
+              Dashboard
+            </h2>
+
+            <p className="text-slate-600 mt-2">
+              Bem-vindo ao sistema da igreja.
+            </p>
           </div>
         )}
 
-        {/* Renderiza o MembrosModule quando a aba 'cadastros-membros' está ativa */}
         {activeTab === 'cadastros-membros' && (
           <MembrosModule loggedUser={loggedUser} />
-        )}
-
-        {/* Conteúdo para outros submenus de Cadastros */}
-        {activeTab === 'cadastros-fornecedores' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Fornecedores</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Fornecedores.</p>
-          </div>
-        )}
-        {activeTab === 'cadastros-ministerios' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Ministérios</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Ministérios.</p>
-          </div>
-        )}
-        {activeTab === 'cadastros-usuario' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Usuário</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Usuário.</p>
-          </div>
-        )}
-        {activeTab === 'cadastros-relatorio' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros: Relatório</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Relatório.</p>
-          </div>
-        )}
-        {/* Conteúdo genérico para Cadastros se nenhum submenu específico for selecionado */}
-        {activeTab === 'cadastros' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Cadastros</h2>
-            <p className="text-slate-600 mt-2">Selecione uma opção no submenu de Cadastros.</p>
-          </div>
-        )}
-
-
-        {activeTab === 'agenda' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Agenda</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Agenda.</p>
-          </div>
-        )}
-
-        {activeTab === 'celula' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Célula</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Célula.</p>
-          </div>
-        )}
-
-        {activeTab === 'financeiro' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Financeiro</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Financeiro.</p>
-          </div>
-        )}
-
-        {activeTab === 'igreja' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Igreja</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Igreja.</p>
-          </div>
-        )}
-
-        {activeTab === 'configuracoes' && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-5xl mx-auto">
-            <h2 className="text-3xl font-black text-blue-900 tracking-tight">Configurações</h2>
-            <p className="text-slate-600 mt-2">Conteúdo da seção de Configurações.</p>
-          </div>
         )}
 
         {activeTab === 'projetos' && (
           <ProjetosModule loggedUser={loggedUser} />
         )}
+
+        {activeTab === 'cadastros-fornecedores' && (
+          <TelaProvisoria titulo="Fornecedores" />
+        )}
+
+        {activeTab === 'cadastros-ministerios' && (
+          <TelaProvisoria titulo="Ministérios" />
+        )}
+
+        {activeTab === 'cadastros-usuario' && (
+          <TelaProvisoria titulo="Usuários" />
+        )}
+
+        {activeTab === 'agenda' && (
+          <TelaProvisoria titulo="Agenda" />
+        )}
+
+        {activeTab === 'financeiro' && (
+          <TelaProvisoria titulo="Financeiro" />
+        )}
       </main>
+    </div>
+  );
+}
+
+function TelaProvisoria({ titulo }: { titulo: string }) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto">
+      <h2 className="text-3xl font-black text-blue-900">
+        {titulo}
+      </h2>
+
+      <p className="text-slate-600 mt-2">
+        Esta seção será implementada depois.
+      </p>
     </div>
   );
 }

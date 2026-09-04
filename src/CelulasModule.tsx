@@ -1,5 +1,5 @@
 // src/CelulasModule.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 
 interface Membro {
@@ -84,22 +84,22 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const [cidade, setCidade] = useState('');
   const [cep, setCep] = useState('');
 
-  // Filtros rápidos
+  // Estados de Input para Autocomplete / Box de Busca
   const [searchLider, setSearchLider] = useState('');
   const [searchVice, setSearchVice] = useState('');
   const [searchAnfitriao, setSearchAnfitriao] = useState('');
 
+  // Controle de exibição dos Boxes
+  const [openBoxLider, setOpenBoxLider] = useState(false);
+  const [openBoxVice, setOpenBoxVice] = useState(false);
+  const [openBoxAnfitriao, setOpenBoxAnfitriao] = useState(false);
+
   const carregarDados = useCallback(async () => {
     setLoading(true);
 
-    // Carregar membros aceitando múltiplos nomes de colunas
     try {
-      const { data, error } = await supabase
-        .from('membros')
-        .select('*');
-
+      const { data, error } = await supabase.from('membros').select('*');
       if (!error && data) {
-        // Mapeia o nome independente do nome da coluna na tabela de membros
         const membrosNormalizados = data.map((m: any) => ({
           id: m.id,
           nome_completo: m.nome_completo || m.nome || m.nome_membro || `Membro #${m.id}`
@@ -132,6 +132,12 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     carregarDados();
   }, [carregarDados]);
 
+  const getNomeMembro = useCallback((id?: any) => {
+    if (!id) return '';
+    const m = membros.find((item) => String(item.id) === String(id));
+    return m ? m.nome_completo : '';
+  }, [membros]);
+
   const limparFormularios = () => {
     setEditingId(null);
     setNomeRede('');
@@ -154,6 +160,9 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     setSearchLider('');
     setSearchVice('');
     setSearchAnfitriao('');
+    setOpenBoxLider(false);
+    setOpenBoxVice(false);
+    setOpenBoxAnfitriao(false);
   };
 
   const abrirNovoModal = () => {
@@ -232,12 +241,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     carregarDados();
   };
 
-  const getNomeMembro = (id?: any) => {
-    if (!id) return 'Não atribuído';
-    const m = membros.find((item) => String(item.id) === String(id));
-    return m ? m.nome_completo : `Membro #${id}`;
-  };
-
   const membrosFiltradosLider = membros.filter((m) =>
     (m.nome_completo || '').toLowerCase().includes(searchLider.toLowerCase())
   );
@@ -312,9 +315,9 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               <div key={c.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <h3 className="text-lg font-black text-blue-900">{c.nome}</h3>
-                  <p className="text-xs text-slate-600">👑 <strong>Líder:</strong> {getNomeMembro(c.lider_id)}</p>
-                  <p className="text-xs text-slate-600">🤝 <strong>Vice:</strong> {getNomeMembro(c.vice_id)}</p>
-                  <p className="text-xs text-slate-600">🏠 <strong>Anfitrião:</strong> {getNomeMembro(c.anfitriao_id)}</p>
+                  <p className="text-xs text-slate-600">👑 <strong>Líder:</strong> {getNomeMembro(c.lider_id) || 'Não atribuído'}</p>
+                  <p className="text-xs text-slate-600">🤝 <strong>Vice:</strong> {getNomeMembro(c.vice_id) || 'Não atribuído'}</p>
+                  <p className="text-xs text-slate-600">🏠 <strong>Anfitrião:</strong> {getNomeMembro(c.anfitriao_id) || 'Não atribuído'}</p>
                   <p className="text-xs text-slate-600">📅 {c.dia_semana || 'Não informado'} às {c.horario || '19:30'}</p>
                   {c.endereco && <p className="text-xs text-slate-500 border-t pt-2 mt-2">📍 {c.endereco}</p>}
                 </div>
@@ -326,9 +329,16 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                       setEditingId(c.id || null);
                       setNomeCelula(c.nome);
                       setSetorCelulaId(c.setor_id || '');
-                      setLiderCelulaId(c.lider_id ? String(c.lider_id) : '');
-                      setViceCelulaId(c.vice_id ? String(c.vice_id) : '');
-                      setAnfitriaoCelulaId(c.anfitriao_id ? String(c.anfitriao_id) : '');
+                      
+                      setLiderCelulaId(c.lider_id || '');
+                      setSearchLider(getNomeMembro(c.lider_id));
+
+                      setViceCelulaId(c.vice_id || '');
+                      setSearchVice(getNomeMembro(c.vice_id));
+
+                      setAnfitriaoCelulaId(c.anfitriao_id || '');
+                      setSearchAnfitriao(getNomeMembro(c.anfitriao_id));
+
                       setDiaSemana(c.dia_semana || 'Quarta-feira');
                       setHorario(c.horario || '19:30');
                       setRua(c.rua || '');
@@ -372,7 +382,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               <div key={s.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <h3 className="text-lg font-black text-blue-900">{s.nome}</h3>
-                  <p className="text-xs text-slate-600">👑 <strong>Líder do Setor:</strong> {getNomeMembro(s.lider_id)}</p>
+                  <p className="text-xs text-slate-600">👑 <strong>Líder do Setor:</strong> {getNomeMembro(s.lider_id) || 'Não atribuído'}</p>
                 </div>
                 <div className="flex gap-2 pt-3 border-t">
                   <button
@@ -381,7 +391,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                       setEditingId(s.id || null);
                       setNomeSetor(s.nome);
                       setRedeSetorId(s.rede_id || '');
-                      setLiderSetorId(s.lider_id ? String(s.lider_id) : '');
+                      setLiderSetorId(s.lider_id || '');
                       setModalOpen(true);
                     }}
                     className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
@@ -418,7 +428,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               <div key={r.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
                   <h3 className="text-lg font-black text-blue-900">{r.nome}</h3>
-                  <p className="text-xs text-slate-600">👑 <strong>Líder da Rede:</strong> {getNomeMembro(r.lider_id)}</p>
+                  <p className="text-xs text-slate-600">👑 <strong>Líder da Rede:</strong> {getNomeMembro(r.lider_id) || 'Não atribuído'}</p>
                 </div>
                 <div className="flex gap-2 pt-3 border-t">
                   <button
@@ -426,7 +436,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     onClick={() => {
                       setEditingId(r.id || null);
                       setNomeRede(r.nome);
-                      setLiderRedeId(r.lider_id ? String(r.lider_id) : '');
+                      setLiderRedeId(r.lider_id || '');
                       setModalOpen(true);
                     }}
                     className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
@@ -489,7 +499,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     onChange={(e) => setLiderRedeId(e.target.value)}
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   >
-                    <option value="">Selecione um Membro ({membros.length} disponíveis)</option>
+                    <option value="">Selecione um Membro</option>
                     {membros.map((m) => (
                       <option key={m.id} value={m.id}>{m.nome_completo}</option>
                     ))}
@@ -535,7 +545,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     onChange={(e) => setLiderSetorId(e.target.value)}
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   >
-                    <option value="">Selecione um Membro ({membros.length} disponíveis)</option>
+                    <option value="">Selecione um Membro</option>
                     {membros.map((m) => (
                       <option key={m.id} value={m.id}>{m.nome_completo}</option>
                     ))}
@@ -577,76 +587,121 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     </select>
                   </div>
 
-                  {/* LÍDER DA CÉLULA */}
-                  <div>
+                  {/* BOX DE BUSCA DINÂMICA - LÍDER */}
+                  <div className="relative">
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">👑 Líder</label>
                     <input
                       type="text"
-                      placeholder="🔍 Filtrar nome..."
+                      placeholder="🔎 Digite o nome do Líder..."
                       value={searchLider}
-                      onChange={(e) => setSearchLider(e.target.value)}
-                      className="w-full border rounded-t-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none"
+                      onFocus={() => setOpenBoxLider(true)}
+                      onChange={(e) => {
+                        setSearchLider(e.target.value);
+                        setLiderCelulaId('');
+                        setOpenBoxLider(true);
+                      }}
+                      className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
-                    <select
-                      value={liderCelulaId}
-                      onChange={(e) => setLiderCelulaId(e.target.value)}
-                      className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
-                    >
-                      <option value="">Selecione o Líder ({membros.length} cadastrados)</option>
-                      {membrosFiltradosLider.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nome_completo}
-                        </option>
-                      ))}
-                    </select>
+                    {openBoxLider && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto">
+                        {membrosFiltradosLider.length === 0 ? (
+                          <div className="p-3 text-xs text-slate-500 text-center">Nenhum membro encontrado</div>
+                        ) : (
+                          membrosFiltradosLider.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                setLiderCelulaId(m.id);
+                                setSearchLider(m.nome_completo);
+                                setOpenBoxLider(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 font-medium border-b border-slate-100 last:border-b-0 cursor-pointer"
+                            >
+                              {m.nome_completo}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* VICE-LÍDER DA CÉLULA */}
-                  <div>
+                  {/* BOX DE BUSCA DINÂMICA - VICE-LÍDER */}
+                  <div className="relative">
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🤝 Vice-Líder</label>
                     <input
                       type="text"
-                      placeholder="🔍 Filtrar nome..."
+                      placeholder="🔎 Digite o nome do Vice-Líder..."
                       value={searchVice}
-                      onChange={(e) => setSearchVice(e.target.value)}
-                      className="w-full border rounded-t-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none"
+                      onFocus={() => setOpenBoxVice(true)}
+                      onChange={(e) => {
+                        setSearchVice(e.target.value);
+                        setViceCelulaId('');
+                        setOpenBoxVice(true);
+                      }}
+                      className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
-                    <select
-                      value={viceCelulaId}
-                      onChange={(e) => setViceCelulaId(e.target.value)}
-                      className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
-                    >
-                      <option value="">Selecione o Vice-Líder ({membros.length} cadastrados)</option>
-                      {membrosFiltradosVice.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nome_completo}
-                        </option>
-                      ))}
-                    </select>
+                    {openBoxVice && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto">
+                        {membrosFiltradosVice.length === 0 ? (
+                          <div className="p-3 text-xs text-slate-500 text-center">Nenhum membro encontrado</div>
+                        ) : (
+                          membrosFiltradosVice.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                setViceCelulaId(m.id);
+                                setSearchVice(m.nome_completo);
+                                setOpenBoxVice(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 font-medium border-b border-slate-100 last:border-b-0 cursor-pointer"
+                            >
+                              {m.nome_completo}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {/* ANFITRIÃO DA CÉLULA */}
-                  <div className="sm:col-span-2">
+                  {/* BOX DE BUSCA DINÂMICA - ANFITRIÃO */}
+                  <div className="relative sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🏠 Anfitrião</label>
                     <input
                       type="text"
-                      placeholder="🔍 Filtrar nome..."
+                      placeholder="🔎 Digite o nome do Anfitrião..."
                       value={searchAnfitriao}
-                      onChange={(e) => setSearchAnfitriao(e.target.value)}
-                      className="w-full border rounded-t-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none"
+                      onFocus={() => setOpenBoxAnfitriao(true)}
+                      onChange={(e) => {
+                        setSearchAnfitriao(e.target.value);
+                        setAnfitriaoCelulaId('');
+                        setOpenBoxAnfitriao(true);
+                      }}
+                      className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
                     />
-                    <select
-                      value={anfitriaoCelulaId}
-                      onChange={(e) => setAnfitriaoCelulaId(e.target.value)}
-                      className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
-                    >
-                      <option value="">Selecione o Anfitrião ({membros.length} cadastrados)</option>
-                      {membrosFiltradosAnfitriao.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.nome_completo}
-                        </option>
-                      ))}
-                    </select>
+                    {openBoxAnfitriao && (
+                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto">
+                        {membrosFiltradosAnfitriao.length === 0 ? (
+                          <div className="p-3 text-xs text-slate-500 text-center">Nenhum membro encontrado</div>
+                        ) : (
+                          membrosFiltradosAnfitriao.map((m) => (
+                            <button
+                              key={m.id}
+                              type="button"
+                              onClick={() => {
+                                setAnfitriaoCelulaId(m.id);
+                                setSearchAnfitriao(m.nome_completo);
+                                setOpenBoxAnfitriao(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-xs hover:bg-blue-50 font-medium border-b border-slate-100 last:border-b-0 cursor-pointer"
+                            >
+                              {m.nome_completo}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div>

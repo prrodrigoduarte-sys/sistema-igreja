@@ -5,6 +5,7 @@ import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';
 import MembrosModule from './MembrosModule';
 import UsuariosModule from './UsuariosModule';
+import FornecedoresModule from './FornecedoresModule';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -368,6 +369,9 @@ function App() {
         {activeTab === 'financeiro' && (
           <TelaProvisoria titulo="Financeiro" />
         )}
+        {activeTab === 'cadastros-fornecedores' && (
+  <FornecedoresModule loggedUser={loggedUser} />
+)}
       </main>
     </div>
   );

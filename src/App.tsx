@@ -25,6 +25,8 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
+  const [isCelulasOpen, setIsCelulasOpen] = useState(false);
+  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
@@ -458,50 +460,60 @@ function App() {
             </div>
           )}
 
-          {/* MÓDULO CÉLULAS E SEUS SUBMENUS (REDES, SETORES, CÉLULAS) */}
-          <div className="space-y-1">
-            <button
-              type="button"
-              onClick={() => selecionarAba('celulas')}
-              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-                activeTab === 'celulas' ? 'bg-blue-700' : 'hover:bg-blue-800'
-              }`}
-            >
-              🏡 Células
-            </button>
+          {/* GRUPO CÉLULAS COM SUBMENUS RETRÁTEIS */}
+          <button
+            type="button"
+            onClick={() => setIsCelulasOpen(!isCelulasOpen)}
+            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+              activeTab === 'celulas' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            <span>🏡 Células</span>
+            <span>{isCelulasOpen ? '▲' : '▼'}</span>
+          </button>
 
-            <div className="ml-4 border-l-2 border-blue-700 pl-2 space-y-1">
+          {isCelulasOpen && (
+            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
               <button
                 type="button"
-                onClick={() => selecionarAba('celulas')}
+                onClick={() => {
+                  setSubAbaCelulas('celulas');
+                  selecionarAba('celulas');
+                }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'celulas' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
-                • Células
+                Células
               </button>
 
               <button
                 type="button"
-                onClick={() => selecionarAba('celulas')}
+                onClick={() => {
+                  setSubAbaCelulas('setores');
+                  selecionarAba('celulas');
+                }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'celulas' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
-                • Setores
+                Setores
               </button>
 
               <button
                 type="button"
-                onClick={() => selecionarAba('celulas')}
+                onClick={() => {
+                  setSubAbaCelulas('redes');
+                  selecionarAba('celulas');
+                }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'celulas' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
-                • Redes
+                Redes
               </button>
             </div>
-          </div>
+          )}
 
           {/* AGENDA */}
           <button
@@ -597,7 +609,7 @@ function App() {
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
-        {activeTab === 'celulas' && <CelulasModule loggedUser={loggedUser} />}
+        {activeTab === 'celulas' && <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />}
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
         {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}

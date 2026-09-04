@@ -1,10 +1,13 @@
 // src/CadastroPublico.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
 export default function CadastroPublico() {
+  const [tokenValido, setTokenValido] = useState<boolean | null>(null);
+  const [mensagemErro, setMensagemErro] = useState('');
+
   const [form, setForm] = useState({
-    tipo_cadastro: 'Visitante',
+    tipo_cadastro: 'Membro', // Já vem como Membro pois foi gerado pelo sistema para o membro
     nome: '',
     cpf: '',
     rg: '',
@@ -25,6 +28,51 @@ export default function CadastroPublico() {
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+
+  // Valida o token da URL ao carregar a página
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenUrl = params.get('token');
+
+    if (!tokenUrl) {
+      setTokenValido(false);
+      setMensagemErro('Acesso negado. Nenhum token de acesso foi fornecido.');
+      return;
+    }
+
+    const validarToken = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tokens_cadastro_temporario')
+          .select('*')
+          .eq('token', tokenUrl)
+          .maybeSingle();
+
+        if (error || !data) {
+          setTokenValido(false);
+          setMensagemErro('QR Code inválido ou não encontrado.');
+          return;
+        }
+
+        // Verifica se já expirou (6 horas)
+        const agora = new Date();
+        const expiracao = new Date(data.expira_em);
+
+        if (agora > expiracao) {
+          setTokenValido(false);
+          setMensagemErro('Este QR Code expirou (validade de 6 horas ultrapassada). Solicite um novo na secretaria.');
+          return;
+        }
+
+        setTokenValido(true);
+      } catch (err) {
+        setTokenValido(false);
+        setMensagemErro('Erro ao validar o acesso temporário.');
+      }
+    };
+
+    validarToken();
+  }, []);
 
   const handleChange = (campo: string, valor: string) => {
     setForm((prev) => ({ ...prev, [campo]: valor }));
@@ -72,12 +120,12 @@ export default function CadastroPublico() {
     setLoading(true);
 
     try {
-      // 1. Validação Anti-Duplicidade (verifica por CPF ou Celular)
+      // Validação Anti-Duplicidade por CPF ou Celular
       const celularLimpo = form.celular_principal.trim();
       const cpfLimpo = form.cpf.trim();
 
       if (celularLimpo || cpfLimpo) {
-        let query = supabase.from('members').select('id, nome, cpf, celular_principal').eq('codigo_igreja', 'IGR-001');
+        let query = supabase.from('members').select('id, nome').eq('codigo_igreja', 'IGR-001');
 
         if (cpfLimpo && celularLimpo) {
           query = query.or(`cpf.eq.${cpfLimpo},celular_principal.eq.${celularLimpo}`);
@@ -96,7 +144,7 @@ export default function CadastroPublico() {
         }
       }
 
-      // 2. Inserção do novo membro
+      // Inserção estrita (apenas inserção permitida por este fluxo)
       const payload = {
         ...form,
         codigo_igreja: 'IGR-001',
@@ -115,6 +163,28 @@ export default function CadastroPublico() {
     }
   };
 
+  if (tokenValido === null) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white">
+        <p>Validando acesso seguro...</p>
+      </div>
+    );
+  }
+
+  if (tokenValido === false) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-900 to-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white w-full max-w-md rounded-3xl p-8 shadow-2xl text-center space-y-4">
+          <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
+            ✕
+          </div>
+          <h2 className="text-2xl font-black text-rose-900">Acesso Expirado ou Inválido</h2>
+          <p className="text-slate-600 text-sm">{mensagemErro}</p>
+        </div>
+      </div>
+    );
+  }
+
   if (sucesso) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-900 to-indigo-900 flex items-center justify-center p-4">
@@ -122,34 +192,8 @@ export default function CadastroPublico() {
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold">
             ✓
           </div>
-          <h2 className="text-2xl font-black text-blue-900">Cadastro Realizado!</h2>
-          <p className="text-slate-600 text-sm">Muito obrigado pelas informações. Seja muito bem-vindo à nossa comunidade!</p>
-          <button
-            onClick={() => {
-              setSucesso(false);
-              setForm({
-                tipo_cadastro: 'Visitante',
-                nome: '',
-                cpf: '',
-                rg: '',
-                data_nascimento: '',
-                estado_civil: 'Solteiro(a)',
-                celular_principal: '',
-                email: '',
-                cep: '',
-                rua: '',
-                numero: '',
-                bairro: '',
-                cidade: '',
-                estado: '',
-                endereco: '',
-                foto_url: '',
-              });
-            }}
-            className="w-full bg-blue-900 text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition cursor-pointer"
-          >
-            Fazer Novo Cadastro
-          </button>
+          <h2 className="text-2xl font-black text-blue-900">Cadastro Concluído!</h2>
+          <p className="text-slate-600 text-sm">Seu cadastro foi realizado com sucesso. Obrigado!</p>
         </div>
       </div>
     );
@@ -159,8 +203,8 @@ export default function CadastroPublico() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 to-indigo-900 py-10 px-4 flex items-center justify-center">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-10 space-y-6">
         <div className="text-center border-b pb-4">
-          <h2 className="text-2xl sm:text-3xl font-black text-blue-900">Ficha de Cadastro</h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Preencha seus dados abaixo para registrar sua ficha.</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-blue-900">Atualização / Cadastro de Membro</h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Sessão segura ativa por tempo limitado (6 horas).</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -195,9 +239,9 @@ export default function CadastroPublico() {
                 onChange={(e) => handleChange('tipo_cadastro', e.target.value)}
                 className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-600 bg-white"
               >
-                <option value="Visitante">Visitante</option>
-                <option value="Congregado">Congregado</option>
                 <option value="Membro">Membro</option>
+                <option value="Congregado">Congregado</option>
+                <option value="Visitante">Visitante</option>
               </select>
             </div>
 
@@ -367,7 +411,7 @@ export default function CadastroPublico() {
               disabled={loading || uploadingFoto}
               className="w-full bg-blue-900 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-blue-800 transition cursor-pointer disabled:opacity-50"
             >
-              {loading ? 'Verificando e enviando...' : 'Finalizar e Enviar Meu Cadastro'}
+              {loading ? 'Salvando...' : 'Salvar Meu Cadastro'}
             </button>
           </div>
         </form>

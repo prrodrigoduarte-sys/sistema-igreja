@@ -58,8 +58,8 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [formMembro, setFormMembro] = useState(formInicial);
 
   const codigoIgreja =
-    loggedUser?.igrejas?.codigo_igreja ||
-    loggedUser?.codigo_igreja;
+    loggedUser?.codigo_igreja ||
+    loggedUser?.igrejas?.codigo_igreja;
 
   const fetchMembros = useCallback(async () => {
     setLoading(true);
@@ -88,10 +88,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   }, [codigoIgreja]);
 
   useEffect(() => {
-    // Se o usuário do maestro ainda estiver carregando, aguarda
-    if (!loggedUser) {
-      return;
-    }
+    if (!loggedUser) return;
   
     if (!codigoIgreja) {
       setLoading(false);
@@ -185,6 +182,26 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   };
 
+  const handleDelete = async (id: string, nome: string) => {
+    const confirmou = window.confirm(`Deseja realmente excluir o membro "${nome}"?`);
+    if (!confirmou) return;
+
+    try {
+      const { error: deleteError } = await supabase
+        .from('members')
+        .delete()
+        .eq('id', id);
+
+      if (deleteError) throw deleteError;
+
+      alert('Membro excluído com sucesso!');
+      fetchMembros();
+    } catch (err: any) {
+      console.error('Erro ao excluir membro:', err);
+      alert('Erro ao excluir membro: ' + (err.message || 'Erro desconhecido'));
+    }
+  };
+
   if (!loggedUser) {
     return (
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto">
@@ -244,13 +261,20 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                       {membro.tipo_cadastro}
                     </span>
                   </td>
-                  <td className="p-3 text-right">
+                  <td className="p-3 text-right space-x-2">
                     <button
                       type="button"
                       onClick={() => handleOpenEditMemberModal(membro)}
-                      className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition"
+                      className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
                     >
                       Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(membro.id, membro.nome)}
+                      className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                    >
+                      Excluir
                     </button>
                   </td>
                 </tr>
@@ -270,7 +294,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
               <button
                 type="button"
                 onClick={handleCloseModal}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition"
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
               >
                 ✕ Fechar
               </button>
@@ -466,14 +490,14 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition"
+                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition"
+                  className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
                 >
                   {editingMember ? 'Salvar alterações' : 'Cadastrar membro'}
                 </button>

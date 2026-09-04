@@ -8,6 +8,7 @@ import FornecedoresModule from './FornecedoresModule';
 import MinisteriosModule from './MinisteriosModule';
 import UsuariosModule from './UsuariosModule';
 import CadastroPublico from './CadastroPublico';
+import AgendaModule from './AgendaModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -624,7 +625,7 @@ function App() {
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
-        {activeTab === 'agenda' && <TelaProvisoria titulo="Agenda" />}
+        {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}
         {activeTab === 'financeiro' && <TelaProvisoria titulo="Financeiro" />}
       </main>
 

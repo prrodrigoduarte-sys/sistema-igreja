@@ -457,7 +457,7 @@ function App() {
             </div>
           )}
 
-          {/* MÓDULO CÉLULAS (POSICIONADO LOGO ABAIXO DE CADASTROS) */}
+          {/* MÓDULO CÉLULAS */}
           <button
             type="button"
             onClick={() => selecionarAba('celulas')}
@@ -468,6 +468,7 @@ function App() {
             🏡 Células
           </button>
 
+          {/* AGENDA */}
           <button
             type="button"
             onClick={() => selecionarAba('agenda')}
@@ -478,6 +479,7 @@ function App() {
             📅 Agenda
           </button>
 
+          {/* FINANCEIRO */}
           <button
             type="button"
             onClick={() => selecionarAba('financeiro')}
@@ -488,6 +490,7 @@ function App() {
             💰 Financeiro
           </button>
 
+          {/* PROJETOS */}
           <button
             type="button"
             onClick={() => selecionarAba('projetos')}
@@ -567,7 +570,7 @@ function App() {
         {activeTab === 'controle_registro' && <ControleRegistroModule loggedUser={loggedUser} />}
       </main>
 
-      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM 3 OPÇÕES */}
+      {/* MODAL INTUITIVO MOBILE */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
@@ -586,7 +589,6 @@ function App() {
             </div>
 
             <div className="space-y-6">
-              {/* OPÇÃO 1: ABRIR TELA PÚBLICA */}
               <div className="space-y-2">
                 <a
                   href="#cadastro"
@@ -601,7 +603,6 @@ function App() {
                 </p>
               </div>
 
-              {/* OPÇÃO 2: CONSULTAR AGENDA RÁPIDA */}
               <div className="border-t pt-4 space-y-2">
                 <button
                   type="button"
@@ -618,7 +619,6 @@ function App() {
                 </p>
               </div>
 
-              {/* OPÇÃO 3: GERAR QR CODE NA TELA (RESTRITO AO ADMIN) */}
               <div className="border-t pt-4 space-y-3">
                 <h4 className="font-bold text-blue-900 text-sm">📱 3. Gerar QR Code para Membros Escanearem</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
@@ -751,7 +751,6 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
         </p>
       </div>
 
-      {/* CARD DE ANIVERSARIANTES */}
       <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
           <div>

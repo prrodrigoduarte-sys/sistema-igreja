@@ -458,18 +458,52 @@ function App() {
             </div>
           )}
 
-          {/* MÓDULO CÉLULAS (ABAIXO DE CADASTROS) */}
-          <button
-            type="button"
-            onClick={() => selecionarAba('celulas')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'celulas' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            🏡 Células
-          </button>
+          {/* MÓDULO CÉLULAS E SEUS SUBMENUS (REDES, SETORES, CÉLULAS) */}
+          <div className="space-y-1">
+            <button
+              type="button"
+              onClick={() => selecionarAba('celulas')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'celulas' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🏡 Células
+            </button>
 
-          {/* MÓDULO AGENDA */}
+            <div className="ml-4 border-l-2 border-blue-700 pl-2 space-y-1">
+              <button
+                type="button"
+                onClick={() => selecionarAba('celulas')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                • Células
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('celulas')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                • Setores
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('celulas')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                • Redes
+              </button>
+            </div>
+          </div>
+
+          {/* AGENDA */}
           <button
             type="button"
             onClick={() => selecionarAba('agenda')}
@@ -480,7 +514,7 @@ function App() {
             📅 Agenda
           </button>
 
-          {/* MÓDULO FINANCEIRO */}
+          {/* FINANCEIRO */}
           <button
             type="button"
             onClick={() => selecionarAba('financeiro')}
@@ -491,7 +525,7 @@ function App() {
             💰 Financeiro
           </button>
 
-          {/* MÓDULO PROJETOS */}
+          {/* PROJETOS */}
           <button
             type="button"
             onClick={() => selecionarAba('projetos')}

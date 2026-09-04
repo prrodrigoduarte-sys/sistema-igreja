@@ -57,7 +57,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
 
-  // Atualiza sub-aba quando acionado pelo menu lateral
   useEffect(() => {
     setSubAba(subAbaInicial);
   }, [subAbaInicial]);
@@ -87,23 +86,36 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
 
   const carregarDados = useCallback(async () => {
     setLoading(true);
-    try {
-      const [resMembros, resRedes, resSetores, resCelulas] = await Promise.all([
-        supabase.from('membros').select('id, nome_completo').eq('codigo_igreja', codigoIgreja).order('nome_completo'),
-        supabase.from('redes').select('*').eq('codigo_igreja', codigoIgreja).order('nome'),
-        supabase.from('setores').select('*').eq('codigo_igreja', codigoIgreja).order('nome'),
-        supabase.from('celulas').select('*').eq('codigo_igreja', codigoIgreja).order('nome')
-      ]);
 
-      setMembros(resMembros.data || []);
-      setRedes(resRedes.data || []);
-      setSetores(resSetores.data || []);
-      setCelulas(resCelulas.data || []);
-    } catch (err) {
-      console.error('Erro ao buscar dados do módulo de células:', err);
-    } finally {
-      setLoading(false);
+    try {
+      const resMembros = await supabase.from('membros').select('id, nome_completo').eq('codigo_igreja', codigoIgreja).order('nome_completo');
+      if (!resMembros.error) setMembros(resMembros.data || []);
+    } catch (e) {
+      console.warn('Tabela membros ainda não pronta:', e);
     }
+
+    try {
+      const resRedes = await supabase.from('redes').select('*').eq('codigo_igreja', codigoIgreja).order('nome');
+      if (!resRedes.error) setRedes(resRedes.data || []);
+    } catch (e) {
+      console.warn('Tabela redes ainda não pronta:', e);
+    }
+
+    try {
+      const resSetores = await supabase.from('setores').select('*').eq('codigo_igreja', codigoIgreja).order('nome');
+      if (!resSetores.error) setSetores(resSetores.data || []);
+    } catch (e) {
+      console.warn('Tabela setores ainda não pronta:', e);
+    }
+
+    try {
+      const resCelulas = await supabase.from('celulas').select('*').eq('codigo_igreja', codigoIgreja).order('nome');
+      if (!resCelulas.error) setCelulas(resCelulas.data || []);
+    } catch (e) {
+      console.warn('Tabela celulas ainda não pronta:', e);
+    }
+
+    setLoading(false);
   }, [codigoIgreja]);
 
   useEffect(() => {
@@ -136,7 +148,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     setModalOpen(true);
   };
 
-  // REDES
   const salvarRede = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeRede.trim()) return alert('Informe o nome da Rede');
@@ -156,7 +167,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     carregarDados();
   };
 
-  // SETORES
   const salvarSetor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeSetor.trim()) return alert('Informe o nome do Setor');
@@ -177,7 +187,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     carregarDados();
   };
 
-  // CÉLULAS
   const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeCelula.trim()) return alert('Informe o nome da Célula');
@@ -218,7 +227,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
-      {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
@@ -238,7 +246,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
         </button>
       </div>
 
-      {/* Sub-Abas */}
       <div className="flex gap-2 border-b pb-2">
         <button
           type="button"
@@ -271,7 +278,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
 
       {loading && <p className="text-center py-6 text-slate-500">Carregando dados das células...</p>}
 
-      {/* ABA CÉLULAS */}
       {!loading && subAba === 'celulas' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {celulas.length === 0 ? (
@@ -332,7 +338,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
         </div>
       )}
 
-      {/* ABA SETORES */}
       {!loading && subAba === 'setores' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {setores.length === 0 ? (
@@ -379,7 +384,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
         </div>
       )}
 
-      {/* ABA REDES */}
       {!loading && subAba === 'redes' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {redes.length === 0 ? (
@@ -425,7 +429,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
         </div>
       )}
 
-      {/* MODAL FORMULÁRIO */}
       {modalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8">
@@ -442,7 +445,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               </button>
             </div>
 
-            {/* FORMULÁRIO DA REDE */}
             {subAba === 'redes' && (
               <form onSubmit={salvarRede} className="space-y-4">
                 <div>
@@ -475,7 +477,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               </form>
             )}
 
-            {/* FORMULÁRIO DO SETOR */}
             {subAba === 'setores' && (
               <form onSubmit={salvarSetor} className="space-y-4">
                 <div>
@@ -521,7 +522,6 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               </form>
             )}
 
-            {/* FORMULÁRIO DA CÉLULA */}
             {subAba === 'celulas' && (
               <form onSubmit={salvarCelula} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

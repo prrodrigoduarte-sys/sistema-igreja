@@ -25,7 +25,7 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
-  const [isCelulasOpen, setIsCelulasOpen] = useState(false);
+  const [isCelulasOpen, setIsCelulasOpen] = useState(true);
   const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
@@ -37,7 +37,7 @@ function App() {
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  // Estados para o QR Code Temporário de 6 horas
+  // Estados para o QR Code Temporário
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
@@ -72,13 +72,12 @@ function App() {
       setQrCodeUrlDinamico(novaUrlQr);
     } catch (err: any) {
       console.error('Erro ao gerar QR Code:', err);
-      alert('Erro ao gerar QR Code temporário. Verifique se a tabela "tokens_cadastro_temporario" foi criada no Supabase.');
+      alert('Erro ao gerar QR Code temporário.');
     } finally {
       setGerandoQr(false);
     }
   };
 
-  // Atalho para fechar os modais com ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -121,7 +120,6 @@ function App() {
     };
   }, []);
 
-  // Busca do usuário por e-mail de forma segura
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.email) {
@@ -463,7 +461,10 @@ function App() {
           {/* GRUPO CÉLULAS COM SUBMENUS RETRÁTEIS */}
           <button
             type="button"
-            onClick={() => setIsCelulasOpen(!isCelulasOpen)}
+            onClick={() => {
+              setIsCelulasOpen(!isCelulasOpen);
+              selecionarAba('celulas');
+            }}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
               activeTab === 'celulas' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
@@ -609,6 +610,7 @@ function App() {
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
+        {/* REPLICANDO A CHAMADA DO MÓDULO REAL */}
         {activeTab === 'celulas' && <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />}
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}

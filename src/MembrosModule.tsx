@@ -50,54 +50,64 @@ const formInicial = {
 
 export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [membros, setMembros] = useState<Membro[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [termoBusca, setTermoBusca] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showDetalhesModal, setShowDetalhesModal] = useState(false);
   const [editingMember, setEditingMember] = useState<Membro | null>(null);
+  const [membroSelecionado, setMembroSelecionado] = useState<Membro | null>(null);
   const [formMembro, setFormMembro] = useState(formInicial);
 
   const codigoIgreja =
     loggedUser?.codigo_igreja ||
     loggedUser?.igrejas?.codigo_igreja;
 
-  const fetchMembros = useCallback(async () => {
+  // Função de busca sob demanda (consulta)
+  const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    if (!codigoIgreja) {
+      setError('Código da igreja não encontrado.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
-  
+
     try {
-      if (!codigoIgreja) {
-        throw new Error('Código da igreja não encontrado.');
-      }
-  
-      const { data, error: erroConsulta } = await supabase
+      let query = supabase
         .from('members')
         .select('*')
         .eq('codigo_igreja', codigoIgreja);
-  
+
+      if (termoBusca.trim() !== '') {
+        query = query.ilike('nome', `%${termoBusca.trim()}%`);
+      } else {
+        // Limita a quantidade inicial caso busque vazio para manter leve
+        query = query.limit(15);
+      }
+
+      const { data, error: erroConsulta } = await query;
+
       if (erroConsulta) throw erroConsulta;
-  
+
       setMembros(data || []);
     } catch (erro: any) {
-      console.error('Erro ao carregar membros:', erro);
+      console.error('Erro ao buscar membros:', erro);
       setMembros([]);
-      setError(erro?.message || 'Erro ao carregar membros.');
+      setError(erro?.message || 'Erro ao buscar membros.');
     } finally {
       setLoading(false);
     }
-  }, [codigoIgreja]);
+  }, [codigoIgreja, termoBusca]);
 
+  // Carregamento inicial leve (opcional: traz os primeiros cadastros ou deixa vazio)
   useEffect(() => {
-    if (!loggedUser) return;
-  
-    if (!codigoIgreja) {
-      setLoading(false);
-      setError('Código da igreja não encontrado para este usuário.');
-      return;
-    }
-  
-    fetchMembros();
-  }, [loggedUser, codigoIgreja, fetchMembros]);
+    if (!loggedUser || !codigoIgreja) return;
+    handlePesquisar();
+  }, [loggedUser, codigoIgreja, handlePesquisar]);
 
   const handleOpenNewMemberModal = () => {
     setEditingMember(null);
@@ -127,6 +137,11 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       ministerio_id: membro.ministerio_id || '',
     });
     setShowMemberModal(true);
+  };
+
+  const handleVerDetalhes = (membro: Membro) => {
+    setMembroSelecionado(membro);
+    setShowDetalhesModal(true);
   };
 
   const handleCloseModal = () => {
@@ -175,7 +190,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       }
 
       handleCloseModal();
-      fetchMembros();
+      handlePesquisar();
     } catch (err: any) {
       console.error('Erro ao salvar membro:', err);
       alert('Erro ao salvar membro: ' + (err.message || 'Erro desconhecido'));
@@ -195,7 +210,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       if (deleteError) throw deleteError;
 
       alert('Membro excluído com sucesso!');
-      fetchMembros();
+      handlePesquisar();
     } catch (err: any) {
       console.error('Erro ao excluir membro:', err);
       alert('Erro ao excluir membro: ' + (err.message || 'Erro desconhecido'));
@@ -211,31 +226,53 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   }
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
+      
+      {/* Cabeçalho e Ação de Cadastro */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black text-blue-900 tracking-tight">
-            Cadastros: Membros
+            Consulta de Membros
           </h2>
           <p className="text-slate-600 mt-1">
-            Gerenciamento completo dos registros de membros da instituição.
+            Pesquise por nome ou cadastre novos membros na instituição.
           </p>
         </div>
 
         <button
           type="button"
           onClick={handleOpenNewMemberModal}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
+          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer shrink-0"
         >
           + Novo Membro
         </button>
       </div>
 
-      {loading && <p className="text-slate-500">Carregando membros...</p>}
-      {error && <p className="text-red-500">Erro: {error}</p>}
+      {/* Barra de Pesquisa */}
+      <form onSubmit={handlePesquisar} className="flex gap-2">
+        <input
+          type="text"
+          value={termoBusca}
+          onChange={(e) => setTermoBusca(e.target.value)}
+          placeholder="Digite o nome do membro para pesquisar..."
+          className="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          type="submit"
+          className="px-5 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-sm rounded-xl transition cursor-pointer"
+        >
+          Pesquisar
+        </button>
+      </form>
+
+      {/* Listagem Simples (Nome, Endereço, Telefone, E-mail) */}
+      {loading && <p className="text-slate-500 py-4">Buscando membros...</p>}
+      {error && <p className="text-red-500 py-4">Erro: {error}</p>}
 
       {!loading && !error && membros.length === 0 && (
-        <p className="text-slate-500 mt-4">Nenhum membro encontrado.</p>
+        <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+          <p className="text-slate-500">Nenhum membro encontrado com esse critério.</p>
+        </div>
       )}
 
       {!loading && !error && membros.length > 0 && (
@@ -244,46 +281,57 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             <thead>
               <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
                 <th className="p-3">Nome</th>
+                <th className="p-3">Endereço</th>
+                <th className="p-3">Telefone</th>
                 <th className="p-3">E-mail</th>
-                <th className="p-3">Celular</th>
-                <th className="p-3">Tipo</th>
                 <th className="p-3 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y text-sm">
-              {membros.map((membro) => (
-                <tr key={membro.id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-3 font-semibold text-slate-800">{membro.nome}</td>
-                  <td className="p-3 text-slate-600">{membro.email || '-'}</td>
-                  <td className="p-3 text-slate-600">{membro.celular_principal || '-'}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-bold rounded-lg">
-                      {membro.tipo_cadastro}
-                    </span>
-                  </td>
-                  <td className="p-3 text-right space-x-2">
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEditMemberModal(membro)}
-                      className="px-3 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(membro.id, membro.nome)}
-                      className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Excluir
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {membros.map((m) => {
+                const enderecoResumido = [m.rua, m.numero, m.bairro, m.cidade]
+                  .filter(Boolean)
+                  .join(', ') || m.endereco || '-';
+
+                return (
+                  <tr key={m.id} className="hover:bg-slate-50/80 transition">
+                    <td className="p-3 font-semibold text-slate-800">{m.nome}</td>
+                    <td className="p-3 text-slate-600 truncate max-w-xs">{enderecoResumido}</td>
+                    <td className="p-3 text-slate-600">{m.celular_principal || '-'}</td>
+                    <td className="p-3 text-slate-600">{m.email || '-'}</td>
+                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => handleVerDetalhes(m)}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        title="Lista Completa / Detalhes"
+                      >
+                        Ver Completo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenEditMemberModal(m)}
+                        className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(m.id, m.nome)}
+                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       )}
 
+      {/* MODAL DE CADASTRO / EDIÇÃO COMPLETO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto">
@@ -473,17 +521,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">URL da Foto</label>
-                  <input
-                    type="text"
-                    value={formMembro.foto_url}
-                    onChange={(e) => handleChange('foto_url', e.target.value)}
-                    placeholder="https://exemplo.com/foto.jpg"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
               </div>
 
               <div className="flex justify-end gap-3 pt-6 mt-6 border-t sticky bottom-0 bg-white z-10">
@@ -506,6 +543,88 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
           </div>
         </div>
       )}
+
+      {/* MODAL DE LISTA COMPLETA / DETALHES DO MEMBRO */}
+      {showDetalhesModal && membroSelecionado && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">Ficha Completa do Membro</h3>
+                <p className="text-xs text-slate-500">Visualização detalhada dos dados cadastrados.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowDetalhesModal(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Nome Completo</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.nome || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Tipo de Cadastro</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.tipo_cadastro || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">CPF</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.cpf || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">RG</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.rg || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Data de Nascimento</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.data_nascimento || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Estado Civil</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.estado_civil || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Celular Principal</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.celular_principal || '-'}</span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">E-mail</span>
+                <span className="font-semibold text-slate-800">{membroSelecionado.email || '-'}</span>
+              </div>
+
+              <div className="sm:col-span-2 bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Endereço Residencial</span>
+                <span className="font-semibold text-slate-800">
+                  {[membroSelecionado.rua, membroSelecionado.numero, membroSelecionado.bairro, membroSelecionado.cidade, membroSelecionado.estado].filter(Boolean).join(', ') || membroSelecionado.endereco || '-'}
+                  {membroSelecionado.cep ? ` (CEP: ${membroSelecionado.cep})` : ''}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 border-t">
+              <button
+                type="button"
+                onClick={() => setShowDetalhesModal(false)}
+                className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md hover:bg-blue-800 transition cursor-pointer"
+              >
+                Fechar Ficha
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

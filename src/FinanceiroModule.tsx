@@ -69,6 +69,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   // Modais Lançamentos
   const [showModalLancamento, setShowModalLancamento] = useState(false);
+  const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
 
   // Modais Plano de Contas
@@ -81,12 +82,29 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [editingAdm, setEditingAdm] = useState<ContaFinanceiraAdm | null>(null);
   const [formAdm, setFormAdm] = useState(formContaAdmInicial);
 
-  // Exclusão com senha
+  // Exclusão / Senha
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_adm'; nome: string } | null>(null);
   const [senhaExclusao, setSenhaExclusao] = useState('');
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+  const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
+
+  // Função para Registrar Logs de Auditoria
+  const registrarLog = async (acao: string, detalhes: string) => {
+    try {
+      await supabase.from('logs_sistema').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          usuario_email: emailUsuarioLogado,
+          acao,
+          detalhes,
+        },
+      ]);
+    } catch (err) {
+      console.error('Erro ao registrar log:', err);
+    }
+  };
 
   const fetchDados = useCallback(async () => {
     if (!codigoIgreja) return;
@@ -129,9 +147,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     fetchDados();
   }, [loggedUser, fetchDados]);
 
+  // Salvar ou Editar Lançamento (Com exigência de senha e log)
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Exige senha do admin para salvar modificações ou novos lançamentos com segurança
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha de administrador incorreta! A operação foi cancelada.');
+        return;
+      }
+
       const payload = {
         codigo_igreja: codigoIgreja,
         data_lancamento: formLancamento.data_lancamento,
@@ -142,12 +172,26 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         id_conta_contabil: formLancamento.id_conta_contabil || null,
       };
 
-      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-      if (error) throw error;
+      if (editingLancamento) {
+        const { error } = await supabase
+          .from('lancamentos_financeiros')
+          .update(payload)
+          .eq('id', editingLancamento.id);
 
-      alert('Lançamento realizado com sucesso!');
+        if (error) throw error;
+        await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
+        alert('Lançamento atualizado com sucesso!');
+      } else {
+        const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+        if (error) throw error;
+        await registrarLog('NOVO_LANCAMENTO', `Criou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
+        alert('Lançamento realizado com sucesso!');
+      }
+
       setShowModalLancamento(false);
+      setEditingLancamento(null);
       setFormLancamento(formLancamentoInicial);
+      setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
       alert('Erro ao salvar lançamento: ' + err.message);
@@ -159,28 +203,29 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
 
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha incorreta! A operação foi cancelada.');
+        return;
+      }
+
       if (editingConta) {
-        const emailUsuario = loggedUser?.usuario || loggedUser?.email;
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: emailUsuario,
-          password: senhaExclusao,
-        });
-
-        if (authError) {
-          alert('Senha incorreta! A alteração foi cancelada.');
-          return;
-        }
-
         const { error } = await supabase
           .from('plano_contas_contabil')
           .update(payload)
           .eq('id', editingConta.id);
 
         if (error) throw error;
+        await registrarLog('EDITAR_CONTA_CONTABIL', `Atualizou a conta contábil: ${payload.codigo_conta} - ${payload.nome_conta}`);
         alert('Conta contábil atualizada com sucesso!');
       } else {
         const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
         if (error) throw error;
+        await registrarLog('NOVA_CONTA_CONTABIL', `Cadastrou a conta contábil: ${payload.codigo_conta} - ${payload.nome_conta}`);
         alert('Conta cadastrada com sucesso!');
       }
 
@@ -199,28 +244,29 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     try {
       const payload = { ...formAdm, codigo_igreja: codigoIgreja };
 
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha incorreta! A operação foi cancelada.');
+        return;
+      }
+
       if (editingAdm) {
-        const emailUsuario = loggedUser?.usuario || loggedUser?.email;
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: emailUsuario,
-          password: senhaExclusao,
-        });
-
-        if (authError) {
-          alert('Senha incorreta! A alteração foi cancelada.');
-          return;
-        }
-
         const { error } = await supabase
           .from('contas_financeiras')
           .update(payload)
           .eq('id', editingAdm.id);
 
         if (error) throw error;
+        await registrarLog('EDITAR_CONTA_ADM', `Atualizou a conta adm: ${payload.codigo_conta} (${payload.nome_conta})`);
         alert('Conta administrativa atualizada com sucesso!');
       } else {
         const { error } = await supabase.from('contas_financeiras').insert([payload]);
         if (error) throw error;
+        await registrarLog('NOVA_CONTA_ADM', `Cadastrou a conta adm: ${payload.codigo_conta} (${payload.nome_conta})`);
         alert('Conta administrativa cadastrada com sucesso!');
       }
 
@@ -239,9 +285,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     if (!itemParaExcluir) return;
 
     try {
-      const emailUsuario = loggedUser?.usuario || loggedUser?.email;
       const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailUsuario,
+        email: emailUsuarioLogado,
         password: senhaExclusao,
       });
 
@@ -257,6 +302,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       const { error } = await supabase.from(tabela).delete().eq('id', itemParaExcluir.id);
       if (error) throw error;
 
+      await registrarLog('EXCLUSAO', `Excluiu o item [${itemParaExcluir.tipo}]: ${itemParaExcluir.nome}`);
       alert('Item excluído com sucesso!');
       setShowDeleteModal(false);
       setItemParaExcluir(null);
@@ -314,7 +360,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         }
       `}</style>
 
-      {/* Cabeçalho e Abas (Ocultos na impressão) */}
+      {/* Cabeçalho e Abas */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
@@ -365,13 +411,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       </div>
 
-      {/* BOTÕES DE AÇÃO SUPERIOR (Ocultos na impressão) */}
+      {/* BOTÕES DE AÇÃO SUPERIOR */}
       <div className="flex justify-end no-print">
         {subAba === 'lancamentos' && (
           <button
             type="button"
             onClick={() => {
+              setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
+              setSenhaExclusao('');
               setShowModalLancamento(true);
             }}
             className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
@@ -457,6 +505,25 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingLancamento(l);
+                              setFormLancamento({
+                                data_lancamento: l.data_lancamento || '',
+                                tipo: l.tipo || 'receita',
+                                descricao: l.descricao || '',
+                                valor: l.valor?.toString() || '',
+                                conta_corrente_id: l.conta_corrente_id || '',
+                                id_conta_contabil: l.id_conta_contabil || '',
+                              });
+                              setSenhaExclusao('');
+                              setShowModalLancamento(true);
+                            }}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Editar
+                          </button>
                           <button
                             type="button"
                             onClick={() => {
@@ -611,7 +678,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: RELATÓRIOS (COM BOTÃO DE IMPRESSÃO / PDF) */}
+      {/* CONTEÚDO DA ABA: RELATÓRIOS */}
       {!loading && subAba === 'relatorios' && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
@@ -653,10 +720,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             </button>
           </div>
 
-          {/* ÁREA IMPRESSÍVEL (CONTÉM O RELATÓRIO E O BOTÃO DE IMPRIMIR) */}
           <div className="printable-area bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
             
-            {/* BOTÃO DE IMPRIMIR / SALVAR PDF */}
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Igreja ID: {codigoIgreja}</span>
@@ -671,7 +736,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </button>
             </div>
 
-            {/* RELATÓRIO 1: CONTA CORRENTE */}
             {tipoRelatorio === 'conta_corrente' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
@@ -707,7 +771,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 2: DIÁRIO */}
             {tipoRelatorio === 'diario' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
@@ -738,7 +801,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 3: BALANCETE */}
             {tipoRelatorio === 'balancete' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
@@ -769,7 +831,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 4: DRE */}
             {tipoRelatorio === 'dre' && (
               <div className="space-y-4">
                 <div>
@@ -802,12 +863,14 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE NOVO LANÇAMENTO */}
+      {/* MODAL DE NOVO / EDITAR LANÇAMENTO (COM SENHA OBRIGATÓRIA) */}
       {showModalLancamento && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
-              <h3 className="text-xl font-black text-blue-900">Novo Lançamento Financeiro</h3>
+              <h3 className="text-xl font-black text-blue-900">
+                {editingLancamento ? 'Editar Lançamento Financeiro' : 'Novo Lançamento Financeiro'}
+              </h3>
               <button
                 type="button"
                 onClick={() => setShowModalLancamento(false)}
@@ -903,6 +966,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
+              <div className="pt-2 border-t">
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  placeholder="Sua senha atual"
+                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
@@ -915,7 +990,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   type="submit"
                   className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
                 >
-                  Salvar Lançamento
+                  {editingLancamento ? 'Salvar Alterações' : 'Salvar Lançamento'}
                 </button>
               </div>
             </form>
@@ -979,19 +1054,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </div>
               </div>
 
-              {editingAdm && (
-                <div className="pt-2 border-t">
-                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Alterar *</label>
-                  <input
-                    type="password"
-                    value={senhaExclusao}
-                    onChange={(e) => setSenhaExclusao(e.target.value)}
-                    placeholder="Sua senha atual"
-                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                    required
-                  />
-                </div>
-              )}
+              <div className="pt-2 border-t">
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  placeholder="Sua senha atual"
+                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
@@ -1061,19 +1134,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {editingConta && (
-                <div className="pt-2 border-t">
-                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Alterar *</label>
-                  <input
-                    type="password"
-                    value={senhaExclusao}
-                    onChange={(e) => setSenhaExclusao(e.target.value)}
-                    placeholder="Sua senha atual"
-                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                    required
-                  />
-                </div>
-              )}
+              <div className="pt-2 border-t">
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  placeholder="Sua senha atual"
+                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

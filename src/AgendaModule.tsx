@@ -1,4 +1,3 @@
-// Atualizado em 2026
 // src/AgendaModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
@@ -13,6 +12,7 @@ interface Compromisso {
   hora_fim: string;
   local_evento: string;
   responsavel: string;
+  status: 'pendente' | 'realizado';
   dono_codigo: string;
   dono_tipo: string;
 }
@@ -29,6 +29,7 @@ const formInicial = {
   hora_fim: '',
   local_evento: '',
   responsavel: '',
+  status: 'pendente' as 'pendente' | 'realizado',
 };
 
 export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
@@ -116,6 +117,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       hora_fim: c.hora_fim || '',
       local_evento: c.local_evento || '',
       responsavel: c.responsavel || '',
+      status: c.status || 'pendente',
     });
     setShowModal(true);
   };
@@ -170,6 +172,28 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     } catch (err: any) {
       console.error('Erro ao salvar compromisso:', err);
       alert('Erro ao salvar compromisso: ' + (err.message || 'Erro desconhecido'));
+    }
+  };
+
+  const handleAlternarStatus = async (id: string, statusAtual: string) => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem alterar o status do evento.');
+      return;
+    }
+
+    const novoStatus = statusAtual === 'realizado' ? 'pendente' : 'realizado';
+
+    try {
+      const { error } = await supabase
+        .from('agenda_compromissos')
+        .update({ status: novoStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchCompromissos();
+    } catch (err: any) {
+      console.error('Erro ao atualizar status:', err);
+      alert('Erro ao atualizar status: ' + err.message);
     }
   };
 
@@ -267,7 +291,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       {loading && <p className="text-slate-500 py-4">Carregando compromissos...</p>}
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm font-semibold">
-          Erro ao carregar dados da tabela: {error}.
+          Nota: Se o campo 'status' ainda não existir na tabela <code className="bg-white px-1 py-0.5 rounded">agenda_compromissos</code> do seu Supabase, adicione uma coluna <code className="bg-white px-1 py-0.5 rounded">status</code> (tipo text ou varchar com valor padrão 'pendente'). Erro: {error}
         </div>
       )}
 
@@ -282,6 +306,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                <th className="p-3">Status</th>
                 <th className="p-3">Data / Hora</th>
                 <th className="p-3">Título do Evento</th>
                 <th className="p-3">Local</th>
@@ -290,50 +315,69 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
               </tr>
             </thead>
             <tbody className="divide-y text-sm">
-              {compromissos.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                  <td className="p-3 whitespace-nowrap font-medium text-slate-700">
-                    {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'}
-                    <span className="block text-xs text-blue-800 font-bold">
-                      {c.hora_compromisso ? c.hora_compromisso.substring(0, 5) : ''}
-                      {c.hora_fim ? ` às ${c.hora_fim.substring(0, 5)}` : ''}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <p className="font-semibold text-slate-800">{c.titulo}</p>
-                    <p className="text-xs text-slate-500 truncate max-w-xs">{c.descricao || '-'}</p>
-                  </td>
-                  <td className="p-3 text-slate-600">{c.local_evento || '-'}</td>
-                  <td className="p-3 text-slate-600">{c.responsavel || '-'}</td>
-                  <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                    <button
-                      type="button"
-                      onClick={() => { setCompromissoSelecionado(c); setShowDetalhesModal(true); }}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Ver
-                    </button>
-                    {isAdmin && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(c)}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleIniciarExclusao(c.id, c.titulo)}
-                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Excluir
-                        </button>
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {compromissos.map((c) => {
+                const realizado = c.status === 'realizado';
+                return (
+                  <tr key={c.id} className="hover:bg-slate-50/80 transition">
+                    <td className="p-3 whitespace-nowrap">
+                      <button
+                        type="button"
+                        disabled={!isAdmin}
+                        onClick={() => handleAlternarStatus(c.id, c.status || 'pendente')}
+                        title={isAdmin ? "Clique para alternar entre Pendente e Realizado" : "Status do evento"}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+                          realizado
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                            : 'bg-rose-100 text-rose-800 border border-rose-300'
+                        } ${isAdmin ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${realizado ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
+                        {realizado ? 'Realizado' : 'Pendente'}
+                      </button>
+                    </td>
+                    <td className="p-3 whitespace-nowrap font-medium text-slate-700">
+                      {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'}
+                      <span className="block text-xs text-blue-800 font-bold">
+                        {c.hora_compromisso ? c.hora_compromisso.substring(0, 5) : ''}
+                        {c.hora_fim ? ` às ${c.hora_fim.substring(0, 5)}` : ''}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <p className="font-semibold text-slate-800">{c.titulo}</p>
+                      <p className="text-xs text-slate-500 truncate max-w-xs">{c.descricao || '-'}</p>
+                    </td>
+                    <td className="p-3 text-slate-600">{c.local_evento || '-'}</td>
+                    <td className="p-3 text-slate-600">{c.responsavel || '-'}</td>
+                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => { setCompromissoSelecionado(c); setShowDetalhesModal(true); }}
+                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                      >
+                        Ver
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(c)}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleIniciarExclusao(c.id, c.titulo)}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Excluir
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -426,6 +470,20 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Status do Evento</label>
+                  <select
+                    value={formCompromisso.status}
+                    onChange={(e) => handleChange('status', e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+                  >
+                    <option value="pendente">🔴 Pendente</option>
+                    <option value="realizado">🟢 Realizado</option>
+                  </select>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição / Observações</label>
                 <textarea
@@ -513,6 +571,16 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
             </div>
 
             <div className="grid grid-cols-1 gap-3 text-sm">
+              <div className="bg-slate-50 p-3 rounded-xl flex justify-between items-center">
+                <div>
+                  <span className="block text-xs font-bold text-slate-400 uppercase">Status</span>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-bold mt-1 ${
+                    compromissoSelecionado.status === 'realizado' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                  }`}>
+                    {compromissoSelecionado.status === 'realizado' ? '🟢 Realizado' : '🔴 Pendente'}
+                  </span>
+                </div>
+              </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Título</span>{compromissoSelecionado.titulo}</div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Data</span>{compromissoSelecionado.data_compromisso?.split('-').reverse().join('/')}</div>

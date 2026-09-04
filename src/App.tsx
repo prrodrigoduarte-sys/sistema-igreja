@@ -537,85 +537,12 @@ function App() {
             <div>
               <h2 className="text-3xl font-black text-blue-900">Dashboard</h2>
               <p className="text-slate-600 mt-1">
-                Igreja: <span className="font-bold text-blue-900">{loggedUser.codigo_igreja}</span> | Usuário: <span className="font-bold text-blue-900">{loggedUser.nome_usuario}</span>
+                Seja bem-vindo ao sistema! Igreja: <span className="font-bold text-blue-900">{loggedUser.codigo_igreja}</span> | Usuário: <span className="font-bold text-blue-900">{loggedUser.nome_usuario}</span>
               </p>
             </div>
 
-            {/* Painel do QR Code Dinâmico de 6h (Apenas para Admin) */}
-            <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
-              <div className="bg-white p-3 rounded-2xl shadow-md border shrink-0 text-center">
-                {qrCodeUrlDinamico ? (
-                  <div className="space-y-2">
-                    <img src={qrCodeUrlDinamico} alt="QR Code Temporário" className="w-40 h-40 object-contain mx-auto" />
-                    <span className="block text-[10px] text-slate-400 font-medium">Pressione ESC para fechar</span>
-                  </div>
-                ) : (
-                  <div className="w-40 h-40 flex items-center justify-center text-xs text-slate-400 font-semibold bg-slate-100 rounded-xl p-2 text-center">
-                    {isAdmin ? 'Clique em gerar QR Code' : 'Recurso restrito ao Admin'}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3 flex-1 text-center sm:text-left w-full">
-                <h4 className="font-bold text-blue-900 text-lg">QR Code Temporário (Validade: 6 Horas)</h4>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  Gere um acesso seguro para o evento ou culto da igreja <span className="font-bold">{loggedUser.codigo_igreja}</span>. O link expira automaticamente após 6 horas.
-                </p>
-
-                {isAdmin ? (
-                  <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
-                    <button
-                      type="button"
-                      onClick={gerarNovoQrCodeTemporario}
-                      disabled={gerandoQr}
-                      className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer disabled:opacity-50"
-                    >
-                      {gerandoQr ? 'Gerando...' : '⚡ Gerar Novo QR Code (6h)'}
-                    </button>
-
-                    {qrCodeUrlDinamico && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const urlParams = new URLSearchParams(qrCodeUrlDinamico.split('?')[1]);
-                            const linkReal = urlParams.get('data');
-                            if (linkReal) {
-                              navigator.clipboard.writeText(linkReal);
-                              alert('Link de cadastro copiado para a área de transferência!');
-                            }
-                          }}
-                          className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold rounded-xl transition cursor-pointer"
-                        >
-                          📋 Copiar Link
-                        </button>
-
-                        <a
-                          href={qrCodeUrlDinamico}
-                          download="qrcode-temporario.png"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition"
-                        >
-                          📥 Baixar Imagem
-                        </a>
-
-                        <button
-                          type="button"
-                          onClick={() => setQrCodeUrlDinamico('')}
-                          className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                        >
-                          ✕ Fechar (ESC)
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100 inline-block">
-                    🔒 Apenas administradores do sistema podem gerar o QR Code de acesso.
-                  </p>
-                )}
-              </div>
+            <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
+              <p className="font-medium">Utilize o menu lateral para navegar entre os módulos de Cadastros, Agenda, Financeiro e Projetos.</p>
             </div>
           </div>
         )}
@@ -657,7 +584,7 @@ function App() {
                 🔗 Abrir Tela de Cadastro Público (Nova Guia)
               </a>
 
-              {/* SEÇÃO 2: GERAR QR CODE EXCLUSIVO PARA O ADMINISTRADOR MOSTRAR NO CELULAR */}
+              {/* SEÇÃO: GERAR QR CODE EXCLUSIVO PARA O ADMINISTRADOR MOSTRAR NO CELULAR */}
               <div className="border-t pt-4 space-y-3">
                 <h4 className="font-bold text-blue-900 text-sm">📱 Gerar QR Code para Membros Escanearem</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">

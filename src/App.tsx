@@ -126,7 +126,6 @@ function App() {
       }
 
       if (!data) {
-        // Caso o usuário exista no Auth mas não tenha registro na tabela usuarios ainda
         setLoggedUser(null);
         return;
       }
@@ -158,20 +157,16 @@ function App() {
     });
 
     if (authError) {
-      alert('Erro no cadastro: ' + authError.message);
+      alert('Erro no cadastro (Auth): ' + authError.message);
       return;
     }
 
-    const authUserId = authData.user?.id;
-    if (!authUserId) {
-      alert('Erro ao obter ID do usuário autenticado.');
-      return;
-    }
+    const authUserId = authData.user?.id || authData.session?.user?.id;
 
     // 2. Insere o perfil correspondente na tabela public.usuarios
     const { error: profileError } = await supabase.from('usuarios').insert([
       {
-        auth_user_id: authUserId,
+        auth_user_id: authUserId || null,
         email,
         nome_usuario: nomeUsuario,
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
@@ -185,7 +180,7 @@ function App() {
       return;
     }
 
-    alert('Cadastro realizado com sucesso! Faça login para entrar.');
+    alert('Conta cadastrada com sucesso! Faça login para entrar.');
     setIsLogin(true);
   };
 
@@ -296,7 +291,6 @@ function App() {
     );
   }
 
-  // Se o usuário logou no Auth mas ainda não tem perfil na tabela usuarios
   if (!loggedUser) {
     return (
       <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 space-y-4">

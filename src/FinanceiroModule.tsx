@@ -90,7 +90,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
 
-  // Função para Registrar Logs de Auditoria
   const registrarLog = async (acao: string, detalhes: string) => {
     try {
       await supabase.from('logs_sistema').insert([
@@ -116,7 +115,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .from('lancamentos_financeiros')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
-        .order('data_lancamento', { ascending: false });
+        .order('data_lancamento', { ascending: true }); // Ordem crescente para cálculo correto do saldo parcial
 
       if (!resLanc.error) setLancamentos(resLanc.data || []);
 
@@ -147,11 +146,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     fetchDados();
   }, [loggedUser, fetchDados]);
 
-  // Salvar ou Editar Lançamento (Com exigência de senha e log)
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Exige senha do admin para salvar modificações ou novos lançamentos com segurança
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: emailUsuarioLogado,
         password: senhaExclusao,
@@ -333,10 +330,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const totalDespesas = dadosDRE.filter((c) => c.tipo_natureza === 'Despesas' || c.tipo_natureza === 'Despesa').reduce((a, b) => a + b.total, 0);
   const resultadoLiquido = totalReceitas - totalDespesas;
 
+  // Cálculo acumulado de saldo parcial para o extrato
+  let saldoAcumulado = 0;
+  const lancamentosComSaldo = lancamentos.map((l) => {
+    const valorNum = Number(l.valor || 0);
+    if (l.tipo === 'receita') {
+      saldoAcumulado += valorNum;
+    } else {
+      saldoAcumulado -= valorNum;
+    }
+    return { ...l, saldoParcial: saldoAcumulado };
+  });
+
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
       
-      {/* Estilo CSS customizado para Impressão / PDF */}
       <style>{`
         @media print {
           body * {
@@ -736,10 +744,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </button>
             </div>
 
+            {/* RELATÓRIO 1: CONTA CORRENTE (COM SALDO PARCIAL) */}
             {tipoRelatorio === 'conta_corrente' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas administrativas.</p>
+                <p className="text-xs text-slate-500 mb-4">Movimentação financeira com saldo parcial acumulado por linha.</p>
                 
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
@@ -750,11 +759,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <th className="p-3">Histórico</th>
                         <th className="p-3 text-right">Entrada</th>
                         <th className="p-3 text-right">Saída</th>
+                        <th className="p-3 text-right">Saldo Parcial</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {lancamentos.map((l) => {
+                      {lancamentosComSaldo.map((l) => {
                         const isReceita = l.tipo === 'receita';
+                        const saldoPositivo = l.saldoParcial >= 0;
                         return (
                           <tr key={l.id}>
                             <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
@@ -762,6 +773,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             <td className="p-3 text-slate-600">{l.descricao}</td>
                             <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
                             <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
+                            <td className={`p-3 text-right font-black ${saldoPositivo ? 'text-blue-900' : 'text-rose-700'}`}>
+                              R$ {l.saldoParcial.toFixed(2)}
+                            </td>
                           </tr>
                         );
                       })}
@@ -863,7 +877,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE NOVO / EDITAR LANÇAMENTO (COM SENHA OBRIGATÓRIA) */}
+      {/* MODAL DE NOVO / EDITAR LANÇAMENTO */}
       {showModalLancamento && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">

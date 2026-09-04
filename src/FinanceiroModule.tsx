@@ -57,7 +57,7 @@ const formContaCorrenteInicial = {
 };
 
 export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
-  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas' | 'contas_correntes' | 'relatorios'>('lancamentos');
+  const [subAba, setSubAba] = useState<'lancamentos' | 'contas_adm' | 'plano_contas' | 'relatorios'>('lancamentos');
   const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre'>('conta_corrente');
 
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
@@ -76,7 +76,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
   const [formConta, setFormConta] = useState(formContaContabilInicial);
 
-  // Modais Conta Corrente / Caixa
+  // Modais Conta Adm
   const [showModalCc, setShowModalCc] = useState(false);
   const [editingCc, setEditingCc] = useState<ContaCorrente | null>(null);
   const [formCc, setFormCc] = useState(formContaCorrenteInicial);
@@ -217,11 +217,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           .eq('id', editingCc.id);
 
         if (error) throw error;
-        alert('Conta corrente atualizada com sucesso!');
+        alert('Conta administrativa atualizada com sucesso!');
       } else {
         const { error } = await supabase.from('contas_correntes').insert([payload]);
         if (error) throw error;
-        alert('Conta corrente cadastrada com sucesso!');
+        alert('Conta administrativa cadastrada com sucesso!');
       }
 
       setShowModalCc(false);
@@ -230,7 +230,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
-      alert('Erro ao salvar conta corrente: ' + err.message);
+      alert('Erro ao salvar conta administrativa: ' + err.message);
     }
   };
 
@@ -297,15 +297,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             Gestão Financeira & Contábil
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Controle de Caixa e Plano Contábil ({codigoIgreja})
+            Controle Administrativo e Contábil ({codigoIgreja})
           </p>
         </div>
 
-        {/* ABAS */}
+        {/* ABAS COM CARREGAMENTO GARANTIDO AO CLICAR */}
         <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
           <button
             type="button"
-            onClick={() => setSubAba('lancamentos')}
+            onClick={() => { setSubAba('lancamentos'); fetchDados(); }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
               subAba === 'lancamentos' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -314,16 +314,16 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
           <button
             type="button"
-            onClick={() => setSubAba('contas_correntes')}
+            onClick={() => { setSubAba('contas_adm'); fetchDados(); }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              subAba === 'contas_correntes' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+              subAba === 'contas_adm' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            🏦 Contas / Caixas
+            🏦 Contas Adm
           </button>
           <button
             type="button"
-            onClick={() => setSubAba('plano_contas')}
+            onClick={() => { setSubAba('plano_contas'); fetchDados(); }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
               subAba === 'plano_contas' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -332,7 +332,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
           <button
             type="button"
-            onClick={() => setSubAba('relatorios')}
+            onClick={() => { setSubAba('relatorios'); fetchDados(); }}
             className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
               subAba === 'relatorios' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -357,7 +357,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
         )}
 
-        {subAba === 'contas_correntes' && (
+        {subAba === 'contas_adm' && (
           <button
             type="button"
             onClick={() => {
@@ -368,7 +368,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             }}
             className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
           >
-            + Nova Conta / Caixa
+            + Nova Conta Adm
           </button>
         )}
 
@@ -406,7 +406,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <th className="p-3">Data</th>
                     <th className="p-3">Tipo</th>
                     <th className="p-3">Descrição</th>
-                    <th className="p-3">Conta Corrente (Admin)</th>
+                    <th className="p-3">Conta Adm</th>
                     <th className="p-3">Conta Contábil (DRE)</th>
                     <th className="p-3 text-right">Valor</th>
                     <th className="p-3 text-right">Ações</th>
@@ -456,19 +456,19 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: CONTAS CORRENTES / CAIXAS */}
-      {!loading && subAba === 'contas_correntes' && (
+      {/* CONTEÚDO DA ABA: CONTAS ADM */}
+      {!loading && subAba === 'contas_adm' && (
         <>
           {contasCorrentes.length === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              <p className="text-slate-500 text-sm">Nenhuma conta corrente ou caixa cadastrado.</p>
+              <p className="text-slate-500 text-sm">Nenhuma conta administrativa cadastrada.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                    <th className="p-3">Nome da Conta / Caixa</th>
+                    <th className="p-3">Nome da Conta Adm / Caixa</th>
                     <th className="p-3">Banco</th>
                     <th className="p-3">Agência</th>
                     <th className="p-3">Número da Conta</th>
@@ -634,15 +634,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             
             {tipoRelatorio === 'conta_corrente' && (
               <div>
-                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Administrativo: Extrato de Conta Corrente / Caixa</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas bancárias cadastradas.</p>
+                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Administrativo: Extrato por Conta Adm</h3>
+                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas administrativas cadastradas.</p>
                 
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
                       <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
                         <th className="p-3">Data</th>
-                        <th className="p-3">Conta / Banco</th>
+                        <th className="p-3">Conta Adm</th>
                         <th className="p-3">Histórico</th>
                         <th className="p-3 text-right">Entrada</th>
                         <th className="p-3 text-right">Saída</th>
@@ -826,10 +826,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 />
               </div>
 
-              {/* SELECIONA DA TABELA DE CONTAS CORRENTES */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  🏦 Conta Corrente / Caixa (Admin) *
+                  🏦 Conta Adm (Caixa / Banco) *
                 </label>
                 <select
                   value={formLancamento.conta_corrente_id}
@@ -837,7 +836,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
                   required
                 >
-                  <option value="">Selecione o caixa ou conta corrente...</option>
+                  <option value="">Selecione a conta administrativa...</option>
                   {contasCorrentes.map((cc) => (
                     <option key={cc.id} value={cc.id}>{cc.nome_conta_corrente} ({cc.banco || 'Caixa'})</option>
                   ))}
@@ -881,17 +880,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE CONTA CORRENTE / CAIXA (NOVO OU EDIÇÃO COM SENHA) */}
+      {/* MODAL DE CONTA ADM */}
       {showModalCc && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
             <h3 className="text-xl font-black text-blue-900">
-              {editingCc ? 'Editar Conta / Caixa' : 'Nova Conta / Caixa'}
+              {editingCc ? 'Editar Conta Adm' : 'Nova Conta Adm'}
             </h3>
             
             <form onSubmit={handleSubmitCc} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta / Caixa *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta Adm / Caixa *</label>
                 <input
                   type="text"
                   value={formCc.nome_conta_corrente}
@@ -962,7 +961,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   type="submit"
                   className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
                 >
-                  {editingCc ? 'Salvar Alterações' : 'Cadastrar Conta'}
+                  {editingCc ? 'Salvar Alterações' : 'Cadastrar Conta Adm'}
                 </button>
               </div>
             </form>

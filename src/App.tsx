@@ -17,6 +17,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [loggedUser, setLoggedUser] = useState<any>(null);
+  const [precisaCompletarPerfil, setPrecisaCompletarPerfil] = useState(false);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
@@ -105,17 +106,17 @@ function App() {
     };
   }, []);
 
-  // Busca direta e infalível pelo e-mail do usuário autenticado
+  // Busca do usuário por e-mail de forma segura
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.email) {
         setLoggedUser(null);
+        setPrecisaCompletarPerfil(false);
         return;
       }
 
       const emailUsuario = session.user.email;
 
-      // Busca diretamente pelo e-mail na tabela usuarios
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
@@ -123,24 +124,17 @@ function App() {
         .maybeSingle();
 
       if (error) {
-        console.error('Erro ao carregar perfil do usuário:', error);
-        setLoggedUser(null);
-        return;
+        console.error('Erro ao carregar perfil:', error);
       }
 
       if (!data) {
+        // Se autenticou mas não tem registro na tabela, abre o painel para completar os dados
+        setPrecisaCompletarPerfil(true);
         setLoggedUser(null);
         return;
       }
 
-      // Atualiza o auth_user_id automaticamente caso tenha mudado na sessão atual
-      if (data.auth_user_id !== session.user.id) {
-        await supabase
-          .from('usuarios')
-          .update({ auth_user_id: session.user.id })
-          .eq('id', data.id);
-      }
-
+      setPrecisaCompletarPerfil(false);
       setLoggedUser(data);
     };
 
@@ -161,7 +155,6 @@ function App() {
       return;
     }
 
-    // 1. Cria o usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -174,7 +167,6 @@ function App() {
 
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
-    // 2. Insere o perfil correspondente na tabela public.usuarios
     const { error: profileError } = await supabase.from('usuarios').insert([
       {
         auth_user_id: authUserId || null,
@@ -195,9 +187,37 @@ function App() {
     setIsLogin(true);
   };
 
+  // Função para salvar o perfil caso tenha entrado por uma conta sem registro prévio
+  const handleCompletarPerfil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nomeUsuario || !codigoIgreja) {
+      alert('Preencha todos os campos.');
+      return;
+    }
+
+    const { error } = await supabase.from('usuarios').insert([
+      {
+        auth_user_id: session.user.id,
+        email: session.user.email,
+        nome_usuario: nomeUsuario,
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
+        perfil: 'admin',
+        ativo: true,
+      },
+    ]);
+
+    if (error) {
+      alert('Erro ao salvar perfil: ' + error.message);
+      return;
+    }
+
+    window.location.reload();
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setLoggedUser(null);
+    setPrecisaCompletarPerfil(false);
     setActiveTab('dashboard');
   };
 
@@ -302,21 +322,63 @@ function App() {
     );
   }
 
-  if (!loggedUser) {
+  // Se a sessão existe mas o perfil precisa ser completado na tabela usuarios
+  if (precisaCompletarPerfil) {
     return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 space-y-4">
-        <h2 className="text-2xl font-bold">Perfil não encontrado</h2>
-        <p className="text-slate-400 text-sm max-w-md text-center">
-          Sua conta foi autenticada, mas o perfil correspondente na tabela <code className="bg-slate-800 px-2 py-1 rounded">usuarios</code> não foi localizado ou vinculado.
-        </p>
-        <button
-          onClick={handleLogout}
-          className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 rounded-xl font-bold transition cursor-pointer"
-        >
-          Sair e tentar novamente
-        </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full space-y-4">
+          <h2 className="text-2xl font-black text-blue-900 text-center">COMPLETE SEU CADASTRO</h2>
+          <p className="text-xs text-slate-600 text-center">
+            Sua conta de e-mail <span className="font-bold">{session.user.email}</span> foi autenticada, mas precisamos vincular seu nome e o código da sua igreja.
+          </p>
+
+          <form onSubmit={handleCompletarPerfil} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">NOME DO USUÁRIO</label>
+              <input
+                type="text"
+                value={nomeUsuario}
+                onChange={(e) => setNomeUsuario(e.target.value)}
+                placeholder="Seu nome"
+                required
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">CÓDIGO DA IGREJA (Ex: IGR-001)</label>
+              <input
+                type="text"
+                value={codigoIgreja}
+                onChange={(e) => setCodigoIgreja(e.target.value)}
+                placeholder="IGR-001"
+                required
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 uppercase"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl transition cursor-pointer"
+            >
+              SALVAR E ENTRAR
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full text-center text-rose-600 font-semibold text-xs hover:underline cursor-pointer pt-2"
+          >
+            Sair e tentar com outra conta
+          </button>
+        </div>
       </div>
     );
+  }
+
+  if (!loggedUser) {
+    return null;
   }
 
   return (

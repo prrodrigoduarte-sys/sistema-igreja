@@ -56,15 +56,20 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  
   const [editingMember, setEditingMember] = useState<Membro | null>(null);
   const [membroSelecionado, setMembroSelecionado] = useState<Membro | null>(null);
+  const [membroParaExcluir, setMembroParaExcluir] = useState<{ id: string; nome: string } | null>(null);
+  
+  const [senhaExclusao, setSenhaExclusao] = useState('');
   const [formMembro, setFormMembro] = useState(formInicial);
+  const [uploadingFoto, setUploadingFoto] = useState(false);
 
   const codigoIgreja =
     loggedUser?.codigo_igreja ||
     loggedUser?.igrejas?.codigo_igreja;
 
-  // Função de busca sob demanda (consulta)
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -85,7 +90,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       if (termoBusca.trim() !== '') {
         query = query.ilike('nome', `%${termoBusca.trim()}%`);
       } else {
-        // Limita a quantidade inicial caso busque vazio para manter leve
         query = query.limit(15);
       }
 
@@ -103,7 +107,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   }, [codigoIgreja, termoBusca]);
 
-  // Carregamento inicial leve (opcional: traz os primeiros cadastros ou deixa vazio)
   useEffect(() => {
     if (!loggedUser || !codigoIgreja) return;
     handlePesquisar();
@@ -139,9 +142,44 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setShowMemberModal(true);
   };
 
-  const handleVerDetalhes = (membro: Membro) => {
-    setMembroSelecionado(membro);
-    setShowDetalhesModal(true);
+  // Manipulador para carregar/tirar foto do arquivo ou câmera
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingFoto(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `membros/${fileName}`;
+
+      // Tenta enviar para o bucket 'membros-fotos' do Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('membros-fotos')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        // Se o bucket não existir, converte em Base64 provisoriamente para salvar na coluna text
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormMembro((prev) => ({ ...prev, foto_url: reader.result as string }));
+          setUploadingFoto(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const { data: publicURLData } = supabase.storage
+        .from('membros-fotos')
+        .getPublicUrl(filePath);
+
+      setFormMembro((prev) => ({ ...prev, foto_url: publicURLData.publicUrl }));
+    } catch (err) {
+      console.error('Erro no upload:', err);
+      alert('Erro ao carregar imagem.');
+    } finally {
+      setUploadingFoto(false);
+    }
   };
 
   const handleCloseModal = () => {
@@ -197,22 +235,46 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   };
 
-  const handleDelete = async (id: string, nome: string) => {
-    const confirmou = window.confirm(`Deseja realmente excluir o membro "${nome}"?`);
-    if (!confirmou) return;
+  // Solicitar exclusão com senha
+  const handleIniciarExclusao = (id: string, nome: string) => {
+    setMembroParaExcluir({ id, nome });
+    setSenhaExclusao('');
+    setShowDeleteModal(true);
+  };
+
+  const confirmarExclusaoComSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!membroParaExcluir) return;
 
     try {
+      // Valida a senha do usuário autenticado atual no Supabase Auth
+      const emailUsuario = loggedUser?.usuario || loggedUser?.email || session?.user?.email;
+      
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuario,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha incorreta! A exclusão foi cancelada por segurança.');
+        return;
+      }
+
+      // Se a senha estiver correta, executa a exclusão
       const { error: deleteError } = await supabase
         .from('members')
         .delete()
-        .eq('id', id);
+        .eq('id', membroParaExcluir.id);
 
       if (deleteError) throw deleteError;
 
       alert('Membro excluído com sucesso!');
+      setShowDeleteModal(false);
+      setMembroParaExcluir(null);
+      setSenhaExclusao('');
       handlePesquisar();
     } catch (err: any) {
-      console.error('Erro ao excluir membro:', err);
+      console.error('Erro ao excluir:', err);
       alert('Erro ao excluir membro: ' + (err.message || 'Erro desconhecido'));
     }
   };
@@ -228,7 +290,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
       
-      {/* Cabeçalho e Ação de Cadastro */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black text-blue-900 tracking-tight">
@@ -248,7 +309,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </button>
       </div>
 
-      {/* Barra de Pesquisa */}
       <form onSubmit={handlePesquisar} className="flex gap-2">
         <input
           type="text"
@@ -265,7 +325,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </button>
       </form>
 
-      {/* Listagem Simples (Nome, Endereço, Telefone, E-mail) */}
       {loading && <p className="text-slate-500 py-4">Buscando membros...</p>}
       {error && <p className="text-red-500 py-4">Erro: {error}</p>}
 
@@ -280,6 +339,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                <th className="p-3">Foto</th>
                 <th className="p-3">Nome</th>
                 <th className="p-3">Endereço</th>
                 <th className="p-3">Telefone</th>
@@ -295,6 +355,15 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition">
+                    <td className="p-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-500 text-xs">
+                        {m.foto_url ? (
+                          <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" />
+                        ) : (
+                          m.nome?.charAt(0) || '?'
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3 font-semibold text-slate-800">{m.nome}</td>
                     <td className="p-3 text-slate-600 truncate max-w-xs">{enderecoResumido}</td>
                     <td className="p-3 text-slate-600">{m.celular_principal || '-'}</td>
@@ -302,9 +371,8 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                     <td className="p-3 text-right space-x-1 whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => handleVerDetalhes(m)}
+                        onClick={() => { setMembroSelecionado(m); setShowDetalhesModal(true); }}
                         className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                        title="Lista Completa / Detalhes"
                       >
                         Ver Completo
                       </button>
@@ -317,7 +385,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(m.id, m.nome)}
+                        onClick={() => handleIniciarExclusao(m.id, m.nome)}
                         className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
                       >
                         Excluir
@@ -331,7 +399,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO COMPLETO */}
+      {/* MODAL DE CADASTRO / EDIÇÃO COM UPLOAD DE FOTO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto">
@@ -349,8 +417,29 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              
+              {/* Seção de Foto */}
+              <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
+                <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-400 font-bold">
+                  {formMembro.foto_url ? (
+                    <img src={formMembro.foto_url} alt="Foto" className="w-full h-full object-cover" />
+                  ) : (
+                    'Foto'
+                  )}
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Carregar ou Tirar Foto</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-900 file:text-white hover:file:bg-blue-800 cursor-pointer"
+                  />
+                  {uploadingFoto && <p className="text-xs text-blue-600 mt-1">Carregando imagem...</p>}
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo de Cadastro</label>
                   <select
@@ -509,18 +598,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
-
-                <div className="sm:col-span-3">
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Endereço Completo / Complemento</label>
-                  <input
-                    type="text"
-                    value={formMembro.endereco}
-                    onChange={(e) => handleChange('endereco', e.target.value)}
-                    placeholder="Complemento, bloco, apartamento, etc."
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
               </div>
 
               <div className="flex justify-end gap-3 pt-6 mt-6 border-t sticky bottom-0 bg-white z-10">
@@ -544,14 +621,62 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </div>
       )}
 
-      {/* MODAL DE LISTA COMPLETA / DETALHES DO MEMBRO */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO POR SENHA */}
+      {showDeleteModal && membroParaExcluir && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-4">
+            <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>
+            <p className="text-sm text-slate-600">
+              Você está prestes a excluir o membro <strong className="text-slate-800">{membroParaExcluir.nome}</strong>. Por segurança, digite sua senha de acesso para continuar:
+            </p>
+
+            <form onSubmit={confirmarExclusaoComSenha} className="space-y-4">
+              <input
+                type="password"
+                value={senhaExclusao}
+                onChange={(e) => setSenhaExclusao(e.target.value)}
+                placeholder="Digite sua senha atual"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                required
+              />
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteModal(false); setMembroParaExcluir(null); }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
+                >
+                  Confirmar Exclusão
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE DETALHES */}
       {showDetalhesModal && membroSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
-              <div>
-                <h3 className="text-xl font-black text-blue-900">Ficha Completa do Membro</h3>
-                <p className="text-xs text-slate-500">Visualização detalhada dos dados cadastrados.</p>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-600">
+                  {membroSelecionado.foto_url ? (
+                    <img src={membroSelecionado.foto_url} alt="Foto" className="w-full h-full object-cover" />
+                  ) : (
+                    membroSelecionado.nome?.charAt(0)
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-blue-900">Ficha do Membro</h3>
+                  <p className="text-xs text-slate-500">{membroSelecionado.nome}</p>
+                </div>
               </div>
               <button
                 type="button"
@@ -563,63 +688,14 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">Nome Completo</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.nome || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">Tipo de Cadastro</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.tipo_cadastro || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">CPF</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.cpf || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">RG</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.rg || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">Data de Nascimento</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.data_nascimento || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">Estado Civil</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.estado_civil || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">Celular Principal</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.celular_principal || '-'}</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">E-mail</span>
-                <span className="font-semibold text-slate-800">{membroSelecionado.email || '-'}</span>
-              </div>
-
-              <div className="sm:col-span-2 bg-slate-50 p-3 rounded-xl">
-                <span className="block text-xs font-bold text-slate-400 uppercase">Endereço Residencial</span>
-                <span className="font-semibold text-slate-800">
-                  {[membroSelecionado.rua, membroSelecionado.numero, membroSelecionado.bairro, membroSelecionado.cidade, membroSelecionado.estado].filter(Boolean).join(', ') || membroSelecionado.endereco || '-'}
-                  {membroSelecionado.cep ? ` (CEP: ${membroSelecionado.cep})` : ''}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex justify-end pt-4 border-t">
-              <button
-                type="button"
-                onClick={() => setShowDetalhesModal(false)}
-                className="px-5 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow-md hover:bg-blue-800 transition cursor-pointer"
-              >
-                Fechar Ficha
-              </button>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Tipo</span>{membroSelecionado.tipo_cadastro}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">CPF</span>{membroSelecionado.cpf || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">RG</span>{membroSelecionado.rg || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Nascimento</span>{membroSelecionado.data_nascimento || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Estado Civil</span>{membroSelecionado.estado_civil || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Celular</span>{membroSelecionado.celular_principal || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">E-mail</span>{membroSelecionado.email || '-'}</div>
+              <div className="sm:col-span-2 bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Endereço</span>{[membroSelecionado.rua, membroSelecionado.numero, membroSelecionado.bairro, membroSelecionado.cidade, membroSelecionado.estado].filter(Boolean).join(', ') || '-'}</div>
             </div>
           </div>
         </div>

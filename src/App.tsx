@@ -21,6 +21,8 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
+  const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
   // Estados de Autenticação e Cadastro
   const [email, setEmail] = useState('');
@@ -33,7 +35,13 @@ function App() {
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
+  const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+
   const gerarNovoQrCodeTemporario = async () => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem gerar o QR Code temporário.');
+      return;
+    }
     if (!loggedUser) return;
     setGerandoQr(true);
 
@@ -64,16 +72,17 @@ function App() {
     }
   };
 
-  // Atalho para fechar o QR Code com ESC
+  // Atalho para fechar os modais com ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && qrCodeUrlDinamico) {
+      if (e.key === 'Escape') {
         setQrCodeUrlDinamico('');
+        setIsMobileModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [qrCodeUrlDinamico]);
+  }, []);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -128,7 +137,6 @@ function App() {
       }
 
       if (!data) {
-        // Se autenticou mas não tem registro na tabela, abre o painel para completar os dados
         setPrecisaCompletarPerfil(true);
         setLoggedUser(null);
         return;
@@ -167,6 +175,7 @@ function App() {
 
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
+    // O primeiro usuário cadastrado nesta conta assume o perfil de admin
     const { error: profileError } = await supabase.from('usuarios').insert([
       {
         auth_user_id: authUserId || null,
@@ -187,7 +196,6 @@ function App() {
     setIsLogin(true);
   };
 
-  // Função para salvar o perfil caso tenha entrado por uma conta sem registro prévio
   const handleCompletarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeUsuario || !codigoIgreja) {
@@ -322,7 +330,6 @@ function App() {
     );
   }
 
-  // Se a sessão existe mas o perfil precisa ser completado na tabela usuarios
   if (precisaCompletarPerfil) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900 p-4">
@@ -391,7 +398,7 @@ function App() {
           </p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-2">
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
           <button
             type="button"
             onClick={() => selecionarAba('dashboard')}
@@ -406,7 +413,7 @@ function App() {
             type="button"
             onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('cadastros') ? 'bg-blue-700' : 'hover:bg-blue-800'
+              activeTab.startsWith('cadastros') && activeTab !== 'cadastros-usuario' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             <span>👥 Cadastros</span>
@@ -444,16 +451,6 @@ function App() {
               >
                 Ministérios
               </button>
-
-              <button
-                type="button"
-                onClick={() => selecionarAba('cadastros-usuario')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-usuario' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Usuários
-              </button>
             </div>
           )}
 
@@ -486,17 +483,42 @@ function App() {
           >
             🚀 Projetos
           </button>
+
+          {/* MENU CONFIGURAÇÕES */}
+          <button
+            type="button"
+            onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
+            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+              activeTab.startsWith('configuracoes') ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            <span>⚙️ Configurações</span>
+            <span>{isConfiguracoesOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {isConfiguracoesOpen && (
+            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+              <button
+                type="button"
+                onClick={() => selecionarAba('configuracoes-usuarios')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                Controle de Usuários
+              </button>
+            </div>
+          )}
         </nav>
 
         <div className="p-4 border-t border-blue-800 space-y-2">
-          <a
-            href="#cadastro"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full text-center px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition"
+          <button
+            type="button"
+            onClick={() => setIsMobileModalOpen(true)}
+            className="block w-full text-center px-4 py-2.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow"
           >
-            🔗 Abrir Tela Mobile
-          </a>
+            📱 Abrir Tela Mobile / Opções
+          </button>
 
           <button
             type="button"
@@ -518,7 +540,7 @@ function App() {
               </p>
             </div>
 
-            {/* Painel do QR Code Dinâmico de 6h */}
+            {/* Painel do QR Code Dinâmico de 6h (Apenas para Admin) */}
             <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
               <div className="bg-white p-3 rounded-2xl shadow-md border shrink-0 text-center">
                 {qrCodeUrlDinamico ? (
@@ -528,7 +550,7 @@ function App() {
                   </div>
                 ) : (
                   <div className="w-40 h-40 flex items-center justify-center text-xs text-slate-400 font-semibold bg-slate-100 rounded-xl p-2 text-center">
-                    Clique em gerar QR Code
+                    {isAdmin ? 'Clique em gerar QR Code' : 'Recurso restrito ao Admin'}
                   </div>
                 )}
               </div>
@@ -538,53 +560,60 @@ function App() {
                 <p className="text-xs text-slate-600 leading-relaxed">
                   Gere um acesso seguro para o evento ou culto da igreja <span className="font-bold">{loggedUser.codigo_igreja}</span>. O link expira automaticamente após 6 horas.
                 </p>
-                <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
-                  <button
-                    type="button"
-                    onClick={gerarNovoQrCodeTemporario}
-                    disabled={gerandoQr}
-                    className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer disabled:opacity-50"
-                  >
-                    {gerandoQr ? 'Gerando...' : '⚡ Gerar Novo QR Code (6h)'}
-                  </button>
 
-                  {qrCodeUrlDinamico && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const urlParams = new URLSearchParams(qrCodeUrlDinamico.split('?')[1]);
-                          const linkReal = urlParams.get('data');
-                          if (linkReal) {
-                            navigator.clipboard.writeText(linkReal);
-                            alert('Link de cadastro copiado para a área de transferência!');
-                          }
-                        }}
-                        className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold rounded-xl transition cursor-pointer"
-                      >
-                        📋 Copiar Link
-                      </button>
+                {isAdmin ? (
+                  <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
+                    <button
+                      type="button"
+                      onClick={gerarNovoQrCodeTemporario}
+                      disabled={gerandoQr}
+                      className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer disabled:opacity-50"
+                    >
+                      {gerandoQr ? 'Gerando...' : '⚡ Gerar Novo QR Code (6h)'}
+                    </button>
 
-                      <a
-                        href={qrCodeUrlDinamico}
-                        download="qrcode-temporario.png"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition"
-                      >
-                        📥 Baixar Imagem
-                      </a>
+                    {qrCodeUrlDinamico && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const urlParams = new URLSearchParams(qrCodeUrlDinamico.split('?')[1]);
+                            const linkReal = urlParams.get('data');
+                            if (linkReal) {
+                              navigator.clipboard.writeText(linkReal);
+                              alert('Link de cadastro copiado para a área de transferência!');
+                            }
+                          }}
+                          className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          📋 Copiar Link
+                        </button>
 
-                      <button
-                        type="button"
-                        onClick={() => setQrCodeUrlDinamico('')}
-                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition cursor-pointer"
-                      >
-                        ✕ Fechar (ESC)
-                      </button>
-                    </>
-                  )}
-                </div>
+                        <a
+                          href={qrCodeUrlDinamico}
+                          download="qrcode-temporario.png"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition"
+                        >
+                          📥 Baixar Imagem
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => setQrCodeUrlDinamico('')}
+                          className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                        >
+                          ✕ Fechar (ESC)
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100 inline-block">
+                    🔒 Apenas administradores do sistema podem gerar o QR Code de acesso.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -593,11 +622,47 @@ function App() {
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-usuario' && <UsuariosModule loggedUser={loggedUser} />}
+        {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
         {activeTab === 'agenda' && <TelaProvisoria titulo="Agenda" />}
         {activeTab === 'financeiro' && <TelaProvisoria titulo="Financeiro" />}
       </main>
+
+      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" */}
+      {isMobileModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">Painel Mobile & Atalhos</h3>
+                <p className="text-xs text-slate-500">Opções rápidas para dispositivos móveis</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileModalOpen(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <a
+                href="#cadastro"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl transition shadow"
+              >
+                🔗 Abrir Tela de Cadastro Público (Nova Guia)
+              </a>
+
+              <p className="text-xs text-slate-500 leading-relaxed pt-2">
+                Este atalho abre a interface externa de cadastro de membros/visitantes otimizada para celulares e tablets, ideal para uso em eventos com o QR Code.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

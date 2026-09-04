@@ -42,10 +42,11 @@ interface Celula {
 
 interface CelulasModuleProps {
   loggedUser: any;
+  subAbaInicial?: 'celulas' | 'setores' | 'redes';
 }
 
-export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
-  const [subAba, setSubAba] = useState<'celulas' | 'setores' | 'redes'>('celulas');
+export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }: CelulasModuleProps) {
+  const [subAba, setSubAba] = useState<'celulas' | 'setores' | 'redes'>(subAbaInicial);
   const [membros, setMembros] = useState<Membro[]>([]);
   const [redes, setRedes] = useState<Rede[]>([]);
   const [setores, setSetores] = useState<Setor[]>([]);
@@ -55,6 +56,11 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+
+  // Atualiza sub-aba quando acionado pelo menu lateral
+  useEffect(() => {
+    setSubAba(subAbaInicial);
+  }, [subAbaInicial]);
 
   // Formulário - Rede
   const [nomeRede, setNomeRede] = useState('');
@@ -130,7 +136,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
     setModalOpen(true);
   };
 
-  // --- REDES ---
+  // REDES
   const salvarRede = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeRede.trim()) return alert('Informe o nome da Rede');
@@ -150,7 +156,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
     carregarDados();
   };
 
-  // --- SETORES ---
+  // SETORES
   const salvarSetor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeSetor.trim()) return alert('Informe o nome do Setor');
@@ -171,7 +177,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
     carregarDados();
   };
 
-  // --- CÉLULAS ---
+  // CÉLULAS
   const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeCelula.trim()) return alert('Informe o nome da Célula');

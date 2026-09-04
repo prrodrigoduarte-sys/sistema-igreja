@@ -23,8 +23,8 @@ interface ContaContabil {
 
 interface ContaFinanceiraAdm {
   id: string;
-  codigo_conta: string; // Ex: Caixa Geral, Conta Bancária
-  nome_conta: string;   // Ex: CAIXA, BANCO SICOOB
+  codigo_conta: string;
+  nome_conta: string;
   agencia?: string;
   numero_conta?: string;
 }
@@ -94,7 +94,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     setError(null);
 
     try {
-      // 1. Lançamentos
       const resLanc = await supabase
         .from('lancamentos_financeiros')
         .select('*')
@@ -103,7 +102,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resLanc.error) setLancamentos(resLanc.data || []);
 
-      // 2. Plano de Contas Contábil
       const resPlano = await supabase
         .from('plano_contas_contabil')
         .select('*')
@@ -112,7 +110,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resPlano.error) setContasContabeis(resPlano.data || []);
 
-      // 3. Contas Financeiras Administrativas (tabela 'contas_financeiras')
       const resAdm = await supabase
         .from('contas_financeiras')
         .select('*')
@@ -293,8 +290,32 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
       
-      {/* Cabeçalho e Abas */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+      {/* Estilo CSS customizado para Impressão / PDF */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .printable-area, .printable-area * {
+            visibility: visible;
+          }
+          .printable-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            background: white !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      {/* Cabeçalho e Abas (Ocultos na impressão) */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
             Gestão Financeira & Contábil
@@ -304,7 +325,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </p>
         </div>
 
-        {/* ABAS */}
         <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
           <button
             type="button"
@@ -345,8 +365,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       </div>
 
-      {/* BOTÕES DE AÇÃO SUPERIOR */}
-      <div className="flex justify-end">
+      {/* BOTÕES DE AÇÃO SUPERIOR (Ocultos na impressão) */}
+      <div className="flex justify-end no-print">
         {subAba === 'lancamentos' && (
           <button
             type="button"
@@ -591,10 +611,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: RELATÓRIOS */}
+      {/* CONTEÚDO DA ABA: RELATÓRIOS (COM BOTÃO DE IMPRESSÃO / PDF) */}
       {!loading && subAba === 'relatorios' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
             <button
               type="button"
               onClick={() => setTipoRelatorio('conta_corrente')}
@@ -633,12 +653,29 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             </button>
           </div>
 
-          <div className="bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
+          {/* ÁREA IMPRESSÍVEL (CONTÉM O RELATÓRIO E O BOTÃO DE IMPRIMIR) */}
+          <div className="printable-area bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
             
+            {/* BOTÃO DE IMPRIMIR / SALVAR PDF */}
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Igreja ID: {codigoIgreja}</span>
+                <p className="text-xs text-slate-500">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="no-print px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-2"
+              >
+                🖨️ Imprimir / Salvar PDF
+              </button>
+            </div>
+
+            {/* RELATÓRIO 1: CONTA CORRENTE */}
             {tipoRelatorio === 'conta_corrente' && (
               <div>
-                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Administrativo: Extrato por Conta Adm</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas administrativas cadastradas.</p>
+                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
+                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas administrativas.</p>
                 
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
@@ -670,9 +707,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
+            {/* RELATÓRIO 2: DIÁRIO */}
             {tipoRelatorio === 'diario' && (
               <div>
-                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Contábil: Livro Diário</h3>
+                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
                 <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
                 
                 <div className="overflow-x-auto bg-white rounded-xl border">
@@ -700,9 +738,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
+            {/* RELATÓRIO 3: BALANCETE */}
             {tipoRelatorio === 'balancete' && (
               <div>
-                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Contábil: Balancete de Verificação</h3>
+                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
                 <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
                 
                 <div className="overflow-x-auto bg-white rounded-xl border">
@@ -730,6 +769,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
+            {/* RELATÓRIO 4: DRE */}
             {tipoRelatorio === 'dre' && (
               <div className="space-y-4">
                 <div>

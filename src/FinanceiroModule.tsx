@@ -18,6 +18,7 @@ interface ContaContabil {
   codigo_conta: string;
   nome_conta: string;
   tipo_natureza: string;
+  conta_pai?: string;
 }
 
 interface ContaCorrente {
@@ -63,6 +64,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   // Modais Plano de Contas
   const [contasPlano, setContasPlano] = useState<ContaContabil[]>([]);
   const [showModalConta, setShowModalConta] = useState(false);
+  const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
   const [formConta, setFormConta] = useState(formContaInicial);
 
   // Exclusão com senha
@@ -70,7 +72,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta'; nome: string } | null>(null);
   const [senhaExclusao, setSenhaExclusao] = useState('');
 
-  const isAdmin = true; // Forçado para teste livre do admin da igreja
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
 
   const fetchDados = useCallback(async () => {
@@ -148,24 +149,49 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Salvar Conta do Plano de Contas
+  // Salvar ou Atualizar Conta do Plano de Contas (Exige senha na edição para segurança)
   const handleSubmitConta = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
-      const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
-      if (error) throw error;
 
-      alert('Conta cadastrada com sucesso!');
+      if (editingConta) {
+        // Se estiver editando, exige senha de confirmação do admin por segurança
+        const emailUsuario = loggedUser?.usuario || loggedUser?.email;
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: emailUsuario,
+          password: senhaExclusao, // Reutilizamos o campo de senha do modal de edição/exclusão
+        });
+
+        if (authError) {
+          alert('Senha incorreta! A alteração da conta contábil foi cancelada.');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('plano_contas_contabil')
+          .update(payload)
+          .eq('id', editingConta.id);
+
+        if (error) throw error;
+        alert('Conta contábil atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
+        if (error) throw error;
+        alert('Conta cadastrada com sucesso!');
+      }
+
       setShowModalConta(false);
+      setEditingConta(null);
       setFormConta(formContaInicial);
+      setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
       alert('Erro ao salvar conta: ' + err.message);
     }
   };
 
-  // Exclusão Segura
+  // Exclusão Segura por Senha
   const confirmarExclusao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemParaExcluir) return;
@@ -261,7 +287,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <button
             type="button"
             onClick={() => {
+              setEditingConta(null);
               setFormConta(formContaInicial);
+              setSenhaExclusao('');
               setShowModalConta(true);
             }}
             className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
@@ -367,7 +395,24 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           {c.tipo_natureza}
                         </span>
                       </td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingConta(c);
+                            setFormConta({
+                              codigo_conta: c.codigo_conta,
+                              nome_conta: c.nome_conta,
+                              conta_pai: c.conta_pai || '',
+                              tipo_natureza: c.tipo_natureza,
+                            });
+                            setSenhaExclusao('');
+                            setShowModalConta(true);
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Editar
+                        </button>
                         <button
                           type="button"
                           onClick={() => {
@@ -511,11 +556,14 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE PLANO DE CONTAS */}
+      {/* MODAL DE PLANO DE CONTAS (NOVO OU EDIÇÃO COM SENHA) */}
       {showModalConta && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-xl font-black text-blue-900">Nova Conta Contábil</h3>
+            <h3 className="text-xl font-black text-blue-900">
+              {editingConta ? 'Editar Conta Contábil' : 'Nova Conta Contábil'}
+            </h3>
+            
             <form onSubmit={handleSubmitConta} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
@@ -528,6 +576,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   required
                 />
               </div>
+              
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta *</label>
                 <input
@@ -539,6 +588,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   required
                 />
               </div>
+              
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Natureza *</label>
                 <select
@@ -553,9 +603,36 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <option value="Passivo">Passivo</option>
                 </select>
               </div>
+
+              {/* SE ESTIVER EDITANDO, EXIGE SENHA DE CONFIRMAÇÃO DO ADMIN */}
+              {editingConta && (
+                <div className="pt-2 border-t">
+                  <label className="block text-xs font-bold text-rose-700 mb-1">Digite sua Senha de Administrador para Alterar *</label>
+                  <input
+                    type="password"
+                    value={senhaExclusao}
+                    onChange={(e) => setSenhaExclusao(e.target.value)}
+                    placeholder="Sua senha atual"
+                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                    required
+                  />
+                </div>
+              )}
+
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModalConta(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl">Salvar</button>
+                <button
+                  type="button"
+                  onClick={() => { setShowModalConta(false); setEditingConta(null); }}
+                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
+                >
+                  {editingConta ? 'Salvar Alterações' : 'Cadastrar Conta'}
+                </button>
               </div>
             </form>
           </div>
@@ -580,8 +657,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 required
               />
               <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowDeleteModal(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-rose-600 text-white text-sm font-bold rounded-xl">Confirmar Exclusão</button>
+                <button type="button" onClick={() => setShowDeleteModal(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-rose-600 text-white text-sm font-bold rounded-xl cursor-pointer">Confirmar Exclusão</button>
               </div>
             </form>
           </div>

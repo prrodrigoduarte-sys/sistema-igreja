@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 
 interface Membro {
-  id: number;
+  id: any;
   nome_completo: string;
 }
 
@@ -11,7 +11,7 @@ interface Rede {
   id?: string;
   nome: string;
   codigo_igreja: string;
-  lider_id?: number | null;
+  lider_id?: any;
 }
 
 interface Setor {
@@ -19,7 +19,7 @@ interface Setor {
   nome: string;
   codigo_igreja: string;
   rede_id?: string | null;
-  lider_id?: number | null;
+  lider_id?: any;
 }
 
 interface Celula {
@@ -27,9 +27,9 @@ interface Celula {
   codigo_igreja: string;
   nome: string;
   setor_id?: string | null;
-  lider_id?: number | null;
-  vice_id?: number | null;
-  anfitriao_id?: number | null;
+  lider_id?: any;
+  vice_id?: any;
+  anfitriao_id?: any;
   dia_semana?: string;
   horario?: string;
   endereco?: string;
@@ -84,7 +84,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const [cidade, setCidade] = useState('');
   const [cep, setCep] = useState('');
 
-  // Filtros rápidos para pesquisa dentro do formulário
+  // Filtros rápidos
   const [searchLider, setSearchLider] = useState('');
   const [searchVice, setSearchVice] = useState('');
   const [searchAnfitriao, setSearchAnfitriao] = useState('');
@@ -92,49 +92,38 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const carregarDados = useCallback(async () => {
     setLoading(true);
 
+    // Carregar membros aceitando múltiplos nomes de colunas
     try {
-      const resMembros = await supabase
+      const { data, error } = await supabase
         .from('membros')
-        .select('id, nome_completo')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome_completo');
-      if (!resMembros.error) setMembros(resMembros.data || []);
+        .select('*');
+
+      if (!error && data) {
+        // Mapeia o nome independente do nome da coluna na tabela de membros
+        const membrosNormalizados = data.map((m: any) => ({
+          id: m.id,
+          nome_completo: m.nome_completo || m.nome || m.nome_membro || `Membro #${m.id}`
+        }));
+        setMembros(membrosNormalizados);
+      }
     } catch (e) {
-      console.warn('Tabela membros ainda não pronta:', e);
+      console.warn('Erro ao carregar membros:', e);
     }
 
     try {
-      const resRedes = await supabase
-        .from('redes')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome');
+      const resRedes = await supabase.from('redes').select('*').eq('codigo_igreja', codigoIgreja);
       if (!resRedes.error) setRedes(resRedes.data || []);
-    } catch (e) {
-      console.warn('Tabela redes ainda não pronta:', e);
-    }
+    } catch (e) {}
 
     try {
-      const resSetores = await supabase
-        .from('setores')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome');
+      const resSetores = await supabase.from('setores').select('*').eq('codigo_igreja', codigoIgreja);
       if (!resSetores.error) setSetores(resSetores.data || []);
-    } catch (e) {
-      console.warn('Tabela setores ainda não pronta:', e);
-    }
+    } catch (e) {}
 
     try {
-      const resCelulas = await supabase
-        .from('celulas')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome');
+      const resCelulas = await supabase.from('celulas').select('*').eq('codigo_igreja', codigoIgreja);
       if (!resCelulas.error) setCelulas(resCelulas.data || []);
-    } catch (e) {
-      console.warn('Tabela celulas ainda não pronta:', e);
-    }
+    } catch (e) {}
 
     setLoading(false);
   }, [codigoIgreja]);
@@ -179,7 +168,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     const payload = {
       codigo_igreja: codigoIgreja,
       nome: nomeRede.trim(),
-      lider_id: liderRedeId ? Number(liderRedeId) : null,
+      lider_id: liderRedeId || null,
     };
 
     if (editingId) {
@@ -199,7 +188,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
       codigo_igreja: codigoIgreja,
       nome: nomeSetor.trim(),
       rede_id: redeSetorId || null,
-      lider_id: liderSetorId ? Number(liderSetorId) : null,
+      lider_id: liderSetorId || null,
     };
 
     if (editingId) {
@@ -221,9 +210,9 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
       codigo_igreja: codigoIgreja,
       nome: nomeCelula.trim(),
       setor_id: setorCelulaId || null,
-      lider_id: liderCelulaId ? Number(liderCelulaId) : null,
-      vice_id: viceCelulaId ? Number(viceCelulaId) : null,
-      anfitriao_id: anfitriaoCelulaId ? Number(anfitriaoCelulaId) : null,
+      lider_id: liderCelulaId || null,
+      vice_id: viceCelulaId || null,
+      anfitriao_id: anfitriaoCelulaId || null,
       dia_semana: diaSemana,
       horario: horario,
       rua: rua.trim(),
@@ -243,21 +232,20 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     carregarDados();
   };
 
-  const getNomeMembro = (id?: number | null) => {
+  const getNomeMembro = (id?: any) => {
     if (!id) return 'Não atribuído';
-    const m = membros.find((item) => item.id === id);
-    return m ? m.nome_completo : `ID ${id}`;
+    const m = membros.find((item) => String(item.id) === String(id));
+    return m ? m.nome_completo : `Membro #${id}`;
   };
 
-  // Filtros de membros para pesquisa dinâmica nas caixas
   const membrosFiltradosLider = membros.filter((m) =>
-    m.nome_completo.toLowerCase().includes(searchLider.toLowerCase())
+    (m.nome_completo || '').toLowerCase().includes(searchLider.toLowerCase())
   );
   const membrosFiltradosVice = membros.filter((m) =>
-    m.nome_completo.toLowerCase().includes(searchVice.toLowerCase())
+    (m.nome_completo || '').toLowerCase().includes(searchVice.toLowerCase())
   );
   const membrosFiltradosAnfitriao = membros.filter((m) =>
-    m.nome_completo.toLowerCase().includes(searchAnfitriao.toLowerCase())
+    (m.nome_completo || '').toLowerCase().includes(searchAnfitriao.toLowerCase())
   );
 
   return (
@@ -311,7 +299,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
         </button>
       </div>
 
-      {loading && <p className="text-center py-6 text-slate-500">Carregando dados das células...</p>}
+      {loading && <p className="text-center py-6 text-slate-500">Carregando dados...</p>}
 
       {!loading && subAba === 'celulas' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -501,7 +489,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     onChange={(e) => setLiderRedeId(e.target.value)}
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   >
-                    <option value="">Selecione um Membro</option>
+                    <option value="">Selecione um Membro ({membros.length} disponíveis)</option>
                     {membros.map((m) => (
                       <option key={m.id} value={m.id}>{m.nome_completo}</option>
                     ))}
@@ -547,7 +535,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     onChange={(e) => setLiderSetorId(e.target.value)}
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   >
-                    <option value="">Selecione um Membro</option>
+                    <option value="">Selecione um Membro ({membros.length} disponíveis)</option>
                     {membros.map((m) => (
                       <option key={m.id} value={m.id}>{m.nome_completo}</option>
                     ))}
@@ -589,7 +577,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     </select>
                   </div>
 
-                  {/* LÍDER DA CÉLULA COM BUSCA */}
+                  {/* LÍDER DA CÉLULA */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">👑 Líder</label>
                     <input
@@ -604,7 +592,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                       onChange={(e) => setLiderCelulaId(e.target.value)}
                       className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
                     >
-                      <option value="">Selecione o Líder</option>
+                      <option value="">Selecione o Líder ({membros.length} cadastrados)</option>
                       {membrosFiltradosLider.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.nome_completo}
@@ -613,7 +601,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     </select>
                   </div>
 
-                  {/* VICE-LÍDER DA CÉLULA COM BUSCA */}
+                  {/* VICE-LÍDER DA CÉLULA */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🤝 Vice-Líder</label>
                     <input
@@ -628,7 +616,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                       onChange={(e) => setViceCelulaId(e.target.value)}
                       className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
                     >
-                      <option value="">Selecione o Vice-Líder</option>
+                      <option value="">Selecione o Vice-Líder ({membros.length} cadastrados)</option>
                       {membrosFiltradosVice.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.nome_completo}
@@ -637,7 +625,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     </select>
                   </div>
 
-                  {/* ANFITRIÃO DA CÉLULA COM BUSCA */}
+                  {/* ANFITRIÃO DA CÉLULA */}
                   <div className="sm:col-span-2">
                     <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🏠 Anfitrião</label>
                     <input
@@ -652,7 +640,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                       onChange={(e) => setAnfitriaoCelulaId(e.target.value)}
                       className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
                     >
-                      <option value="">Selecione o Anfitrião</option>
+                      <option value="">Selecione o Anfitrião ({membros.length} cadastrados)</option>
                       {membrosFiltradosAnfitriao.map((m) => (
                         <option key={m.id} value={m.id}>
                           {m.nome_completo}

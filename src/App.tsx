@@ -11,7 +11,6 @@ import CadastroPublico from './CadastroPublico';
 import AgendaModule from './AgendaModule';
 import FinanceiroModule from './FinanceiroModule';
 import ControleRegistroModule from './ControleRegistroModule';
-import CelulasModule from './CelulasModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -76,7 +75,6 @@ function App() {
     }
   };
 
-  // Atalho para fechar os modais com ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -119,7 +117,6 @@ function App() {
     };
   }, []);
 
-  // Busca do usuário por e-mail de forma segura
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.email) {
@@ -457,7 +454,7 @@ function App() {
             </div>
           )}
 
-          {/* MÓDULO CÉLULAS */}
+          {/* MÓDULO CÉLULAS (ABAIXO DE CADASTROS) */}
           <button
             type="button"
             onClick={() => selecionarAba('celulas')}
@@ -468,7 +465,6 @@ function App() {
             🏡 Células
           </button>
 
-          {/* AGENDA */}
           <button
             type="button"
             onClick={() => selecionarAba('agenda')}
@@ -479,7 +475,6 @@ function App() {
             📅 Agenda
           </button>
 
-          {/* FINANCEIRO */}
           <button
             type="button"
             onClick={() => selecionarAba('financeiro')}
@@ -490,7 +485,6 @@ function App() {
             💰 Financeiro
           </button>
 
-          {/* PROJETOS */}
           <button
             type="button"
             onClick={() => selecionarAba('projetos')}
@@ -562,7 +556,7 @@ function App() {
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
-        {activeTab === 'celulas' && <CelulasModule loggedUser={loggedUser} />}
+        {activeTab === 'celulas' && <TelaProvisoria titulo="Módulo de Células" />}
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
         {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}
@@ -803,6 +797,15 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
       <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
         <p className="font-medium">Utilize o menu lateral para navegar entre os módulos de Cadastros, Células, Agenda, Financeiro e Projetos.</p>
       </div>
+    </div>
+  );
+}
+
+function TelaProvisoria({ titulo }: { titulo: string }) {
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm">
+      <h2 className="text-3xl font-black text-blue-900">{titulo}</h2>
+      <p className="text-slate-600 mt-2">Esta seção está pronta para receber a implementação do módulo correspondente.</p>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import UsuariosModule from './UsuariosModule';
 import CadastroPublico from './CadastroPublico';
 import AgendaModule from './AgendaModule';
 import FinanceiroModule from './FinanceiroModule';
+import ControleRegistroModule from './ControleRegistroModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -540,6 +541,7 @@ function App() {
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
         {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}
         {activeTab === 'financeiro' && <FinanceiroModule loggedUser={loggedUser} />}
+        {activeTab === 'controle_registro' && <ControleRegistroModule loggedUser={loggedUser} />}
       </main>
 
       {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM 3 OPÇÕES */}

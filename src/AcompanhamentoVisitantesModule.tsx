@@ -29,10 +29,18 @@ interface Props {
 export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
   const [visitantes, setVisitantes] = useState<Visitante[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  
+  // Modais
+  const [modalNovoOpen, setModalNovoOpen] = useState(false);
   const [modalHistoricoOpen, setModalHistoricoOpen] = useState(false);
   const [selectedVisitante, setSelectedVisitante] = useState<Visitante | null>(null);
-  const [listaAcompanhamentos, setListaAcompanhamentos] = useState<Acompanhamento[]>([]);
+  
+  // Estado para o NOVO acompanhamento sendo adicionado
+  const [novoMeio, setNovoMeio] = useState<'WhatsApp' | 'Telefone'>('WhatsApp');
+  const [novoComentario, setNovoComentario] = useState('');
+  
+  // Estado para edição/exclusão do histórico existente
+  const [listaHistorico, setListaHistorico] = useState<Acompanhamento[]>([]);
   const [busca, setBusca] = useState('');
 
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
@@ -84,62 +92,95 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
     carregarVisitantes();
   }, [carregarVisitantes]);
 
-  const abrirModalAcompanhamento = (vis: Visitante) => {
+  // Abrir modal para incluir NOVO contato no histórico existente
+  const abrirModalNovoAcompanhamento = (vis: Visitante) => {
     setSelectedVisitante(vis);
-    setListaAcompanhamentos(vis.acompanhamentos || []);
-    setModalOpen(true);
+    setNovoMeio('WhatsApp');
+    setNovoComentario('');
+    setModalNovoOpen(true);
   };
 
+  // Abrir modal para ver todo o histórico, editar observações antigas ou excluir um item
   const abrirModalHistorico = (vis: Visitante) => {
     setSelectedVisitante(vis);
-    setListaAcompanhamentos(vis.acompanhamentos || []);
+    setListaHistorico(vis.acompanhamentos || []);
     setModalHistoricoOpen(true);
   };
 
-  const adicionarAcompanhamento = () => {
-    if (listaAcompanhamentos.length >= 8) {
+  // Gravar NOVO acompanhamento preservando todos os anteriores
+  const handleSalvarNovoAcompanhamento = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVisitante) return;
+
+    const historicoAtual = selectedVisitante.acompanhamentos || [];
+
+    if (historicoAtual.length >= 8) {
       alert('Limite máximo de 8 acompanhamentos atingido para este visitante.');
       return;
     }
 
-    const novo: Acompanhamento = {
+    if (!novoComentario.trim()) {
+      alert('Por favor, informe um comentário ou observação sobre o contato.');
+      return;
+    }
+
+    const novoItem: Acompanhamento = {
       id: Date.now(),
-      meio: 'WhatsApp',
+      meio: novoMeio,
       data: new Date().toLocaleDateString('pt-BR'),
-      comentario: '',
+      comentario: novoComentario.trim(),
     };
 
-    setListaAcompanhamentos((prev) => [...prev, novo]);
+    // ADICIONA O NOVO AO HISTÓRICO EXISTENTE
+    const historicoAtualizado = [...historicoAtual, novoItem];
+
+    try {
+      const { error } = await supabase
+        .from('members')
+        .update({ acompanhamentos: historicoAtualizado })
+        .eq('id', selectedVisitante.id);
+
+      if (error) throw error;
+
+      alert(' Novo acompanhamento registrado no histórico!');
+      setModalNovoOpen(false);
+      setNovoComentario('');
+      carregarVisitantes();
+    } catch (err: any) {
+      alert('Erro ao salvar acompanhamento: ' + err.message);
+    }
   };
 
-  const atualizarItemAcompanhamento = (id: number, campo: 'meio' | 'comentario', valor: string) => {
-    setListaAcompanhamentos((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, [campo]: valor } : item))
-    );
-  };
-
-  const removerAcompanhamento = (id: number) => {
-    setListaAcompanhamentos((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const salvarAcompanhamentos = async () => {
+  // Salvar edições/exclusões feitas na lista completa de histórico
+  const handleSalvarEdicaoHistorico = async () => {
     if (!selectedVisitante) return;
 
     try {
       const { error } = await supabase
         .from('members')
-        .update({ acompanhamentos: listaAcompanhamentos })
+        .update({ acompanhamentos: listaHistorico })
         .eq('id', selectedVisitante.id);
 
       if (error) throw error;
 
-      alert('Acompanhamentos salvos com sucesso!');
-      setModalOpen(false);
+      alert('Histórico atualizado com sucesso!');
       setModalHistoricoOpen(false);
       carregarVisitantes();
     } catch (err: any) {
-      alert('Erro ao salvar acompanhamentos: ' + err.message);
+      alert('Erro ao atualizar histórico: ' + err.message);
     }
+  };
+
+  // Excluir um item específico do histórico na modal de edição
+  const removerItemHistorico = (idItem: number) => {
+    setListaHistorico((prev) => prev.filter((item) => item.id !== idItem));
+  };
+
+  // Editar texto/meio de um item existente no histórico
+  const atualizarItemHistorico = (idItem: number, campo: 'meio' | 'comentario', valor: string) => {
+    setListaHistorico((prev) =>
+      prev.map((item) => (item.id === idItem ? { ...item, [campo]: valor } : item))
+    );
   };
 
   const evoluirParaMembro = async (vis: Visitante) => {
@@ -236,7 +277,7 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
 
                     <div className="pt-2 border-t flex justify-between items-center text-xs">
                       <span className="font-bold text-indigo-900">
-                        📞 Acompanhamentos:
+                        📞 Histórico Registrado:
                       </span>
                       <span className={`font-black text-xs px-2 py-0.5 rounded-lg ${
                         qtd >= 8 ? 'bg-rose-100 text-rose-700' : 'bg-slate-200 text-slate-700'
@@ -249,10 +290,10 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
                   <div className="space-y-2 pt-3 border-t">
                     <button
                       type="button"
-                      onClick={() => abrirModalAcompanhamento(v)}
+                      onClick={() => abrirModalNovoAcompanhamento(v)}
                       className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
                     >
-                      ➕ Novo Acompanhamento ({qtd}/8)
+                      ➕ Registrar Novo Contato ({qtd}/8)
                     </button>
 
                     <button
@@ -260,7 +301,7 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
                       onClick={() => abrirModalHistorico(v)}
                       className="w-full py-2 bg-slate-700 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
                     >
-                      📋 Lista / Editar Acompanhamentos ({qtd})
+                      📋 Ver Histórico / Editar ({qtd})
                     </button>
 
                     <div className="flex gap-2 pt-1">
@@ -289,118 +330,78 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL NOVO ACOMPANHAMENTO */}
-      {modalOpen && selectedVisitante && (
+      {/* MODAL 1: REGISTRAR NOVO CONTATO (ADICIONA AO HISTÓRICO) */}
+      {modalNovoOpen && selectedVisitante && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8">
             <div className="flex justify-between items-center border-b pb-4">
               <div>
-                <h3 className="text-xl font-black text-blue-900">Registrar Acompanhamento</h3>
-                <p className="text-xs text-slate-500">{selectedVisitante.nome_completo}</p>
+                <h3 className="text-xl font-black text-blue-900">Adicionar Acompanhamento</h3>
+                <p className="text-xs text-slate-500">Novo contato para {selectedVisitante.nome_completo}</p>
               </div>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={() => setModalNovoOpen(false)}
                 className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
               >
                 ✕ Fechar
               </button>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-bold text-slate-700">
-                {listaAcompanhamentos.length} de 8 acompanhamentos
-              </span>
-
-              <button
-                type="button"
-                onClick={adicionarAcompanhamento}
-                disabled={listaAcompanhamentos.length >= 8}
-                className="px-3 py-2 bg-indigo-900 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl transition shadow cursor-pointer disabled:opacity-40"
-              >
-                ➕ Adicionar Contato
-              </button>
-            </div>
-
-            {listaAcompanhamentos.length === 0 ? (
-              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-6 text-center text-xs text-slate-500">
-                Nenhum acompanhamento registrado. Clique no botão acima para registrar.
+            <form onSubmit={handleSalvarNovoAcompanhamento} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Meio de Comunicação
+                </label>
+                <select
+                  value={novoMeio}
+                  onChange={(e) => setNovoMeio(e.target.value as any)}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs bg-white font-medium"
+                >
+                  <option value="WhatsApp">💬 WhatsApp</option>
+                  <option value="Telefone">📞 Ligação Telefônica</option>
+                </select>
               </div>
-            ) : (
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                {listaAcompanhamentos.map((item, idx) => (
-                  <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 relative">
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <span className="font-bold text-xs text-blue-900">
-                        #{idx + 1} - Contato em {item.data}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removerAcompanhamento(item.id)}
-                        className="text-rose-600 hover:text-rose-800 font-bold text-xs cursor-pointer"
-                      >
-                        ✕ Remover
-                      </button>
-                    </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                          Meio
-                        </label>
-                        <select
-                          value={item.meio}
-                          onChange={(e) =>
-                            atualizarItemAcompanhamento(item.id, 'meio', e.target.value as any)
-                          }
-                          className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white font-medium"
-                        >
-                          <option value="WhatsApp">💬 WhatsApp</option>
-                          <option value="Telefone">📞 Telefone</option>
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">
-                          Comentário / Observação
-                        </label>
-                        <input
-                          type="text"
-                          value={item.comentario}
-                          onChange={(e) =>
-                            atualizarItemAcompanhamento(item.id, 'comentario', e.target.value)
-                          }
-                          placeholder="Ex: Gostou do culto, pediu oração pela família."
-                          className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-600"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  Observações / Resumo da Conversa *
+                </label>
+                <textarea
+                  rows={3}
+                  value={novoComentario}
+                  onChange={(e) => setNovoComentario(e.target.value)}
+                  placeholder="Ex: Liguei para confirmar se viria ao culto de domingo. Pediu oração pela família."
+                  className="w-full border border-slate-300 rounded-xl p-3 text-xs bg-white outline-none focus:ring-2 focus:ring-blue-600"
+                  required
+                />
               </div>
-            )}
 
-            <div className="border-t pt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={salvarAcompanhamentos}
-                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
-              >
-                💾 Salvar Alterações
-              </button>
-            </div>
+              <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-[11px] text-blue-900 font-medium">
+                💡 Este novo registro será adicionado com a data de hoje ao histórico do visitante.
+              </div>
+
+              <div className="border-t pt-4 flex gap-2">
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
+                >
+                  ➕ Salvar Novo Contato
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
 
-      {/* MODAL HISTÓRICO, EDIÇÃO E EXCLUSÃO DE ACOMPANHAMENTOS */}
+      {/* MODAL 2: VER TODO O HISTÓRICO / EDITAR OU EXCLUIR REGISTROS ANTIGOS */}
       {modalHistoricoOpen && selectedVisitante && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8">
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <h3 className="text-xl font-black text-blue-900">Histórico de Acompanhamentos</h3>
-                <p className="text-xs text-slate-500">Edite ou exclua contatos gravados de {selectedVisitante.nome_completo}</p>
+                <p className="text-xs text-slate-500">Visualização e edição do histórico de {selectedVisitante.nome_completo}</p>
               </div>
               <button
                 type="button"
@@ -411,13 +412,13 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
               </button>
             </div>
 
-            {listaAcompanhamentos.length === 0 ? (
+            {listaHistorico.length === 0 ? (
               <div className="bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-8 text-center text-xs text-slate-500">
-                Nenhum histórico de acompanhamento cadastrado para este visitante.
+                Nenhum acompanhamento registrado para este visitante até o momento.
               </div>
             ) : (
               <div className="space-y-4 max-h-96 overflow-y-auto pr-1">
-                {listaAcompanhamentos.map((item, idx) => (
+                {listaHistorico.map((item, idx) => (
                   <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
                     <div className="flex justify-between items-center border-b pb-2">
                       <span className="font-bold text-xs text-blue-900">
@@ -425,10 +426,10 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
                       </span>
                       <button
                         type="button"
-                        onClick={() => removerAcompanhamento(item.id)}
+                        onClick={() => removerItemHistorico(item.id)}
                         className="px-2 py-1 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold text-[10px] rounded-lg cursor-pointer"
                       >
-                        🗑️ Excluir Item
+                        🗑️ Excluir Este Registro
                       </button>
                     </div>
 
@@ -440,7 +441,7 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
                         <select
                           value={item.meio}
                           onChange={(e) =>
-                            atualizarItemAcompanhamento(item.id, 'meio', e.target.value as any)
+                            atualizarItemHistorico(item.id, 'meio', e.target.value as any)
                           }
                           className="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs bg-white font-medium"
                         >
@@ -457,7 +458,7 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
                           type="text"
                           value={item.comentario}
                           onChange={(e) =>
-                            atualizarItemAcompanhamento(item.id, 'comentario', e.target.value)
+                            atualizarItemHistorico(item.id, 'comentario', e.target.value)
                           }
                           className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs bg-white outline-none focus:ring-1 focus:ring-blue-600"
                         />
@@ -471,10 +472,10 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
             <div className="border-t pt-4 flex gap-2">
               <button
                 type="button"
-                onClick={salvarAcompanhamentos}
+                onClick={handleSalvarEdicaoHistorico}
                 className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
               >
-                💾 Salvar Alterações do Histórico
+                💾 Salvar Alterações no Histórico
               </button>
             </div>
           </div>

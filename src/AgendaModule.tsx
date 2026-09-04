@@ -17,6 +17,11 @@ interface Compromisso {
   dono_tipo: string;
 }
 
+interface Membro {
+  id: string;
+  nome_completo: string;
+}
+
 interface AgendaModuleProps {
   loggedUser: any;
 }
@@ -34,6 +39,7 @@ const formInicial = {
 
 export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
   const [compromissos, setCompromissos] = useState<Compromisso[]>([]);
+  const [membrosIgreja, setMembrosIgreja] = useState<Membro[]>([]);
   const [filtroData, setFiltroData] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,10 +94,28 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     }
   }, [codigoIgreja, filtroData]);
 
+  // Buscar lista de membros da igreja para preencher o select de responsáveis
+  const fetchMembros = useCallback(async () => {
+    if (!codigoIgreja) return;
+    try {
+      const { data, error } = await supabase
+        .from('membros')
+        .select('id, nome_completo')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome_completo', { ascending: true });
+
+      if (error) throw error;
+      setMembrosIgreja(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar membros para responsáveis:', err);
+    }
+  }, [codigoIgreja]);
+
   useEffect(() => {
     if (!loggedUser || !codigoIgreja) return;
     fetchCompromissos();
-  }, [loggedUser, codigoIgreja, fetchCompromissos]);
+    fetchMembros();
+  }, [loggedUser, codigoIgreja, fetchCompromissos, fetchMembros]);
 
   const handleOpenNew = () => {
     if (!isAdmin) {
@@ -530,27 +554,35 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Responsável</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Responsável *</label>
+                  <select
                     value={formCompromisso.responsavel}
                     onChange={(e) => handleChange('responsavel', e.target.value)}
-                    placeholder="Ex: Pr. João, Diaconato"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+                    required
+                  >
+                    <option value="">Selecione um membro...</option>
+                    {membrosIgreja.map((m) => (
+                      <option key={m.id} value={m.nome_completo}>
+                        {m.nome_completo}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Status do Evento</label>
-                <select
-                  value={formCompromisso.status}
-                  onChange={(e) => handleChange('status', e.target.value)}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
-                >
-                  <option value="pendente">🔴 Pendente</option>
-                  <option value="realizado">🟢 Realizado</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Status do Evento</label>
+                  <select
+                    value={formCompromisso.status}
+                    onChange={(e) => handleChange('status', e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+                  >
+                    <option value="pendente">🔴 Pendente</option>
+                    <option value="realizado">🟢 Realizado</option>
+                  </select>
+                </div>
               </div>
 
               <div>

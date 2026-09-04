@@ -530,22 +530,8 @@ function App() {
         </div>
       </aside>
 
-      <main className="flex-1 p-8 overflow-y-auto">
-        {activeTab === 'dashboard' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-6">
-            <div>
-              <h2 className="text-3xl font-black text-blue-900">Dashboard</h2>
-              <p className="text-slate-600 mt-1">
-                Seja bem-vindo ao sistema! Igreja: <span className="font-bold text-blue-900">{loggedUser.codigo_igreja}</span> | Usuário: <span className="font-bold text-blue-900">{loggedUser.nome_usuario}</span>
-              </p>
-            </div>
-
-            <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
-              <p className="font-medium">Utilize o menu lateral para navegar entre os módulos de Cadastros, Agenda, Financeiro e Projetos.</p>
-            </div>
-          </div>
-        )}
-
+      <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
+        {activeTab === 'dashboard' && <DashboardHome loggedUser={loggedUser} />}
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
@@ -666,6 +652,132 @@ function App() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function DashboardHome({ loggedUser }: { loggedUser: any }) {
+  const [modoAniversariantes, setModoAniversariantes] = useState<'dia' | 'mes'>('dia');
+  const [aniversariantes, setAniversariantes] = useState<any[]>([]);
+  const [loadingAniversariantes, setLoadingAniversariantes] = useState(false);
+
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja;
+
+  useEffect(() => {
+    if (!codigoIgreja) return;
+
+    const carregarAniversariantes = async () => {
+      setLoadingAniversariantes(true);
+      try {
+        const { data, error } = await supabase
+          .from('membros')
+          .select('id, nome_completo, data_nascimento, telefone')
+          .eq('codigo_igreja', codigoIgreja);
+
+        if (error) throw error;
+
+        if (data) {
+          const hoje = new Date();
+          const mesAtual = hoje.getMonth() + 1;
+          const diaAtual = hoje.getDate();
+
+          const filtrados = data.filter((membro) => {
+            if (!membro.data_nascimento) return false;
+            const partes = membro.data_nascimento.split('-');
+            if (partes.length < 3) return false;
+
+            const mesNasc = parseInt(partes[1], 10);
+            const diaNasc = parseInt(partes[2], 10);
+
+            if (modoAniversariantes === 'dia') {
+              return mesNasc === mesAtual && diaNasc === diaAtual;
+            } else {
+              return mesNasc === mesAtual;
+            }
+          });
+
+          if (modoAniversariantes === 'mes') {
+            filtrados.sort((a, b) => {
+              const diaA = parseInt(a.data_nascimento.split('-')[2], 10);
+              const diaB = parseInt(b.data_nascimento.split('-')[2], 10);
+              return diaA - diaB;
+            });
+          }
+
+          setAniversariantes(filtrados);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar aniversariantes:', err);
+      } finally {
+        setLoadingAniversariantes(false);
+      }
+    };
+
+    carregarAniversariantes();
+  }, [codigoIgreja, modoAniversariantes]);
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-6">
+      <div>
+        <h2 className="text-3xl font-black text-blue-900">Dashboard</h2>
+        <p className="text-slate-600 mt-1">
+          Seja bem-vindo ao sistema! Igreja: <span className="font-bold text-blue-900">{loggedUser.codigo_igreja}</span> | Usuário: <span className="font-bold text-blue-900">{loggedUser.nome_usuario}</span>
+        </p>
+      </div>
+
+      {/* CARD DE ANIVERSARIANTES */}
+      <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
+          <div>
+            <h3 className="text-lg font-black tracking-wide flex items-center gap-2">
+              🎂 Aniversariantes {modoAniversariantes === 'dia' ? 'de Hoje' : 'do Mês'}
+            </h3>
+            <p className="text-xs text-blue-200">
+              {modoAniversariantes === 'dia' ? 'Membros que sopram as velinhas hoje!' : 'Todos os aniversariantes deste mês.'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setModoAniversariantes(modoAniversariantes === 'dia' ? 'mes' : 'dia')}
+            className="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition shadow cursor-pointer border border-blue-500/50"
+          >
+            {modoAniversariantes === 'dia' ? '📅 Ver Aniversariantes do Mês' : '⭐ Ver Aniversariantes de Hoje'}
+          </button>
+        </div>
+
+        {loadingAniversariantes ? (
+          <p className="text-xs text-blue-200 py-4 text-center">Buscando aniversariantes...</p>
+        ) : aniversariantes.length === 0 ? (
+          <div className="bg-blue-950/40 p-4 rounded-xl border border-blue-800/50 text-center">
+            <p className="text-sm text-blue-200">
+              Nenhum aniversariante encontrado {modoAniversariantes === 'dia' ? 'para hoje' : 'neste mês'}.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {aniversariantes.map((m) => {
+              const partes = m.data_nascimento.split('-');
+              const dataFormatada = `${partes[2]}/${partes[1]}`;
+              return (
+                <div key={m.id} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-sm text-white truncate max-w-[180px]">{m.nome_completo}</p>
+                    <p className="text-xs text-blue-200">📞 {m.telefone || 'Sem telefone'}</p>
+                  </div>
+                  <span className="bg-blue-500/30 text-blue-100 font-black text-xs px-2.5 py-1 rounded-lg border border-blue-400/30">
+                    {dataFormatada}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
+        <p className="font-medium">Utilize o menu lateral para navegar entre os módulos de Cadastros, Agenda, Financeiro e Projetos.</p>
+      </div>
     </div>
   );
 }

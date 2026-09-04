@@ -48,7 +48,8 @@ const formContaInicial = {
 };
 
 export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
-  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas'>('lancamentos');
+  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas' | 'relatorios'>('lancamentos');
+  const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre'>('conta_corrente');
 
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
@@ -80,7 +81,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     setError(null);
 
     try {
-      // 1. Lançamentos
       const resLanc = await supabase
         .from('lancamentos_financeiros')
         .select('*')
@@ -89,7 +89,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resLanc.error) setLancamentos(resLanc.data || []);
 
-      // 2. Plano de Contas
       const resPlano = await supabase
         .from('plano_contas_contabil')
         .select('*')
@@ -101,7 +100,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         setContasPlano(resPlano.data || []);
       }
 
-      // 3. Contas Correntes
       const resCc = await supabase
         .from('contas_correntes')
         .select('*')
@@ -123,7 +121,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     fetchDados();
   }, [loggedUser, fetchDados]);
 
-  // Salvar Lançamento
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -149,22 +146,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Salvar ou Atualizar Conta do Plano de Contas (Exige senha na edição para segurança)
   const handleSubmitConta = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
 
       if (editingConta) {
-        // Se estiver editando, exige senha de confirmação do admin por segurança
         const emailUsuario = loggedUser?.usuario || loggedUser?.email;
         const { error: authError } = await supabase.auth.signInWithPassword({
           email: emailUsuario,
-          password: senhaExclusao, // Reutilizamos o campo de senha do modal de edição/exclusão
+          password: senhaExclusao,
         });
 
         if (authError) {
-          alert('Senha incorreta! A alteração da conta contábil foi cancelada.');
+          alert('Senha incorreta! A alteração foi cancelada.');
           return;
         }
 
@@ -191,7 +186,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Exclusão Segura por Senha
   const confirmarExclusao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemParaExcluir) return;
@@ -232,6 +226,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return cc ? cc.nome_conta_corrente : 'Caixa Geral / Dinheiro';
   };
 
+  // CÁLCULOS PARA OS RELATÓRIOS
+  // 1. DRE: Agrupa por conta contábil e separa Receitas e Despesas
+  const dadosDRE = contasContabeis.map((conta) => {
+    const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
+    const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    return { ...conta, total };
+  }).filter((c) => c.total > 0);
+
+  const totalReceitas = dadosDRE.filter((c) => c.tipo_natureza === 'Receita').reduce((a, b) => a + b.total, 0);
+  const totalDespesas = dadosDRE.filter((c) => c.tipo_natureza === 'Despesas' || c.tipo_natureza === 'Despesa').reduce((a, b) => a + b.total, 0);
+  const resultadoLiquido = totalReceitas - totalDespesas;
+
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
       
@@ -246,11 +252,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
+        {/* ABAS RECUADAS MAIS À ESQUERDA */}
+        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
           <button
             type="button"
             onClick={() => setSubAba('lancamentos')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
               subAba === 'lancamentos' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -259,16 +266,25 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <button
             type="button"
             onClick={() => setSubAba('plano_contas')}
-            className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
               subAba === 'plano_contas' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             📊 Plano de Contas
           </button>
+          <button
+            type="button"
+            onClick={() => setSubAba('relatorios')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              subAba === 'relatorios' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            📈 Relatórios
+          </button>
         </div>
       </div>
 
-      {/* BOTÕES DE AÇÃO */}
+      {/* BOTÕES DE AÇÃO NAS ABAS NORMAIS */}
       <div className="flex justify-end">
         {subAba === 'lancamentos' && (
           <button
@@ -302,7 +318,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {loading && <p className="text-center py-6 text-slate-500">Carregando dados financeiros...</p>}
       {error && <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">{error}</div>}
 
-      {/* TABELA DE LANÇAMENTOS */}
+      {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
       {!loading && subAba === 'lancamentos' && (
         <>
           {lancamentos.length === 0 ? (
@@ -367,7 +383,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* TABELA DE PLANO DE CONTAS */}
+      {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
       {!loading && subAba === 'plano_contas' && (
         <>
           {contasPlano.length === 0 ? (
@@ -432,6 +448,183 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             </div>
           )}
         </>
+      )}
+
+      {/* CONTEÚDO DA ABA: RELATÓRIOS (COM OS 4 TIPOS SOLICITADOS) */}
+      {!loading && subAba === 'relatorios' && (
+        <div className="space-y-6">
+          {/* SELETOR DOS 4 RELATÓRIOS */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border">
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('conta_corrente')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'conta_corrente' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              1) Conta Corrente
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('diario')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'diario' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              2) Diário
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('balancete')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'balancete' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              3) Balancete
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('dre')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'dre' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              4) DRE
+            </button>
+          </div>
+
+          {/* CAIXA DO RELATÓRIO SELECIONADO */}
+          <div className="bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
+            
+            {/* RELATÓRIO 1: CONTA CORRENTE */}
+            {tipoRelatorio === 'conta_corrente' && (
+              <div>
+                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Administrativo: Extrato de Conta Corrente / Caixa</h3>
+                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas bancárias.</p>
+                
+                <div className="overflow-x-auto bg-white rounded-xl border">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Conta / Banco</th>
+                        <th className="p-3">Histórico</th>
+                        <th className="p-3 text-right">Entrada</th>
+                        <th className="p-3 text-right">Saída</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {lancamentos.map((l) => {
+                        const isReceita = l.tipo === 'receita';
+                        return (
+                          <tr key={l.id}>
+                            <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                            <td className="p-3 font-semibold text-slate-800">{getNomeContaCorrente(l.conta_corrente_id)}</td>
+                            <td className="p-3 text-slate-600">{l.descricao}</td>
+                            <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
+                            <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RELATÓRIO 2: DIÁRIO */}
+            {tipoRelatorio === 'diario' && (
+              <div>
+                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Contábil: Livro Diário</h3>
+                <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
+                
+                <div className="overflow-x-auto bg-white rounded-xl border">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Descrição da Operação</th>
+                        <th className="p-3">Conta Contábil Vinculada</th>
+                        <th className="p-3 text-right">Valor (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {lancamentos.map((l) => (
+                        <tr key={l.id}>
+                          <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                          <td className="p-3 font-medium text-slate-800">{l.descricao}</td>
+                          <td className="p-3 text-blue-900 font-semibold">{getNomeContaContabil(l.id_conta_contabil)}</td>
+                          <td className="p-3 text-right font-black">R$ {Number(l.valor).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RELATÓRIO 3: BALANCETE */}
+            {tipoRelatorio === 'balancete' && (
+              <div>
+                <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Contábil: Balancete de Verificação</h3>
+                <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
+                
+                <div className="overflow-x-auto bg-white rounded-xl border">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                        <th className="p-3">Código</th>
+                        <th className="p-3">Nome da Conta</th>
+                        <th className="p-3">Natureza</th>
+                        <th className="p-3 text-right">Saldo Movimentado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {dadosDRE.map((c) => (
+                        <tr key={c.id}>
+                          <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
+                          <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
+                          <td className="p-3">{c.tipo_natureza}</td>
+                          <td className="p-3 text-right font-black text-slate-800">R$ {c.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RELATÓRIO 4: DRE */}
+            {tipoRelatorio === 'dre' && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-black text-blue-900 text-lg">Demonstração do Resultado do Exercício (DRE)</h3>
+                  <p className="text-xs text-slate-500">Resumo oficial de receitas, despesas e superávit/déficit do período.</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border p-6 space-y-4 shadow-sm">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-bold text-emerald-800 text-sm">🟢 Total de Receitas</span>
+                    <span className="font-black text-emerald-700 text-base">R$ {totalReceitas.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-bold text-rose-800 text-sm">🔴 Total de Despesas</span>
+                    <span className="font-black text-rose-700 text-base">R$ {totalDespesas.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-black text-blue-900 text-base"> Resultado Líquido (Superávit / Déficit):</span>
+                    <span className={`font-black text-lg ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      R$ {resultadoLiquido.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
       )}
 
       {/* MODAL DE NOVO LANÇAMENTO */}
@@ -501,7 +694,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 />
               </div>
 
-              {/* CONTA CORRENTE */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                   🏦 Conta Corrente / Caixa (Admin)
@@ -518,7 +710,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* PLANO DE CONTAS */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                   📊 Conta do Plano de Contas (Contábil / DRE) *
@@ -556,7 +747,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE PLANO DE CONTAS (NOVO OU EDIÇÃO COM SENHA) */}
+      {/* MODAL DE PLANO DE CONTAS */}
       {showModalConta && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
@@ -604,7 +795,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* SE ESTIVER EDITANDO, EXIGE SENHA DE CONFIRMAÇÃO DO ADMIN */}
               {editingConta && (
                 <div className="pt-2 border-t">
                   <label className="block text-xs font-bold text-rose-700 mb-1">Digite sua Senha de Administrador para Alterar *</label>

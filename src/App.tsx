@@ -52,7 +52,6 @@ function App() {
       const novaUrlQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkCompleto)}`;
       
       setQrCodeUrlDinamico(novaUrlQr);
-      alert('Novo QR Code temporário gerado com sucesso! Validade: 6 horas.');
     } catch (err: any) {
       console.error('Erro ao gerar QR Code:', err);
       alert('Erro ao gerar QR Code temporário. Verifique se a tabela "tokens_cadastro_temporario" foi criada no Supabase.');
@@ -60,6 +59,17 @@ function App() {
       setGerandoQr(false);
     }
   };
+
+  // Atalho para desfazer/fechar o QR Code ao pressionar ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && qrCodeUrlDinamico) {
+        setQrCodeUrlDinamico('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [qrCodeUrlDinamico]);
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -356,7 +366,10 @@ function App() {
             <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
               <div className="bg-white p-3 rounded-2xl shadow-md border shrink-0 text-center">
                 {qrCodeUrlDinamico ? (
-                  <img src={qrCodeUrlDinamico} alt="QR Code Temporário" className="w-40 h-40 object-contain mx-auto" />
+                  <div className="space-y-2">
+                    <img src={qrCodeUrlDinamico} alt="QR Code Temporário" className="w-40 h-40 object-contain mx-auto" />
+                    <span className="block text-[10px] text-slate-400 font-medium">Pressione ESC para fechar</span>
+                  </div>
                 ) : (
                   <div className="w-40 h-40 flex items-center justify-center text-xs text-slate-400 font-semibold bg-slate-100 rounded-xl p-2 text-center">
                     Clique em gerar QR Code
@@ -405,6 +418,14 @@ function App() {
                       >
                         📥 Baixar Imagem
                       </a>
+
+                      <button
+                        type="button"
+                        onClick={() => setQrCodeUrlDinamico('')}
+                        className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                      >
+                        ✕ Fechar (ESC)
+                      </button>
                     </>
                   )}
                 </div>

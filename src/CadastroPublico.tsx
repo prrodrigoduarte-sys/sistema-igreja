@@ -2,6 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './supabase';
 
+interface Ministerio {
+  id: any;
+  nome: string;
+}
+
 export default function CadastroPublico() {
   const [tokenValido, setTokenValido] = useState<boolean | null>(null);
   const [mensagemErro, setMensagemErro] = useState('');
@@ -23,11 +28,33 @@ export default function CadastroPublico() {
     estado: '',
     endereco: '',
     foto_url: '',
+    ministerio_id: '',
   });
 
+  const [ministerios, setMinisterios] = useState<Ministerio[]>([]);
   const [uploadingFoto, setUploadingFoto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
+
+  // Carregar lista de Ministérios do Supabase
+  useEffect(() => {
+    const carregarMinisterios = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('ministerios')
+          .select('id, nome')
+          .order('nome');
+
+        if (!error && data) {
+          setMinisterios(data);
+        }
+      } catch (err) {
+        console.warn('Erro ao carregar ministérios:', err);
+      }
+    };
+
+    carregarMinisterios();
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -145,6 +172,7 @@ export default function CadastroPublico() {
       const payload = {
         ...form,
         codigo_igreja: 'IGR-001',
+        ministerio_id: form.ministerio_id ? Number(form.ministerio_id) : null,
       };
 
       const { error } = await supabase.from('members').insert([payload]);
@@ -239,6 +267,23 @@ export default function CadastroPublico() {
                 <option value="Visitante">Visitante</option>
                 <option value="Congregado">Congregado</option>
                 <option value="Membro">Membro</option>
+              </select>
+            </div>
+
+            {/* SELEÇÃO DE MINISTÉRIO */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Ministério / Área de Interesse</label>
+              <select
+                value={form.ministerio_id}
+                onChange={(e) => handleChange('ministerio_id', e.target.value)}
+                className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-600 bg-white"
+              >
+                <option value="">Nenhum / Não informado</option>
+                {ministerios.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.nome}
+                  </option>
+                ))}
               </select>
             </div>
 

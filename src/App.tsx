@@ -4,11 +4,17 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';
 import MembrosModule from './MembrosModule';
-import UsuariosModule from './UsuariosModule';
 import FornecedoresModule from './FornecedoresModule';
 import MinisteriosModule from './MinisteriosModule';
+import UsuariosModule from './UsuariosModule';
+import CadastroPublico from './CadastroPublico';
 
 function App() {
+  // Verifica se o usuário acessou a rota pública mobile (#cadastro)
+  const [rotaPublica, setRotaPublica] = useState(
+    window.location.hash === '#cadastro' || window.location.pathname.includes('cadastro')
+  );
+
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<any>(null);
   const [loggedUser, setLoggedUser] = useState<any>(null);
@@ -19,6 +25,15 @@ function App() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+
+  // Monitora mudança de rota na URL (#cadastro)
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRotaPublica(window.location.hash === '#cadastro' || window.location.pathname.includes('cadastro'));
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   useEffect(() => {
     const carregarSessao = async () => {
@@ -46,12 +61,9 @@ function App() {
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.id) {
-        console.log('Nenhuma sessão autenticada encontrada.');
         setLoggedUser(null);
         return;
       }
-
-      console.log('ID do usuário autenticado:', session.user.id);
 
       // Consulta direta na tabela usuarios pelo auth_user_id ou id
       const { data, error } = await supabase
@@ -60,14 +72,10 @@ function App() {
         .or(`auth_user_id.eq.${session.user.id},id.eq.${session.user.id}`)
         .maybeSingle();
 
-      console.log('Usuário retornado pela tabela usuarios:', data);
-      console.log('Erro ao buscar usuário:', error);
-
       if (error || !data) {
-        console.error('Erro ou usuário não encontrado na tabela usuarios:', error);
-        // Fallback para não travar a aplicação caso o registro na tabela usuarios demore a ser criado
+        // Fallback caso o registro na tabela usuarios demore a ser criado
         setLoggedUser({
-          codigo_igreja: 'IGR-001', // Ajuste padrão ou deixe null se preferir
+          codigo_igreja: 'IGR-001',
           nome_usuario: session.user.email,
           ...session.user,
         });
@@ -118,6 +126,11 @@ function App() {
   const selecionarAba = (aba: string) => {
     setActiveTab(aba);
   };
+
+  // Se o usuário acessou o link público mobile, exibe a tela de cadastro externo
+  if (rotaPublica) {
+    return <CadastroPublico />;
+  }
 
   if (loading) {
     return (
@@ -186,7 +199,7 @@ function App() {
           <button
             type="button"
             onClick={() => setIsLogin(!isLogin)}
-            className="w-full mt-5 text-blue-700 font-semibold text-sm hover:underline"
+            className="w-full mt-5 text-blue-700 font-semibold text-sm hover:underline cursor-pointer"
           >
             {isLogin
               ? 'Não tem uma conta? Cadastre-se'
@@ -319,11 +332,20 @@ function App() {
           </button>
         </nav>
 
-        <div className="p-4 border-t border-blue-800">
+        <div className="p-4 border-t border-blue-800 space-y-2">
+          <a
+            href="#cadastro"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full text-center px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition"
+          >
+            🔗 Abrir Link de Cadastro Mobile
+          </a>
+
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full text-left px-4 py-3 rounded-lg text-red-300 hover:bg-blue-800 font-medium transition cursor-pointer"
+            className="w-full text-left px-4 py-2 rounded-lg text-red-300 hover:bg-blue-800 font-medium transition cursor-pointer text-sm"
           >
             Sair
           </button>
@@ -332,19 +354,42 @@ function App() {
 
       <main className="flex-1 p-8 overflow-y-auto">
         {activeTab === 'dashboard' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-4">
             <h2 className="text-3xl font-black text-blue-900">
               Dashboard
             </h2>
 
-            <p className="text-slate-600 mt-2">
-              Bem-vindo ao sistema da igreja. Navegue pelas opções ao lado para gerenciar os dados.
+            <p className="text-slate-600">
+              Bem-vindo ao sistema da igreja. Navegue pelas opções ao lado para gerenciar os cadastros e dados.
             </p>
+
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div>
+                <h4 className="font-bold text-blue-900 text-sm">Link Público de Cadastro Mobile</h4>
+                <p className="text-xs text-slate-600 mt-0.5">Use este link ou gere um QR Code para visitantes se cadastrarem pelo celular.</p>
+              </div>
+              <a
+                href="#cadastro"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow transition shrink-0"
+              >
+                Testar Tela Mobile ↗
+              </a>
+            </div>
           </div>
         )}
 
         {activeTab === 'cadastros-membros' && (
           <MembrosModule loggedUser={loggedUser} />
+        )}
+
+        {activeTab === 'cadastros-fornecedores' && (
+          <FornecedoresModule loggedUser={loggedUser} />
+        )}
+
+        {activeTab === 'cadastros-ministerios' && (
+          <MinisteriosModule loggedUser={loggedUser} />
         )}
 
         {activeTab === 'cadastros-usuario' && (
@@ -359,22 +404,12 @@ function App() {
           <TelaProvisoria titulo="Fornecedores" />
         )}
 
-        {activeTab === 'cadastros-ministerios' && (
-          <TelaProvisoria titulo="Ministérios" />
-        )}
-
         {activeTab === 'agenda' && (
           <TelaProvisoria titulo="Agenda" />
         )}
 
         {activeTab === 'financeiro' && (
           <TelaProvisoria titulo="Financeiro" />
-        )}
-        {activeTab === 'cadastros-fornecedores' && (
-        <FornecedoresModule loggedUser={loggedUser} />
-        )}
-        {activeTab === 'cadastros-ministerios' && (
-        <MinisteriosModule loggedUser={loggedUser} />
         )}
       </main>
     </div>

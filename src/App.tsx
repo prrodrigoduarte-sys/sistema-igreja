@@ -10,9 +10,8 @@ import UsuariosModule from './UsuariosModule';
 import CadastroPublico from './CadastroPublico';
 
 function App() {
-  // Verifica se o usuário acessou a rota pública mobile (#cadastro)
   const [rotaPublica, setRotaPublica] = useState(
-    window.location.hash === '#cadastro' || window.location.pathname.includes('cadastro')
+    window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro')
   );
 
   const [loading, setLoading] = useState(true);
@@ -26,10 +25,45 @@ function App() {
   const [password, setPassword] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  // Monitora mudança de rota na URL (#cadastro)
+  // Estados para o QR Code Temporário de 6 horas
+  const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
+  const [gerandoQr, setGerandoQr] = useState(false);
+
+  const gerarNovoQrCodeTemporario = async () => {
+    if (!loggedUser) return;
+    setGerandoQr(true);
+
+    try {
+      const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
+      const tokenUnico = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const dataExpiracao = new Date(new Date().getTime() + 6 * 60 * 60 * 1000).toISOString();
+
+      const { error } = await supabase.from('tokens_cadastro_temporario').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          token: tokenUnico,
+          expira_em: dataExpiracao,
+        },
+      ]);
+
+      if (error) throw error;
+
+      const linkCompleto = `${window.location.origin}${window.location.pathname}#cadastro?token=${tokenUnico}`;
+      const novaUrlQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkCompleto)}`;
+      
+      setQrCodeUrlDinamico(novaUrlQr);
+      alert('Novo QR Code temporário gerado com sucesso! Validade: 6 horas.');
+    } catch (err: any) {
+      console.error('Erro ao gerar QR Code:', err);
+      alert('Erro ao gerar QR Code temporário. Verifique se a tabela "tokens_cadastro_temporario" foi criada no Supabase.');
+    } finally {
+      setGerandoQr(false);
+    }
+  };
+
   useEffect(() => {
     const handleHashChange = () => {
-      setRotaPublica(window.location.hash === '#cadastro' || window.location.pathname.includes('cadastro'));
+      setRotaPublica(window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro'));
     };
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
@@ -65,7 +99,6 @@ function App() {
         return;
       }
 
-      // Consulta direta na tabela usuarios pelo auth_user_id ou id
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
@@ -73,7 +106,6 @@ function App() {
         .maybeSingle();
 
       if (error || !data) {
-        // Fallback caso o registro na tabela usuarios demore a ser criado
         setLoggedUser({
           codigo_igreja: 'IGR-001',
           nome_usuario: session.user.email,
@@ -90,30 +122,17 @@ function App() {
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      alert(error.message);
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) alert(error.message);
   };
 
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
+    const { error } = await supabase.auth.signUp({ email, password });
     if (error) {
       alert(error.message);
       return;
     }
-
     alert('Verifique seu e-mail para confirmar o cadastro.');
   };
 
@@ -127,7 +146,6 @@ function App() {
     setActiveTab(aba);
   };
 
-  // Se o usuário acessou o link público mobile, exibe a tela de cadastro externo
   if (rotaPublica) {
     return <CadastroPublico />;
   }
@@ -149,20 +167,12 @@ function App() {
           </h2>
 
           <p className="text-center text-slate-600 mt-2 mb-6">
-            {isLogin
-              ? 'Faça login para continuar.'
-              : 'Cadastre-se para acessar o sistema.'}
+            {isLogin ? 'Faça login para continuar.' : 'Cadastre-se para acessar o sistema.'}
           </p>
 
-          <form
-            onSubmit={isLogin ? handleLogin : handleSignUp}
-            className="space-y-4"
-          >
+          <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                E-MAIL
-              </label>
-
+              <label className="block text-xs font-bold text-slate-700 mb-1">E-MAIL</label>
               <input
                 type="email"
                 value={email}
@@ -174,10 +184,7 @@ function App() {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                SENHA
-              </label>
-
+              <label className="block text-xs font-bold text-slate-700 mb-1">SENHA</label>
               <input
                 type="password"
                 value={password}
@@ -201,9 +208,7 @@ function App() {
             onClick={() => setIsLogin(!isLogin)}
             className="w-full mt-5 text-blue-700 font-semibold text-sm hover:underline cursor-pointer"
           >
-            {isLogin
-              ? 'Não tem uma conta? Cadastre-se'
-              : 'Já tem uma conta? Fazer login'}
+            {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Fazer login'}
           </button>
         </div>
       </div>
@@ -215,7 +220,6 @@ function App() {
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
         <div className="p-6 border-b border-blue-800">
           <h1 className="text-2xl font-black">SISTEMA IGREJA</h1>
-
           <p className="text-xs text-blue-200 mt-2 truncate">
             Olá, {loggedUser?.nome_usuario || loggedUser?.email || session.user.email}
           </p>
@@ -226,9 +230,7 @@ function App() {
             type="button"
             onClick={() => selecionarAba('dashboard')}
             className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'dashboard'
-                ? 'bg-blue-700'
-                : 'hover:bg-blue-800'
+              activeTab === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             🏠 Dashboard
@@ -236,13 +238,9 @@ function App() {
 
           <button
             type="button"
-            onClick={() => {
-              setIsCadastrosOpen(!isCadastrosOpen);
-            }}
+            onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('cadastros')
-                ? 'bg-blue-700'
-                : 'hover:bg-blue-800'
+              activeTab.startsWith('cadastros') ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             <span>👥 Cadastros</span>
@@ -255,9 +253,7 @@ function App() {
                 type="button"
                 onClick={() => selecionarAba('cadastros-membros')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-membros'
-                    ? 'bg-blue-600'
-                    : 'hover:bg-blue-700/80'
+                  activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Membros
@@ -267,9 +263,7 @@ function App() {
                 type="button"
                 onClick={() => selecionarAba('cadastros-fornecedores')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-fornecedores'
-                    ? 'bg-blue-600'
-                    : 'hover:bg-blue-700/80'
+                  activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Fornecedores
@@ -279,9 +273,7 @@ function App() {
                 type="button"
                 onClick={() => selecionarAba('cadastros-ministerios')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-ministerios'
-                    ? 'bg-blue-600'
-                    : 'hover:bg-blue-700/80'
+                  activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Ministérios
@@ -291,9 +283,7 @@ function App() {
                 type="button"
                 onClick={() => selecionarAba('cadastros-usuario')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-usuario'
-                    ? 'bg-blue-600'
-                    : 'hover:bg-blue-700/80'
+                  activeTab === 'cadastros-usuario' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Usuários
@@ -339,7 +329,7 @@ function App() {
             rel="noopener noreferrer"
             className="block w-full text-center px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition"
           >
-            🔗 Abrir Link de Cadastro Mobile
+            🔗 Abrir Tela Mobile
           </a>
 
           <button
@@ -354,63 +344,82 @@ function App() {
 
       <main className="flex-1 p-8 overflow-y-auto">
         {activeTab === 'dashboard' && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-4">
-            <h2 className="text-3xl font-black text-blue-900">
-              Dashboard
-            </h2>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-6">
+            <div>
+              <h2 className="text-3xl font-black text-blue-900">Dashboard</h2>
+              <p className="text-slate-600 mt-1">
+                Gerencie o acesso seguro e gere QR Codes temporários com validade de 6 horas para novos cadastros.
+              </p>
+            </div>
 
-            <p className="text-slate-600">
-              Bem-vindo ao sistema da igreja. Navegue pelas opções ao lado para gerenciar os cadastros e dados.
-            </p>
-
-            <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div>
-                <h4 className="font-bold text-blue-900 text-sm">Link Público de Cadastro Mobile</h4>
-                <p className="text-xs text-slate-600 mt-0.5">Use este link ou gere um QR Code para visitantes se cadastrarem pelo celular.</p>
+            {/* Painel do QR Code Dinâmico de 6h */}
+            <div className="bg-slate-50 border border-slate-200 p-6 rounded-2xl flex flex-col sm:flex-row items-center gap-6">
+              <div className="bg-white p-3 rounded-2xl shadow-md border shrink-0 text-center">
+                {qrCodeUrlDinamico ? (
+                  <img src={qrCodeUrlDinamico} alt="QR Code Temporário" className="w-40 h-40 object-contain mx-auto" />
+                ) : (
+                  <div className="w-40 h-40 flex items-center justify-center text-xs text-slate-400 font-semibold bg-slate-100 rounded-xl p-2 text-center">
+                    Clique em gerar QR Code
+                  </div>
+                )}
               </div>
-              <a
-                href="#cadastro"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow transition shrink-0"
-              >
-                Testar Tela Mobile ↗
-              </a>
+
+              <div className="space-y-3 flex-1 text-center sm:text-left w-full">
+                <h4 className="font-bold text-blue-900 text-lg">QR Code Temporário (Validade: 6 Horas)</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Gere um acesso seguro para o evento ou culto. O link expira automaticamente após 6 horas, garantindo que o formulário seja preenchido com segurança.
+                </p>
+                <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
+                  <button
+                    type="button"
+                    onClick={gerarNovoQrCodeTemporario}
+                    disabled={gerandoQr}
+                    className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white text-xs font-bold rounded-xl shadow transition cursor-pointer disabled:opacity-50"
+                  >
+                    {gerandoQr ? 'Gerando...' : '⚡ Gerar Novo QR Code (6h)'}
+                  </button>
+
+                  {qrCodeUrlDinamico && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const urlParams = new URLSearchParams(qrCodeUrlDinamico.split('?')[1]);
+                          const linkReal = urlParams.get('data');
+                          if (linkReal) {
+                            navigator.clipboard.writeText(linkReal);
+                            alert('Link de cadastro copiado para a área de transferência!');
+                          }
+                        }}
+                        className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 text-xs font-bold rounded-xl transition cursor-pointer"
+                      >
+                        📋 Copiar Link
+                      </button>
+
+                      <a
+                        href={qrCodeUrlDinamico}
+                        download="qrcode-temporario.png"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition"
+                      >
+                        📥 Baixar Imagem
+                      </a>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {activeTab === 'cadastros-membros' && (
-          <MembrosModule loggedUser={loggedUser} />
-        )}
-
-        {activeTab === 'cadastros-fornecedores' && (
-          <FornecedoresModule loggedUser={loggedUser} />
-        )}
-
-        {activeTab === 'cadastros-ministerios' && (
-          <MinisteriosModule loggedUser={loggedUser} />
-        )}
-
-        {activeTab === 'cadastros-usuario' && (
-          <UsuariosModule loggedUser={loggedUser} />
-        )}
-
-        {activeTab === 'projetos' && (
-          <ProjetosModule loggedUser={loggedUser} />
-        )}
-
-        {activeTab === 'cadastros-fornecedores' && (
-          <TelaProvisoria titulo="Fornecedores" />
-        )}
-
-        {activeTab === 'agenda' && (
-          <TelaProvisoria titulo="Agenda" />
-        )}
-
-        {activeTab === 'financeiro' && (
-          <TelaProvisoria titulo="Financeiro" />
-        )}
+        {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
+        {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
+        {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
+        {activeTab === 'cadastros-usuario' && <UsuariosModule loggedUser={loggedUser} />}
+        {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
+        {activeTab === 'agenda' && <TelaProvisoria titulo="Agenda" />}
+        {activeTab === 'financeiro' && <TelaProvisoria titulo="Financeiro" />}
       </main>
     </div>
   );
@@ -419,13 +428,8 @@ function App() {
 function TelaProvisoria({ titulo }: { titulo: string }) {
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm">
-      <h2 className="text-3xl font-black text-blue-900">
-        {titulo}
-      </h2>
-
-      <p className="text-slate-600 mt-2">
-        Esta seção está pronta para receber a implementação do módulo correspondente.
-      </p>
+      <h2 className="text-3xl font-black text-blue-900">{titulo}</h2>
+      <p className="text-slate-600 mt-2">Esta seção está pronta para receber a implementação do módulo correspondente.</p>
     </div>
   );
 }

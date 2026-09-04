@@ -7,7 +7,7 @@ interface Compromisso {
   codigo_igreja: string;
   titulo: string;
   descricao: string;
-  data_compromiss: string;
+  data_compromisso: string;
   hora_compromiss: string;
   hora_fim: string;
   local_evento: string;
@@ -23,7 +23,7 @@ interface AgendaModuleProps {
 const formInicial = {
   titulo: '',
   descricao: '',
-  data_compromiss: '',
+  data_compromisso: '',
   hora_compromiss: '',
   hora_fim: '',
   local_evento: '',
@@ -47,9 +47,8 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
   const [senhaExclusao, setSenhaExclusao] = useState('');
   const [formCompromisso, setFormCompromisso] = useState(formInicial);
 
-  const codigoIgreja =
-    loggedUser?.codigo_igreja ||
-    loggedUser?.igrejas?.codigo_igreja;
+  const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja;
 
   const fetchCompromissos = useCallback(async () => {
     if (!codigoIgreja) {
@@ -65,18 +64,16 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
         .from('agenda_compromissos')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
-        .order('data_compromiss', { ascending: true })
+        .order('data_compromisso', { ascending: true })
         .order('hora_compromiss', { ascending: true });
 
       if (filtroData) {
-        query = query.eq('data_compromiss', filtroData);
+        query = query.eq('data_compromisso', filtroData);
       } else {
-        // Traz os compromissos de hoje em diante ou limite recente
         query = query.limit(30);
       }
 
       const { data, error: erroConsulta } = await query;
-
       if (erroConsulta) throw erroConsulta;
 
       setCompromissos(data || []);
@@ -95,17 +92,25 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
   }, [loggedUser, codigoIgreja, fetchCompromissos]);
 
   const handleOpenNew = () => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem cadastrar novos compromissos.');
+      return;
+    }
     setEditingCompromisso(null);
     setFormCompromisso(formInicial);
     setShowModal(true);
   };
 
   const handleOpenEdit = (c: Compromisso) => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem editar compromissos.');
+      return;
+    }
     setEditingCompromisso(c);
     setFormCompromisso({
       titulo: c.titulo || '',
       descricao: c.descricao || '',
-      data_compromiss: c.data_compromiss || '',
+      data_compromisso: c.data_compromisso || '',
       hora_compromiss: c.hora_compromiss || '',
       hora_fim: c.hora_fim || '',
       local_evento: c.local_evento || '',
@@ -129,9 +134,8 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!codigoIgreja) {
-      alert('Erro: Código da igreja não identificado.');
+    if (!isAdmin) {
+      alert('Ação não permitida.');
       return;
     }
 
@@ -169,6 +173,10 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
   };
 
   const handleIniciarExclusao = (id: string, titulo: string) => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem excluir compromissos.');
+      return;
+    }
     setCompromissoParaExcluir({ id, titulo });
     setSenhaExclusao('');
     setShowDeleteModal(true);
@@ -209,14 +217,6 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     }
   };
 
-  if (!loggedUser) {
-    return (
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto">
-        <p className="text-slate-500">Carregando informações da agenda...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
       
@@ -227,17 +227,19 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
             Agenda e Compromissos
           </h2>
           <p className="text-slate-600 mt-1">
-            Gerencie os cultos, reuniões e eventos da instituição ({codigoIgreja}).
+            Gerencie os cultos, reuniões e eventos da instituição ({codigoIgreja}). {!isAdmin && <span className="text-amber-600 font-semibold">(Modo Visualização)</span>}
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleOpenNew}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer shrink-0"
-        >
-          + Novo Compromisso
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={handleOpenNew}
+            className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer shrink-0"
+          >
+            + Novo Compromisso
+          </button>
+        )}
       </div>
 
       {/* Filtro por Data */}
@@ -262,7 +264,11 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
       {/* Listagem */}
       {loading && <p className="text-slate-500 py-4">Carregando compromissos...</p>}
-      {error && <p className="text-red-500 py-4">Erro: {error}</p>}
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm font-semibold">
+          Erro ao carregar dados da tabela: {error}.
+        </div>
+      )}
 
       {!loading && !error && compromissos.length === 0 && (
         <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
@@ -286,7 +292,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
               {compromissos.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50/80 transition">
                   <td className="p-3 whitespace-nowrap font-medium text-slate-700">
-                    {c.data_compromiss ? c.data_compromiss.split('-').reverse().join('/') : '-'}
+                    {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'}
                     <span className="block text-xs text-blue-800 font-bold">
                       {c.hora_compromiss ? c.hora_compromiss.substring(0, 5) : ''}
                       {c.hora_fim ? ` às ${c.hora_fim.substring(0, 5)}` : ''}
@@ -306,20 +312,24 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                     >
                       Ver
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenEdit(c)}
-                      className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleIniciarExclusao(c.id, c.titulo)}
-                      className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                    >
-                      Excluir
-                    </button>
+                    {isAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(c)}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleIniciarExclusao(c.id, c.titulo)}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Excluir
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -329,7 +339,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       )}
 
       {/* MODAL DE CADASTRO / EDIÇÃO */}
-      {showModal && (
+      {showModal && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
@@ -363,8 +373,8 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data *</label>
                   <input
                     type="date"
-                    value={formCompromisso.data_compromiss}
-                    onChange={(e) => handleChange('data_compromiss', e.target.value)}
+                    value={formCompromisso.data_compromisso}
+                    onChange={(e) => handleChange('data_compromisso', e.target.value)}
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                     required
                   />
@@ -448,7 +458,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       )}
 
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO POR SENHA */}
-      {showDeleteModal && compromissoParaExcluir && (
+      {showDeleteModal && compromissoParaExcluir && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-4">
             <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>
@@ -504,7 +514,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
             <div className="grid grid-cols-1 gap-3 text-sm">
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Título</span>{compromissoSelecionado.titulo}</div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Data</span>{compromissoSelecionado.data_compromiss?.split('-').reverse().join('/')}</div>
+                <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Data</span>{compromissoSelecionado.data_compromisso?.split('-').reverse().join('/')}</div>
                 <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Horário</span>{compromissoSelecionado.hora_compromiss?.substring(0,5)} {compromissoSelecionado.hora_fim ? `às ${compromissoSelecionado.hora_fim.substring(0,5)}` : ''}</div>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Local</span>{compromissoSelecionado.local_evento || '-'}</div>

@@ -34,12 +34,10 @@ interface Celula {
   horario?: string;
   endereco?: string;
   rua?: string;
-  logradouro?: string;
-  cep?: string;
   numero?: string;
   bairro?: string;
   cidade?: string;
-  participantes?: any[];
+  cep?: string;
 }
 
 interface CelulasModuleProps {
@@ -47,7 +45,7 @@ interface CelulasModuleProps {
 }
 
 export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
-  const [subAba, setSubAba] = useState<'celulas' | 'redes' | 'setores'>('celulas');
+  const [subAba, setSubAba] = useState<'celulas' | 'setores' | 'redes'>('celulas');
   const [membros, setMembros] = useState<Membro[]>([]);
   const [redes, setRedes] = useState<Rede[]>([]);
   const [setores, setSetores] = useState<Setor[]>([]);
@@ -58,21 +56,21 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
 
-  // --- ESTADOS DE FORMULÁRIO REDE ---
+  // Formulário - Rede
   const [nomeRede, setNomeRede] = useState('');
-  const [liderRedeId, setLiderRedeId] = useState<string>('');
+  const [liderRedeId, setLiderRedeId] = useState('');
 
-  // --- ESTADOS DE FORMULÁRIO SETOR ---
+  // Formulário - Setor
   const [nomeSetor, setNomeSetor] = useState('');
-  const [redeSetorId, setRedeSetorId] = useState<string>('');
-  const [liderSetorId, setLiderSetorId] = useState<string>('');
+  const [redeSetorId, setRedeSetorId] = useState('');
+  const [liderSetorId, setLiderSetorId] = useState('');
 
-  // --- ESTADOS DE FORMULÁRIO CÉLULA ---
+  // Formulário - Célula
   const [nomeCelula, setNomeCelula] = useState('');
-  const [setorCelulaId, setSetorCelulaId] = useState<string>('');
-  const [liderCelulaId, setLiderCelulaId] = useState<string>('');
-  const [viceCelulaId, setViceCelulaId] = useState<string>('');
-  const [anfitriaoCelulaId, setAnfitriaoCelulaId] = useState<string>('');
+  const [setorCelulaId, setSetorCelulaId] = useState('');
+  const [liderCelulaId, setLiderCelulaId] = useState('');
+  const [viceCelulaId, setViceCelulaId] = useState('');
+  const [anfitriaoCelulaId, setAnfitriaoCelulaId] = useState('');
   const [diaSemana, setDiaSemana] = useState('Quarta-feira');
   const [horario, setHorario] = useState('19:30');
   const [rua, setRua] = useState('');
@@ -81,43 +79,22 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
   const [cidade, setCidade] = useState('');
   const [cep, setCep] = useState('');
 
-  // Carregar Dados do Banco
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Membros
-      const { data: dataMembros } = await supabase
-        .from('membros')
-        .select('id, nome_completo')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome_completo', { ascending: true });
-      setMembros(dataMembros || []);
+      const [resMembros, resRedes, resSetores, resCelulas] = await Promise.all([
+        supabase.from('membros').select('id, nome_completo').eq('codigo_igreja', codigoIgreja).order('nome_completo'),
+        supabase.from('redes').select('*').eq('codigo_igreja', codigoIgreja).order('nome'),
+        supabase.from('setores').select('*').eq('codigo_igreja', codigoIgreja).order('nome'),
+        supabase.from('celulas').select('*').eq('codigo_igreja', codigoIgreja).order('nome')
+      ]);
 
-      // 2. Redes
-      const { data: dataRedes } = await supabase
-        .from('redes')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome', { ascending: true });
-      setRedes(dataRedes || []);
-
-      // 3. Setores
-      const { data: dataSetores } = await supabase
-        .from('setores')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome', { ascending: true });
-      setSetores(dataSetores || []);
-
-      // 4. Células
-      const { data: dataCelulas } = await supabase
-        .from('celulas')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome', { ascending: true });
-      setCelulas(dataCelulas || []);
+      setMembros(resMembros.data || []);
+      setRedes(resRedes.data || []);
+      setSetores(resSetores.data || []);
+      setCelulas(resCelulas.data || []);
     } catch (err) {
-      console.error('Erro ao carregar dados:', err);
+      console.error('Erro ao buscar dados do módulo de células:', err);
     } finally {
       setLoading(false);
     }
@@ -129,14 +106,11 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
 
   const limparFormularios = () => {
     setEditingId(null);
-    // Rede
     setNomeRede('');
     setLiderRedeId('');
-    // Setor
     setNomeSetor('');
     setRedeSetorId('');
     setLiderSetorId('');
-    // Célula
     setNomeCelula('');
     setSetorCelulaId('');
     setLiderCelulaId('');
@@ -156,12 +130,12 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
     setModalOpen(true);
   };
 
-  // --- OPERAÇÕES DA REDE ---
+  // --- REDES ---
   const salvarRede = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeRede.trim()) return alert('Informe o nome da Rede');
 
-    const payload: Rede = {
+    const payload = {
       codigo_igreja: codigoIgreja,
       nome: nomeRede.trim(),
       lider_id: liderRedeId ? Number(liderRedeId) : null,
@@ -176,25 +150,12 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
     carregarDados();
   };
 
-  const editarRede = (r: Rede) => {
-    setEditingId(r.id || null);
-    setNomeRede(r.nome);
-    setLiderRedeId(r.lider_id ? String(r.lider_id) : '');
-    setModalOpen(true);
-  };
-
-  const excluirRede = async (id?: string) => {
-    if (!id || !window.confirm('Deseja excluir esta rede?')) return;
-    await supabase.from('redes').delete().eq('id', id);
-    carregarDados();
-  };
-
-  // --- OPERAÇÕES DO SETOR ---
+  // --- SETORES ---
   const salvarSetor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeSetor.trim()) return alert('Informe o nome do Setor');
 
-    const payload: Setor = {
+    const payload = {
       codigo_igreja: codigoIgreja,
       nome: nomeSetor.trim(),
       rede_id: redeSetorId || null,
@@ -210,28 +171,14 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
     carregarDados();
   };
 
-  const editarSetor = (s: Setor) => {
-    setEditingId(s.id || null);
-    setNomeSetor(s.nome);
-    setRedeSetorId(s.rede_id || '');
-    setLiderSetorId(s.lider_id ? String(s.lider_id) : '');
-    setModalOpen(true);
-  };
-
-  const excluirSetor = async (id?: string) => {
-    if (!id || !window.confirm('Deseja excluir este setor?')) return;
-    await supabase.from('setores').delete().eq('id', id);
-    carregarDados();
-  };
-
-  // --- OPERAÇÕES DA CÉLULA ---
+  // --- CÉLULAS ---
   const salvarCelula = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeCelula.trim()) return alert('Informe o nome da Célula');
 
-    const enderecoCompleto = `${rua}, ${numero} - ${bairro}, ${cidade}`;
+    const endFormatado = [rua, numero, bairro, cidade].filter(Boolean).join(', ');
 
-    const payload: Celula = {
+    const payload = {
       codigo_igreja: codigoIgreja,
       nome: nomeCelula.trim(),
       setor_id: setorCelulaId || null,
@@ -245,7 +192,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
       bairro: bairro.trim(),
       cidade: cidade.trim(),
       cep: cep.trim(),
-      endereco: enderecoCompleto,
+      endereco: endFormatado,
     };
 
     if (editingId) {
@@ -254,29 +201,6 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
       await supabase.from('celulas').insert([payload]);
     }
     setModalOpen(false);
-    carregarDados();
-  };
-
-  const editarCelula = (c: Celula) => {
-    setEditingId(c.id || null);
-    setNomeCelula(c.nome);
-    setSetorCelulaId(c.setor_id || '');
-    setLiderCelulaId(c.lider_id ? String(c.lider_id) : '');
-    setViceCelulaId(c.vice_id ? String(c.vice_id) : '');
-    setAnfitriaoCelulaId(c.anfitriao_id ? String(c.anfitriao_id) : '');
-    setDiaSemana(c.dia_semana || 'Quarta-feira');
-    setHorario(c.horario || '19:30');
-    setRua(c.rua || '');
-    setNumero(c.numero || '');
-    setBairro(c.bairro || '');
-    setCidade(c.cidade || '');
-    setCep(c.cep || '');
-    setModalOpen(true);
-  };
-
-  const excluirCelula = async (id?: string) => {
-    if (!id || !window.confirm('Deseja excluir esta célula?')) return;
-    await supabase.from('celulas').delete().eq('id', id);
     carregarDados();
   };
 
@@ -295,7 +219,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
             Gestão Estrutural de Células
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Administração de Redes, Setores e Células ({codigoIgreja})
+            Administração de Células, Setores e Redes ({codigoIgreja})
           </p>
         </div>
 
@@ -304,15 +228,15 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
           onClick={abrirNovoModal}
           className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
         >
-          ➕ Novo ({subAba === 'celulas' ? 'Célula' : subAba === 'redes' ? 'Rede' : 'Setor'})
+          ➕ Novo ({subAba === 'celulas' ? 'Célula' : subAba === 'setores' ? 'Setor' : 'Rede'})
         </button>
       </div>
 
-      {/* Navegação por Sub-abas */}
+      {/* Sub-Abas */}
       <div className="flex gap-2 border-b pb-2">
         <button
           type="button"
-          onClick={() => { setSubAba('celulas'); limparFormularios(); }}
+          onClick={() => setSubAba('celulas')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             subAba === 'celulas' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
@@ -321,7 +245,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
         </button>
         <button
           type="button"
-          onClick={() => { setSubAba('setores'); limparFormularios(); }}
+          onClick={() => setSubAba('setores')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             subAba === 'setores' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
@@ -330,7 +254,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
         </button>
         <button
           type="button"
-          onClick={() => { setSubAba('redes'); limparFormularios(); }}
+          onClick={() => setSubAba('redes')}
           className={`px-4 py-2 text-xs font-bold rounded-xl transition cursor-pointer ${
             subAba === 'redes' ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
           }`}
@@ -339,108 +263,159 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
         </button>
       </div>
 
-      {loading && <p className="text-center py-6 text-slate-500">Carregando dados...</p>}
+      {loading && <p className="text-center py-6 text-slate-500">Carregando dados das células...</p>}
 
-      {/* CONTEÚDO SUB-ABA: CÉLULAS */}
+      {/* ABA CÉLULAS */}
       {!loading && subAba === 'celulas' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {celulas.map((c) => (
-            <div key={c.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
-              <div className="space-y-2">
-                <h3 className="text-lg font-black text-blue-900">{c.nome}</h3>
-                <p className="text-xs text-slate-600">👑 <strong>Líder:</strong> {getNomeMembro(c.lider_id)}</p>
-                <p className="text-xs text-slate-600">🤝 <strong>Vice:</strong> {getNomeMembro(c.vice_id)}</p>
-                <p className="text-xs text-slate-600">🏠 <strong>Anfitrião:</strong> {getNomeMembro(c.anfitriao_id)}</p>
-                <p className="text-xs text-slate-600">📅 {c.dia_semana} às {c.horario}</p>
-                {c.endereco && <p className="text-xs text-slate-500 border-t pt-2 mt-2">📍 {c.endereco}</p>}
-              </div>
-
-              <div className="flex gap-2 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => editarCelula(c)}
-                  className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
-                >
-                  ✏️ Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => excluirCelula(c.id)}
-                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200"
-                >
-                  🗑️
-                </button>
-              </div>
+          {celulas.length === 0 ? (
+            <div className="col-span-full p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm">
+              Nenhuma célula cadastrada. Clique em "➕ Novo (Célula)" para criar.
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* CONTEÚDO SUB-ABA: SETORES */}
-      {!loading && subAba === 'setores' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {setores.map((s) => {
-            const redeObj = redes.find((r) => r.id === s.rede_id);
-            return (
-              <div key={s.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
+          ) : (
+            celulas.map((c) => (
+              <div key={c.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
-                  <span className="text-[10px] uppercase font-bold px-2 py-0.5 bg-indigo-100 text-indigo-900 rounded-md">
-                    Rede: {redeObj ? redeObj.nome : 'Sem Rede'}
-                  </span>
-                  <h3 className="text-lg font-black text-blue-900">{s.nome}</h3>
-                  <p className="text-xs text-slate-600">👑 <strong>Líder de Setor:</strong> {getNomeMembro(s.lider_id)}</p>
+                  <h3 className="text-lg font-black text-blue-900">{c.nome}</h3>
+                  <p className="text-xs text-slate-600">👑 <strong>Líder:</strong> {getNomeMembro(c.lider_id)}</p>
+                  <p className="text-xs text-slate-600">🤝 <strong>Vice:</strong> {getNomeMembro(c.vice_id)}</p>
+                  <p className="text-xs text-slate-600">🏠 <strong>Anfitrião:</strong> {getNomeMembro(c.anfitriao_id)}</p>
+                  <p className="text-xs text-slate-600">📅 {c.dia_semana || 'Não informado'} às {c.horario || '19:30'}</p>
+                  {c.endereco && <p className="text-xs text-slate-500 border-t pt-2 mt-2">📍 {c.endereco}</p>}
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t">
                   <button
                     type="button"
-                    onClick={() => editarSetor(s)}
+                    onClick={() => {
+                      setEditingId(c.id || null);
+                      setNomeCelula(c.nome);
+                      setSetorCelulaId(c.setor_id || '');
+                      setLiderCelulaId(c.lider_id ? String(c.lider_id) : '');
+                      setViceCelulaId(c.vice_id ? String(c.vice_id) : '');
+                      setAnfitriaoCelulaId(c.anfitriao_id ? String(c.anfitriao_id) : '');
+                      setDiaSemana(c.dia_semana || 'Quarta-feira');
+                      setHorario(c.horario || '19:30');
+                      setRua(c.rua || '');
+                      setNumero(c.numero || '');
+                      setBairro(c.bairro || '');
+                      setCidade(c.cidade || '');
+                      setCep(c.cep || '');
+                      setModalOpen(true);
+                    }}
                     className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
                   >
                     ✏️ Editar
                   </button>
                   <button
                     type="button"
-                    onClick={() => excluirSetor(s.id)}
+                    onClick={async () => {
+                      if (window.confirm('Excluir esta célula?')) {
+                        await supabase.from('celulas').delete().eq('id', c.id);
+                        carregarDados();
+                      }
+                    }}
                     className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200"
                   >
                     🗑️
                   </button>
                 </div>
               </div>
-            );
-          })}
+            ))
+          )}
         </div>
       )}
 
-      {/* CONTEÚDO SUB-ABA: REDES */}
+      {/* ABA SETORES */}
+      {!loading && subAba === 'setores' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {setores.length === 0 ? (
+            <div className="col-span-full p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm">
+              Nenhum setor cadastrado.
+            </div>
+          ) : (
+            setores.map((s) => (
+              <div key={s.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black text-blue-900">{s.nome}</h3>
+                  <p className="text-xs text-slate-600">👑 <strong>Líder do Setor:</strong> {getNomeMembro(s.lider_id)}</p>
+                </div>
+                <div className="flex gap-2 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(s.id || null);
+                      setNomeSetor(s.nome);
+                      setRedeSetorId(s.rede_id || '');
+                      setLiderSetorId(s.lider_id ? String(s.lider_id) : '');
+                      setModalOpen(true);
+                    }}
+                    className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Excluir este setor?')) {
+                        await supabase.from('setores').delete().eq('id', s.id);
+                        carregarDados();
+                      }
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ABA REDES */}
       {!loading && subAba === 'redes' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {redes.map((r) => (
-            <div key={r.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
-              <div className="space-y-2">
-                <h3 className="text-lg font-black text-blue-900">{r.nome}</h3>
-                <p className="text-xs text-slate-600">👑 <strong>Líder de Rede:</strong> {getNomeMembro(r.lider_id)}</p>
-              </div>
-
-              <div className="flex gap-2 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => editarRede(r)}
-                  className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
-                >
-                  ✏️ Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => excluirRede(r.id)}
-                  className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200"
-                >
-                  🗑️
-                </button>
-              </div>
+          {redes.length === 0 ? (
+            <div className="col-span-full p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 text-slate-500 text-sm">
+              Nenhuma rede cadastrada.
             </div>
-          ))}
+          ) : (
+            redes.map((r) => (
+              <div key={r.id} className="border rounded-2xl p-5 bg-slate-50 hover:bg-white hover:shadow-md transition space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black text-blue-900">{r.nome}</h3>
+                  <p className="text-xs text-slate-600">👑 <strong>Líder da Rede:</strong> {getNomeMembro(r.lider_id)}</p>
+                </div>
+                <div className="flex gap-2 pt-3 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingId(r.id || null);
+                      setNomeRede(r.nome);
+                      setLiderRedeId(r.lider_id ? String(r.lider_id) : '');
+                      setModalOpen(true);
+                    }}
+                    className="flex-1 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl"
+                  >
+                    ✏️ Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (window.confirm('Excluir esta rede?')) {
+                        await supabase.from('redes').delete().eq('id', r.id);
+                        carregarDados();
+                      }
+                    }}
+                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl border border-rose-200"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       )}
 
@@ -450,7 +425,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-xl font-black text-blue-900">
-                {editingId ? 'Editar' : 'Novo'} ({subAba === 'celulas' ? 'Célula' : subAba === 'redes' ? 'Rede' : 'Setor'})
+                {editingId ? 'Editar' : 'Novo'} ({subAba === 'celulas' ? 'Célula' : subAba === 'setores' ? 'Setor' : 'Rede'})
               </h3>
               <button
                 type="button"
@@ -470,12 +445,11 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                     type="text"
                     value={nomeRede}
                     onChange={(e) => setNomeRede(e.target.value)}
-                    placeholder="Ex: Rede de Jovens / Rede da Família"
+                    placeholder="Ex: Rede de Jovens"
                     required
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   />
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Líder da Rede</label>
                   <select
@@ -489,7 +463,6 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                     ))}
                   </select>
                 </div>
-
                 <button type="submit" className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl">
                   Salvar Rede
                 </button>
@@ -505,26 +478,24 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                     type="text"
                     value={nomeSetor}
                     onChange={(e) => setNomeSetor(e.target.value)}
-                    placeholder="Ex: Setor 01 / Setor Norte"
+                    placeholder="Ex: Setor 01"
                     required
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   />
                 </div>
-
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Vincular à Rede</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Rede Pertencente</label>
                   <select
                     value={redeSetorId}
                     onChange={(e) => setRedeSetorId(e.target.value)}
                     className="w-full border rounded-xl px-4 py-2.5 text-sm"
                   >
-                    <option value="">Nenhuma / Rede Geral</option>
+                    <option value="">Nenhuma / Geral</option>
                     {redes.map((r) => (
                       <option key={r.id} value={r.id}>{r.nome}</option>
                     ))}
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Líder do Setor</label>
                   <select
@@ -538,7 +509,6 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                     ))}
                   </select>
                 </div>
-
                 <button type="submit" className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl">
                   Salvar Setor
                 </button>
@@ -555,7 +525,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                       type="text"
                       value={nomeCelula}
                       onChange={(e) => setNomeCelula(e.target.value)}
-                      placeholder="Ex: Célula Betel"
+                      placeholder="Ex: Célula Shalom"
                       required
                       className="w-full border rounded-xl px-4 py-2.5 text-sm"
                     />
@@ -576,7 +546,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Líder da Célula</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Líder</label>
                     <select
                       value={liderCelulaId}
                       onChange={(e) => setLiderCelulaId(e.target.value)}
@@ -648,7 +618,7 @@ export default function CelulasModule({ loggedUser }: CelulasModuleProps) {
                       type="text"
                       value={numero}
                       onChange={(e) => setNumero(e.target.value)}
-                      placeholder="Ex: 123"
+                      placeholder="123"
                       className="w-full border rounded-xl px-4 py-2.5 text-sm"
                     />
                   </div>

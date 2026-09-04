@@ -57,15 +57,15 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [editingMember, setEditingMember] = useState<Membro | null>(null);
   const [formMembro, setFormMembro] = useState(formInicial);
 
+  const codigoIgreja =
+    loggedUser?.igrejas?.codigo_igreja ||
+    loggedUser?.codigo_igreja;
+
   const fetchMembros = useCallback(async () => {
     setLoading(true);
     setError(null);
   
     try {
-      const codigoIgreja =
-        loggedUser?.igrejas?.codigo_igreja ||
-        loggedUser?.codigo_igreja;
-  
       if (!codigoIgreja) {
         throw new Error('Código da igreja não encontrado.');
       }
@@ -85,21 +85,22 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     } finally {
       setLoading(false);
     }
-  }, [loggedUser]);
+  }, [codigoIgreja]);
 
   useEffect(() => {
-    const codigoIgreja =
-      loggedUser?.igrejas?.codigo_igreja ||
-      loggedUser?.codigo_igreja;
+    // Se o usuário do maestro ainda estiver carregando, aguarda
+    if (!loggedUser) {
+      return;
+    }
   
-    if (!loggedUser || !codigoIgreja) {
+    if (!codigoIgreja) {
       setLoading(false);
-      setError('Usuário ou código da igreja não identificado.');
+      setError('Código da igreja não encontrado para este usuário.');
       return;
     }
   
     fetchMembros();
-  }, [loggedUser, fetchMembros]);
+  }, [loggedUser, codigoIgreja, fetchMembros]);
 
   const handleOpenNewMemberModal = () => {
     setEditingMember(null);
@@ -147,10 +148,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    const codigoIgreja =
-      loggedUser?.igrejas?.codigo_igreja ||
-      loggedUser?.codigo_igreja;
-
     if (!codigoIgreja) {
       alert('Erro: Código da igreja não identificado.');
       return;
@@ -160,7 +157,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       const payload = {
         ...formMembro,
         codigo_igreja: codigoIgreja,
-        ministerio_id: formMembro.ministerio_id || null, // evita erro se uuid vier vazio
+        ministerio_id: formMembro.ministerio_id || null,
       };
 
       if (editingMember) {
@@ -188,6 +185,14 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   };
 
+  if (!loggedUser) {
+    return (
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto">
+        <p className="text-slate-500">Carregando informações do usuário...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
@@ -203,7 +208,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         <button
           type="button"
           onClick={handleOpenNewMemberModal}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition"
+          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
         >
           + Novo Membro
         </button>
@@ -274,7 +279,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 
-                {/* Tipo de Cadastro */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo de Cadastro</label>
                   <select
@@ -288,7 +292,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   </select>
                 </div>
 
-                {/* Nome Completo */}
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Nome Completo *</label>
                   <input
@@ -301,7 +304,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* CPF */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">CPF</label>
                   <input
@@ -313,7 +315,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* RG */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">RG</label>
                   <input
@@ -325,7 +326,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Data de Nascimento */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data de Nascimento</label>
                   <input
@@ -336,7 +336,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Estado Civil */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Estado Civil</label>
                   <select
@@ -351,7 +350,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   </select>
                 </div>
 
-                {/* Celular Principal */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Celular Principal</label>
                   <input
@@ -363,7 +361,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* E-mail */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail</label>
                   <input
@@ -375,7 +372,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* CEP */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">CEP</label>
                   <input
@@ -387,7 +383,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Rua */}
                 <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Rua</label>
                   <input
@@ -399,7 +394,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Número */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Número</label>
                   <input
@@ -411,7 +405,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Bairro */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Bairro</label>
                   <input
@@ -423,7 +416,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Cidade */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Cidade</label>
                   <input
@@ -435,7 +427,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Estado */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Estado</label>
                   <input
@@ -447,7 +438,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Endereço Completo (Observação geral caso use) */}
                 <div className="sm:col-span-3">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Endereço Completo / Complemento</label>
                   <input
@@ -459,7 +449,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* Foto URL */}
                 <div className="sm:col-span-3">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">URL da Foto</label>
                   <input

@@ -12,6 +12,7 @@ import AgendaModule from './AgendaModule';
 import FinanceiroModule from './FinanceiroModule';
 import ControleRegistroModule from './ControleRegistroModule';
 import CelulasModule from './CelulasModule';
+import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -458,6 +459,17 @@ function App() {
             </div>
           )}
 
+          {/* MÓDULO: ACOMPANHAMENTO DE VISITANTES */}
+          <button
+            type="button"
+            onClick={() => selecionarAba('acompanhamento-visitantes')}
+            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+              activeTab === 'acompanhamento-visitantes' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            🤝 Acompanhamento Visitantes
+          </button>
+
           {/* GRUPO CÉLULAS COM SUBMENUS RETRÁTEIS */}
           <button
             type="button"
@@ -612,6 +624,11 @@ function App() {
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
         
+        {/* RENDERIZAÇÃO DO MÓDULO DE ACOMPANHAMENTO DE VISITANTES */}
+        {activeTab === 'acompanhamento-visitantes' && (
+          <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
+        )}
+
         {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS */}
         {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
           <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />

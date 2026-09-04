@@ -6,6 +6,7 @@ import ProjetosModule from './ProjetosModule';
 import MembrosModule from './MembrosModule';
 import UsuariosModule from './UsuariosModule';
 import FornecedoresModule from './FornecedoresModule';
+import MinisteriosModule from './MinisteriosModule';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -370,8 +371,11 @@ function App() {
           <TelaProvisoria titulo="Financeiro" />
         )}
         {activeTab === 'cadastros-fornecedores' && (
-  <FornecedoresModule loggedUser={loggedUser} />
-)}
+        <FornecedoresModule loggedUser={loggedUser} />
+        )}
+        {activeTab === 'cadastros-ministerios' && (
+        <MinisteriosModule loggedUser={loggedUser} />
+        )}
       </main>
     </div>
   );

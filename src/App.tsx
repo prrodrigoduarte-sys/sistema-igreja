@@ -176,7 +176,6 @@ function App() {
 
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
-    // O primeiro usuário cadastrado nesta conta assume o perfil de admin
     const { error: profileError } = await supabase.from('usuarios').insert([
       {
         auth_user_id: authUserId || null,
@@ -556,7 +555,7 @@ function App() {
         {activeTab === 'financeiro' && <TelaProvisoria titulo="Financeiro" />}
       </main>
 
-      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM DUAS OPÇÕES */}
+      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM 3 OPÇÕES */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
@@ -590,9 +589,26 @@ function App() {
                 </p>
               </div>
 
-              {/* OPÇÃO 2: GERAR QR CODE NA TELA (RESTRITO AO ADMIN) */}
+              {/* OPÇÃO 2: CONSULTAR AGENDA RÁPIDA (TERCEIRA OPÇÃO) */}
+              <div className="border-t pt-4 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileModalOpen(false);
+                    selecionarAba('agenda');
+                  }}
+                  className="w-full text-center px-4 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-900 font-bold text-sm rounded-xl transition shadow border border-indigo-200 cursor-pointer"
+                >
+                  📅 2. Ver Agenda e Próximos Eventos
+                </button>
+                <p className="text-xs text-slate-500 px-1">
+                  Acesse rapidamente a lista de cultos, reuniões e programações agendadas da igreja.
+                </p>
+              </div>
+
+              {/* OPÇÃO 3: GERAR QR CODE NA TELA (RESTRITO AO ADMIN) */}
               <div className="border-t pt-4 space-y-3">
-                <h4 className="font-bold text-blue-900 text-sm">📱 2. Gerar QR Code para Membros Escanearem</h4>
+                <h4 className="font-bold text-blue-900 text-sm">📱 3. Gerar QR Code para Membros Escanearem</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
                   Gere um QR Code temporário (válido por 6 horas) para exibir na tela do seu celular e permitir que os membros escaneiem e se cadastrarem.
                 </p>

@@ -84,32 +84,53 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const [cidade, setCidade] = useState('');
   const [cep, setCep] = useState('');
 
+  // Filtros rápidos para pesquisa dentro do formulário
+  const [searchLider, setSearchLider] = useState('');
+  const [searchVice, setSearchVice] = useState('');
+  const [searchAnfitriao, setSearchAnfitriao] = useState('');
+
   const carregarDados = useCallback(async () => {
     setLoading(true);
 
     try {
-      const resMembros = await supabase.from('membros').select('id, nome_completo').eq('codigo_igreja', codigoIgreja).order('nome_completo');
+      const resMembros = await supabase
+        .from('membros')
+        .select('id, nome_completo')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome_completo');
       if (!resMembros.error) setMembros(resMembros.data || []);
     } catch (e) {
       console.warn('Tabela membros ainda não pronta:', e);
     }
 
     try {
-      const resRedes = await supabase.from('redes').select('*').eq('codigo_igreja', codigoIgreja).order('nome');
+      const resRedes = await supabase
+        .from('redes')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome');
       if (!resRedes.error) setRedes(resRedes.data || []);
     } catch (e) {
       console.warn('Tabela redes ainda não pronta:', e);
     }
 
     try {
-      const resSetores = await supabase.from('setores').select('*').eq('codigo_igreja', codigoIgreja).order('nome');
+      const resSetores = await supabase
+        .from('setores')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome');
       if (!resSetores.error) setSetores(resSetores.data || []);
     } catch (e) {
       console.warn('Tabela setores ainda não pronta:', e);
     }
 
     try {
-      const resCelulas = await supabase.from('celulas').select('*').eq('codigo_igreja', codigoIgreja).order('nome');
+      const resCelulas = await supabase
+        .from('celulas')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome');
       if (!resCelulas.error) setCelulas(resCelulas.data || []);
     } catch (e) {
       console.warn('Tabela celulas ainda não pronta:', e);
@@ -141,6 +162,9 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     setBairro('');
     setCidade('');
     setCep('');
+    setSearchLider('');
+    setSearchVice('');
+    setSearchAnfitriao('');
   };
 
   const abrirNovoModal = () => {
@@ -224,6 +248,17 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     const m = membros.find((item) => item.id === id);
     return m ? m.nome_completo : `ID ${id}`;
   };
+
+  // Filtros de membros para pesquisa dinâmica nas caixas
+  const membrosFiltradosLider = membros.filter((m) =>
+    m.nome_completo.toLowerCase().includes(searchLider.toLowerCase())
+  );
+  const membrosFiltradosVice = membros.filter((m) =>
+    m.nome_completo.toLowerCase().includes(searchVice.toLowerCase())
+  );
+  const membrosFiltradosAnfitriao = membros.filter((m) =>
+    m.nome_completo.toLowerCase().includes(searchAnfitriao.toLowerCase())
+  );
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
@@ -445,6 +480,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               </button>
             </div>
 
+            {/* FORMULÁRIO DA REDE */}
             {subAba === 'redes' && (
               <form onSubmit={salvarRede} className="space-y-4">
                 <div>
@@ -477,6 +513,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               </form>
             )}
 
+            {/* FORMULÁRIO DO SETOR */}
             {subAba === 'setores' && (
               <form onSubmit={salvarSetor} className="space-y-4">
                 <div>
@@ -522,6 +559,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
               </form>
             )}
 
+            {/* FORMULÁRIO DA CÉLULA */}
             {subAba === 'celulas' && (
               <form onSubmit={salvarCelula} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -551,44 +589,74 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     </select>
                   </div>
 
+                  {/* LÍDER DA CÉLULA COM BUSCA */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Líder</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">👑 Líder</label>
+                    <input
+                      type="text"
+                      placeholder="🔍 Filtrar nome..."
+                      value={searchLider}
+                      onChange={(e) => setSearchLider(e.target.value)}
+                      className="w-full border rounded-t-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none"
+                    />
                     <select
                       value={liderCelulaId}
                       onChange={(e) => setLiderCelulaId(e.target.value)}
-                      className="w-full border rounded-xl px-4 py-2.5 text-sm"
+                      className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
                     >
-                      <option value="">Selecione</option>
-                      {membros.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome_completo}</option>
+                      <option value="">Selecione o Líder</option>
+                      {membrosFiltradosLider.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nome_completo}
+                        </option>
                       ))}
                     </select>
                   </div>
 
+                  {/* VICE-LÍDER DA CÉLULA COM BUSCA */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Vice-Líder</label>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🤝 Vice-Líder</label>
+                    <input
+                      type="text"
+                      placeholder="🔍 Filtrar nome..."
+                      value={searchVice}
+                      onChange={(e) => setSearchVice(e.target.value)}
+                      className="w-full border rounded-t-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none"
+                    />
                     <select
                       value={viceCelulaId}
                       onChange={(e) => setViceCelulaId(e.target.value)}
-                      className="w-full border rounded-xl px-4 py-2.5 text-sm"
+                      className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
                     >
-                      <option value="">Selecione</option>
-                      {membros.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome_completo}</option>
+                      <option value="">Selecione o Vice-Líder</option>
+                      {membrosFiltradosVice.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nome_completo}
+                        </option>
                       ))}
                     </select>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Anfitrião</label>
+                  {/* ANFITRIÃO DA CÉLULA COM BUSCA */}
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🏠 Anfitrião</label>
+                    <input
+                      type="text"
+                      placeholder="🔍 Filtrar nome..."
+                      value={searchAnfitriao}
+                      onChange={(e) => setSearchAnfitriao(e.target.value)}
+                      className="w-full border rounded-t-xl px-3 py-1.5 text-xs bg-slate-50 focus:outline-none"
+                    />
                     <select
                       value={anfitriaoCelulaId}
                       onChange={(e) => setAnfitriaoCelulaId(e.target.value)}
-                      className="w-full border rounded-xl px-4 py-2.5 text-sm"
+                      className="w-full border border-t-0 rounded-b-xl px-4 py-2 text-sm bg-white"
                     >
-                      <option value="">Selecione</option>
-                      {membros.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome_completo}</option>
+                      <option value="">Selecione o Anfitrião</option>
+                      {membrosFiltradosAnfitriao.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.nome_completo}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -600,11 +668,25 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                       onChange={(e) => setDiaSemana(e.target.value)}
                       className="w-full border rounded-xl px-4 py-2.5 text-sm"
                     >
+                      <option value="Segunda-feira">Segunda-feira</option>
+                      <option value="Terça-feira">Terça-feira</option>
                       <option value="Quarta-feira">Quarta-feira</option>
                       <option value="Quinta-feira">Quinta-feira</option>
                       <option value="Sexta-feira">Sexta-feira</option>
                       <option value="Sábado">Sábado</option>
+                      <option value="Domingo">Domingo</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Horário</label>
+                    <input
+                      type="text"
+                      value={horario}
+                      onChange={(e) => setHorario(e.target.value)}
+                      placeholder="19:30"
+                      className="w-full border rounded-xl px-4 py-2.5 text-sm"
+                    />
                   </div>
 
                   <div>
@@ -652,7 +734,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                   </div>
                 </div>
 
-                <button type="submit" className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl">
+                <button type="submit" className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl hover:bg-blue-800 transition cursor-pointer">
                   Salvar Célula
                 </button>
               </form>

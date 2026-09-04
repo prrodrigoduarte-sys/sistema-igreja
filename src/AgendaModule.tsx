@@ -1,3 +1,4 @@
+// Atualizado em 2026
 // src/AgendaModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
@@ -8,7 +9,7 @@ interface Compromisso {
   titulo: string;
   descricao: string;
   data_compromisso: string;
-  hora_compromiss: string;
+  hora_compromisso: string;
   hora_fim: string;
   local_evento: string;
   responsavel: string;
@@ -24,7 +25,7 @@ const formInicial = {
   titulo: '',
   descricao: '',
   data_compromisso: '',
-  hora_compromiss: '',
+  hora_compromisso: '',
   hora_fim: '',
   local_evento: '',
   responsavel: '',
@@ -65,7 +66,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
         .order('data_compromisso', { ascending: true })
-        .order('hora_compromiss', { ascending: true });
+        .order('hora_compromisso', { ascending: true });
 
       if (filtroData) {
         query = query.eq('data_compromisso', filtroData);
@@ -111,7 +112,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       titulo: c.titulo || '',
       descricao: c.descricao || '',
       data_compromisso: c.data_compromisso || '',
-      hora_compromiss: c.hora_compromiss || '',
+      hora_compromisso: c.hora_compromisso || '',
       hora_fim: c.hora_fim || '',
       local_evento: c.local_evento || '',
       responsavel: c.responsavel || '',
@@ -294,7 +295,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <td className="p-3 whitespace-nowrap font-medium text-slate-700">
                     {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'}
                     <span className="block text-xs text-blue-800 font-bold">
-                      {c.hora_compromiss ? c.hora_compromiss.substring(0, 5) : ''}
+                      {c.hora_compromisso ? c.hora_compromisso.substring(0, 5) : ''}
                       {c.hora_fim ? ` às ${c.hora_fim.substring(0, 5)}` : ''}
                     </span>
                   </td>
@@ -384,8 +385,8 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Hora Início</label>
                   <input
                     type="time"
-                    value={formCompromisso.hora_compromiss}
-                    onChange={(e) => handleChange('hora_compromiss', e.target.value)}
+                    value={formCompromisso.hora_compromisso}
+                    onChange={(e) => handleChange('hora_compromisso', e.target.value)}
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                   />
                 </div>
@@ -515,7 +516,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Título</span>{compromissoSelecionado.titulo}</div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Data</span>{compromissoSelecionado.data_compromisso?.split('-').reverse().join('/')}</div>
-                <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Horário</span>{compromissoSelecionado.hora_compromiss?.substring(0,5)} {compromissoSelecionado.hora_fim ? `às ${compromissoSelecionado.hora_fim.substring(0,5)}` : ''}</div>
+                <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Horário</span>{compromissoSelecionado.hora_compromisso?.substring(0,5)} {compromissoSelecionado.hora_fim ? `às ${compromissoSelecionado.hora_fim.substring(0,5)}` : ''}</div>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Local</span>{compromissoSelecionado.local_evento || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Responsável</span>{compromissoSelecionado.responsavel || '-'}</div>

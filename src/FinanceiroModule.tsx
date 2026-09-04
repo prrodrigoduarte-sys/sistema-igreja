@@ -115,7 +115,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .from('lancamentos_financeiros')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
-        .order('data_lancamento', { ascending: true }); // Ordem crescente para cálculo correto do saldo parcial
+        .order('data_lancamento', { ascending: true });
 
       if (!resLanc.error) setLancamentos(resLanc.data || []);
 
@@ -320,14 +320,22 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return adm ? `${adm.codigo_conta} (${adm.nome_conta})` : 'Caixa Geral';
   };
 
-  const dadosDRE = contasContabeis.map((conta) => {
+  // Balancete agrupado por contas contábeis
+  const dadosBalancete = contasContabeis.map((conta) => {
     const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
     const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
     return { ...conta, total };
   }).filter((c) => c.total > 0);
 
-  const totalReceitas = dadosDRE.filter((c) => c.tipo_natureza === 'Receita').reduce((a, b) => a + b.total, 0);
-  const totalDespesas = dadosDRE.filter((c) => c.tipo_natureza === 'Despesas' || c.tipo_natureza === 'Despesa').reduce((a, b) => a + b.total, 0);
+  // DRE Baseada no tipo do lançamento (Receita vs Despesa) para garantir que todos os lançamentos apareçam
+  const totalReceitas = lancamentos
+    .filter((l) => l.tipo === 'receita')
+    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+  const totalDespesas = lancamentos
+    .filter((l) => l.tipo === 'despesa')
+    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
   const resultadoLiquido = totalReceitas - totalDespesas;
 
   // Cálculo acumulado de saldo parcial para o extrato
@@ -744,7 +752,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </button>
             </div>
 
-            {/* RELATÓRIO 1: CONTA CORRENTE (COM SALDO PARCIAL) */}
+            {/* RELATÓRIO 1: CONTA CORRENTE */}
             {tipoRelatorio === 'conta_corrente' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
@@ -785,6 +793,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
+            {/* RELATÓRIO 2: DIÁRIO */}
             {tipoRelatorio === 'diario' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
@@ -815,6 +824,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
+            {/* RELATÓRIO 3: BALANCETE */}
             {tipoRelatorio === 'balancete' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
@@ -831,7 +841,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {dadosDRE.map((c) => (
+                      {dadosBalancete.map((c) => (
                         <tr key={c.id}>
                           <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
                           <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
@@ -845,6 +855,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
+            {/* RELATÓRIO 4: DRE (ATUALIZADA PARA CAPTURAR TODAS AS ENTRADAS E SAÍDAS) */}
             {tipoRelatorio === 'dre' && (
               <div className="space-y-4">
                 <div>

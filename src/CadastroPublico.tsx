@@ -30,7 +30,6 @@ export default function CadastroPublico() {
     setForm((prev) => ({ ...prev, [campo]: valor }));
   };
 
-  // Manipulador para tirar foto com a câmera do celular ou escolher arquivo
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -46,7 +45,6 @@ export default function CadastroPublico() {
         .upload(filePath, file);
 
       if (uploadError) {
-        // Fallback em Base64 caso o bucket não esteja configurado
         const reader = new FileReader();
         reader.onloadend = () => {
           setForm((prev) => ({ ...prev, foto_url: reader.result as string }));
@@ -74,9 +72,34 @@ export default function CadastroPublico() {
     setLoading(true);
 
     try {
+      // 1. Validação Anti-Duplicidade (verifica por CPF ou Celular)
+      const celularLimpo = form.celular_principal.trim();
+      const cpfLimpo = form.cpf.trim();
+
+      if (celularLimpo || cpfLimpo) {
+        let query = supabase.from('members').select('id, nome, cpf, celular_principal').eq('codigo_igreja', 'IGR-001');
+
+        if (cpfLimpo && celularLimpo) {
+          query = query.or(`cpf.eq.${cpfLimpo},celular_principal.eq.${celularLimpo}`);
+        } else if (cpfLimpo) {
+          query = query.eq('cpf', cpfLimpo);
+        } else {
+          query = query.eq('celular_principal', celularLimpo);
+        }
+
+        const { data: existente, error: errBusca } = await query;
+
+        if (!errBusca && existente && existente.length > 0) {
+          alert(`Atenção: Já existe um cadastro registrado com este CPF ou Celular (${existente[0].nome}).`);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // 2. Inserção do novo membro
       const payload = {
         ...form,
-        codigo_igreja: 'IGR-001', // Código padrão da igreja para cadastros externos
+        codigo_igreja: 'IGR-001',
       };
 
       const { error } = await supabase.from('members').insert([payload]);
@@ -142,7 +165,6 @@ export default function CadastroPublico() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
-          {/* Seção de Captura / Upload de Foto */}
           <div className="flex flex-col sm:flex-row items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             <div className="w-20 h-20 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-400 font-bold shrink-0 border shadow-inner">
               {form.foto_url ? (
@@ -156,7 +178,7 @@ export default function CadastroPublico() {
               <input
                 type="file"
                 accept="image/*"
-                capture="environment" // Abre a câmera traseira diretamente em celulares
+                capture="environment"
                 onChange={handleFileChange}
                 className="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-blue-900 file:text-white hover:file:bg-blue-800 cursor-pointer"
               />
@@ -327,7 +349,7 @@ export default function CadastroPublico() {
             </div>
 
             <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Complemento / Observações de Endereço</label>
+              <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Complemento / Observações</label>
               <input
                 type="text"
                 value={form.endereco}
@@ -345,7 +367,7 @@ export default function CadastroPublico() {
               disabled={loading || uploadingFoto}
               className="w-full bg-blue-900 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-blue-800 transition cursor-pointer disabled:opacity-50"
             >
-              {loading ? 'Enviando cadastro...' : 'Finalizar e Enviar Meu Cadastro'}
+              {loading ? 'Verificando e enviando...' : 'Finalizar e Enviar Meu Cadastro'}
             </button>
           </div>
         </form>

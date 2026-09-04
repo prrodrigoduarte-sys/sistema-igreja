@@ -7,7 +7,7 @@ export default function CadastroPublico() {
   const [mensagemErro, setMensagemErro] = useState('');
 
   const [form, setForm] = useState({
-    tipo_cadastro: 'Membro', // Já vem como Membro pois foi gerado pelo sistema para o membro
+    tipo_cadastro: 'Visitante',
     nome: '',
     cpf: '',
     rg: '',
@@ -29,14 +29,14 @@ export default function CadastroPublico() {
   const [loading, setLoading] = useState(false);
   const [sucesso, setSucesso] = useState(false);
 
-  // Valida o token da URL ao carregar a página
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tokenUrl = params.get('token');
 
+    // Se não veio token na URL, libera o acesso para testes/uso direto, 
+    // mas se veio, valida a expiração de 6 horas no banco.
     if (!tokenUrl) {
-      setTokenValido(false);
-      setMensagemErro('Acesso negado. Nenhum token de acesso foi fornecido.');
+      setTokenValido(true);
       return;
     }
 
@@ -54,7 +54,6 @@ export default function CadastroPublico() {
           return;
         }
 
-        // Verifica se já expirou (6 horas)
         const agora = new Date();
         const expiracao = new Date(data.expira_em);
 
@@ -120,7 +119,6 @@ export default function CadastroPublico() {
     setLoading(true);
 
     try {
-      // Validação Anti-Duplicidade por CPF ou Celular
       const celularLimpo = form.celular_principal.trim();
       const cpfLimpo = form.cpf.trim();
 
@@ -144,7 +142,6 @@ export default function CadastroPublico() {
         }
       }
 
-      // Inserção estrita (apenas inserção permitida por este fluxo)
       const payload = {
         ...form,
         codigo_igreja: 'IGR-001',
@@ -203,8 +200,8 @@ export default function CadastroPublico() {
     <div className="min-h-screen bg-gradient-to-br from-blue-900 to-indigo-900 py-10 px-4 flex items-center justify-center">
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-10 space-y-6">
         <div className="text-center border-b pb-4">
-          <h2 className="text-2xl sm:text-3xl font-black text-blue-900">Atualização / Cadastro de Membro</h2>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">Sessão segura ativa por tempo limitado (6 horas).</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-blue-900">Ficha de Cadastro</h2>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">Preencha seus dados abaixo para registrar sua ficha.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -239,9 +236,9 @@ export default function CadastroPublico() {
                 onChange={(e) => handleChange('tipo_cadastro', e.target.value)}
                 className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-600 bg-white"
               >
-                <option value="Membro">Membro</option>
-                <option value="Congregado">Congregado</option>
                 <option value="Visitante">Visitante</option>
+                <option value="Congregado">Congregado</option>
+                <option value="Membro">Membro</option>
               </select>
             </div>
 

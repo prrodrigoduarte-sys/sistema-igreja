@@ -629,10 +629,10 @@ function App() {
         {activeTab === 'financeiro' && <TelaProvisoria titulo="Financeiro" />}
       </main>
 
-      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" */}
+      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM GERAÇÃO DE QR CODE */}
       {isMobileModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-6">
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <h3 className="text-xl font-black text-blue-900">Painel Mobile & Atalhos</h3>
@@ -647,7 +647,7 @@ function App() {
               </button>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               <a
                 href="#cadastro"
                 target="_blank"
@@ -657,9 +657,62 @@ function App() {
                 🔗 Abrir Tela de Cadastro Público (Nova Guia)
               </a>
 
-              <p className="text-xs text-slate-500 leading-relaxed pt-2">
-                Este atalho abre a interface externa de cadastro de membros/visitantes otimizada para celulares e tablets, ideal para uso em eventos com o QR Code.
-              </p>
+              {/* SEÇÃO 2: GERAR QR CODE EXCLUSIVO PARA O ADMINISTRADOR MOSTRAR NO CELULAR */}
+              <div className="border-t pt-4 space-y-3">
+                <h4 className="font-bold text-blue-900 text-sm">📱 Gerar QR Code para Membros Escanearem</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Abra este painel direto no seu celular na hora do culto ou evento, gere o QR Code e deixe na tela para os membros escanearem e se cadastrarem.
+                </p>
+
+                {isAdmin ? (
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={gerarNovoQrCodeTemporario}
+                      disabled={gerandoQr}
+                      className="w-full px-4 py-3 bg-indigo-900 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer disabled:opacity-50"
+                    >
+                      {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
+                    </button>
+
+                    {qrCodeUrlDinamico && (
+                      <div className="bg-slate-50 border p-4 rounded-2xl text-center space-y-3">
+                        <img src={qrCodeUrlDinamico} alt="QR Code Temporário" className="w-48 h-48 object-contain mx-auto bg-white p-2 rounded-xl border shadow-sm" />
+                        <p className="text-[10px] text-slate-500 font-semibold">Mostre esta imagem para o membro escanear com a câmera do celular.</p>
+                        
+                        <div className="flex gap-2 justify-center flex-wrap">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const urlParams = new URLSearchParams(qrCodeUrlDinamico.split('?')[1]);
+                              const linkReal = urlParams.get('data');
+                              if (linkReal) {
+                                navigator.clipboard.writeText(linkReal);
+                                alert('Link copiado!');
+                              }
+                            }}
+                            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                          >
+                            📋 Copiar Link
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setQrCodeUrlDinamico('')}
+                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                          >
+                            ✕ Fechar QR Code
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-100 text-center">
+                    🔒 Recurso restrito: Apenas administradores podem gerar o QR Code de cadastro.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>

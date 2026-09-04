@@ -243,16 +243,16 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
+    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
       
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-black text-blue-900 tracking-tight">
+          <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
             Agenda e Compromissos
           </h2>
-          <p className="text-slate-600 mt-1">
-            Gerencie os cultos, reuniões e eventos da instituição ({codigoIgreja}). {!isAdmin && <span className="text-amber-600 font-semibold">(Modo Visualização)</span>}
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Gerencie cultos, reuniões e eventos ({codigoIgreja}). {!isAdmin && <span className="text-amber-600 font-semibold">(Modo Visualização)</span>}
           </p>
         </div>
 
@@ -260,7 +260,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
           <button
             type="button"
             onClick={handleOpenNew}
-            className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer shrink-0"
+            className="w-full sm:w-auto px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer shrink-0 text-center"
           >
             + Novo Compromisso
           </button>
@@ -268,19 +268,19 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       </div>
 
       {/* Filtro por Data */}
-      <div className="flex flex-col sm:flex-row gap-2 items-center bg-slate-50 p-4 rounded-2xl border">
+      <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center bg-slate-50 p-4 rounded-2xl border">
         <label className="text-xs font-bold text-slate-700 uppercase">Filtrar por Data:</label>
         <input
           type="date"
           value={filtroData}
           onChange={(e) => setFiltroData(e.target.value)}
-          className="border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+          className="border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
         />
         {filtroData && (
           <button
             type="button"
             onClick={() => setFiltroData('')}
-            className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
+            className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
           >
             Limpar Filtro
           </button>
@@ -288,105 +288,176 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       </div>
 
       {/* Listagem */}
-      {loading && <p className="text-slate-500 py-4">Carregando compromissos...</p>}
+      {loading && <p className="text-slate-500 py-4 text-center">Carregando compromissos...</p>}
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-sm font-semibold">
-          Nota: Se o campo 'status' ainda não existir na tabela <code className="bg-white px-1 py-0.5 rounded">agenda_compromissos</code> do seu Supabase, adicione uma coluna <code className="bg-white px-1 py-0.5 rounded">status</code> (tipo text ou varchar com valor padrão 'pendente'). Erro: {error}
+          Erro ao carregar dados: {error}
         </div>
       )}
 
       {!loading && !error && compromissos.length === 0 && (
         <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-          <p className="text-slate-500">Nenhum compromisso agendado para este período.</p>
+          <p className="text-slate-500 text-sm">Nenhum compromisso agendado para este período.</p>
         </div>
       )}
 
       {!loading && !error && compromissos.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                <th className="p-3">Status</th>
-                <th className="p-3">Data / Hora</th>
-                <th className="p-3">Título do Evento</th>
-                <th className="p-3">Local</th>
-                <th className="p-3">Responsável</th>
-                <th className="p-3 text-right">Ações</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y text-sm">
-              {compromissos.map((c) => {
-                const realizado = c.status === 'realizado';
-                return (
-                  <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        disabled={!isAdmin}
-                        onClick={() => handleAlternarStatus(c.id, c.status || 'pendente')}
-                        title={isAdmin ? "Clique para alternar entre Pendente e Realizado" : "Status do evento"}
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
-                          realizado
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                            : 'bg-rose-100 text-rose-800 border border-rose-300'
-                        } ${isAdmin ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
-                      >
-                        <span className={`w-2 h-2 rounded-full ${realizado ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
-                        {realizado ? 'Realizado' : 'Pendente'}
-                      </button>
-                    </td>
-                    <td className="p-3 whitespace-nowrap font-medium text-slate-700">
-                      {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'}
-                      <span className="block text-xs text-blue-800 font-bold">
-                        {c.hora_compromisso ? c.hora_compromisso.substring(0, 5) : ''}
-                        {c.hora_fim ? ` às ${c.hora_fim.substring(0, 5)}` : ''}
+        <>
+          {/* VISÃO MOBILE: CARDS INTUITIVOS */}
+          <div className="block md:hidden space-y-4">
+            {compromissos.map((c) => {
+              const realizado = c.status === 'realizado';
+              return (
+                <div key={c.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 shadow-sm">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <span className="text-xs font-bold text-blue-900 bg-blue-100 px-2 py-0.5 rounded-md">
+                        {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'} {c.hora_compromisso ? `às ${c.hora_compromisso.substring(0, 5)}` : ''}
                       </span>
-                    </td>
-                    <td className="p-3">
-                      <p className="font-semibold text-slate-800">{c.titulo}</p>
-                      <p className="text-xs text-slate-500 truncate max-w-xs">{c.descricao || '-'}</p>
-                    </td>
-                    <td className="p-3 text-slate-600">{c.local_evento || '-'}</td>
-                    <td className="p-3 text-slate-600">{c.responsavel || '-'}</td>
-                    <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => { setCompromissoSelecionado(c); setShowDetalhesModal(true); }}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                      >
-                        Ver
-                      </button>
-                      {isAdmin && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(c)}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleIniciarExclusao(c.id, c.titulo)}
-                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                          >
-                            Excluir
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <h3 className="font-bold text-slate-900 text-base mt-1.5">{c.titulo}</h3>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={!isAdmin}
+                      onClick={() => handleAlternarStatus(c.id, c.status || 'pendente')}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 shrink-0 ${
+                        realizado
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : 'bg-rose-100 text-rose-800 border border-rose-300'
+                      } ${isAdmin ? 'cursor-pointer active:scale-95' : 'cursor-default'}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full ${realizado ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
+                      {realizado ? 'Realizado' : 'Pendente'}
+                    </button>
+                  </div>
+
+                  <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200/60">
+                    <p><strong className="text-slate-700">Local:</strong> {c.local_evento || 'Não informado'}</p>
+                    <p><strong className="text-slate-700">Responsável:</strong> {c.responsavel || 'Não informado'}</p>
+                    {c.descricao && <p className="text-slate-500 italic mt-1">"{c.descricao}"</p>}
+                  </div>
+
+                  <div className="flex gap-2 pt-2 border-t border-slate-200/60">
+                    <button
+                      type="button"
+                      onClick={() => { setCompromissoSelecionado(c); setShowDetalhesModal(true); }}
+                      className="flex-1 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl transition"
+                    >
+                      Ver Detalhes
+                    </button>
+
+                    {isAdmin && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(c)}
+                          className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl transition"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleIniciarExclusao(c.id, c.titulo)}
+                          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition"
+                        >
+                          Excluir
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* VISÃO DESKTOP: TABELA TRADICIONAL */}
+          <div className="hidden md:block overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Data / Hora</th>
+                  <th className="p-3">Título do Evento</th>
+                  <th className="p-3">Local</th>
+                  <th className="p-3">Responsável</th>
+                  <th className="p-3 text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y text-sm">
+                {compromissos.map((c) => {
+                  const realizado = c.status === 'realizado';
+                  return (
+                    <tr key={c.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 whitespace-nowrap">
+                        <button
+                          type="button"
+                          disabled={!isAdmin}
+                          onClick={() => handleAlternarStatus(c.id, c.status || 'pendente')}
+                          title={isAdmin ? "Clique para alternar entre Pendente e Realizado" : "Status do evento"}
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 ${
+                            realizado
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                              : 'bg-rose-100 text-rose-800 border border-rose-300'
+                          } ${isAdmin ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${realizado ? 'bg-emerald-600' : 'bg-rose-600'}`}></span>
+                          {realizado ? 'Realizado' : 'Pendente'}
+                        </button>
+                      </td>
+                      <td className="p-3 whitespace-nowrap font-medium text-slate-700">
+                        {c.data_compromisso ? c.data_compromisso.split('-').reverse().join('/') : '-'}
+                        <span className="block text-xs text-blue-800 font-bold">
+                          {c.hora_compromisso ? c.hora_compromisso.substring(0, 5) : ''}
+                          {c.hora_fim ? ` às ${c.hora_fim.substring(0, 5)}` : ''}
+                        </span>
+                      </td>
+                      <td className="p-3">
+                        <p className="font-semibold text-slate-800">{c.titulo}</p>
+                        <p className="text-xs text-slate-500 truncate max-w-xs">{c.descricao || '-'}</p>
+                      </td>
+                      <td className="p-3 text-slate-600">{c.local_evento || '-'}</td>
+                      <td className="p-3 text-slate-600">{c.responsavel || '-'}</td>
+                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => { setCompromissoSelecionado(c); setShowDetalhesModal(true); }}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Ver
+                        </button>
+                        {isAdmin && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(c)}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleIniciarExclusao(c.id, c.titulo)}
+                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                            >
+                              Excluir
+                            </button>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* MODAL DE CADASTRO / EDIÇÃO */}
       {showModal && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
               <h3 className="text-xl font-black text-blue-900">
                 {editingCompromisso ? 'Editar Compromisso' : 'Novo Compromisso'}
@@ -470,18 +541,16 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Status do Evento</label>
-                  <select
-                    value={formCompromisso.status}
-                    onChange={(e) => handleChange('status', e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
-                  >
-                    <option value="pendente">🔴 Pendente</option>
-                    <option value="realizado">🟢 Realizado</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Status do Evento</label>
+                <select
+                  value={formCompromisso.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+                >
+                  <option value="pendente">🔴 Pendente</option>
+                  <option value="realizado">🟢 Realizado</option>
+                </select>
               </div>
 
               <div>
@@ -495,18 +564,18 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 />
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 mt-6 border-t">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-6 mt-6 border-t">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer"
+                  className="w-full sm:w-auto px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
+                  className="w-full sm:w-auto px-6 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
                 >
                   {editingCompromisso ? 'Salvar alterações' : 'Agendar compromisso'}
                 </button>
@@ -519,7 +588,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO POR SENHA */}
       {showDeleteModal && compromissoParaExcluir && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 space-y-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
             <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>
             <p className="text-sm text-slate-600">
               Você está prestes a excluir o evento <strong className="text-slate-800">{compromissoParaExcluir.titulo}</strong>. Digite sua senha de acesso para continuar:
@@ -535,17 +604,17 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 required
               />
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => { setShowDeleteModal(false); setCompromissoParaExcluir(null); }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-3 bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
                 >
                   Confirmar Exclusão
                 </button>
@@ -558,7 +627,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       {/* MODAL DE DETALHES */}
       {showDetalhesModal && compromissoSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-xl font-black text-blue-900">Detalhes do Evento</h3>
               <button

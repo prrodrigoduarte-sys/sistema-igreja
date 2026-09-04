@@ -39,22 +39,29 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
   const carregarVisitantes = useCallback(async () => {
     setLoading(true);
     try {
+      // Busca da tabela 'members' (onde o CadastroPublico salva)
       const { data, error } = await supabase
-        .from('membros')
+        .from('members')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
         .eq('tipo_cadastro', 'Visitante')
         .order('id', { ascending: false });
 
-      if (!error && data) {
+      if (error) {
+        console.error('Erro ao buscar visitantes:', error);
+      }
+
+      if (data) {
         const normalizados = data.map((v: any) => ({
           ...v,
-          nome_completo: v.nome_completo || v.nome || 'Visitante Sem Nome',
-          telefone: v.telefone || v.celular_principal || '',
+          nome_completo: v.nome || v.nome_completo || 'Visitante Sem Nome',
+          telefone: v.celular_principal || v.telefone || '',
           acompanhamentos: Array.isArray(v.acompanhamentos)
             ? v.acompanhamentos
-            : typeof v.acompanhamentos === 'string'
-            ? JSON.parse(v.acompanhamentos || '[]')
+            : typeof v.observacoes_acompanhamento === 'string'
+            ? JSON.parse(v.observacoes_acompanhamento || '[]')
+            : Array.isArray(v.observacoes_acompanhamento)
+            ? v.observacoes_acompanhamento
             : [],
         }));
         setVisitantes(normalizados);
@@ -107,7 +114,7 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
 
     try {
       const { error } = await supabase
-        .from('membros')
+        .from('members')
         .update({ acompanhamentos: listaAcompanhamentos })
         .eq('id', selectedVisitante.id);
 
@@ -128,7 +135,7 @@ export default function AcompanhamentoVisitantesModule({ loggedUser }: Props) {
 
     try {
       const { error } = await supabase
-        .from('membros')
+        .from('members')
         .update({ tipo_cadastro: 'Membro' })
         .eq('id', vis.id);
 

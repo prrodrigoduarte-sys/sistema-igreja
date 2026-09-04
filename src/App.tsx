@@ -423,68 +423,48 @@ function App() {
           </button>
 
           {isCadastrosOpen && (
-            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
-              <button
-                type="button"
-                onClick={() => selecionarAba('cadastros-membros')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Membros
-              </button>
+  <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+    <button
+      type="button"
+      onClick={() => selecionarAba('cadastros-membros')}
+      className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+        activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+      }`}
+    >
+      Membros
+    </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('cadastros-fornecedores')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Fornecedores
-              </button>
+    <button
+      type="button"
+      onClick={() => selecionarAba('cadastros-celulas')}
+      className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+        activeTab === 'cadastros-celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+      }`}
+    >
+      Células
+    </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('cadastros-ministerios')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Ministérios
-              </button>
-            </div>
-          )}
+    <button
+      type="button"
+      onClick={() => selecionarAba('cadastros-fornecedores')}
+      className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+        activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+      }`}
+    >
+      Fornecedores
+    </button>
 
-          <button
-            type="button"
-            onClick={() => selecionarAba('agenda')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            📅 Agenda
-          </button>
-
-          <button
-            type="button"
-            onClick={() => selecionarAba('financeiro')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            💰 Financeiro
-          </button>
-
-          <button
-            type="button"
-            onClick={() => selecionarAba('projetos')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            🚀 Projetos
-          </button>
+    <button
+      type="button"
+      onClick={() => selecionarAba('cadastros-ministerios')}
+      className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+        activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+      }`}
+    >
+      Ministérios
+    </button>
+  </div>
+)}
 
           {/* MENU CONFIGURAÇÕES */}
           <button

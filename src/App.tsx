@@ -21,8 +21,11 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
 
+  // Estados de Autenticação e Cadastro
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [nomeUsuario, setNomeUsuario] = useState('');
+  const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
   // Estados para o QR Code Temporário de 6 horas
@@ -34,13 +37,13 @@ function App() {
     setGerandoQr(true);
 
     try {
-      const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
+      const igrejaAtual = loggedUser.codigo_igreja;
       const tokenUnico = Math.random().toString(36).substring(2) + Date.now().toString(36);
       const dataExpiracao = new Date(new Date().getTime() + 6 * 60 * 60 * 1000).toISOString();
 
       const { error } = await supabase.from('tokens_cadastro_temporario').insert([
         {
-          codigo_igreja: codigoIgreja,
+          codigo_igreja: igrejaAtual,
           token: tokenUnico,
           expira_em: dataExpiracao,
         },
@@ -60,7 +63,7 @@ function App() {
     }
   };
 
-  // Atalho para desfazer/fechar o QR Code ao pressionar ESC
+  // Atalho para fechar o QR Code com ESC
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && qrCodeUrlDinamico) {
@@ -102,6 +105,7 @@ function App() {
     };
   }, []);
 
+  // Busca robusta do usuário vinculado na tabela usuarios por auth_user_id
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.id) {
@@ -112,15 +116,18 @@ function App() {
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
-        .or(`auth_user_id.eq.${session.user.id},id.eq.${session.user.id}`)
+        .eq('auth_user_id', session.user.id)
         .maybeSingle();
 
-      if (error || !data) {
-        setLoggedUser({
-          codigo_igreja: 'IGR-001',
-          nome_usuario: session.user.email,
-          ...session.user,
-        });
+      if (error) {
+        console.error('Erro ao carregar perfil do usuário:', error);
+        setLoggedUser(null);
+        return;
+      }
+
+      if (!data) {
+        // Caso o usuário exista no Auth mas não tenha registro na tabela usuarios ainda
+        setLoggedUser(null);
         return;
       }
 
@@ -138,12 +145,48 @@ function App() {
 
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      alert(error.message);
+
+    if (!nomeUsuario || !codigoIgreja) {
+      alert('Preencha o Nome de Usuário e o Código da Igreja.');
       return;
     }
-    alert('Verifique seu e-mail para confirmar o cadastro.');
+
+    // 1. Cria o usuário no Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      alert('Erro no cadastro: ' + authError.message);
+      return;
+    }
+
+    const authUserId = authData.user?.id;
+    if (!authUserId) {
+      alert('Erro ao obter ID do usuário autenticado.');
+      return;
+    }
+
+    // 2. Insere o perfil correspondente na tabela public.usuarios
+    const { error: profileError } = await supabase.from('usuarios').insert([
+      {
+        auth_user_id: authUserId,
+        email,
+        nome_usuario: nomeUsuario,
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
+        perfil: 'admin',
+        ativo: true,
+      },
+    ]);
+
+    if (profileError) {
+      alert('Erro ao criar perfil do usuário: ' + profileError.message);
+      return;
+    }
+
+    alert('Cadastro realizado com sucesso! Faça login para entrar.');
+    setIsLogin(true);
   };
 
   const handleLogout = async () => {
@@ -177,10 +220,38 @@ function App() {
           </h2>
 
           <p className="text-center text-slate-600 mt-2 mb-6">
-            {isLogin ? 'Faça login para continuar.' : 'Cadastre-se para acessar o sistema.'}
+            {isLogin ? 'Faça login para continuar.' : 'Cadastre sua igreja e seu usuário administrador.'}
           </p>
 
           <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
+            {!isLogin && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">NOME DO USUÁRIO</label>
+                  <input
+                    type="text"
+                    value={nomeUsuario}
+                    onChange={(e) => setNomeUsuario(e.target.value)}
+                    placeholder="Seu nome"
+                    required
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">CÓDIGO DA IGREJA (Ex: IGR-001)</label>
+                  <input
+                    type="text"
+                    value={codigoIgreja}
+                    onChange={(e) => setCodigoIgreja(e.target.value)}
+                    placeholder="IGR-001"
+                    required
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 uppercase"
+                  />
+                </div>
+              </>
+            )}
+
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1">E-MAIL</label>
               <input
@@ -209,7 +280,7 @@ function App() {
               type="submit"
               className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl transition cursor-pointer"
             >
-              {isLogin ? 'ENTRAR' : 'CADASTRAR'}
+              {isLogin ? 'ENTRAR' : 'CADASTRAR CONTA'}
             </button>
           </form>
 
@@ -225,13 +296,31 @@ function App() {
     );
   }
 
+  // Se o usuário logou no Auth mas ainda não tem perfil na tabela usuarios
+  if (!loggedUser) {
+    return (
+      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4 space-y-4">
+        <h2 className="text-2xl font-bold">Perfil não encontrado</h2>
+        <p className="text-slate-400 text-sm max-w-md text-center">
+          Sua conta foi autenticada, mas o perfil correspondente na tabela <code className="bg-slate-800 px-2 py-1 rounded">usuarios</code> não foi localizado ou vinculado.
+        </p>
+        <button
+          onClick={handleLogout}
+          className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 rounded-xl font-bold transition cursor-pointer"
+        >
+          Sair e tentar novamente
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
         <div className="p-6 border-b border-blue-800">
           <h1 className="text-2xl font-black">SISTEMA IGREJA</h1>
           <p className="text-xs text-blue-200 mt-2 truncate">
-            Olá, {loggedUser?.nome_usuario || loggedUser?.email || session.user.email}
+            {loggedUser.nome_usuario} ({loggedUser.codigo_igreja})
           </p>
         </div>
 
@@ -358,7 +447,7 @@ function App() {
             <div>
               <h2 className="text-3xl font-black text-blue-900">Dashboard</h2>
               <p className="text-slate-600 mt-1">
-                Gerencie o acesso seguro e gere QR Codes temporários com validade de 6 horas para novos cadastros.
+                Igreja: <span className="font-bold text-blue-900">{loggedUser.codigo_igreja}</span> | Usuário: <span className="font-bold text-blue-900">{loggedUser.nome_usuario}</span>
               </p>
             </div>
 
@@ -380,7 +469,7 @@ function App() {
               <div className="space-y-3 flex-1 text-center sm:text-left w-full">
                 <h4 className="font-bold text-blue-900 text-lg">QR Code Temporário (Validade: 6 Horas)</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Gere um acesso seguro para o evento ou culto. O link expira automaticamente após 6 horas, garantindo que o formulário seja preenchido com segurança.
+                  Gere um acesso seguro para o evento ou culto da igreja <span className="font-bold">{loggedUser.codigo_igreja}</span>. O link expira automaticamente após 6 horas.
                 </p>
                 <div className="pt-2 flex flex-wrap gap-2 justify-center sm:justify-start">
                   <button

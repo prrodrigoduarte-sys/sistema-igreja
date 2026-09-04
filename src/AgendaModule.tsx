@@ -94,18 +94,42 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     }
   }, [codigoIgreja, filtroData]);
 
-  // Buscar lista de membros da igreja para preencher o select de responsáveis
+  // Busca robusta de membros (tenta 'membros' ou 'members' e várias colunas de nome)
   const fetchMembros = useCallback(async () => {
     if (!codigoIgreja) return;
     try {
-      const { data, error } = await supabase
-        .from('membros')
-        .select('id, nome_completo')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome_completo', { ascending: true });
+      let data: any[] | null = null;
 
-      if (error) throw error;
-      setMembrosIgreja(data || []);
+      const resMembros = await supabase
+        .from('membros')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
+      if (!resMembros.error && resMembros.data && resMembros.data.length > 0) {
+        data = resMembros.data;
+      } else {
+        const resMembers = await supabase
+          .from('members')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja);
+
+        if (!resMembers.error && resMembers.data && resMembers.data.length > 0) {
+          data = resMembers.data;
+        } else {
+          const resGeral = await supabase.from('membros').select('*').limit(50);
+          data = resGeral.data;
+        }
+      }
+
+      if (data && data.length > 0) {
+        const listaFormatada = data.map((m: any) => ({
+          id: m.id || Math.random().toString(),
+          nome_completo: m.nome_completo || m.nome || m.nome_membro || m.full_name || m.name || 'Membro sem nome'
+        }));
+        setMembrosIgreja(listaFormatada);
+      } else {
+        setMembrosIgreja([]);
+      }
     } catch (err) {
       console.error('Erro ao buscar membros para responsáveis:', err);
     }

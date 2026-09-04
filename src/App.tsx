@@ -106,12 +106,47 @@ function App() {
   }, []);
 
   // Busca robusta do usuário vinculado na tabela usuarios por auth_user_id
+  // Busca flexível por auth_user_id ou email para nunca mais dar perfil não encontrado
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.id) {
         setLoggedUser(null);
         return;
       }
+
+      const emailUsuario = session.user.email;
+
+      // Tenta buscar por auth_user_id ou pelo e-mail
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .or(`auth_user_id.eq.${session.user.id},email.eq.${emailUsuario}`)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Erro ao carregar perfil do usuário:', error);
+        setLoggedUser(null);
+        return;
+      }
+
+      if (!data) {
+        setLoggedUser(null);
+        return;
+      }
+
+      // Se encontrou por e-mail mas faltava o auth_user_id, atualiza automaticamente
+      if (!data.auth_user_id) {
+        await supabase
+          .from('usuarios')
+          .update({ auth_user_id: session.user.id })
+          .eq('id', data.id);
+      }
+
+      setLoggedUser(data);
+    };
+
+    carregarUsuario();
+  }, [session]);
 
       const { data, error } = await supabase
         .from('usuarios')

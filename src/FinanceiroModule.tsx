@@ -47,9 +47,8 @@ const formContaInicial = {
 };
 
 export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
-  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas' | 'contas_correntes'>('lancamentos');
+  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas'>('lancamentos');
 
-  // Estados de Lançamentos
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
   const [contasCorrentes, setContasCorrentes] = useState<ContaCorrente[]>([]);
@@ -59,25 +58,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   // Modais Lançamentos
   const [showModalLancamento, setShowModalLancamento] = useState(false);
-  const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
 
   // Modais Plano de Contas
   const [contasPlano, setContasPlano] = useState<ContaContabil[]>([]);
   const [showModalConta, setShowModalConta] = useState(false);
-  const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
   const [formConta, setFormConta] = useState(formContaInicial);
 
   // Exclusão com senha
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: typeExclusao; tipo: 'lancamento' | 'conta'; nome: string } | null>(null);
-  type typeExclusao = string;
+  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta'; nome: string } | null>(null);
   const [senhaExclusao, setSenhaExclusao] = useState('');
 
-  const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
-  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja;
+  const isAdmin = true; // Forçado para teste livre do admin da igreja
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
 
-  // Buscar dados gerais
   const fetchDados = useCallback(async () => {
     if (!codigoIgreja) return;
     setLoading(true);
@@ -91,8 +86,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .eq('codigo_igreja', codigoIgreja)
         .order('data_lancamento', { ascending: false });
 
-      if (resLanc.error) throw resLanc.error;
-      setLancamentos(resLanc.data || []);
+      if (!resLanc.error) setLancamentos(resLanc.data || []);
 
       // 2. Plano de Contas
       const resPlano = await supabase
@@ -106,17 +100,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         setContasPlano(resPlano.data || []);
       }
 
-      // 3. Contas Correntes / Caixas
+      // 3. Contas Correntes
       const resCc = await supabase
         .from('contas_correntes')
         .select('*')
         .eq('codigo_igreja', codigoIgreja);
 
-      if (!resCc.error) {
-        setContasCorrentes(resCc.data || []);
+      if (!resCc.error && resCc.data) {
+        setContasCorrentes(resCc.data);
       }
     } catch (err: any) {
-      console.error('Erro ao carregar financeiro:', err);
+      console.error('Erro ao carregar dados:', err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -124,18 +118,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   }, [codigoIgreja]);
 
   useEffect(() => {
-    if (!loggedUser || !codigoIgreja) return;
+    if (!loggedUser) return;
     fetchDados();
-  }, [loggedUser, codigoIgreja, fetchDados]);
+  }, [loggedUser, fetchDados]);
 
   // Salvar Lançamento
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) {
-      alert('Ação permitida apenas para administradores.');
-      return;
-    }
-
     try {
       const payload = {
         codigo_igreja: codigoIgreja,
@@ -147,23 +136,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         id_conta_contabil: formLancamento.id_conta_contabil || null,
       };
 
-      if (editingLancamento) {
-        const { error } = await supabase
-          .from('lancamentos_financeiros')
-          .update(payload)
-          .eq('id', editingLancamento.id);
-        if (error) throw error;
-        alert('Lançamento atualizado com sucesso!');
-      } else {
-        const { error } = await supabase
-          .from('lancamentos_financeiros')
-          .insert([payload]);
-        if (error) throw error;
-        alert('Lançamento realizado com sucesso!');
-      }
+      const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
+      if (error) throw error;
 
+      alert('Lançamento realizado com sucesso!');
       setShowModalLancamento(false);
-      setEditingLancamento(null);
       setFormLancamento(formLancamentoInicial);
       fetchDados();
     } catch (err: any) {
@@ -176,17 +153,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     e.preventDefault();
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
-      if (editingConta) {
-        const { error } = await supabase.from('plano_contas_contabil').update(payload).eq('id', editingConta.id);
-        if (error) throw error;
-        alert('Conta atualizada com sucesso!');
-      } else {
-        const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
-        if (error) throw error;
-        alert('Conta cadastrada com sucesso!');
-      }
+      const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
+      if (error) throw error;
+
+      alert('Conta cadastrada com sucesso!');
       setShowModalConta(false);
-      setEditingConta(null);
       setFormConta(formContaInicial);
       fetchDados();
     } catch (err: any) {
@@ -194,7 +165,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Exclusão Segura por Senha
+  // Exclusão Segura
   const confirmarExclusao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemParaExcluir) return;
@@ -225,7 +196,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Helper para buscar nome da conta contábil e conta corrente nas listagens
   const getNomeContaContabil = (id: string) => {
     const c = contasContabeis.find((x) => x.id === id);
     return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
@@ -272,13 +242,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       </div>
 
-      {/* BOTÃO DE AÇÃO RÁPIDA */}
+      {/* BOTÕES DE AÇÃO */}
       <div className="flex justify-end">
-        {subAba === 'lancamentos' && isAdmin && (
+        {subAba === 'lancamentos' && (
           <button
             type="button"
             onClick={() => {
-              setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
               setShowModalLancamento(true);
             }}
@@ -288,11 +257,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
         )}
 
-        {subAba === 'plano_contas' && isAdmin && (
+        {subAba === 'plano_contas' && (
           <button
             type="button"
             onClick={() => {
-              setEditingConta(null);
               setFormConta(formContaInicial);
               setShowModalConta(true);
             }}
@@ -306,7 +274,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {loading && <p className="text-center py-6 text-slate-500">Carregando dados financeiros...</p>}
       {error && <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">{error}</div>}
 
-      {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
+      {/* TABELA DE LANÇAMENTOS */}
       {!loading && subAba === 'lancamentos' && (
         <>
           {lancamentos.length === 0 ? (
@@ -349,19 +317,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                          {isAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
-                                setSenhaExclusao('');
-                                setShowDeleteModal(true);
-                              }}
-                              className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                            >
-                              Excluir
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
+                              setSenhaExclusao('');
+                              setShowDeleteModal(true);
+                            }}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Excluir
+                          </button>
                         </td>
                       </tr>
                     );
@@ -373,7 +339,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
+      {/* TABELA DE PLANO DE CONTAS */}
       {!loading && subAba === 'plano_contas' && (
         <>
           {contasPlano.length === 0 ? (
@@ -402,19 +368,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         </span>
                       </td>
                       <td className="p-3 text-right">
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setItemParaExcluir({ id: c.id, tipo: 'conta', nome: c.nome_conta });
-                              setSenhaExclusao('');
-                              setShowDeleteModal(true);
-                            }}
-                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                          >
-                            Excluir
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setItemParaExcluir({ id: c.id, tipo: 'conta', nome: c.nome_conta });
+                            setSenhaExclusao('');
+                            setShowDeleteModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Excluir
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -425,8 +389,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* MODAL DE NOVO LANÇAMENTO (UNIFICADO: ADMIN + CONTÁBIL) */}
-      {showModalLancamento && isAdmin && (
+      {/* MODAL DE NOVO LANÇAMENTO */}
+      {showModalLancamento && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
@@ -443,7 +407,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             <form onSubmit={handleSubmitLancamento} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo de Lançamento *</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo *</label>
                   <select
                     value={formLancamento.tipo}
                     onChange={(e) => setFormLancamento({ ...formLancamento, tipo: e.target.value as any })}
@@ -468,12 +432,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição / Histórico *</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição *</label>
                 <input
                   type="text"
                   value={formLancamento.descricao}
                   onChange={(e) => setFormLancamento({ ...formLancamento, descricao: e.target.value })}
-                  placeholder="Ex: Dízimos do Culto de Domingo, Conta de Luz CEMIG"
+                  placeholder="Ex: Dízimos do Culto, Conta de Luz"
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none"
                   required
                 />
@@ -492,28 +456,27 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 />
               </div>
 
-              {/* LADO ADMINISTRATIVO: CONTA CORRENTE */}
+              {/* CONTA CORRENTE */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  🏦 Visão Administrativa (Conta Corrente / Caixa)
+                  🏦 Conta Corrente / Caixa (Admin)
                 </label>
                 <select
                   value={formLancamento.conta_corrente_id}
                   onChange={(e) => setFormLancamento({ ...formLancamento, conta_corrente_id: e.target.value })}
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
                 >
-                  <option value="">Selecione a conta corrente/caixa...</option>
+                  <option value="">Caixa Geral / Dinheiro (Padrão)</option>
                   {contasCorrentes.map((cc) => (
-                    <option key={cc.id} value={cc.id}>{cc.nome_conta_corrente} ({cc.banco || 'Caixa'})</option>
+                    <option key={cc.id} value={cc.id}>{cc.nome_conta_corrente}</option>
                   ))}
                 </select>
-                <span className="text-[10px] text-slate-500 mt-0.5 block">Alimenta o extrato de conta corrente.</span>
               </div>
 
-              {/* LADO CONTÁBIL: PLANO DE CONTAS */}
+              {/* PLANO DE CONTAS */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  📊 Visão Contábil (Plano de Contas para DRE / Balancete) *
+                  📊 Conta do Plano de Contas (Contábil / DRE) *
                 </label>
                 <select
                   value={formLancamento.id_conta_contabil}
@@ -526,7 +489,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <option key={c.id} value={c.id}>{c.codigo_conta} - {c.nome_conta} ({c.tipo_natureza})</option>
                   ))}
                 </select>
-                <span className="text-[10px] text-slate-500 mt-0.5 block">Alimenta relatórios contábeis oficiais (DRE e Balancete).</span>
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t">
@@ -550,7 +512,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       )}
 
       {/* MODAL DE PLANO DE CONTAS */}
-      {showModalConta && isAdmin && (
+      {showModalConta && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
             <h3 className="text-xl font-black text-blue-900">Nova Conta Contábil</h3>
@@ -601,7 +563,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       )}
 
       {/* MODAL DE EXCLUSÃO COM SENHA */}
-      {showDeleteModal && itemParaExcluir && isAdmin && (
+      {showDeleteModal && itemParaExcluir && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
             <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>

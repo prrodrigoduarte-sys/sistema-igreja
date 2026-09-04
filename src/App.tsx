@@ -463,10 +463,11 @@ function App() {
             type="button"
             onClick={() => {
               setIsCelulasOpen(!isCelulasOpen);
-              selecionarAba('celulas');
+              setSubAbaCelulas('celulas');
+              selecionarAba('celulas-modulo');
             }}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab === 'celulas' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              activeTab.startsWith('celulas') ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             <span>🏡 Células</span>
@@ -479,10 +480,10 @@ function App() {
                 type="button"
                 onClick={() => {
                   setSubAbaCelulas('celulas');
-                  selecionarAba('celulas');
+                  selecionarAba('celulas-modulo');
                 }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Células
@@ -492,10 +493,10 @@ function App() {
                 type="button"
                 onClick={() => {
                   setSubAbaCelulas('setores');
-                  selecionarAba('celulas');
+                  selecionarAba('celulas-modulo');
                 }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Setores
@@ -505,10 +506,10 @@ function App() {
                 type="button"
                 onClick={() => {
                   setSubAbaCelulas('redes');
-                  selecionarAba('celulas');
+                  selecionarAba('celulas-modulo');
                 }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 Redes
@@ -610,8 +611,12 @@ function App() {
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
-        {/* REPLICANDO A CHAMADA DO MÓDULO REAL */}
-        {activeTab === 'celulas' && <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />}
+        
+        {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS */}
+        {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
+          <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+        )}
+
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
         {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}

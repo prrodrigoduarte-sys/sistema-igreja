@@ -243,7 +243,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
   };
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
+    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
       
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -342,7 +342,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                     <button
                       type="button"
                       onClick={() => { setCompromissoSelecionado(c); setShowDetalhesModal(true); }}
-                      className="flex-1 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl transition"
+                      className="flex-1 py-2 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold text-xs rounded-xl transition cursor-pointer"
                     >
                       Ver Detalhes
                     </button>
@@ -352,14 +352,14 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(c)}
-                          className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl transition"
+                          className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-xl transition cursor-pointer"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => handleIniciarExclusao(c.id, c.titulo)}
-                          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition"
+                          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl transition cursor-pointer"
                         >
                           Excluir
                         </button>
@@ -627,7 +627,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       {/* MODAL DE DETALHES */}
       {showDetalhesModal && compromissoSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4">
               <h3 className="text-xl font-black text-blue-900">Detalhes do Evento</h3>
               <button

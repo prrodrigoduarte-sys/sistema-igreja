@@ -25,6 +25,8 @@ interface ContaCorrente {
   id: string;
   nome_conta_corrente: string;
   banco: string;
+  agencia?: string;
+  numero_conta?: string;
 }
 
 interface FinanceiroModuleProps {
@@ -40,15 +42,22 @@ const formLancamentoInicial = {
   id_conta_contabil: '',
 };
 
-const formContaInicial = {
+const formContaContabilInicial = {
   codigo_conta: '',
   nome_conta: '',
   conta_pai: '',
   tipo_natureza: 'Despesa',
 };
 
+const formContaCorrenteInicial = {
+  nome_conta_corrente: '',
+  banco: '',
+  agencia: '',
+  numero_conta: '',
+};
+
 export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
-  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas' | 'relatorios'>('lancamentos');
+  const [subAba, setSubAba] = useState<'lancamentos' | 'plano_contas' | 'contas_correntes' | 'relatorios'>('lancamentos');
   const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre'>('conta_corrente');
 
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
@@ -63,14 +72,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
 
   // Modais Plano de Contas
-  const [contasPlano, setContasPlano] = useState<ContaContabil[]>([]);
   const [showModalConta, setShowModalConta] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
-  const [formConta, setFormConta] = useState(formContaInicial);
+  const [formConta, setFormConta] = useState(formContaContabilInicial);
+
+  // Modais Conta Corrente / Caixa
+  const [showModalCc, setShowModalCc] = useState(false);
+  const [editingCc, setEditingCc] = useState<ContaCorrente | null>(null);
+  const [formCc, setFormCc] = useState(formContaCorrenteInicial);
 
   // Exclusão com senha
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta'; nome: string } | null>(null);
+  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_corrente'; nome: string } | null>(null);
   const [senhaExclusao, setSenhaExclusao] = useState('');
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
@@ -95,19 +108,14 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .eq('codigo_igreja', codigoIgreja)
         .order('codigo_conta', { ascending: true });
 
-      if (!resPlano.error) {
-        setContasContabeis(resPlano.data || []);
-        setContasPlano(resPlano.data || []);
-      }
+      if (!resPlano.error) setContasContabeis(resPlano.data || []);
 
       const resCc = await supabase
         .from('contas_correntes')
         .select('*')
         .eq('codigo_igreja', codigoIgreja);
 
-      if (!resCc.error && resCc.data) {
-        setContasCorrentes(resCc.data);
-      }
+      if (!resCc.error) setContasCorrentes(resCc.data || []);
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
       setError(err.message);
@@ -178,11 +186,51 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       setShowModalConta(false);
       setEditingConta(null);
-      setFormConta(formContaInicial);
+      setFormConta(formContaContabilInicial);
       setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
       alert('Erro ao salvar conta: ' + err.message);
+    }
+  };
+
+  const handleSubmitCc = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = { ...formCc, codigo_igreja: codigoIgreja };
+
+      if (editingCc) {
+        const emailUsuario = loggedUser?.usuario || loggedUser?.email;
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: emailUsuario,
+          password: senhaExclusao,
+        });
+
+        if (authError) {
+          alert('Senha incorreta! A alteração foi cancelada.');
+          return;
+        }
+
+        const { error } = await supabase
+          .from('contas_correntes')
+          .update(payload)
+          .eq('id', editingCc.id);
+
+        if (error) throw error;
+        alert('Conta corrente atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('contas_correntes').insert([payload]);
+        if (error) throw error;
+        alert('Conta corrente cadastrada com sucesso!');
+      }
+
+      setShowModalCc(false);
+      setEditingCc(null);
+      setFormCc(formContaCorrenteInicial);
+      setSenhaExclusao('');
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao salvar conta corrente: ' + err.message);
     }
   };
 
@@ -202,7 +250,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         return;
       }
 
-      const tabela = itemParaExcluir.tipo === 'lancamento' ? 'lancamentos_financeiros' : 'plano_contas_contabil';
+      let tabela = 'lancamentos_financeiros';
+      if (itemParaExcluir.tipo === 'conta_contabil') tabela = 'plano_contas_contabil';
+      if (itemParaExcluir.tipo === 'conta_corrente') tabela = 'contas_correntes';
+
       const { error } = await supabase.from(tabela).delete().eq('id', itemParaExcluir.id);
       if (error) throw error;
 
@@ -226,8 +277,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return cc ? cc.nome_conta_corrente : 'Caixa Geral / Dinheiro';
   };
 
-  // CÁLCULOS PARA OS RELATÓRIOS
-  // 1. DRE: Agrupa por conta contábil e separa Receitas e Despesas
   const dadosDRE = contasContabeis.map((conta) => {
     const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
     const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
@@ -252,7 +301,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </p>
         </div>
 
-        {/* ABAS RECUADAS MAIS À ESQUERDA */}
+        {/* ABAS */}
         <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
           <button
             type="button"
@@ -262,6 +311,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             }`}
           >
             💸 Lançamentos
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubAba('contas_correntes')}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              subAba === 'contas_correntes' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🏦 Contas / Caixas
           </button>
           <button
             type="button"
@@ -284,7 +342,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       </div>
 
-      {/* BOTÕES DE AÇÃO NAS ABAS NORMAIS */}
+      {/* BOTÕES DE AÇÃO SUPERIOR */}
       <div className="flex justify-end">
         {subAba === 'lancamentos' && (
           <button
@@ -299,12 +357,27 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
         )}
 
+        {subAba === 'contas_correntes' && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingCc(null);
+              setFormCc(formContaCorrenteInicial);
+              setSenhaExclusao('');
+              setShowModalCc(true);
+            }}
+            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+          >
+            + Nova Conta / Caixa
+          </button>
+        )}
+
         {subAba === 'plano_contas' && (
           <button
             type="button"
             onClick={() => {
               setEditingConta(null);
-              setFormConta(formContaInicial);
+              setFormConta(formContaContabilInicial);
               setSenhaExclusao('');
               setShowModalConta(true);
             }}
@@ -383,10 +456,75 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
+      {/* CONTEÚDO DA ABA: CONTAS CORRENTES / CAIXAS */}
+      {!loading && subAba === 'contas_correntes' && (
+        <>
+          {contasCorrentes.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <p className="text-slate-500 text-sm">Nenhuma conta corrente ou caixa cadastrado.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                    <th className="p-3">Nome da Conta / Caixa</th>
+                    <th className="p-3">Banco</th>
+                    <th className="p-3">Agência</th>
+                    <th className="p-3">Número da Conta</th>
+                    <th className="p-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm">
+                  {contasCorrentes.map((cc) => (
+                    <tr key={cc.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 font-bold text-blue-900">{cc.nome_conta_corrente}</td>
+                      <td className="p-3 font-semibold text-slate-800">{cc.banco || 'Caixa Físico'}</td>
+                      <td className="p-3 text-slate-600">{cc.agencia || '-'}</td>
+                      <td className="p-3 text-slate-600">{cc.numero_conta || '-'}</td>
+                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingCc(cc);
+                            setFormCc({
+                              nome_conta_corrente: cc.nome_conta_corrente,
+                              banco: cc.banco || '',
+                              agencia: cc.agencia || '',
+                              numero_conta: cc.numero_conta || '',
+                            });
+                            setSenhaExclusao('');
+                            setShowModalCc(true);
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setItemParaExcluir({ id: cc.id, tipo: 'conta_corrente', nome: cc.nome_conta_corrente });
+                            setSenhaExclusao('');
+                            setShowDeleteModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Excluir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
       {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
       {!loading && subAba === 'plano_contas' && (
         <>
-          {contasPlano.length === 0 ? (
+          {contasContabeis.length === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
               <p className="text-slate-500 text-sm">Nenhuma conta cadastrada no plano de contas.</p>
             </div>
@@ -402,7 +540,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   </tr>
                 </thead>
                 <tbody className="divide-y text-sm">
-                  {contasPlano.map((c) => (
+                  {contasContabeis.map((c) => (
                     <tr key={c.id} className="hover:bg-slate-50/80 transition">
                       <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
                       <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
@@ -432,7 +570,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <button
                           type="button"
                           onClick={() => {
-                            setItemParaExcluir({ id: c.id, tipo: 'conta', nome: c.nome_conta });
+                            setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
                           }}
@@ -450,10 +588,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: RELATÓRIOS (COM OS 4 TIPOS SOLICITADOS) */}
+      {/* CONTEÚDO DA ABA: RELATÓRIOS */}
       {!loading && subAba === 'relatorios' && (
         <div className="space-y-6">
-          {/* SELETOR DOS 4 RELATÓRIOS */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border">
             <button
               type="button"
@@ -493,14 +630,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             </button>
           </div>
 
-          {/* CAIXA DO RELATÓRIO SELECIONADO */}
           <div className="bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
             
-            {/* RELATÓRIO 1: CONTA CORRENTE */}
             {tipoRelatorio === 'conta_corrente' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Administrativo: Extrato de Conta Corrente / Caixa</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas bancárias.</p>
+                <p className="text-xs text-slate-500 mb-4">Movimentação financeira separada por caixas e contas bancárias cadastradas.</p>
                 
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
@@ -532,7 +667,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 2: DIÁRIO */}
             {tipoRelatorio === 'diario' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Contábil: Livro Diário</h3>
@@ -563,7 +697,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 3: BALANCETE */}
             {tipoRelatorio === 'balancete' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-2">Relatório Contábil: Balancete de Verificação</h3>
@@ -594,7 +727,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 4: DRE */}
             {tipoRelatorio === 'dre' && (
               <div className="space-y-4">
                 <div>
@@ -694,18 +826,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 />
               </div>
 
+              {/* SELECIONA DA TABELA DE CONTAS CORRENTES */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  🏦 Conta Corrente / Caixa (Admin)
+                  🏦 Conta Corrente / Caixa (Admin) *
                 </label>
                 <select
                   value={formLancamento.conta_corrente_id}
                   onChange={(e) => setFormLancamento({ ...formLancamento, conta_corrente_id: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                  required
                 >
-                  <option value="">Caixa Geral / Dinheiro (Padrão)</option>
+                  <option value="">Selecione o caixa ou conta corrente...</option>
                   {contasCorrentes.map((cc) => (
-                    <option key={cc.id} value={cc.id}>{cc.nome_conta_corrente}</option>
+                    <option key={cc.id} value={cc.id}>{cc.nome_conta_corrente} ({cc.banco || 'Caixa'})</option>
                   ))}
                 </select>
               </div>
@@ -740,6 +874,95 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
                 >
                   Salvar Lançamento
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONTA CORRENTE / CAIXA (NOVO OU EDIÇÃO COM SENHA) */}
+      {showModalCc && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
+            <h3 className="text-xl font-black text-blue-900">
+              {editingCc ? 'Editar Conta / Caixa' : 'Nova Conta / Caixa'}
+            </h3>
+            
+            <form onSubmit={handleSubmitCc} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta / Caixa *</label>
+                <input
+                  type="text"
+                  value={formCc.nome_conta_corrente}
+                  onChange={(e) => setFormCc({ ...formCc, nome_conta_corrente: e.target.value })}
+                  placeholder="Ex: Caixa Local, Conta Bradesco CC"
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Banco (Opcional)</label>
+                <input
+                  type="text"
+                  value={formCc.banco}
+                  onChange={(e) => setFormCc({ ...formCc, banco: e.target.value })}
+                  placeholder="Ex: Bradesco, Itaú, Pix"
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Agência</label>
+                  <input
+                    type="text"
+                    value={formCc.agencia}
+                    onChange={(e) => setFormCc({ ...formCc, agencia: e.target.value })}
+                    placeholder="0000"
+                    className="w-full border rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Número da Conta</label>
+                  <input
+                    type="text"
+                    value={formCc.numero_conta}
+                    onChange={(e) => setFormCc({ ...formCc, numero_conta: e.target.value })}
+                    placeholder="00000-0"
+                    className="w-full border rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              {editingCc && (
+                <div className="pt-2 border-t">
+                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Alterar *</label>
+                  <input
+                    type="password"
+                    value={senhaExclusao}
+                    onChange={(e) => setSenhaExclusao(e.target.value)}
+                    placeholder="Sua senha atual"
+                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowModalCc(false); setEditingCc(null); }}
+                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
+                >
+                  {editingCc ? 'Salvar Alterações' : 'Cadastrar Conta'}
                 </button>
               </div>
             </form>
@@ -797,7 +1020,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
               {editingConta && (
                 <div className="pt-2 border-t">
-                  <label className="block text-xs font-bold text-rose-700 mb-1">Digite sua Senha de Administrador para Alterar *</label>
+                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Alterar *</label>
                   <input
                     type="password"
                     value={senhaExclusao}

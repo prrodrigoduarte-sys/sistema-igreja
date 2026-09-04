@@ -491,7 +491,7 @@ function App() {
             type="button"
             onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('configuracoes') ? 'bg-blue-700' : 'hover:bg-blue-800'
+              activeTab.startsWith('configuracoes') || activeTab === 'controle_registro' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             <span>⚙️ Configurações</span>
@@ -508,6 +508,16 @@ function App() {
                 }`}
               >
                 Controle de Usuários
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('controle_registro')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'controle_registro' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                🔒 Controle de Registro
               </button>
             </div>
           )}
@@ -578,7 +588,7 @@ function App() {
                 </p>
               </div>
 
-              {/* OPÇÃO 2: CONSULTAR AGENDA RÁPIDA (TERCEIRA OPÇÃO) */}
+              {/* OPÇÃO 2: CONSULTAR AGENDA RÁPIDA */}
               <div className="border-t pt-4 space-y-2">
                 <button
                   type="button"
@@ -781,15 +791,6 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
       <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
         <p className="font-medium">Utilize o menu lateral para navegar entre os módulos de Cadastros, Agenda, Financeiro e Projetos.</p>
       </div>
-    </div>
-  );
-}
-
-function TelaProvisoria({ titulo }: { titulo: string }) {
-  return (
-    <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm">
-      <h2 className="text-3xl font-black text-blue-900">{titulo}</h2>
-      <p className="text-slate-600 mt-2">Esta seção está pronta para receber a implementação do módulo correspondente.</p>
     </div>
   );
 }

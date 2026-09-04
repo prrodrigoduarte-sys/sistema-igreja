@@ -5,7 +5,7 @@ import { supabase } from './supabase';
 interface Usuario {
   id: string;
   codigo_igreja: string;
-  usuario: string;
+  email: string;
   nome_usuario: string;
   ativo: boolean;
   permissao_mobile: boolean;
@@ -19,13 +19,12 @@ interface UsuariosModuleProps {
 
 const formInicial = {
   codigo_igreja: '',
-  usuario: '',
+  email: '',
   senha: '',
   nome_usuario: '',
   ativo: true,
   permissao_mobile: false,
   permissao_computador: true,
-  auth_user_id: '',
 };
 
 export default function UsuariosModule({ loggedUser }: UsuariosModuleProps) {
@@ -85,13 +84,12 @@ export default function UsuariosModule({ loggedUser }: UsuariosModuleProps) {
     setEditingUsuario(usu);
     setFormUsuario({
       codigo_igreja: usu.codigo_igreja || codigoIgrejaAtual || '',
-      usuario: usu.usuario || '',
+      email: usu.email || '',
       senha: '', // senha em branco por segurança na edição
       nome_usuario: usu.nome_usuario || '',
       ativo: usu.ativo ?? true,
       permissao_mobile: usu.permissao_mobile ?? false,
       permissao_computador: usu.permissao_computador ?? true,
-      auth_user_id: usu.auth_user_id || '',
     });
     setShowModal(true);
   };
@@ -117,7 +115,7 @@ export default function UsuariosModule({ loggedUser }: UsuariosModuleProps) {
         // Atualização
         const payload: any = {
           nome_usuario: formUsuario.nome_usuario,
-          usuario: formUsuario.usuario,
+          email: formUsuario.email,
           ativo: formUsuario.ativo,
           permissao_mobile: formUsuario.permissao_mobile,
           permissao_computador: formUsuario.permissao_computador,
@@ -131,23 +129,21 @@ export default function UsuariosModule({ loggedUser }: UsuariosModuleProps) {
         if (errUpdate) throw errUpdate;
         alert('Usuário atualizado com sucesso!');
       } else {
-        // Criação de novo usuário no Auth e na tabela usuarios
-        // 1. Cria no Auth do Supabase
+        // 1. Cria o usuário no Auth do Supabase
         const { data: authData, error: errAuth } = await supabase.auth.signUp({
-          email: formUsuario.usuario, // assumindo que o campo 'usuario' seja o e-mail de login
+          email: formUsuario.email,
           password: formUsuario.senha,
         });
 
         if (errAuth) throw errAuth;
 
-        const newAuthId = authData.user?.id;
+        const newAuthId = authData.user?.id || authData.session?.user?.id;
 
         // 2. Insere na tabela 'usuarios' vinculando o auth_user_id e o codigo_igreja
         const { error: errInsert } = await supabase.from('usuarios').insert([
           {
             codigo_igreja: codigoIgrejaAtual,
-            usuario: formUsuario.usuario,
-            senha: formUsuario.senha, // se sua aplicação salvar texto puro na coluna senha
+            email: formUsuario.email,
             nome_usuario: formUsuario.nome_usuario,
             ativo: formUsuario.ativo,
             permissao_mobile: formUsuario.permissao_mobile,
@@ -220,7 +216,7 @@ export default function UsuariosModule({ loggedUser }: UsuariosModuleProps) {
               {usuarios.map((u) => (
                 <tr key={u.id} className="hover:bg-slate-50/80 transition">
                   <td className="p-3 font-semibold text-slate-800">{u.nome_usuario}</td>
-                  <td className="p-3 text-slate-600">{u.usuario}</td>
+                  <td className="p-3 text-slate-600">{u.email}</td>
                   <td className="p-3">
                     <span className={`px-2 py-1 text-xs font-bold rounded-lg ${u.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}`}>
                       {u.ativo ? 'Ativo' : 'Inativo'}
@@ -279,8 +275,8 @@ export default function UsuariosModule({ loggedUser }: UsuariosModuleProps) {
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">E-mail / Login (Usuário) *</label>
                 <input
                   type="email"
-                  value={formUsuario.usuario}
-                  onChange={(e) => handleChange('usuario', e.target.value)}
+                  value={formUsuario.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="admin@igreja.com"
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                   required

@@ -24,6 +24,13 @@ interface Membro {
   ministerio_id: string;
 }
 
+interface Ministerio {
+  id: string;
+  nome_ministerio?: string;
+  nome?: string;
+  descricao?: string;
+}
+
 interface MembrosModuleProps {
   loggedUser: any;
 }
@@ -50,6 +57,7 @@ const formInicial = {
 
 export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [membros, setMembros] = useState<Membro[]>([]);
+  const [ministerios, setMinisterios] = useState<Ministerio[]>([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +78,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     loggedUser?.codigo_igreja ||
     loggedUser?.igrejas?.codigo_igreja;
 
+  // Buscar Membros e Ministérios
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -82,6 +91,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setError(null);
 
     try {
+      // 1. Consulta de Membros
       let query = supabase
         .from('members')
         .select('*')
@@ -94,14 +104,22 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       }
 
       const { data, error: erroConsulta } = await query;
-
       if (erroConsulta) throw erroConsulta;
-
       setMembros(data || []);
+
+      // 2. Consulta de Ministérios para a Caixa Inbox
+      const resMin = await supabase
+        .from('ministerios')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
+      if (!resMin.error) {
+        setMinisterios(resMin.data || []);
+      }
     } catch (erro: any) {
-      console.error('Erro ao buscar membros:', erro);
+      console.error('Erro ao buscar dados:', erro);
       setMembros([]);
-      setError(erro?.message || 'Erro ao buscar membros.');
+      setError(erro?.message || 'Erro ao buscar dados.');
     } finally {
       setLoading(false);
     }
@@ -153,13 +171,11 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `membros/${fileName}`;
 
-      // Tenta enviar para o bucket 'membros-fotos' do Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('membros-fotos')
         .upload(filePath, file);
 
       if (uploadError) {
-        // Se o bucket não existir, converte em Base64 provisoriamente para salvar na coluna text
         const reader = new FileReader();
         reader.onloadend = () => {
           setFormMembro((prev) => ({ ...prev, foto_url: reader.result as string }));
@@ -247,8 +263,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     if (!membroParaExcluir) return;
 
     try {
-      // Valida a senha do usuário autenticado atual no Supabase Auth
-      const emailUsuario = loggedUser?.usuario || loggedUser?.email || session?.user?.email;
+      const emailUsuario = loggedUser?.usuario || loggedUser?.email;
       
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: emailUsuario,
@@ -260,7 +275,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         return;
       }
 
-      // Se a senha estiver correta, executa a exclusão
       const { error: deleteError } = await supabase
         .from('members')
         .delete()
@@ -277,6 +291,13 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       console.error('Erro ao excluir:', err);
       alert('Erro ao excluir membro: ' + (err.message || 'Erro desconhecido'));
     }
+  };
+
+  // Helper para exibir o nome do ministério vinculado
+  const getNomeMinisterio = (ministerioId?: string) => {
+    if (!ministerioId) return '-';
+    const m = ministerios.find((x) => x.id === ministerioId);
+    return m ? (m.nome_ministerio || m.nome || m.descricao || 'Ministério') : '-';
   };
 
   if (!loggedUser) {
@@ -341,7 +362,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
               <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
                 <th className="p-3">Foto</th>
                 <th className="p-3">Nome</th>
-                <th className="p-3">Endereço</th>
+                <th className="p-3">Ministério</th>
                 <th className="p-3">Telefone</th>
                 <th className="p-3">E-mail</th>
                 <th className="p-3 text-right">Ações</th>
@@ -349,10 +370,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             </thead>
             <tbody className="divide-y text-sm">
               {membros.map((m) => {
-                const enderecoResumido = [m.rua, m.numero, m.bairro, m.cidade]
-                  .filter(Boolean)
-                  .join(', ') || m.endereco || '-';
-
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition">
                     <td className="p-3">
@@ -365,7 +382,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                       </div>
                     </td>
                     <td className="p-3 font-semibold text-slate-800">{m.nome}</td>
-                    <td className="p-3 text-slate-600 truncate max-w-xs">{enderecoResumido}</td>
+                    <td className="p-3 font-medium text-blue-900 text-xs">{getNomeMinisterio(m.ministerio_id)}</td>
                     <td className="p-3 text-slate-600">{m.celular_principal || '-'}</td>
                     <td className="p-3 text-slate-600">{m.email || '-'}</td>
                     <td className="p-3 text-right space-x-1 whitespace-nowrap">
@@ -399,7 +416,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO COM UPLOAD DE FOTO */}
+      {/* MODAL DE CADASTRO / EDIÇÃO COM UPLOAD DE FOTO E MINISTÉRIO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto">
@@ -463,6 +480,23 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
                     required
                   />
+                </div>
+
+                {/* CAIXA INBOX DE MINISTÉRIO */}
+                <div className="sm:col-span-3">
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🏛️ Ministério</label>
+                  <select
+                    value={formMembro.ministerio_id}
+                    onChange={(e) => handleChange('ministerio_id', e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium text-blue-900"
+                  >
+                    <option value="">Selecione o ministério (opcional)...</option>
+                    {ministerios.map((min) => (
+                      <option key={min.id} value={min.id}>
+                        {min.nome_ministerio || min.nome || min.descricao || 'Ministério'}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -689,6 +723,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Tipo</span>{membroSelecionado.tipo_cadastro}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Ministério</span>{getNomeMinisterio(membroSelecionado.ministerio_id)}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">CPF</span>{membroSelecionado.cpf || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">RG</span>{membroSelecionado.rg || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Nascimento</span>{membroSelecionado.data_nascimento || '-'}</div>

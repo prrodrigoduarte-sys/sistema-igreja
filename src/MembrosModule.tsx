@@ -91,23 +91,24 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setError(null);
 
     try {
-      // 1. Consulta de Membros
+      // 1. Consulta de Membros (exclui tipo "Visitante")
       let query = supabase
         .from('members')
         .select('*')
-        .eq('codigo_igreja', codigoIgreja);
+        .eq('codigo_igreja', codigoIgreja)
+        .neq('tipo_cadastro', 'Visitante');
 
       if (termoBusca.trim() !== '') {
         query = query.ilike('nome', `%${termoBusca.trim()}%`);
       } else {
-        query = query.limit(15);
+        query = query.limit(35);
       }
 
       const { data, error: erroConsulta } = await query;
       if (erroConsulta) throw erroConsulta;
       setMembros(data || []);
 
-      // 2. Consulta de Ministérios para a Caixa Inbox
+      // 2. Consulta de Ministérios
       const resMin = await supabase
         .from('ministerios')
         .select('*')
@@ -160,7 +161,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setShowMemberModal(true);
   };
 
-  // Manipulador para carregar/tirar foto do arquivo ou câmera
+  // Manipulador para carregar/tirar foto
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -220,10 +221,20 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
 
     try {
+      // TRATAMENTO DOS CAMPOS VAZIOS PARA EVITAR ERRO DE SINTAXE DE DATA/ID NO SUPABASE
       const payload = {
         ...formMembro,
         codigo_igreja: codigoIgreja,
-        ministerio_id: formMembro.ministerio_id || null,
+        data_nascimento: formMembro.data_nascimento && formMembro.data_nascimento.trim() !== '' 
+          ? formMembro.data_nascimento 
+          : null,
+        ministerio_id: formMembro.ministerio_id && formMembro.ministerio_id.trim() !== '' 
+          ? formMembro.ministerio_id 
+          : null,
+        cpf: formMembro.cpf?.trim() || null,
+        rg: formMembro.rg?.trim() || null,
+        email: formMembro.email?.trim() || null,
+        celular_principal: formMembro.celular_principal?.trim() || null,
       };
 
       if (editingMember) {
@@ -296,7 +307,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   // Helper para exibir o nome do ministério vinculado
   const getNomeMinisterio = (ministerioId?: string) => {
     if (!ministerioId) return '-';
-    const m = ministerios.find((x) => x.id === ministerioId);
+    const m = ministerios.find((x) => String(x.id) === String(ministerioId));
     return m ? (m.nome_ministerio || m.nome || m.descricao || 'Ministério') : '-';
   };
 
@@ -416,7 +427,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO COM UPLOAD DE FOTO E MINISTÉRIO */}
+      {/* MODAL DE CADASTRO / EDIÇÃO */}
       {showMemberModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto">

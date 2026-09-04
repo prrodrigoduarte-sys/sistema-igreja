@@ -556,7 +556,7 @@ function App() {
         {activeTab === 'financeiro' && <TelaProvisoria titulo="Financeiro" />}
       </main>
 
-      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM GERAÇÃO DE QR CODE */}
+      {/* MODAL INTUITIVO "ABRIR TELA MOBILE / OPÇÕES" COM DUAS OPÇÕES */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
@@ -574,21 +574,27 @@ function App() {
               </button>
             </div>
 
-            <div className="space-y-4">
-              <a
-                href="#cadastro"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block w-full text-center px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl transition shadow"
-              >
-                🔗 Abrir Tela de Cadastro Público (Nova Guia)
-              </a>
+            <div className="space-y-6">
+              {/* OPÇÃO 1: ABRIR TELA PÚBLICA */}
+              <div className="space-y-2">
+                <a
+                  href="#cadastro"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full text-center px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl transition shadow"
+                >
+                  🔗 1. Abrir Tela de Cadastro Público (Nova Guia)
+                </a>
+                <p className="text-xs text-slate-500 px-1">
+                  Abre a interface externa de cadastro de membros/visitantes otimizada para celulares e tablets.
+                </p>
+              </div>
 
-              {/* SEÇÃO: GERAR QR CODE EXCLUSIVO PARA O ADMINISTRADOR MOSTRAR NO CELULAR */}
+              {/* OPÇÃO 2: GERAR QR CODE NA TELA (RESTRITO AO ADMIN) */}
               <div className="border-t pt-4 space-y-3">
-                <h4 className="font-bold text-blue-900 text-sm">📱 Gerar QR Code para Membros Escanearem</h4>
+                <h4 className="font-bold text-blue-900 text-sm">📱 2. Gerar QR Code para Membros Escanearem</h4>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Abra este painel direto no seu celular na hora do culto ou evento, gere o QR Code e deixe na tela para os membros escanearem e se cadastrarem.
+                  Gere um QR Code temporário (válido por 6 horas) para exibir na tela do seu celular e permitir que os membros escaneiem e se cadastrarem.
                 </p>
 
                 {isAdmin ? (

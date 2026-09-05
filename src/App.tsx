@@ -27,7 +27,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
   const [isCelulasOpen, setIsCelulasOpen] = useState(true);
-  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
+  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes' | 'dea'>('celulas');
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
@@ -482,7 +482,7 @@ function App() {
               activeTab.startsWith('celulas') ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
-            <span>🏡 Células</span>
+            <span>🏡 Células & D.E.A.</span>
             <span>{isCelulasOpen ? '▲' : '▼'}</span>
           </button>
 
@@ -525,6 +525,19 @@ function App() {
                 }`}
               >
                 Redes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSubAbaCelulas('dea');
+                  selecionarAba('celulas-modulo');
+                }}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'dea' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                🌱 D.E.A. Discipulado
               </button>
             </div>
           )}
@@ -629,7 +642,7 @@ function App() {
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS */}
+        {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS E D.E.A. */}
         {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
           <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
         )}
@@ -972,7 +985,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </div>
       </div>
 
-      {/* BLUCO ANIVERSARIANTES */}
+      {/* BLOCO ANIVERSARIANTES */}
       <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
           <div>

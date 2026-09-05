@@ -1,6 +1,6 @@
 // src/App.tsx
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';
 import MembrosModule from './MembrosModule';
@@ -619,7 +619,7 @@ function App() {
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-        {activeTab === 'dashboard' && <DashboardHome loggedUser={loggedUser} />}
+        {activeTab === 'dashboard' && <DashboardHome loggedUser={loggedUser} selecionarAba={selecionarAba} />}
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
@@ -753,12 +753,54 @@ function App() {
   );
 }
 
-function DashboardHome({ loggedUser }: { loggedUser: any }) {
+function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecionarAba: (aba: string) => void }) {
   const [modoAniversariantes, setModoAniversariantes] = useState<'dia' | 'mes'>('dia');
   const [aniversariantes, setAniversariantes] = useState<any[]>([]);
   const [loadingAniversariantes, setLoadingAniversariantes] = useState(false);
 
-  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja;
+  // Estados de contagem e modais para Membros e Visitantes
+  const [qtdMembros, setQtdMembros] = useState(0);
+  const [qtdVisitantes, setQtdVisitantes] = useState(0);
+  
+  const [modalListaOpen, setModalListaOpen] = useState(false);
+  const [tipoListaModal, setTipoListaModal] = useState<'Membros' | 'Visitantes'>('Membros');
+  const [listaPessoas, setListaPessoas] = useState<any[]>([]);
+  const [buscaModal, setBuscaModal] = useState('');
+  const [loadingLista, setLoadingLista] = useState(false);
+
+  // Estado para Edição do registro diretamente da modal do Dashboard
+  const [itemEditando, setItemEditando] = useState<any | null>(null);
+  const [itemDetalhes, setItemDetalhes] = useState<any | null>(null);
+
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+
+  // Buscar totais de Membros e Visitantes
+  const carregarTotais = useCallback(async () => {
+    try {
+      // 1. Total Membros
+      const { count: countMembros } = await supabase
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('codigo_igreja', codigoIgreja)
+        .neq('tipo_cadastro', 'Visitante');
+
+      // 2. Total Visitantes
+      const { count: countVisitantes } = await supabase
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('codigo_igreja', codigoIgreja)
+        .eq('tipo_cadastro', 'Visitante');
+
+      setQtdMembros(countMembros || 0);
+      setQtdVisitantes(countVisitantes || 0);
+    } catch (err) {
+      console.error('Erro ao buscar totais:', err);
+    }
+  }, [codigoIgreja]);
+
+  useEffect(() => {
+    carregarTotais();
+  }, [carregarTotais]);
 
   useEffect(() => {
     if (!codigoIgreja) return;
@@ -767,8 +809,8 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
       setLoadingAniversariantes(true);
       try {
         const { data, error } = await supabase
-          .from('membros')
-          .select('id, nome_completo, data_nascimento, telefone')
+          .from('members')
+          .select('id, nome, data_nascimento, celular_principal')
           .eq('codigo_igreja', codigoIgreja);
 
         if (error) throw error;
@@ -813,6 +855,87 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
     carregarAniversariantes();
   }, [codigoIgreja, modoAniversariantes]);
 
+  // Função para carregar a lista completa quando o usuário clica num card
+  const abrirModalLista = async (tipo: 'Membros' | 'Visitantes') => {
+    setTipoListaModal(tipo);
+    setBuscaModal('');
+    setModalListaOpen(true);
+    setLoadingLista(true);
+
+    try {
+      let query = supabase
+        .from('members')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
+      if (tipo === 'Visitantes') {
+        query = query.eq('tipo_cadastro', 'Visitante');
+      } else {
+        query = query.neq('tipo_cadastro', 'Visitante');
+      }
+
+      const { data, error } = await query.order('nome', { ascending: true });
+
+      if (error) throw error;
+      setListaPessoas(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar lista:', err);
+      alert('Erro ao carregar lista de ' + tipo);
+    } finally {
+      setLoadingLista(false);
+    }
+  };
+
+  // Salvar alterações de um registro direto no Dashboard
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemEditando) return;
+
+    try {
+      const payload = {
+        ...itemEditando,
+        data_nascimento: itemEditando.data_nascimento && itemEditando.data_nascimento.trim() !== '' 
+          ? itemEditando.data_nascimento 
+          : null,
+      };
+
+      const { error } = await supabase
+        .from('members')
+        .update(payload)
+        .eq('id', itemEditando.id);
+
+      if (error) throw error;
+
+      alert('Cadastro atualizado com sucesso!');
+      setItemEditando(null);
+      abrirModalLista(tipoListaModal);
+      carregarTotais();
+    } catch (err: any) {
+      alert('Erro ao atualizar: ' + err.message);
+    }
+  };
+
+  // Excluir registro diretamente do Dashboard
+  const handleExcluirRegistro = async (id: any, nome: string) => {
+    if (!window.confirm(`Deseja realmente excluir "${nome}"?`)) return;
+
+    try {
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) throw error;
+
+      alert('Excluído com sucesso!');
+      abrirModalLista(tipoListaModal);
+      carregarTotais();
+    } catch (err: any) {
+      alert('Erro ao excluir: ' + err.message);
+    }
+  };
+
+  const filtradosModal = listaPessoas.filter((p) =>
+    (p.nome || '').toLowerCase().includes(buscaModal.toLowerCase()) ||
+    (p.celular_principal || '').includes(buscaModal)
+  );
+
   return (
     <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-6">
       <div>
@@ -822,6 +945,34 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
         </p>
       </div>
 
+      {/* CARDS INTERATIVOS: MEMBROS E VISITANTES */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div
+          onClick={() => abrirModalLista('Membros')}
+          className="bg-gradient-to-br from-blue-900 to-indigo-900 p-6 rounded-2xl text-white shadow-md hover:shadow-xl transition cursor-pointer transform hover:-translate-y-0.5 flex justify-between items-center"
+        >
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-200">Total de Membros Oficial</p>
+            <h3 className="text-4xl font-black mt-1">{qtdMembros}</h3>
+            <p className="text-[11px] text-blue-300 mt-2">Clique para ver lista e editar 🔍</p>
+          </div>
+          <div className="text-4xl bg-white/10 p-3 rounded-2xl">👥</div>
+        </div>
+
+        <div
+          onClick={() => abrirModalLista('Visitantes')}
+          className="bg-gradient-to-br from-amber-600 to-amber-700 p-6 rounded-2xl text-white shadow-md hover:shadow-xl transition cursor-pointer transform hover:-translate-y-0.5 flex justify-between items-center"
+        >
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-100">Total de Visitantes</p>
+            <h3 className="text-4xl font-black mt-1">{qtdVisitantes}</h3>
+            <p className="text-[11px] text-amber-200 mt-2">Clique para ver lista e acompanhar 🤝</p>
+          </div>
+          <div className="text-4xl bg-white/10 p-3 rounded-2xl">🤝</div>
+        </div>
+      </div>
+
+      {/* BLUCO ANIVERSARIANTES */}
       <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
           <div>
@@ -858,8 +1009,8 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
               return (
                 <div key={m.id} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-3 flex justify-between items-center">
                   <div>
-                    <p className="font-bold text-sm text-white truncate max-w-[180px]">{m.nome_completo}</p>
-                    <p className="text-xs text-blue-200">📞 {m.telefone || 'Sem telefone'}</p>
+                    <p className="font-bold text-sm text-white truncate max-w-[180px]">{m.nome}</p>
+                    <p className="text-xs text-blue-200">📞 {m.celular_principal || 'Sem telefone'}</p>
                   </div>
                   <span className="bg-blue-500/30 text-blue-100 font-black text-xs px-2.5 py-1 rounded-lg border border-blue-400/30">
                     {dataFormatada}
@@ -872,8 +1023,260 @@ function DashboardHome({ loggedUser }: { loggedUser: any }) {
       </div>
 
       <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
-        <p className="font-medium">Utilize o menu lateral para navegar entre os módulos de Cadastros, Células, Agenda, Financeiro e Projetos.</p>
+        <p className="font-medium">Utilize os cards acima para rápida edição de cadastros ou navegue pelo menu lateral.</p>
       </div>
+
+      {/* MODAL 1: LISTAGEM DE MEMBROS / VISITANTES ACIONADA PELOS CARDS */}
+      {modalListaOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b pb-4 shrink-0">
+              <div>
+                <h3 className="text-2xl font-black text-blue-900">
+                  Lista de {tipoListaModal} ({filtradosModal.length})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Cadastros oficiais registrados para a igreja {codigoIgreja}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalListaOpen(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="shrink-0">
+              <input
+                type="text"
+                placeholder={`🔎 Pesquisar ${tipoListaModal.toLowerCase()} por nome ou celular...`}
+                value={buscaModal}
+                onChange={(e) => setBuscaModal(e.target.value)}
+                className="w-full border rounded-xl px-4 py-2.5 text-xs focus:ring-2 focus:ring-blue-600 outline-none"
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-2">
+              {loadingLista ? (
+                <p className="text-center py-6 text-slate-500 text-xs">Carregando lista...</p>
+              ) : filtradosModal.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed text-slate-500 text-xs">
+                  Nenhum registro encontrado.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold sticky top-0">
+                      <th className="p-3">Nome</th>
+                      <th className="p-3">Tipo</th>
+                      <th className="p-3">Telefone</th>
+                      <th className="p-3">Bairro / Cidade</th>
+                      <th className="p-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-xs">
+                    {filtradosModal.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-800">{p.nome || 'Sem nome'}</td>
+                        <td className="p-3">
+                          <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                            {p.tipo_cadastro || 'Membro'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600">{p.celular_principal || '-'}</td>
+                        <td className="p-3 text-slate-500">{[p.bairro, p.cidade].filter(Boolean).join(' - ') || '-'}</td>
+                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setItemDetalhes(p)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
+                          >
+                            👁️ Ver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setItemEditando(p)}
+                            className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleExcluirRegistro(p.id, p.nome)}
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: EDIÇÃO RÁPIDA DE REGISTRO SELECIONADO NO DASHBOARD */}
+      {itemEditando && (
+        <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">Editar Cadastro</h3>
+                <p className="text-xs text-slate-500">{itemEditando.nome}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setItemEditando(null)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarEdicao} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">TIPO DE CADASTRO</label>
+                  <select
+                    value={itemEditando.tipo_cadastro || 'Membro'}
+                    onChange={(e) => setItemEditando({ ...itemEditando, tipo_cadastro: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white font-medium"
+                  >
+                    <option value="Membro">Membro</option>
+                    <option value="Congregado">Congregado</option>
+                    <option value="Visitante">Visitante</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">NOME COMPLETO *</label>
+                  <input
+                    type="text"
+                    value={itemEditando.nome || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, nome: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">CELULAR / WHATSAPP</label>
+                  <input
+                    type="text"
+                    value={itemEditando.celular_principal || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, celular_principal: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">E-MAIL</label>
+                  <input
+                    type="email"
+                    value={itemEditando.email || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, email: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">DATA DE NASCIMENTO</label>
+                  <input
+                    type="date"
+                    value={itemEditando.data_nascimento || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, data_nascimento: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ESTADO CIVIL</label>
+                  <select
+                    value={itemEditando.estado_civil || 'Solteiro(a)'}
+                    onChange={(e) => setItemEditando({ ...itemEditando, estado_civil: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white"
+                  >
+                    <option value="Solteiro(a)">Solteiro(a)</option>
+                    <option value="Casado(a)">Casado(a)</option>
+                    <option value="Divorciado(a)">Divorciado(a)</option>
+                    <option value="Viúvo(a)">Viúvo(a)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">BAIRRO</label>
+                  <input
+                    type="text"
+                    value={itemEditando.bairro || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, bairro: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">CIDADE</label>
+                  <input
+                    type="text"
+                    value={itemEditando.cidade || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, cidade: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4 flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setItemEditando(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
+                >
+                  💾 Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: VISUALIZAR FICHA COMPLETA */}
+      {itemDetalhes && (
+        <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 my-8">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-lg font-black text-blue-900">Ficha do Cadastro</h3>
+              <button
+                type="button"
+                onClick={() => setItemDetalhes(null)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">NOME</strong>{itemDetalhes.nome}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">TIPO</strong>{itemDetalhes.tipo_cadastro}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">TELEFONE</strong>{itemDetalhes.celular_principal || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">E-MAIL</strong>{itemDetalhes.email || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">CPF / RG</strong>{itemDetalhes.cpf || '-'} / {itemDetalhes.rg || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">ENDEREÇO</strong>{[itemDetalhes.rua, itemDetalhes.numero, itemDetalhes.bairro, itemDetalhes.cidade].filter(Boolean).join(', ') || '-'}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

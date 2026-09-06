@@ -11,6 +11,7 @@ import CadastroPublico from './CadastroPublico';
 import AgendaModule from './AgendaModule';
 import FinanceiroModule from './FinanceiroModule';
 import ControleRegistroModule from './ControleRegistroModule';
+import CelulasModule from './CelulasModule';
 import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 
@@ -26,6 +27,8 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
+  const [isCelulasOpen, setIsCelulasOpen] = useState(false);
+  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
   const [isDiscipuladoOpen, setIsDiscipuladoOpen] = useState(true);
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
@@ -469,7 +472,66 @@ function App() {
             🤝 Acompanhamento Visitantes
           </button>
 
-          {/* GRUPO DISCIPULADO */}
+          {/* GRUPO CÉLULAS (ESTRUTURAL DE CÉLULAS, SETORES E REDES) */}
+          <button
+            type="button"
+            onClick={() => {
+              setIsCelulasOpen(!isCelulasOpen);
+              setSubAbaCelulas('celulas');
+              selecionarAba('celulas-modulo');
+            }}
+            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+              activeTab === 'celulas-modulo' ? 'bg-blue-700' : 'hover:bg-blue-800'
+            }`}
+          >
+            <span>🏡 Células</span>
+            <span>{isCelulasOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {isCelulasOpen && (
+            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSubAbaCelulas('celulas');
+                  selecionarAba('celulas-modulo');
+                }}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                Células
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSubAbaCelulas('setores');
+                  selecionarAba('celulas-modulo');
+                }}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                Setores
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSubAbaCelulas('redes');
+                  selecionarAba('celulas-modulo');
+                }}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'celulas-modulo' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                Redes
+              </button>
+            </div>
+          )}
+
+          {/* GRUPO DISCIPULADO (EXCLUSIVO PARA D.E.A. / G.U.I.) */}
           <button
             type="button"
             onClick={() => {
@@ -593,9 +655,14 @@ function App() {
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
         
-        {/* RENDERIZAÇÃO DO MÓDULO DE ACOMPANHAMENTO DE VISITANTES */}
+        {/* ACOMPANHAMENTO DE VISITANTES */}
         {activeTab === 'acompanhamento-visitantes' && (
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
+        )}
+
+        {/* CÉLULAS MODULE (GERENCIA CÉLULAS, SETORES E REDES) */}
+        {activeTab === 'celulas-modulo' && (
+          <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
         )}
 
         {/* MÓDULO EXCLUSIVO DE DISCIPULADO (D.E.A. / G.U.I.) */}
@@ -622,7 +689,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setIsMobileModalOpen(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
               >
                 ✕ Fechar
               </button>

@@ -13,6 +13,7 @@ import FinanceiroModule from './FinanceiroModule';
 import ControleRegistroModule from './ControleRegistroModule';
 import CelulasModule from './CelulasModule';
 import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
+import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -642,9 +643,13 @@ function App() {
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS E D.E.A. / G.U.I. */}
+        {/* RENDERIZAÇÃO DIRETA: CÉLULAS OU D.E.A. / G.U.I. */}
         {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
-          <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+          subAbaCelulas === 'dea' ? (
+            <DiscipuladoDEAModule loggedUser={loggedUser} />
+          ) : (
+            <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+          )
         )}
 
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
@@ -860,9 +865,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         }
       } catch (err) {
         console.error('Erro ao buscar aniversariantes:', err);
-      } finally {
-        setLoadingAniversariantes(false);
-      }
+      } font-medium
     };
 
     carregarAniversariantes();

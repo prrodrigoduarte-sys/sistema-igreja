@@ -11,7 +11,6 @@ import CadastroPublico from './CadastroPublico';
 import AgendaModule from './AgendaModule';
 import FinanceiroModule from './FinanceiroModule';
 import ControleRegistroModule from './ControleRegistroModule';
-import CelulasModule from './CelulasModule';
 import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 
@@ -27,8 +26,7 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
-  const [isCelulasOpen, setIsCelulasOpen] = useState(true);
-  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
+  const [isDiscipuladoOpen, setIsDiscipuladoOpen] = useState(true);
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
@@ -471,69 +469,31 @@ function App() {
             🤝 Acompanhamento Visitantes
           </button>
 
-          {/* GRUPO CÉLULAS COM SUBMENUS RETRÁTEIS */}
+          {/* GRUPO DISCIPULADO */}
           <button
             type="button"
-            onClick={() => setIsCelulasOpen(!isCelulasOpen)}
+            onClick={() => {
+              setIsDiscipuladoOpen(!isDiscipuladoOpen);
+              selecionarAba('discipulado');
+            }}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('celulas') || activeTab === 'dea-modulo' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              activeTab === 'discipulado' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
-            <span>🏡 Células</span>
-            <span>{isCelulasOpen ? '▲' : '▼'}</span>
+            <span>🌱 Discipulado</span>
+            <span>{isDiscipuladoOpen ? '▲' : '▼'}</span>
           </button>
 
-          {isCelulasOpen && (
+          {isDiscipuladoOpen && (
             <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
               <button
                 type="button"
-                onClick={() => {
-                  setSubAbaCelulas('celulas');
-                  selecionarAba('celulas-modulo');
-                }}
+                onClick={() => selecionarAba('discipulado')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'discipulado' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
-                Células
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSubAbaCelulas('setores');
-                  selecionarAba('celulas-modulo');
-                }}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Setores
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSubAbaCelulas('redes');
-                  selecionarAba('celulas-modulo');
-                }}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Redes
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  selecionarAba('dea-modulo');
-                }}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'dea-modulo' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                🌱 D.E.A. / G.U.I.
+                D.E.A. / G.U.I.
               </button>
             </div>
           )}
@@ -638,13 +598,8 @@ function App() {
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* CÉLULAS MODULE */}
-        {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
-          <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
-        )}
-
-        {/* D.E.A. / G.U.I. MODULE ISOLADO */}
-        {activeTab === 'dea-modulo' && (
+        {/* MÓDULO EXCLUSIVO DE DISCIPULADO (D.E.A. / G.U.I.) */}
+        {activeTab === 'discipulado' && (
           <DiscipuladoDEAModule loggedUser={loggedUser} />
         )}
 

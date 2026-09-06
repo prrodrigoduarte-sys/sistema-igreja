@@ -1,3 +1,20 @@
+// 1. Adicione esta importação no topo do src/App.tsx:
+import DiscipuladoDEAModule from './DiscipuladoDEAModule';
+
+// 2. Substitua o bloco de renderização do canal principal (por volta da linha 480):
+// DE:
+// {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
+//   <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+// )}
+
+// PARA:
+{(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
+  subAbaCelulas === 'dea' ? (
+    <DiscipuladoDEAModule loggedUser={loggedUser} />
+  ) : (
+    <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+  )
+)}
 // src/DiscipuladoDEAModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';

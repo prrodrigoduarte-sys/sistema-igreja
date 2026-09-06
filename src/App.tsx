@@ -28,7 +28,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
   const [isCelulasOpen, setIsCelulasOpen] = useState(true);
-  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes' | 'dea'>('celulas');
+  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
@@ -474,13 +474,9 @@ function App() {
           {/* GRUPO CÉLULAS COM SUBMENUS RETRÁTEIS */}
           <button
             type="button"
-            onClick={() => {
-              setIsCelulasOpen(!isCelulasOpen);
-              setSubAbaCelulas('celulas');
-              selecionarAba('celulas-modulo');
-            }}
+            onClick={() => setIsCelulasOpen(!isCelulasOpen)}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('celulas') ? 'bg-blue-700' : 'hover:bg-blue-800'
+              activeTab.startsWith('celulas') || activeTab === 'dea-modulo' ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             <span>🏡 Células</span>
@@ -531,11 +527,10 @@ function App() {
               <button
                 type="button"
                 onClick={() => {
-                  setSubAbaCelulas('dea');
-                  selecionarAba('celulas-modulo');
+                  selecionarAba('dea-modulo');
                 }}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'dea' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'dea-modulo' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 🌱 D.E.A. / G.U.I.
@@ -643,13 +638,14 @@ function App() {
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* RENDERIZAÇÃO DIRETA: CÉLULAS OU D.E.A. / G.U.I. */}
+        {/* CÉLULAS MODULE */}
         {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
-          subAbaCelulas === 'dea' ? (
-            <DiscipuladoDEAModule loggedUser={loggedUser} />
-          ) : (
-            <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
-          )
+          <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+        )}
+
+        {/* D.E.A. / G.U.I. MODULE ISOLADO */}
+        {activeTab === 'dea-modulo' && (
+          <DiscipuladoDEAModule loggedUser={loggedUser} />
         )}
 
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
@@ -865,7 +861,9 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         }
       } catch (err) {
         console.error('Erro ao buscar aniversariantes:', err);
-      } font-medium
+      } finally {
+        setLoadingAniversariantes(false);
+      }
     };
 
     carregarAniversariantes();

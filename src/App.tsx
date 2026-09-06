@@ -472,7 +472,7 @@ function App() {
             🤝 Acompanhamento Visitantes
           </button>
 
-          {/* GRUPO CÉLULAS (ESTRUTURAL DE CÉLULAS, SETORES E REDES) */}
+          {/* GRUPO CÉLULAS */}
           <button
             type="button"
             onClick={() => {
@@ -531,15 +531,12 @@ function App() {
             </div>
           )}
 
-          {/* GRUPO DISCIPULADO (EXCLUSIVO PARA D.E.A. / G.U.I.) */}
+          {/* GRUPO DISCIPULADO */}
           <button
             type="button"
-            onClick={() => {
-              setIsDiscipuladoOpen(!isDiscipuladoOpen);
-              selecionarAba('discipulado');
-            }}
+            onClick={() => setIsDiscipuladoOpen(!isDiscipuladoOpen)}
             className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab === 'discipulado' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              activeTab.startsWith('discipulado') ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
             <span>🌱 Discipulado</span>
@@ -550,12 +547,32 @@ function App() {
             <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
               <button
                 type="button"
-                onClick={() => selecionarAba('discipulado')}
+                onClick={() => selecionarAba('discipulado-dea')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'discipulado' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                  activeTab === 'discipulado-dea' || activeTab === 'discipulado' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
                 D.E.A. / G.U.I.
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('discipulado-agenda-discipulador')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'discipulado-agenda-discipulador' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                Lista do Agendamento: Por Discipulador
+              </button>
+
+              <button
+                type="button"
+                onClick={() => selecionarAba('discipulado-agenda-geral')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'discipulado-agenda-geral' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                Lista do Agendamento: Geral
               </button>
             </div>
           )}
@@ -660,14 +677,14 @@ function App() {
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* CÉLULAS MODULE (GERENCIA CÉLULAS, SETORES E REDES) */}
+        {/* CÉLULAS MODULE */}
         {activeTab === 'celulas-modulo' && (
           <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
         )}
 
-        {/* MÓDULO EXCLUSIVO DE DISCIPULADO (D.E.A. / G.U.I.) */}
-        {activeTab === 'discipulado' && (
-          <DiscipuladoDEAModule loggedUser={loggedUser} />
+        {/* MÓDULO EXCLUSIVO DE DISCIPULADO COM ROTAS INTERNAS */}
+        {(activeTab === 'discipulado' || activeTab.startsWith('discipulado-')) && (
+          <DiscipuladoDEAModule loggedUser={loggedUser} activeTab={activeTab} />
         )}
 
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
@@ -813,14 +830,12 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
   // Buscar totais de Membros e Visitantes
   const carregarTotais = useCallback(async () => {
     try {
-      // 1. Total Membros
       const { count: countMembros } = await supabase
         .from('members')
         .select('*', { count: 'exact', head: true })
         .eq('codigo_igreja', codigoIgreja)
         .neq('tipo_cadastro', 'Visitante');
 
-      // 2. Total Visitantes
       const { count: countVisitantes } = await supabase
         .from('members')
         .select('*', { count: 'exact', head: true })
@@ -891,7 +906,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     carregarAniversariantes();
   }, [codigoIgreja, modoAniversariantes]);
 
-  // Função para carregar a lista completa quando o usuário clica num card
   const abrirModalLista = async (tipo: 'Membros' | 'Visitantes') => {
     setTipoListaModal(tipo);
     setBuscaModal('');
@@ -922,7 +936,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     }
   };
 
-  // Salvar alterações de um registro direto no Dashboard
   const handleSalvarEdicao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemEditando) return;
@@ -951,7 +964,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     }
   };
 
-  // Excluir registro diretamente do Dashboard
   const handleExcluirRegistro = async (id: any, nome: string) => {
     if (!window.confirm(`Deseja realmente excluir "${nome}"?`)) return;
 
@@ -981,7 +993,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </p>
       </div>
 
-      {/* CARDS INTERATIVOS: MEMBROS E VISITANTES */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div
           onClick={() => abrirModalLista('Membros')}
@@ -1008,7 +1019,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </div>
       </div>
 
-      {/* BLOCO ANIVERSARIANTES */}
       <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
           <div>
@@ -1062,7 +1072,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         <p className="font-medium">Utilize os cards acima para rápida edição de cadastros ou navegue pelo menu lateral.</p>
       </div>
 
-      {/* MODAL 1: LISTAGEM DE MEMBROS / VISITANTES ACIONADA PELOS CARDS */}
       {modalListaOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
@@ -1157,7 +1166,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </div>
       )}
 
-      {/* MODAL 2: EDIÇÃO RÁPIDA DE REGISTRO SELECIONADO NO DASHBOARD */}
       {itemEditando && (
         <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] overflow-y-auto">
@@ -1287,7 +1295,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </div>
       )}
 
-      {/* MODAL 3: VISUALIZAR FICHA COMPLETA */}
       {itemDetalhes && (
         <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 my-8">

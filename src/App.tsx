@@ -482,7 +482,7 @@ function App() {
               activeTab.startsWith('celulas') ? 'bg-blue-700' : 'hover:bg-blue-800'
             }`}
           >
-            <span>🏡 Células & D.E.A.</span>
+            <span>🏡 Células</span>
             <span>{isCelulasOpen ? '▲' : '▼'}</span>
           </button>
 
@@ -537,7 +537,7 @@ function App() {
                   activeTab === 'celulas-modulo' && subAbaCelulas === 'dea' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
                 }`}
               >
-                🌱 D.E.A. Discipulado
+                🌱 D.E.A. / G.U.I.
               </button>
             </div>
           )}
@@ -642,7 +642,7 @@ function App() {
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS E D.E.A. */}
+        {/* RENDERIZAÇÃO DIRETA DO MÓDULO REAL DE CÉLULAS E D.E.A. / G.U.I. */}
         {(activeTab === 'celulas' || activeTab === 'celulas-modulo') && (
           <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
         )}

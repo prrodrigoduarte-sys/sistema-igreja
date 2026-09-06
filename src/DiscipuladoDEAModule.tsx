@@ -37,9 +37,10 @@ interface GroupedDiscipulado {
 
 interface Props {
   loggedUser: any;
+  activeTab?: string;
 }
 
-export default function DiscipuladoDEAModule({ loggedUser }: Props) {
+export default function DiscipuladoDEAModule({ loggedUser, activeTab = 'discipulado-dea' }: Props) {
   const [membros, setMembros] = useState<Membro[]>([]);
   const [vinculos, setVinculos] = useState<VinculoDEA[]>([]);
   const [loading, setLoading] = useState(false);
@@ -51,22 +52,22 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
   const [modalEncontroGrupo, setModalEncontroGrupo] = useState(false);
   const [modalEditarVinculo, setModalEditarVinculo] = useState(false);
 
-  // Form Novo Discipulado (Líder + Múltiplos Discípulos)
+  // Form Vínculo
   const [discipuladorId, setDiscipuladorId] = useState('');
   const [discipulosSelecionados, setDiscipulosSelecionados] = useState<string[]>([]);
   const [diaReuniao, setDiaReuniao] = useState('Segunda-feira');
 
-  // Form Agendamento em Grupo (Para Todos os Discípulos do Líder)
+  // Form Agendamento em Grupo
   const [grupoSelecionado, setGrupoSelecionado] = useState<GroupedDiscipulado | null>(null);
   const [dataGrupo, setDataGrupo] = useState(new Date().toISOString().split('T')[0]);
   const [horaGrupo, setHoraGrupo] = useState('19:30');
   const [assuntoGrupo, setAssuntoGrupo] = useState('');
   const [comentarioGrupo, setComentarioGrupo] = useState('');
 
-  // Form Edição de Vínculo Individual
+  // Form Edição
   const [vinculoEdicao, setVinculoEdicao] = useState<VinculoDEA | null>(null);
 
-  // Form Agenda de Encontro Individual
+  // Form Agenda Individual
   const [selectedVinculo, setSelectedVinculo] = useState<VinculoDEA | null>(null);
   const [listaEncontros, setListaEncontros] = useState<EncontroDEA[]>([]);
   const [novaData, setNovaData] = useState(new Date().toISOString().split('T')[0]);
@@ -121,15 +122,10 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
     }
   };
 
-  // 1. Cadastrar Vínculo de Discipulado (Líder + Múltiplos Discípulos)
   const handleSalvarVinculo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!discipuladorId) return alert('Selecione o Discipulador.');
     if (discipulosSelecionados.length === 0) return alert('Selecione ao menos um Discípulo.');
-
-    if (discipulosSelecionados.includes(discipuladorId)) {
-      return alert('O discipulador não pode ser adicionado como seu próprio discípulo.');
-    }
 
     try {
       const novosRegistros = discipulosSelecionados.map((dId) => ({
@@ -142,7 +138,6 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
       }));
 
       const { error } = await supabase.from('discipulado_dea').insert(novosRegistros);
-
       if (error) throw error;
 
       alert('🌱 Discipulado(s) cadastrado(s) com sucesso!');
@@ -151,14 +146,13 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
       setDiscipulosSelecionados([]);
       carregarDados();
     } catch (err: any) {
-      alert('Erro ao salvar: ' + err.message);
+      alert(err.message);
     }
   };
 
-  // 2. REGISTRAR ENCONTRO EM GRUPO (REPLICA PARA TODOS OS DISCÍPULOS DO LÍDER)
   const handleSalvarEncontroGrupo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!grupoSelecionado || !assuntoGrupo.trim()) return alert('Informe o Assunto / Pauta do Encontro.');
+    if (!grupoSelecionado || !assuntoGrupo.trim()) return alert('Informe o Assunto.');
 
     const novoEncontro: EncontroDEA = {
       id: Date.now(),
@@ -169,33 +163,25 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
     };
 
     try {
-      // Atualiza o array 'encontros' de todos os vínculos desse discipulador
       const promessas = grupoSelecionado.vinculos.map((v) => {
         const historicoAtual = v.encontros || [];
         const novoHistorico = [novoEncontro, ...historicoAtual];
-        return supabase
-          .from('discipulado_dea')
-          .update({ encontros: novoHistorico })
-          .eq('id', v.id);
+        return supabase.from('discipulado_dea').update({ encontros: novoHistorico }).eq('id', v.id);
       });
 
       await Promise.all(promessas);
-
-      alert(`⚡ Encontro agendado e replicado para todos os ${grupoSelecionado.totalDiscipulos} discípulo(s)!`);
+      alert(`⚡ Encontro agendado para os ${grupoSelecionado.totalDiscipulos} discípulos!`);
       setModalEncontroGrupo(false);
       setGrupoSelecionado(null);
-      setAssuntoGrupo('');
-      setComentarioGrupo('');
       carregarDados();
     } catch (err: any) {
-      alert('Erro ao replicar encontro em grupo: ' + err.message);
+      alert(err.message);
     }
   };
 
-  // 3. REGISTRAR ENCONTRO INDIVIDUAL
   const handleAdicionarEncontroIndividual = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedVinculo || !novoAssunto.trim()) return alert('Informe o assunto/pauta do encontro.');
+    if (!selectedVinculo || !novoAssunto.trim()) return alert('Informe o assunto.');
 
     const novoItem: EncontroDEA = {
       id: Date.now(),
@@ -224,6 +210,16 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
     }
   };
 
+  const handleExcluirVinculo = async (id: any) => {
+    if (!window.confirm('Deseja realmente excluir este discípulo do líder?')) return;
+    try {
+      await supabase.from('discipulado_dea').delete().eq('id', id);
+      carregarDados();
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
   const handleSalvarEdicaoVinculo = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vinculoEdicao) return;
@@ -243,44 +239,6 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
       alert('Vínculo atualizado!');
       setModalEditarVinculo(false);
       setVinculoEdicao(null);
-      carregarDados();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  const abrirModalEncontrosIndividuais = (v: VinculoDEA) => {
-    setSelectedVinculo(v);
-    setListaEncontros(v.encontros || []);
-    setNovoAssunto('');
-    setNovoComentario('');
-    setModalEncontrosIndividuais(true);
-  };
-
-  const abrirModalEncontroGrupo = (grupo: GroupedDiscipulado) => {
-    setGrupoSelecionado(grupo);
-    setAssuntoGrupo('');
-    setComentarioGrupo('');
-    setModalEncontroGrupo(true);
-  };
-
-  const handleExcluirEncontro = async (idEncontro: number) => {
-    if (!selectedVinculo || !window.confirm('Excluir este encontro da agenda?')) return;
-    const novaLista = listaEncontros.filter((e) => e.id !== idEncontro);
-
-    try {
-      await supabase.from('discipulado_dea').update({ encontros: novaLista }).eq('id', selectedVinculo.id);
-      setListaEncontros(novaLista);
-      carregarDados();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  const handleExcluirVinculo = async (id: any) => {
-    if (!window.confirm('Deseja realmente excluir este discípulo do líder?')) return;
-    try {
-      await supabase.from('discipulado_dea').delete().eq('id', id);
       carregarDados();
     } catch (err: any) {
       alert(err.message);
@@ -314,14 +272,46 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
     return Array.from(mapa.values());
   }, [vinculosFiltrados]);
 
+  const todosEncontrosGeral = React.useMemo(() => {
+    const lista: {
+      idUnico: string;
+      data: string;
+      hora: string;
+      assunto: string;
+      comentarios: string;
+      discipulador: string;
+      discipulo: string;
+    }[] = [];
+
+    vinculos.forEach((v) => {
+      (v.encontros || []).forEach((e) => {
+        lista.push({
+          idUnico: `${v.id}-${e.id}`,
+          data: e.data_encontro,
+          hora: e.hora_encontro,
+          assunto: e.assunto_tratado,
+          comentarios: e.comentarios,
+          discipulador: v.discipulador?.nome || 'Não informado',
+          discipulo: v.discipulando?.nome || 'Não informado',
+        });
+      });
+    });
+
+    return lista.sort((a, b) => b.data.localeCompare(a.data));
+  }, [vinculos]);
+
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
       {/* CABEÇALHO */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
         <div>
-          <h2 className="text-3xl font-black text-blue-900 tracking-tight">🌱 D.E.A. / G.U.I.</h2>
+          <h2 className="text-3xl font-black text-blue-900 tracking-tight">
+            {activeTab === 'discipulado-agenda-discipulador' && '📅 Agendamentos por Discipulador'}
+            {activeTab === 'discipulado-agenda-geral' && '📋 Lista do Agendamento Geral'}
+            {(activeTab === 'discipulado-dea' || activeTab === 'discipulado') && '🌱 D.E.A. / G.U.I.'}
+          </h2>
           <p className="text-sm text-slate-600 mt-1">
-            Gestão do Discipulado (Total de Discípulos Ativos: <span className="font-bold text-blue-900">{vinculos.length}</span>)
+            Gestão Integrada de Discipulado e Agenda de Encontros
           </p>
         </div>
 
@@ -347,83 +337,62 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
       />
 
       {loading ? (
-        <p className="text-center py-8 text-slate-500 text-xs">Carregando discipulados...</p>
-      ) : gruposAgrupados.length === 0 ? (
-        <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs">
-          Nenhum vínculo de discipulado cadastrado.
-        </div>
+        <p className="text-center py-8 text-slate-500 text-xs">Carregando dados...</p>
       ) : (
-        /* LISTA AGRUPADA POR DISCIPULADOR */
-        <div className="space-y-6">
-          {gruposAgrupados.map((grupo) => (
-            <div key={grupo.discipulador_id} className="border border-slate-200 rounded-2xl bg-slate-50 p-5 space-y-4 shadow-sm">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 border-slate-200 gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-blue-900 text-white p-2.5 rounded-xl text-lg font-black">👤</div>
-                  <div>
-                    <h3 className="font-black text-blue-900 text-base">{grupo.discipulador?.nome}</h3>
-                    <p className="text-xs text-slate-500">Discipulador / Líder</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="bg-blue-100 text-blue-900 font-black text-xs px-3 py-1.5 rounded-xl">
-                    Total de Discípulos: {grupo.totalDiscipulos}
-                  </span>
-
-                  {/* BOTÃO PRINCIPAL NA TELA PRINCIPAL DO LÍDER PARA AGENDAR/REPLICAR PARA TODOS */}
-                  <button
-                    type="button"
-                    onClick={() => abrirModalEncontroGrupo(grupo)}
-                    className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-1.5"
-                  >
-                    📅 Agendar Encontro Geral para Todos ({grupo.totalDiscipulos})
-                  </button>
-                </div>
-              </div>
-
-              {/* CARDS INDIVIDUAIS DOS DISCÍPULOS DO LÍDER */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {grupo.vinculos.map((v) => {
-                  const ultEncontro = (v.encontros || [])[0];
-                  return (
-                    <div key={v.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between space-y-3">
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-start">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">Discípulo</span>
-                          <span className="text-[10px] bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded">
-                            {v.dia_reuniao || 'Sem dia fixo'}
-                          </span>
-                        </div>
-                        <p className="font-bold text-emerald-800 text-sm">{v.discipulando?.nome || 'Não informado'}</p>
-                        <p className="text-[11px] text-slate-500">📞 {v.discipulando?.celular_principal || 'Sem contato'}</p>
-
-                        {/* EXIBIÇÃO DO ÚLTIMO ENCONTRO / AGENDA REGISTRADA */}
-                        {ultEncontro ? (
-                          <div className="bg-slate-50 border border-slate-100 p-2 rounded-lg text-[11px] space-y-0.5">
-                            <p className="font-bold text-blue-900">
-                              📅 {ultEncontro.data_encontro?.split('-').reverse().join('/')} às {ultEncontro.hora_encontro}
-                            </p>
-                            <p className="text-slate-700 font-medium truncate">📘 {ultEncontro.assunto_tratado}</p>
-                            {ultEncontro.comentarios && (
-                              <p className="text-slate-500 italic truncate">💬 {ultEncontro.comentarios}</p>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-[10px] text-slate-400 italic">Nenhum encontro na agenda.</p>
-                        )}
+        <>
+          {/* VISUALIZAÇÃO D.E.A. / G.U.I. */}
+          {(activeTab === 'discipulado-dea' || activeTab === 'discipulado') && (
+            <div className="space-y-6">
+              {gruposAgrupados.map((grupo) => (
+                <div key={grupo.discipulador_id} className="border border-slate-200 rounded-2xl bg-slate-50 p-5 space-y-4 shadow-sm">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b pb-3 border-slate-200 gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="bg-blue-900 text-white p-2.5 rounded-xl text-lg font-black">👤</div>
+                      <div>
+                        <h3 className="font-black text-blue-900 text-base">{grupo.discipulador?.nome}</h3>
+                        <p className="text-xs text-slate-500">Discipulador / Líder</p>
                       </div>
+                    </div>
 
-                      <div className="border-t pt-2 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="bg-blue-100 text-blue-900 font-black text-xs px-3 py-1.5 rounded-xl">
+                        Total de Discípulos: {grupo.totalDiscipulos}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGrupoSelecionado(grupo);
+                          setModalEncontroGrupo(true);
+                        }}
+                        className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+                      >
+                        📅 Agendar para Todos ({grupo.totalDiscipulos})
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {grupo.vinculos.map((v) => (
+                      <div key={v.id} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm space-y-3">
+                        <div>
+                          <p className="font-bold text-emerald-800 text-sm">{v.discipulando?.nome}</p>
+                          <p className="text-xs text-slate-500">📞 {v.discipulando?.celular_principal || 'Sem contato'}</p>
+                        </div>
+                        
                         <button
                           type="button"
-                          onClick={() => abrirModalEncontrosIndividuais(v)}
-                          className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-lg transition cursor-pointer"
+                          onClick={() => {
+                            setSelectedVinculo(v);
+                            setListaEncontros(v.encontros || []);
+                            setModalEncontrosIndividuais(true);
+                          }}
+                          className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-lg cursor-pointer"
                         >
                           📅 Agenda Individual ({(v.encontros || []).length})
                         </button>
 
-                        <div className="flex gap-2 justify-end pt-1">
+                        <div className="flex gap-2 justify-end pt-1 border-t">
                           <button
                             type="button"
                             onClick={() => {
@@ -443,117 +412,105 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
                           </button>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* MODAL 1: NOVO VÍNCULO (LÍDER + SELEÇÃO MÚLTIPLA) */}
-      {modalNovoVinculo && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 space-y-4 my-8 max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center border-b pb-3 shrink-0">
-              <h3 className="text-lg font-black text-blue-900">Novo Vínculo de Discipulado</h3>
-              <button
-                type="button"
-                onClick={() => setModalNovoVinculo(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleSalvarVinculo} className="space-y-4 text-xs flex-1 overflow-y-auto pr-1">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">1. Discipulador (Líder / Mestre)</label>
-                <select
-                  value={discipuladorId}
-                  onChange={(e) => setDiscipuladorId(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 bg-white font-bold text-slate-800"
-                  required
-                >
-                  <option value="">Selecione o Discipulador...</option>
-                  {membros.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      👤 {m.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  2. Selecione o(s) Discípulo(s) ({discipulosSelecionados.length} selecionado(s))
-                </label>
-                <div className="border rounded-xl p-3 max-h-48 overflow-y-auto space-y-1.5 bg-slate-50">
-                  {membros
-                    .filter((m) => String(m.id) !== String(discipuladorId))
-                    .map((m) => (
-                      <label
-                        key={m.id}
-                        className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-white cursor-pointer text-xs"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={discipulosSelecionados.includes(String(m.id))}
-                          onChange={() => toggleDiscipulo(String(m.id))}
-                          className="rounded text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="font-semibold text-slate-800">{m.nome}</span>
-                      </label>
                     ))}
+                  </div>
                 </div>
-              </div>
+              ))}
+            </div>
+          )}
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">3. Dia Regular do Encontro</label>
-                <select
-                  value={diaReuniao}
-                  onChange={(e) => setDiaReuniao(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 bg-white"
-                >
-                  <option value="Segunda-feira">Segunda-feira</option>
-                  <option value="Terça-feira">Terça-feira</option>
-                  <option value="Quarta-feira">Quarta-feira</option>
-                  <option value="Quinta-feira">Quinta-feira</option>
-                  <option value="Sexta-feira">Sexta-feira</option>
-                  <option value="Sábado">Sábado</option>
-                  <option value="Domingo">Domingo</option>
-                </select>
-              </div>
+          {/* VISUALIZAÇÃO POR DISCIPULADOR */}
+          {activeTab === 'discipulado-agenda-discipulador' && (
+            <div className="space-y-6">
+              {gruposAgrupados.map((grupo) => (
+                <div key={grupo.discipulador_id} className="border rounded-2xl p-5 bg-slate-50 space-y-3">
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <h3 className="font-black text-blue-900 text-base">👤 Líder: {grupo.discipulador?.nome}</h3>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGrupoSelecionado(grupo);
+                        setModalEncontroGrupo(true);
+                      }}
+                      className="px-3 py-1 bg-emerald-700 text-white text-xs font-bold rounded-lg cursor-pointer"
+                    >
+                      ➕ Novo Encontro em Grupo
+                    </button>
+                  </div>
 
-              <button
-                type="submit"
-                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer shrink-0"
-              >
-                ⚡ Salvar Discipulado
-              </button>
-            </form>
-          </div>
-        </div>
+                  <div className="space-y-2">
+                    {grupo.vinculos.map((v) => (
+                      <div key={v.id} className="bg-white p-3 border rounded-xl space-y-1">
+                        <p className="font-bold text-slate-800 text-xs">🌱 Discípulo: {v.discipulando?.nome}</p>
+                        <p className="text-[11px] text-slate-500">
+                          Encontros Registrados: <strong>{(v.encontros || []).length}</strong>
+                        </p>
+                        {(v.encontros || []).map((e, idx) => (
+                          <div key={idx} className="bg-slate-50 p-2 border rounded-lg text-xs space-y-0.5">
+                            <span className="font-bold text-blue-900">
+                              📅 {e.data_encontro?.split('-').reverse().join('/')} às {e.hora_encontro}
+                            </span>
+                            <p className="text-slate-700">📘 {e.assunto_tratado}</p>
+                            {e.comentarios && <p className="text-slate-500 italic">💬 {e.comentarios}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* VISUALIZAÇÃO AGENDAMENTO GERAL */}
+          {activeTab === 'discipulado-agenda-geral' && (
+            <div className="space-y-3">
+              <h3 className="font-bold text-slate-700 text-sm">Cronograma Geral de Encontros ({todosEncontrosGeral.length})</h3>
+              {todosEncontrosGeral.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
+                  Nenhum encontro registrado na agenda geral.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-blue-900 text-white uppercase font-bold">
+                        <th className="p-3 rounded-l-xl">Data / Hora</th>
+                        <th className="p-3">Discipulador</th>
+                        <th className="p-3">Discípulo</th>
+                        <th className="p-3">Assunto / Pauta</th>
+                        <th className="p-3 rounded-r-xl">Comentários</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {todosEncontrosGeral.map((e) => (
+                        <tr key={e.idUnico} className="hover:bg-slate-50">
+                          <td className="p-3 font-bold text-blue-900 whitespace-nowrap">
+                            📅 {e.data?.split('-').reverse().join('/')} <br />
+                            ⏰ {e.hora}
+                          </td>
+                          <td className="p-3 font-semibold text-slate-800">{e.discipulador}</td>
+                          <td className="p-3 font-semibold text-emerald-800">{e.discipulo}</td>
+                          <td className="p-3 font-medium text-slate-700">{e.assunto}</td>
+                          <td className="p-3 text-slate-500 italic">{e.comentarios || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
 
-      {/* MODAL 2: REGISTRAR ENCONTRO EM GRUPO (NA TELA PRINCIPAL DO LÍDER - COPIA PARA TODOS OS MEMBROS) */}
+      {/* MODAIS */}
       {modalEncontroGrupo && grupoSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 space-y-4">
             <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-lg font-black text-blue-900">Agendar Encontro em Grupo</h3>
-                <p className="text-xs text-slate-500">
-                  Líder: <strong>{grupoSelecionado.discipulador?.nome}</strong> (Encontro aplicado a{' '}
-                  <strong>{grupoSelecionado.totalDiscipulos} discípulos</strong>)
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalEncontroGrupo(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
+              <h3 className="text-lg font-black text-blue-900">Agendar Encontro em Grupo</h3>
+              <button type="button" onClick={() => setModalEncontroGrupo(false)} className="text-xs font-bold text-slate-500">
                 ✕ Fechar
               </button>
             </div>
@@ -561,7 +518,7 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
             <form onSubmit={handleSalvarEncontroGrupo} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Data do Encontro</label>
+                  <label className="block font-bold text-slate-700 mb-1">Data</label>
                   <input
                     type="date"
                     value={dataGrupo}
@@ -570,9 +527,8 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
                     required
                   />
                 </div>
-
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Hora do Encontro</label>
+                  <label className="block font-bold text-slate-700 mb-1">Hora</label>
                   <input
                     type="time"
                     value={horaGrupo}
@@ -584,10 +540,10 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Assunto Tratado / Pauta do Encontro *</label>
+                <label className="block font-bold text-slate-700 mb-1">Assunto / Pauta *</label>
                 <input
                   type="text"
-                  placeholder="Ex: Estudo da Lição 03, Alinhamento de Metas..."
+                  placeholder="Ex: Estudo capítulo 3..."
                   value={assuntoGrupo}
                   onChange={(e) => setAssuntoGrupo(e.target.value)}
                   className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
@@ -596,9 +552,9 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Comentários e Observações</label>
+                <label className="block font-bold text-slate-700 mb-1">Comentários</label>
                 <textarea
-                  placeholder="Digite observações gerais ou orientações para todos..."
+                  placeholder="Observações do encontro..."
                   value={comentarioGrupo}
                   onChange={(e) => setComentarioGrupo(e.target.value)}
                   className="w-full border rounded-xl p-2.5"
@@ -608,16 +564,82 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
+                className="w-full py-3 bg-emerald-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
               >
-                ⚡ Replicar Encontro para Todos os {grupoSelecionado.totalDiscipulos} Discípulos
+                ⚡ Replicar para os {grupoSelecionado.totalDiscipulos} Discípulos
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL 3: EDIÇÃO DE VÍNCULO INDIVIDUAL */}
+      {modalNovoVinculo && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 space-y-4 my-8">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-lg font-black text-blue-900">Novo Vínculo de Discipulado</h3>
+              <button type="button" onClick={() => setModalNovoVinculo(false)} className="text-xs font-bold text-slate-500">
+                ✕ Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarVinculo} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">1. Discipulador</label>
+                <select
+                  value={discipuladorId}
+                  onChange={(e) => setDiscipuladorId(e.target.value)}
+                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
+                  required
+                >
+                  <option value="">Selecione...</option>
+                  {membros.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      👤 {m.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">2. Discípulos ({discipulosSelecionados.length})</label>
+                <div className="border rounded-xl p-3 max-h-40 overflow-y-auto space-y-1.5 bg-slate-50">
+                  {membros
+                    .filter((m) => String(m.id) !== String(discipuladorId))
+                    .map((m) => (
+                      <label key={m.id} className="flex items-center gap-2 p-1 rounded hover:bg-white cursor-pointer text-xs">
+                        <input
+                          type="checkbox"
+                          checked={discipulosSelecionados.includes(String(m.id))}
+                          onChange={() => toggleDiscipulo(String(m.id))}
+                        />
+                        <span className="font-semibold text-slate-800">{m.nome}</span>
+                      </label>
+                    ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">3. Dia Regular do Encontro</label>
+                <select value={diaReuniao} onChange={(e) => setDiaReuniao(e.target.value)} className="w-full border rounded-xl p-2.5 bg-white">
+                  <option value="Segunda-feira">Segunda-feira</option>
+                  <option value="Terça-feira">Terça-feira</option>
+                  <option value="Quarta-feira">Quarta-feira</option>
+                  <option value="Quinta-feira">Quinta-feira</option>
+                  <option value="Sexta-feira">Sexta-feira</option>
+                  <option value="Sábado">Sábado</option>
+                  <option value="Domingo">Domingo</option>
+                </select>
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl cursor-pointer">
+                ⚡ Salvar Discipulado
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {modalEditarVinculo && vinculoEdicao && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
@@ -702,116 +724,55 @@ export default function DiscipuladoDEAModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL 4: AGENDA E HISTÓRICO INDIVIDUAL DO DISCÍPULO */}
       {modalEncontrosIndividuais && selectedVinculo && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl p-6 space-y-4 max-h-[90vh] flex flex-col">
             <div className="flex justify-between items-center border-b pb-3 shrink-0">
-              <div>
-                <h3 className="text-lg font-black text-blue-900">Agenda & Histórico Individual</h3>
-                <p className="text-xs text-slate-500">
-                  Líder: <strong>{selectedVinculo.discipulador?.nome}</strong> ➔ Discípulo:{' '}
-                  <strong>{selectedVinculo.discipulando?.nome}</strong>
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalEncontrosIndividuais(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
+              <h3 className="text-lg font-black text-blue-900">
+                Agenda Individual: {selectedVinculo.discipuando?.nome}
+              </h3>
+              <button type="button" onClick={() => setModalEncontrosIndividuais(false)} className="text-xs font-bold text-slate-500">
                 ✕ Fechar
               </button>
             </div>
 
             <form onSubmit={handleAdicionarEncontroIndividual} className="bg-slate-50 p-4 rounded-2xl space-y-3 text-xs border shrink-0">
-              <h4 className="font-bold text-blue-900 uppercase">📅 Adicionar Encontro Individual</h4>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-bold text-slate-600 mb-1">Data</label>
-                  <input
-                    type="date"
-                    value={novaData}
-                    onChange={(e) => setNovaData(e.target.value)}
-                    className="w-full border rounded-xl p-2 bg-white"
-                    required
-                  />
+                  <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} className="w-full border rounded-xl p-2 bg-white" required />
                 </div>
                 <div>
                   <label className="block font-bold text-slate-600 mb-1">Hora</label>
-                  <input
-                    type="time"
-                    value={novaHora}
-                    onChange={(e) => setNovaHora(e.target.value)}
-                    className="w-full border rounded-xl p-2 bg-white"
-                    required
-                  />
+                  <input type="time" value={novaHora} onChange={(e) => setNovaHora(e.target.value)} className="w-full border rounded-xl p-2 bg-white" required />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-600 mb-1">Assunto Tratado / Pauta</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Conversa individual, acompanhamento..."
-                  value={novoAssunto}
-                  onChange={(e) => setNovoAssunto(e.target.value)}
-                  className="w-full border rounded-xl p-2 bg-white"
-                  required
-                />
+                <label className="block font-bold text-slate-600 mb-1">Assunto Tratado</label>
+                <input type="text" value={novoAssunto} onChange={(e) => setNovoAssunto(e.target.value)} className="w-full border rounded-xl p-2 bg-white" required />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-600 mb-1">Comentários e Observações</label>
-                <textarea
-                  placeholder="Observações específicas deste discípulo..."
-                  value={novoComentario}
-                  onChange={(e) => setNovoComentario(e.target.value)}
-                  className="w-full border rounded-xl p-2 bg-white"
-                  rows={2}
-                />
+                <label className="block font-bold text-slate-600 mb-1">Comentários</label>
+                <textarea value={novoComentario} onChange={(e) => setNovoComentario(e.target.value)} className="w-full border rounded-xl p-2 bg-white" rows={2} />
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow transition cursor-pointer"
-              >
-                ⚡ Agendar Encontro Individual
+              <button type="submit" className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer">
+                ⚡ Agendar Encontro
               </button>
             </form>
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              <h4 className="font-bold text-xs text-slate-500 uppercase pt-2">Histórico de Encontros ({listaEncontros.length})</h4>
-              {listaEncontros.length === 0 ? (
-                <p className="text-xs text-slate-400 py-4 text-center border border-dashed rounded-xl">
-                  Nenhum encontro registrado.
-                </p>
-              ) : (
-                listaEncontros.map((item, idx) => (
-                  <div key={item.id} className="bg-white border p-3 rounded-xl space-y-1.5 text-xs shadow-sm">
-                    <div className="flex justify-between items-center border-b pb-1 font-bold text-blue-900">
-                      <span>
-                        #{listaEncontros.length - idx} • 📅 {item.data_encontro?.split('-').reverse().join('/')} às ⏰ {item.hora_encontro}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleExcluirEncontro(item.id)}
-                        className="text-rose-600 hover:bg-rose-50 px-2 py-0.5 rounded cursor-pointer font-bold"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                    <p className="text-slate-800">
-                      📘 <strong>Pauta:</strong> {item.assunto_tratado}
-                    </p>
-                    {item.comentarios && (
-                      <div className="text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                        💬 <strong>Comentários:</strong> {item.comentarios}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
+              {listaEncontros.map((item, idx) => (
+                <div key={item.id} className="bg-white border p-3 rounded-xl space-y-1 text-xs shadow-sm">
+                  <span className="font-bold text-blue-900">
+                    #{listaEncontros.length - idx} • 📅 {item.data_encontro?.split('-').reverse().join('/')} às ⏰ {item.hora_encontro}
+                  </span>
+                  <p className="text-slate-800">📘 <strong>Pauta:</strong> {item.assunto_tratado}</p>
+                  {item.comentarios && <p className="text-slate-500 italic">💬 {item.comentarios}</p>}
+                </div>
+              ))}
             </div>
           </div>
         </div>

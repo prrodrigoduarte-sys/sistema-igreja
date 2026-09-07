@@ -1,577 +1,54 @@
 // src/ProjetosModule.tsx
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { supabase } from './supabase';
-
-interface Projeto {
-  id: any;
-  nome_projeto: string;
-  descricao?: string;
-  valor_estimado: number;
-  status?: string;
-}
-
-interface Inscricao {
-  id: any;
-  projeto_id: any;
-  nome_participante: string;
-  celular?: string;
-  valor_participacao: number;
-  status_pagamento: 'Pendente' | 'Pago';
-}
-
-interface Props {
-  loggedUser: any;
-}
-
-export default function ProjetosModule({ loggedUser }: Props) {
-  const [projetos, setProjetos] = useState<Projeto[]>([]);
-  const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
-
-  // Modais
-  const [modalNovoProjeto, setModalNovoProjeto] = useState(false);
-  const [modalInscricao, setModalInscricao] = useState(false);
-
-  // Form Projeto
-  const [nomeProjeto, setNomeProjeto] = useState('');
-  const [descricaoProjeto, setDescricaoProjeto] = useState('');
-  const [valorEstimado, setValorEstimado] = useState<number | ''>('');
-
-  // Form Inscrição (Criação / Edição)
-  const [inscricaoEdicao, setInscricaoEdicao] = useState<Inscricao | null>(null);
-  const [nomeParticipante, setNomeParticipante] = useState('');
-  const [celularParticipante, setCelularParticipante] = useState('');
-  const [valorParticipacao, setValorParticipacao] = useState<number | ''>('');
-  const [statusPagamento, setStatusPagamento] = useState<'Pendente' | 'Pago'>('Pendente');
-
-  const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
-
-  const carregarDados = useCallback(async () => {
-    setLoading(true);
-    try {
-      // Carrega Projetos
-      const { data: dataProjetos, error: errProj } = await supabase
-        .from('projetos')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('id', { ascending: false });
-
-      if (errProj) throw errProj;
-      setProjetos(dataProjetos || []);
-
-      // Carrega Inscrições
-      const { data: dataInsc, error: errInsc } = await supabase
-        .from('inscricoes_projetos')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('id', { ascending: false });
-
-      if (errInsc) throw errInsc;
-      setInscricoes(dataInsc || []);
-
-      if (dataProjetos && dataProjetos.length > 0 && !projetoSelecionado) {
-        setProjetoSelecionado(dataProjetos[0]);
-      }
-    } catch (err: any) {
-      console.error('Erro ao carregar projetos:', err);
-    } fontally {
-      setLoading(false);
-    }
-  }, [codigoIgreja, projetoSelecionado]);
-
-  useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
-
-  // Criar Projeto
-  const handleSalvarProjeto = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nomeProjeto.trim()) return alert('Informe o nome do projeto.');
-
-    try {
-      const { data, error } = await supabase.from('projetos').insert([
-        {
-          codigo_igreja: codigoIgreja,
-          nome_projeto: nomeProjeto.trim(),
-          descricao: descricaoProjeto.trim(),
-          valor_estimado: Number(valorEstimado) || 0,
-          status: 'Em Andamento',
-        },
-      ]).select().single();
-
-      if (error) throw error;
-
-      alert('🚀 Projeto criado com sucesso!');
-      setModalNovoProjeto(false);
-      setNomeProjeto('');
-      setDescricaoProjeto('');
-      setValorEstimado('');
-      if (data) setProjetoSelecionado(data);
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao salvar projeto: ' + err.message);
-    }
-  };
-
-  // Excluir Projeto
-  const handleExcluirProjeto = async (id: any) => {
-    if (!window.confirm('Deseja excluir este projeto e todas as suas inscrições?')) return;
-    try {
-      const { error } = await supabase.from('projetos').delete().eq('id', id);
-      if (error) throw error;
-
-      alert('Projeto excluído.');
-      setProjetoSelecionado(null);
-      carregarDados();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  // Salvar / Editar Inscrição de Participante
-  const handleSalvarInscricao = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projetoSelecionado) return alert('Selecione um projeto.');
-    if (!nomeParticipante.trim()) return alert('Informe o nome do participante.');
-
-    try {
-      const payload = {
-        codigo_igreja: codigoIgreja,
-        projeto_id: projetoSelecionado.id,
-        nome_participante: nomeParticipante.trim(),
-        celular: celularParticipante.trim(),
-        valor_participacao: Number(valorParticipacao) || 0,
-        status_pagamento: statusPagamento,
-      };
-
-      if (inscricaoEdicao) {
-        // Atualizar
-        const { error } = await supabase
-          .from('inscricoes_projetos')
-          .update(payload)
-          .eq('id', inscricaoEdicao.id);
-
-        if (error) throw error;
-        alert('Inscrição atualizada com sucesso!');
-      } else {
-        // Inserir Novo
-        const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
-        if (error) throw error;
-        alert('Participante inscrito com sucesso!');
-      }
-
-      setModalInscricao(false);
-      setInscricaoEdicao(null);
-      setNomeParticipante('');
-      setCelularParticipante('');
-      setValorParticipacao('');
-      setStatusPagamento('Pendente');
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao salvar inscrição: ' + err.message);
-    }
-  };
-
-  // Abrir Modal para Editar Participante
-  const handleAbrirEdicaoInscricao = (item: Inscricao) => {
-    setInscricaoEdicao(item);
-    setNomeParticipante(item.nome_participante);
-    setCelularParticipante(item.celular || '');
-    setValorParticipacao(item.valor_participacao);
-    setStatusPagamento(item.status_pagamento);
-    setModalInscricao(true);
-  };
-
-  // Excluir Participante
-  const handleExcluirInscricao = async (id: any) => {
-    if (!window.confirm('Deseja cancelar/excluir a inscrição deste participante?')) return;
-    try {
-      const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
-      if (error) throw error;
-
-      alert('Inscrição removida com sucesso!');
-      carregarDados();
-    } catch (err: any) {
-      alert(err.message);
-    }
-  };
-
-  // Cálculos Financeiros
-  const inscricoesDoProjeto = inscricoes.filter(
-    (i) => String(i.projeto_id) === String(projetoSelecionado?.id)
-  );
-
-  const totalPago = inscricoesDoProjeto
-    .filter((i) => i.status_pagamento === 'Pago')
-    .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
-
-  const totalPendente = inscricoesDoProjeto
-    .filter((i) => i.status_pagamento === 'Pendente')
-    .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
-
-  const valorCustoProjeto = Number(projetoSelecionado?.valor_estimado) || 0;
-  const saldoDiferenca = totalPago - valorCustoProjeto;
-  const isSuperavit = saldoDiferenca >= 0;
-
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
-      {/* CABEÇALHO */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
-        <div>
-          <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Módulo de Projetos</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Gestão de eventos, inscrições de participantes e controle financeiro
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setModalNovoProjeto(true)}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-        >
-          ➕ Criar Novo Projeto
-        </button>
-      </div>
-
-      {loading ? (
-        <p className="text-center py-8 text-slate-500 text-xs">Carregando projetos...</p>
-      ) : projetos.length === 0 ? (
-        <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs">
-          Nenhum projeto cadastrado. Clique no botão acima para registrar o primeiro evento/projeto!
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* SELETOR DE PROJETOS (COLUNA ESQUERDA) */}
-          <div className="space-y-2 lg:col-span-1 border-r pr-0 lg:pr-4">
-            <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider mb-3">Selecione o Projeto</h3>
-            {projetos.map((p) => {
-              const isSelected = String(p.id) === String(projetoSelecionado?.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setProjetoSelecionado(p)}
-                  className={`w-full text-left p-3 rounded-xl border transition cursor-pointer ${
-                    isSelected
-                      ? 'bg-blue-900 text-white border-blue-900 font-bold shadow'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 font-medium'
-                  }`}
-                >
-                  <p className="text-sm truncate">{p.nome_projeto}</p>
-                  <p className={`text-[10px] mt-1 ${isSelected ? 'text-blue-200' : 'text-slate-500'}`}>
-                    Custo: R$ {Number(p.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* PAINEL DO PROJETO SELECIONADO (COLUNA DIREITA) */}
-          {projetoSelecionado && (
-            <div className="lg:col-span-3 space-y-6">
-              {/* TÍTULO E AÇÕES DO PROJETO */}
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50 p-4 rounded-2xl border">
-                <div>
-                  <h3 className="text-xl font-black text-blue-900">{projetoSelecionado.nome_projeto}</h3>
-                  {projetoSelecionado.descricao && (
-                    <p className="text-xs text-slate-600 mt-0.5">{projetoSelecionado.descricao}</p>
-                  )}
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInscricaoEdicao(null);
-                      setNomeParticipante('');
-                      setCelularParticipante('');
-                      setValorParticipacao('');
-                      setStatusPagamento('Pendente');
-                      setModalInscricao(true);
-                    }}
-                    className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-                  >
-                    👤 Nova Inscrição
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleExcluirProjeto(projetoSelecionado.id)}
-                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer"
-                  >
-                    🗑️ Excluir Projeto
-                  </button>
-                </div>
-              </div>
-
-              {/* CONFRONTO FINANCEIRO DO PROJETO (DÉFICIT OU SUPERÁVIT) */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-100 p-3.5 rounded-2xl border">
-                  <p className="text-[10px] font-bold uppercase text-slate-500">Custo do Projeto</p>
-                  <p className="text-lg font-black text-slate-800 mt-1">
-                    R$ {valorCustoProjeto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div className="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-200">
-                  <p className="text-[10px] font-bold uppercase text-emerald-700">Total Arrecadado (Pago)</p>
-                  <p className="text-lg font-black text-emerald-800 mt-1">
-                    R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200">
-                  <p className="text-[10px] font-bold uppercase text-amber-700">A Receber (Pendente)</p>
-                  <p className="text-lg font-black text-amber-800 mt-1">
-                    R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div
-                  className={`p-3.5 rounded-2xl border ${
-                    isSuperavit
-                      ? 'bg-blue-900 text-white border-blue-900'
-                      : 'bg-rose-900 text-white border-rose-900'
-                  }`}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
-                    Balanço (Superávit / Prejuízo)
-                  </p>
-                  <p className="text-lg font-black mt-1">
-                    {isSuperavit ? '🟢 +' : '🔴 -'} R$ {Math.abs(saldoDiferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-[9px] mt-0.5 opacity-80">
-                    {isSuperavit ? 'Superávit (Lucro)' : 'Prejuízo (Déficit)'}
-                  </p>
-                </div>
-              </div>
-
-              {/* LISTAGEM DOS PARTICIPANTES DA INSCRIÇÃO */}
-              <div className="space-y-3">
-                <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
-                  Lista de Inscrições / Participantes ({inscricoesDoProjeto.length})
-                </h4>
-
-                {inscricoesDoProjeto.length === 0 ? (
-                  <div className="p-6 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
-                    Nenhum participante inscrito neste projeto ainda.
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto border rounded-2xl">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
-                          <th className="p-3">Participante</th>
-                          <th className="p-3">Telefone</th>
-                          <th className="p-3">Valor (R$)</th>
-                          <th className="p-3">Status Pagamento</th>
-                          <th className="p-3 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {inscricoesDoProjeto.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-bold text-slate-800">{item.nome_participante}</td>
-                            <td className="p-3 text-slate-600">{item.celular || '-'}</td>
-                            <td className="p-3 font-bold text-slate-800">
-                              R$ {Number(item.valor_participacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="p-3">
-                              <span
-                                className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${
-                                  item.status_pagamento === 'Pago'
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
-                                }`}
-                              >
-                                {item.status_pagamento}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => handleAbrirEdicaoInscricao(item)}
-                                className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleExcluirInscricao(item.id)}
-                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
-                              >
-                                🗑️ Excluir
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* MODAL 1: CRIAR NOVO PROJETO */}
-      {modalNovoProjeto && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-black text-blue-900">Novo Projeto / Evento</h3>
-              <button
-                type="button"
-                onClick={() => setModalNovoProjeto(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleSalvarProjeto} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nome do Projeto / Evento *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Acampamento de Jovens 2026"
-                  value={nomeProjeto}
-                  onChange={(e) => setNomeProjeto(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Descrição / Detalhes</label>
-                <textarea
-                  placeholder="Informaçoes sobre local, objetivos ou datas..."
-                  value={descricaoProjeto}
-                  onChange={(e) => setDescricaoProjeto(e.target.value)}
-                  className="w-full border rounded-xl p-2.5"
-                  rows={2}
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Custo Estimado / Orçado (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={valorEstimado}
-                  onChange={(e) => setValorEstimado(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
-              >
-                ⚡ Criar Projeto
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: INSCRIÇÃO / EDIÇÃO DE PARTICIPANTE */}
-      {modalInscricao && projetoSelecionado && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-lg font-black text-blue-900">
-                  {inscricaoEdicao ? 'Editar Inscrição' : 'Nova Inscrição'}
-                </h3>
-                <p className="text-xs text-slate-500">Projeto: {projetoSelecionado.nome_projeto}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalInscricao(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleSalvarInscricao} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nome do Participante *</label>
-                <input
-                  type="text"
-                  placeholder="Nome completo"
-                  value={nomeParticipante}
-                  onChange={(e) => setNomeParticipante(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp</label>
-                <input
-                  type="text"
-                  placeholder="(00) 00000-0000"
-                  value={celularParticipante}
-                  onChange={(e) => setCelularParticipante(e.target.value)}
-                  className="w-full border rounded-xl p-2.5"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Valor da Participação (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={valorParticipacao}
-                  onChange={(e) => setValorParticipacao(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Status do Pagamento</label>
-                <select
-                  value={statusPagamento}
-                  onChange={(e) => setStatusPagamento(e.target.value as 'Pendente' | 'Pago')}
-                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
-                >
-                  <option value="Pendente">⏳ Pendente</option>
-                  <option value="Pago">✅ Pago</option>
-                </select>
-              </div>
-å// src/ProjetosModule.tsx
-
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { supabase } from './supabase';
 
 interface Membro {
   id: any;
   nome: string;
   celular_principal?: string;
+  email?: string;
 }
 
 interface Projeto {
   id: any;
+  codigo_igreja: string;
   nome_projeto: string;
   descricao?: string;
+  data_evento?: string;
+  hora_evento?: string;
+  local_evento?: string;
   valor_estimado: number;
   status?: string;
+  created_at?: string;
 }
 
 interface Inscricao {
   id: any;
+  codigo_igreja: string;
   projeto_id: any;
+  membro_id?: any;
   nome_participante: string;
   celular?: string;
+  email?: string;
   valor_participacao: number;
-  status_pagamento: 'Pendente' | 'Pago';
+  status_pagamento: 'Pendente' | 'Pago' | 'Cancelado';
+  forma_pagamento?: string;
+  data_pagamento?: string;
+  observacoes?: string;
+  created_at?: string;
+}
+
+interface DespesaProjeto {
+  id: any;
+  codigo_igreja: string;
+  projeto_id: any;
+  descricao: string;
+  categoria?: string;
+  valor: number;
+  data_despesa: string;
+  comprovante_url?: string;
+  created_at?: string;
 }
 
 interface Props {
@@ -579,45 +56,76 @@ interface Props {
 }
 
 export default function ProjetosModule({ loggedUser }: Props) {
+  // Estados Principais de Dados
   const [membros, setMembros] = useState<Membro[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
+  const [despesas, setDespesas] = useState<DespesaProjeto[]>([]);
   const [loading, setLoading] = useState(false);
   const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
 
-  // Modais
+  // Navegação Interna de Sub-abas no Projeto
+  const [subAbaAtiva, setSubAbaAtiva] = useState<'visao_geral' | 'inscritos' | 'despesas' | 'relatorio'>('visao_geral');
+
+  // Filtros e Buscas
+  const [buscaProjeto, setBuscaProjeto] = useState('');
+  const [buscaInscrito, setBuscaInscrito] = useState('');
+  const [filtroStatusPagamento, setFiltroStatusPagamento] = useState<'Todos' | 'Pago' | 'Pendente' | 'Cancelado'>('Todos');
+
+  // Modais de Projeto
   const [modalNovoProjeto, setModalNovoProjeto] = useState(false);
+  const [projetoEmEdicao, setProjetoEmEdicao] = useState<Projeto | null>(null);
+  
+  // Modais de Inscrição
   const [modalInscricao, setModalInscricao] = useState(false);
+  const [inscricaoEdicao, setInscricaoEdicao] = useState<Inscricao | null>(null);
+
+  // Modais de Despesa / Custos Reais
+  const [modalDespesa, setModalDespesa] = useState(false);
+  const [despesaEdicao, setDespesaEdicao] = useState<DespesaProjeto | null>(null);
 
   // Form Criar/Editar Projeto
-  const [projetoEmEdicao, setProjetoEmEdicao] = useState<Projeto | null>(null);
   const [nomeProjeto, setNomeProjeto] = useState('');
   const [descricaoProjeto, setDescricaoProjeto] = useState('');
+  const [dataEvento, setDataEvento] = useState('');
+  const [horaEvento, setHoraEvento] = useState('19:30');
+  const [localEvento, setLocalEvento] = useState('');
   const [valorEstimado, setValorEstimado] = useState<number | ''>('');
+  const [statusProjeto, setStatusProjeto] = useState('Em Andamento');
 
-  // Form Inscrição
-  const [inscricaoEdicao, setInscricaoEdicao] = useState<Inscricao | null>(null);
+  // Form Inscrição Participante
   const [membroSelecionadoId, setMembroSelecionadoId] = useState('');
   const [nomeParticipante, setNomeParticipante] = useState('');
   const [celularParticipante, setCelularParticipante] = useState('');
+  const [emailParticipante, setEmailParticipante] = useState('');
   const [valorParticipacao, setValorParticipacao] = useState<number | ''>('');
-  const [statusPagamento, setStatusPagamento] = useState<'Pendente' | 'Pago'>('Pendente');
+  const [statusPagamento, setStatusPagamento] = useState<'Pendente' | 'Pago' | 'Cancelado'>('Pendente');
+  const [formaPagamento, setFormaPagamento] = useState('Pix');
+  const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
+  const [obsInscricao, setObsInscricao] = useState('');
+
+  // Form Despesa Real do Projeto
+  const [descricaoDespesa, setDescricaoDespesa] = useState('');
+  const [categoriaDespesa, setCategoriaDespesa] = useState('Alimentação');
+  const [valorDespesa, setValorDespesa] = useState<number | ''>('');
+  const [dataDespesa, setDataDespesa] = useState(new Date().toISOString().split('T')[0]);
 
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
 
+  // CARREGAR TODOS OS DADOS INTEGRADOS
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
-      // Carregar Membros
+      // 1. Membros
       const { data: dataMembros } = await supabase
         .from('members')
-        .select('id, nome, celular_principal')
+        .select('id, nome, celular_principal, email')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
       if (dataMembros) setMembros(dataMembros);
 
-      // Carregar Projetos
+      // 2. Projetos
       const { data: dataProjetos } = await supabase
         .from('projetos')
         .select('*')
@@ -628,10 +136,13 @@ export default function ProjetosModule({ loggedUser }: Props) {
         setProjetos(dataProjetos);
         if (dataProjetos.length > 0 && !projetoSelecionado) {
           setProjetoSelecionado(dataProjetos[0]);
+        } else if (projetoSelecionado) {
+          const atualizado = dataProjetos.find((p) => String(p.id) === String(projetoSelecionado.id));
+          if (atualizado) setProjetoSelecionado(atualizado);
         }
       }
 
-      // Carregar Inscrições
+      // 3. Inscrições
       const { data: dataInsc } = await supabase
         .from('inscricoes_projetos')
         .select('*')
@@ -639,8 +150,18 @@ export default function ProjetosModule({ loggedUser }: Props) {
         .order('id', { ascending: false });
 
       if (dataInsc) setInscricoes(dataInsc);
+
+      // 4. Despesas Reais (Tabela de apoio ou financeiro)
+      const { data: dataDesp } = await supabase
+        .from('despesas_projetos')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('id', { ascending: false });
+
+      if (dataDesp) setDespesas(dataDesp);
+
     } catch (err: any) {
-      console.error('Erro ao carregar módulo de projetos:', err);
+      console.error('Erro ao carregar dados do módulo de projetos:', err);
     } finally {
       setLoading(false);
     }
@@ -650,97 +171,238 @@ export default function ProjetosModule({ loggedUser }: Props) {
     carregarDados();
   }, [carregarDados]);
 
-  // Criar ou Editar Projeto
-  const handleSalvarProjeto = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!nomeProjeto.trim()) return alert('Informe o nome do projeto.');
+  // PROJETOS FILTRADOS NA BARRA LATERAL
+  const projetosFiltrados = useMemo(() => {
+    return projetos.filter((p) =>
+      p.nome_projeto.toLowerCase().includes(buscaProjeto.toLowerCase())
+    );
+  }, [projetos, buscaProjeto]);
 
-    try {
-      const payload = {
-        codigo_igreja: codigoIgreja,
-        nome_projeto: nomeProjeto.trim(),
-        descricao: descricaoProjeto.trim(),
-        valor_estimado: Number(valorEstimado) || 0,
-        status: 'Em Andamento',
-      };
+  // PARTICIPANTES FILTRADOS DO PROJETO ATUAL
+  const inscricoesDoProjeto = useMemo(() => {
+    if (!projetoSelecionado) return [];
+    return inscricoes.filter((i) => String(i.projeto_id) === String(projetoSelecionado.id));
+  }, [inscricoes, projetoSelecionado]);
 
-      if (projetoEmEdicao) {
-        const { error } = await supabase
-          .from('projetos')
-          .update(payload)
-          .eq('id', projetoEmEdicao.id);
+  const inscricoesFiltradas = useMemo(() => {
+    return inscricoesDoProjeto.filter((i) => {
+      const matchBusca =
+        (i.nome_participante || '').toLowerCase().includes(buscaInscrito.toLowerCase()) ||
+        (i.celular || '').includes(buscaInscrito) ||
+        (i.email || '').toLowerCase().includes(buscaInscrito.toLowerCase());
+      const matchStatus =
+        filtroStatusPagamento === 'Todos' || i.status_pagamento === filtroStatusPagamento;
+      return matchBusca && matchStatus;
+    });
+  }, [inscricoesDoProjeto, buscaInscrito, filtroStatusPagamento]);
 
-        if (error) throw error;
-        alert('Projeto atualizado!');
-      } else {
-        const { data, error } = await supabase
-          .from('projetos')
-          .insert([payload])
-          .select()
-          .single();
+  // DESPESAS DO PROJETO SELECIONADO
+  const despesasDoProjeto = useMemo(() => {
+    if (!projetoSelecionado) return [];
+    return despesas.filter((d) => String(d.projeto_id) === String(projetoSelecionado.id));
+  }, [despesas, projetoSelecionado]);
 
-        if (error) throw error;
-        alert('🚀 Projeto criado com sucesso!');
-        if (data) setProjetoSelecionado(data);
-      }
+  // CÁLCULOS FINANCIAL METRICS (ARRECADAÇÃO x CUSTO ESTIMADO x DESPESAS REAIS)
+  const totalArrecadadoPago = useMemo(() => {
+    return inscricoesDoProjeto
+      .filter((i) => i.status_pagamento === 'Pago')
+      .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
+  }, [inscricoesDoProjeto]);
 
-      setModalNovoProjeto(false);
-      setProjetoEmEdicao(null);
-      setNomeProjeto('');
-      setDescricaoProjeto('');
-      setValorEstimado('');
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao salvar projeto: ' + err.message);
-    }
+  const totalPendente = useMemo(() => {
+    return inscricoesDoProjeto
+      .filter((i) => i.status_pagamento === 'Pendente')
+      .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
+  }, [inscricoesDoProjeto]);
+
+  const totalDespesasExecutadas = useMemo(() => {
+    return despesasDoProjeto.reduce((acc, cur) => acc + (Number(cur.valor) || 0), 0);
+  }, [despesasDoProjeto]);
+
+  const valorCustoEstimado = Number(projetoSelecionado?.valor_estimado) || 0;
+  
+  // Confronto: Total Efetivamente Arrecadado Pago vs Custo Estimado
+  const balancoComCustoEstimado = totalArrecadadoPago - valorCustoEstimado;
+  
+  // Confronto: Total Efetivamente Arrecadado Pago vs Despesas Executadas
+  const balancoComDespesasReais = totalArrecadadoPago - totalDespesasExecutadas;
+
+  const isSuperavitEstimado = balancoComCustoEstimado >= 0;
+  const isSuperavitReal = balancoComDespesasReais >= 0;
+
+  // 1. GESTÃO DE PROJETO (CRIAR / EDITAR / SALVAR / EXCLUIR + AGENDA)
+  const handleAbrirCriarProjeto = () => {
+    setProjetoEmEdicao(null);
+    setNomeProjeto('');
+    setDescricaoProjeto('');
+    setDataEvento('');
+    setHoraEvento('19:30');
+    setLocalEvento('');
+    setValorEstimado('');
+    setStatusProjeto('Em Andamento');
+    setModalNovoProjeto(true);
   };
 
   const handleAbrirEdicaoProjeto = (p: Projeto) => {
     setProjetoEmEdicao(p);
     setNomeProjeto(p.nome_projeto);
     setDescricaoProjeto(p.descricao || '');
+    setDataEvento(p.data_evento || '');
+    setHoraEvento(p.hora_evento || '19:30');
+    setLocalEvento(p.local_evento || '');
     setValorEstimado(p.valor_estimado || '');
+    setStatusProjeto(p.status || 'Em Andamento');
     setModalNovoProjeto(true);
   };
 
-  const handleExcluirProjeto = async (id: any) => {
-    if (!window.confirm('Deseja excluir este projeto e todas as inscrições dele?')) return;
-    try {
-      const { error } = await supabase.from('projetos').delete().eq('id', id);
-      if (error) throw error;
+  const handleSalvarProjeto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nomeProjeto.trim()) return alert('Por favor, digite o nome do projeto.');
 
-      alert('Projeto excluído.');
+    try {
+      const payloadProjeto = {
+        codigo_igreja: codigoIgreja,
+        nome_projeto: nomeProjeto.trim(),
+        descricao: descricaoProjeto.trim(),
+        data_evento: dataEvento || null,
+        hora_evento: horaEvento || null,
+        local_evento: localEvento.trim() || null,
+        valor_estimado: Number(valorEstimado) || 0,
+        status: statusProjeto,
+      };
+
+      let projSalvo: Projeto | null = null;
+
+      if (projetoEmEdicao) {
+        const { data, error } = await supabase
+          .from('projetos')
+          .update(payloadProjeto)
+          .eq('id', projetoEmEdicao.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        projSalvo = data;
+        alert('✅ Projeto atualizado com sucesso!');
+      } else {
+        const { data, error } = await supabase
+          .from('projetos')
+          .insert([payloadProjeto])
+          .select()
+          .single();
+
+        if (error) throw error;
+        projSalvo = data;
+        alert('🚀 Novo projeto criado com sucesso!');
+      }
+
+      // SINCRONIZAÇÃO COM A AGENDA DO SISTEMA
+      if (dataEvento) {
+        const tituloAgenda = `🚀 [PROJETO] ${nomeProjeto.trim()}`;
+        const payloadAgenda = {
+          codigo_igreja: codigoIgreja,
+          titulo: tituloAgenda,
+          data_evento: dataEvento,
+          hora_evento: horaEvento || '19:30',
+          local: localEvento.trim() || 'Templo Sede',
+          descricao: `Projeto: ${descricaoProjeto.trim()} | Custo orçado: R$ ${Number(valorEstimado || 0).toFixed(2)}`,
+          tipo: 'Projeto',
+        };
+
+        const { data: eventoExiste } = await supabase
+          .from('agenda')
+          .select('id')
+          .eq('codigo_igreja', codigoIgreja)
+          .eq('titulo', tituloAgenda)
+          .maybeSingle();
+
+        if (eventoExiste) {
+          await supabase.from('agenda').update(payloadAgenda).eq('id', eventoExiste.id);
+        } else {
+          await supabase.from('agenda').insert([payloadAgenda]);
+        }
+      }
+
+      setModalNovoProjeto(false);
+      if (projSalvo) setProjetoSelecionado(projSalvo);
+      carregarDados();
+    } catch (err: any) {
+      alert('Erro ao salvar projeto: ' + err.message);
+    }
+  };
+
+  const handleExcluirProjeto = async (id: any, nome: string) => {
+    if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o projeto "${nome}"? Todas as inscrições e lançamentos de despesas vinculados serão removidos.`)) return;
+
+    try {
+      await supabase.from('projetos').delete().eq('id', id);
+      await supabase.from('agenda').delete().eq('codigo_igreja', codigoIgreja).eq('titulo', `🚀 [PROJETO] ${nome}`);
+
+      alert('Projeto excluído com sucesso.');
       setProjetoSelecionado(null);
       carregarDados();
     } catch (err: any) {
-      alert(err.message);
+      alert('Erro ao excluir projeto: ' + err.message);
     }
   };
 
-  // Preencher nome/celular ao selecionar membro cadastrado
+  // 2. GESTÃO DE INSCRIÇÃO DE PARTICIPANTES
+  const handleAbrirNovaInscricao = () => {
+    setInscricaoEdicao(null);
+    setMembroSelecionadoId('');
+    setNomeParticipante('');
+    setCelularParticipante('');
+    setEmailParticipante('');
+    setValorParticipacao('');
+    setStatusPagamento('Pendente');
+    setFormaPagamento('Pix');
+    setDataPagamento(new Date().toISOString().split('T')[0]);
+    setObsInscricao('');
+    setModalInscricao(true);
+  };
+
+  const handleAbrirEdicaoInscricao = (item: Inscricao) => {
+    setInscricaoEdicao(item);
+    setMembroSelecionadoId(item.membro_id ? String(item.membro_id) : '');
+    setNomeParticipante(item.nome_participante);
+    setCelularParticipante(item.celular || '');
+    setEmailParticipante(item.email || '');
+    setValorParticipacao(item.valor_participacao);
+    setStatusPagamento(item.status_pagamento);
+    setFormaPagamento(item.forma_pagamento || 'Pix');
+    setDataPagamento(item.data_pagamento || new Date().toISOString().split('T')[0]);
+    setObsInscricao(item.observacoes || '');
+    setModalInscricao(true);
+  };
+
   const handleSelecionarMembro = (membroId: string) => {
     setMembroSelecionadoId(membroId);
-    const encontrado = membros.find((m) => String(m.id) === String(membroId));
-    if (encontrado) {
-      setNomeParticipante(encontrado.nome);
-      setCelularParticipante(encontrado.celular_principal || '');
+    const enc = membros.find((m) => String(m.id) === String(membroId));
+    if (enc) {
+      setNomeParticipante(enc.nome);
+      setCelularParticipante(enc.celular_principal || '');
+      setEmailParticipante(enc.email || '');
     }
   };
 
-  // Salvar / Editar Inscrição de Participante
   const handleSalvarInscricao = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projetoSelecionado) return alert('Selecione um projeto.');
+    if (!projetoSelecionado) return alert('Selecione um projeto ativo.');
     if (!nomeParticipante.trim()) return alert('Informe o nome do participante.');
 
     try {
       const payload = {
         codigo_igreja: codigoIgreja,
         projeto_id: projetoSelecionado.id,
+        membro_id: membroSelecionadoId ? membroSelecionadoId : null,
         nome_participante: nomeParticipante.trim(),
         celular: celularParticipante.trim(),
+        email: emailParticipante.trim(),
         valor_participacao: Number(valorParticipacao) || 0,
         status_pagamento: statusPagamento,
+        forma_pagamento: statusPagamento === 'Pago' ? formaPagamento : null,
+        data_pagamento: statusPagamento === 'Pago' ? dataPagamento : null,
+        observacoes: obsInscricao.trim(),
       };
 
       if (inscricaoEdicao) {
@@ -750,7 +412,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
           .eq('id', inscricaoEdicao.id);
 
         if (error) throw error;
-        alert('Inscrição atualizada!');
+        alert('Inscrição do participante atualizada!');
       } else {
         const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
         if (error) throw error;
@@ -758,30 +420,14 @@ export default function ProjetosModule({ loggedUser }: Props) {
       }
 
       setModalInscricao(false);
-      setInscricaoEdicao(null);
-      setMembroSelecionadoId('');
-      setNomeParticipante('');
-      setCelularParticipante('');
-      setValorParticipacao('');
-      setStatusPagamento('Pendente');
       carregarDados();
     } catch (err: any) {
       alert('Erro ao salvar inscrição: ' + err.message);
     }
   };
 
-  const handleAbrirEdicaoInscricao = (item: Inscricao) => {
-    setInscricaoEdicao(item);
-    setMembroSelecionadoId('');
-    setNomeParticipante(item.nome_participante);
-    setCelularParticipante(item.celular || '');
-    setValorParticipacao(item.valor_participacao);
-    setStatusPagamento(item.status_pagamento);
-    setModalInscricao(true);
-  };
-
-  const handleExcluirInscricao = async (id: any) => {
-    if (!window.confirm('Excluir a inscrição deste participante?')) return;
+  const handleExcluirInscricao = async (id: any, nome: string) => {
+    if (!window.confirm(`Deseja cancelar/excluir a inscrição de "${nome}"?`)) return;
     try {
       const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
       if (error) throw error;
@@ -789,244 +435,517 @@ export default function ProjetosModule({ loggedUser }: Props) {
       alert('Inscrição removida!');
       carregarDados();
     } catch (err: any) {
-      alert(err.message);
+      alert('Erro ao excluir: ' + err.message);
     }
   };
 
-  // Cálculos Financeiros
-  const inscricoesDoProjeto = inscricoes.filter(
-    (i) => String(i.projeto_id) === String(projetoSelecionado?.id)
-  );
+  // 3. GESTÃO DE DESPESAS DO PROJETO (CUSTOS EXECUTADOS)
+  const handleAbrirNovaDespesa = () => {
+    setDespesaEdicao(null);
+    setDescricaoDespesa('');
+    setCategoriaDespesa('Alimentação');
+    setValorDespesa('');
+    setDataDespesa(new Date().toISOString().split('T')[0]);
+    setModalDespesa(true);
+  };
 
-  const totalPago = inscricoesDoProjeto
-    .filter((i) => i.status_pagamento === 'Pago')
-    .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
+  const handleSalvarDespesa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!projetoSelecionado) return alert('Selecione um projeto.');
+    if (!descricaoDespesa.trim()) return alert('Informe a descrição da despesa.');
 
-  const totalPendente = inscricoesDoProjeto
-    .filter((i) => i.status_pagamento === 'Pendente')
-    .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
+    try {
+      const payload = {
+        codigo_igreja: codigoIgreja,
+        projeto_id: projetoSelecionado.id,
+        descricao: descricaoDespesa.trim(),
+        categoria: categoriaDespesa,
+        valor: Number(valorDespesa) || 0,
+        data_despesa: dataDespesa,
+      };
 
-  const valorCustoProjeto = Number(projetoSelecionado?.valor_estimado) || 0;
-  const saldoDiferenca = totalPago - valorCustoProjeto;
-  const isSuperavit = saldoDiferenca >= 0;
+      if (despesaEdicao) {
+        const { error } = await supabase
+          .from('despesas_projetos')
+          .update(payload)
+          .eq('id', despesaEdicao.id);
+
+        if (error) throw error;
+        alert('Despesa atualizada!');
+      } else {
+        const { error } = await supabase.from('despesas_projetos').insert([payload]);
+        if (error) throw error;
+        alert('Despesa lançada no projeto com sucesso!');
+      }
+
+      setModalDespesa(false);
+      carregarDados();
+    } catch (err: any) {
+      alert('Erro ao salvar despesa: ' + err.message);
+    }
+  };
+
+  const handleExcluirDespesa = async (id: any) => {
+    if (!window.confirm('Excluir esta despesa lançada?')) return;
+    try {
+      const { error } = await supabase.from('despesas_projetos').delete().eq('id', id);
+      if (error) throw error;
+
+      alert('Despesa excluída com sucesso.');
+      carregarDados();
+    } catch (err: any) {
+      alert('Erro ao excluir despesa: ' + err.message);
+    }
+  };
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
-      {/* CABEÇALHO */}
+      {/* CABEÇALHO DO MÓDULO */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
         <div>
-          <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Módulo de Projetos</h2>
+          <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Módulo de Projetos & Eventos</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Gestão de eventos, inscrições e balanço financeiro
+            Gestão Financeira, Inscrições de Participantes, Custos Reais e Sincronização com Agenda
           </p>
         </div>
 
         <button
           type="button"
-          onClick={() => {
-            setProjetoEmEdicao(null);
-            setNomeProjeto('');
-            setDescricaoProjeto('');
-            setValorEstimado('');
-            setModalNovoProjeto(true);
-          }}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+          onClick={handleAbrirCriarProjeto}
+          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition flex items-center gap-1"
         >
           ➕ Criar Novo Projeto
         </button>
       </div>
 
       {loading ? (
-        <p className="text-center py-8 text-slate-500 text-xs">Carregando projetos...</p>
+        <p className="text-center py-8 text-slate-500 text-xs">Carregando informações do módulo...</p>
       ) : projetos.length === 0 ? (
-        <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs">
-          Nenhum projeto cadastrado. Clique no botão acima para registrar o primeiro!
+        <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs space-y-2">
+          <p className="font-bold text-slate-700 text-sm">Nenhum projeto registrado na sua igreja.</p>
+          <p>Clique no botão acima para criar o primeiro evento e gerenciar inscrições e orçamento!</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* PAINEL LATERAL DE PROJETOS */}
-          <div className="space-y-2 lg:col-span-1 border-r pr-0 lg:pr-4">
-            <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider mb-3">Selecione o Projeto</h3>
-            {projetos.map((p) => {
-              const isSelected = String(p.id) === String(projetoSelecionado?.id);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setProjetoSelecionado(p)}
-                  className={`w-full text-left p-3 rounded-xl border transition cursor-pointer ${
-                    isSelected
-                      ? 'bg-blue-900 text-white border-blue-900 font-bold shadow'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 font-medium'
-                  }`}
-                >
-                  <p className="text-sm truncate">{p.nome_projeto}</p>
-                  <p className={`text-[10px] mt-1 ${isSelected ? 'text-blue-200' : 'text-slate-500'}`}>
-                    Custo: R$ {Number(p.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </button>
-              );
-            })}
+          {/* PAINEL LATERAL ESQUERDO: LISTA DE PROJETOS E BUSCA */}
+          <div className="space-y-3 lg:col-span-1 border-r pr-0 lg:pr-4">
+            <div className="flex justify-between items-center">
+              <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider">Seus Projetos</h3>
+              <span className="text-[10px] bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded-full">
+                {projetos.length}
+              </span>
+            </div>
+
+            <input
+              type="text"
+              placeholder="🔎 Buscar projeto..."
+              value={buscaProjeto}
+              onChange={(e) => setBuscaProjeto(e.target.value)}
+              className="w-full border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
+            />
+
+            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
+              {projetosFiltrados.map((p) => {
+                const isSelected = String(p.id) === String(projetoSelecionado?.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setProjetoSelecionado(p)}
+                    className={`w-full text-left p-3.5 rounded-2xl border transition cursor-pointer space-y-1 ${
+                      isSelected
+                        ? 'bg-blue-900 text-white border-blue-900 font-bold shadow-md'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 font-medium'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <p className="text-sm truncate max-w-[130px]">{p.nome_projeto}</p>
+                      <span
+                        className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                          isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {p.status || 'Ativo'}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center text-[10px] pt-1">
+                      <span className={isSelected ? 'text-blue-200' : 'text-slate-500'}>
+                        Custo: R$ {Number(p.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                      {p.data_evento && (
+                        <span className={isSelected ? 'text-blue-100 font-bold' : 'text-blue-900 font-bold'}>
+                          📅 {p.data_evento.split('-').reverse().join('/')}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* ÁREA DE DETALHES DO PROJETO */}
+          {/* ÁREA DIREITA: DETALHES, NAVEGAÇÃO E SUB-ABAS DO PROJETO SELECIONADO */}
           {projetoSelecionado && (
             <div className="lg:col-span-3 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50 p-4 rounded-2xl border">
-                <div>
-                  <h3 className="text-xl font-black text-blue-900">{projetoSelecionado.nome_projeto}</h3>
-                  {projetoSelecionado.descricao && (
-                    <p className="text-xs text-slate-600 mt-0.5">{projetoSelecionado.descricao}</p>
+              {/* CABEÇALHO DO PROJETO SELECIONADO */}
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-2xl font-black text-blue-900">{projetoSelecionado.nome_projeto}</h3>
+                      <span className="bg-blue-100 text-blue-900 font-bold text-xs px-2.5 py-0.5 rounded-lg border border-blue-200">
+                        {projetoSelecionado.status || 'Em Andamento'}
+                      </span>
+                    </div>
+
+                    {projetoSelecionado.data_evento && (
+                      <p className="text-xs font-bold text-blue-800 mt-1">
+                        📅 Data: {projetoSelecionado.data_evento.split('-').reverse().join('/')} às {projetoSelecionado.hora_evento || '19:30'}
+                        {projetoSelecionado.local_evento && ` • 📍 Local: ${projetoSelecionado.local_evento}`}
+                      </p>
+                    )}
+
+                    {projetoSelecionado.descricao && (
+                      <p className="text-xs text-slate-600 mt-1">{projetoSelecionado.descricao}</p>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleAbrirNovaInscricao}
+                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-1"
+                    >
+                      👤 Adicionar Inscrito
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAbrirEdicaoProjeto(projetoSelecionado)}
+                      className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      ✏️ Editar Projeto
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleExcluirProjeto(projetoSelecionado.id, projetoSelecionado.nome_projeto)}
+                      className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer"
+                    >
+                      🗑️ Excluir
+                    </button>
+                  </div>
+                </div>
+
+                {/* NAVEGAÇÃO DE SUB-ABAS */}
+                <div className="flex border-b border-slate-200 gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubAbaAtiva('visao_geral')}
+                    className={`px-4 py-2 font-bold text-xs rounded-t-xl transition cursor-pointer border-b-2 ${
+                      subAbaAtiva === 'visao_geral'
+                        ? 'border-blue-900 text-blue-900 bg-white'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    📊 Visão Geral & Balanço
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubAbaAtiva('inscritos')}
+                    className={`px-4 py-2 font-bold text-xs rounded-t-xl transition cursor-pointer border-b-2 ${
+                      subAbaAtiva === 'inscritos'
+                        ? 'border-blue-900 text-blue-900 bg-white'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    👥 Participantes Inscritos ({inscricoesDoProjeto.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubAbaAtiva('despesas')}
+                    className={`px-4 py-2 font-bold text-xs rounded-t-xl transition cursor-pointer border-b-2 ${
+                      subAbaAtiva === 'despesas'
+                        ? 'border-blue-900 text-blue-900 bg-white'
+                        : 'border-transparent text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    💸 Despesas Executadas ({despesasDoProjeto.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* SUB-ABA 1: VISÃO GERAL & BALANÇO FINANCEIRO COMPLETO */}
+              {subAbaAtiva === 'visao_geral' && (
+                <div className="space-y-6">
+                  {/* QUADROS FINANCEIROS */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200">
+                      <p className="text-[10px] font-bold uppercase text-slate-500">Valor Orçado (Custo Estimado)</p>
+                      <p className="text-xl font-black text-slate-800 mt-1">
+                        R$ {valorCustoEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                    </div>
+
+                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
+                      <p className="text-[10px] font-bold uppercase text-emerald-700">Total Arrecadado (Pagos)</p>
+                      <p className="text-xl font-black text-emerald-800 mt-1">
+                        R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-semibold mt-1">
+                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pago').length} participante(s) quitado(s)
+                      </p>
+                    </div>
+
+                    <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200">
+                      <p className="text-[10px] font-bold uppercase text-amber-700">Valores a Receber (Pendentes)</p>
+                      <p className="text-xl font-black text-amber-800 mt-1">
+                        R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] text-amber-600 font-semibold mt-1">
+                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pendente').length} aguardando pagamento
+                      </p>
+                    </div>
+
+                    <div
+                      className={`p-4 rounded-2xl border ${
+                        isSuperavitEstimado
+                          ? 'bg-blue-900 text-white border-blue-900'
+                          : 'bg-rose-900 text-white border-rose-900'
+                      }`}
+                    >
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
+                        Balanço (Arrecadado vs Custo)
+                      </p>
+                      <p className="text-xl font-black mt-1">
+                        {isSuperavitEstimado ? '🟢 +' : '🔴 -'} R${' '}
+                        {Math.abs(balancoComCustoEstimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-[10px] mt-1 font-semibold opacity-90">
+                        {isSuperavitEstimado ? 'Superávit (Lucro para o Projeto)' : 'Déficit (Prejuízo no Orçamento)'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* COMPARATIVO COM DESPESAS REALMENTE LANÇADAS */}
+                  <div className="bg-slate-50 border p-5 rounded-2xl space-y-3">
+                    <div className="flex justify-between items-center border-b pb-2">
+                      <h4 className="font-bold text-xs text-blue-900 uppercase">
+                        ⚖️ Balanço Real Executado (Arrecadação Pago vs Despesas Lançadas)
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={handleAbrirNovaDespesa}
+                        className="px-3 py-1 bg-blue-900 text-white text-xs font-bold rounded-lg cursor-pointer"
+                      >
+                        ➕ Lançar Despesa Real
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="bg-white p-3 rounded-xl border">
+                        <span className="text-slate-500 font-bold block">Entradas Confirmadas</span>
+                        <span className="font-black text-emerald-700 text-base">
+                          R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-xl border">
+                        <span className="text-slate-500 font-bold block">Despesas Executadas</span>
+                        <span className="font-black text-rose-700 text-base">
+                          R$ {totalDespesasExecutadas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+
+                      <div className={`p-3 rounded-xl border ${isSuperavitReal ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-rose-50 text-rose-900 border-rose-200'}`}>
+                        <span className="font-bold block">Saldo Final Real</span>
+                        <span className="font-black text-base">
+                          {isSuperavitReal ? '🟢 +' : '🔴 -'} R$ {Math.abs(balancoComDespesasReais).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-ABA 2: INSCRITOS / PARTICIPANTES */}
+              {subAbaAtiva === 'inscritos' && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
+                      Participantes Cadastrados ({inscricoesDoProjeto.length})
+                    </h4>
+
+                    <div className="flex gap-2 w-full sm:w-auto">
+                      <input
+                        type="text"
+                        placeholder="🔎 Buscar participante..."
+                        value={buscaInscrito}
+                        onChange={(e) => setBuscaInscrito(e.target.value)}
+                        className="border rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-600 w-full sm:w-48"
+                      />
+
+                      <select
+                        value={filtroStatusPagamento}
+                        onChange={(e) => setFiltroStatusPagamento(e.target.value as any)}
+                        className="border rounded-xl px-2.5 py-1.5 text-xs bg-white font-bold"
+                      >
+                        <option value="Todos">Todos os Status</option>
+                        <option value="Pago">✅ Pago</option>
+                        <option value="Pendente">⏳ Pendente</option>
+                        <option value="Cancelado">❌ Cancelado</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {inscricoesFiltradas.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
+                      Nenhum participante encontrado com os filtros selecionados.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border rounded-2xl shadow-sm">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
+                            <th className="p-3">Participante</th>
+                            <th className="p-3">Contato</th>
+                            <th className="p-3">Valor (R$)</th>
+                            <th className="p-3">Status / Pagamento</th>
+                            <th className="p-3">Observação</th>
+                            <th className="p-3 text-right">Ações</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {inscricoesFiltradas.map((item) => (
+                            <tr key={item.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-bold text-slate-800">{item.nome_participante}</td>
+                              <td className="p-3 text-slate-600">
+                                <div>📞 {item.celular || '-'}</div>
+                                {item.email && <div className="text-[10px] text-slate-400">{item.email}</div>}
+                              </td>
+                              <td className="p-3 font-bold text-slate-800">
+                                R$ {Number(item.valor_participacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3">
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                    item.status_pagamento === 'Pago'
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                      : item.status_pagamento === 'Pendente'
+                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                      : 'bg-rose-100 text-rose-800 border border-rose-200'
+                                  }`}
+                                >
+                                  {item.status_pagamento}
+                                </span>
+                                {item.status_pagamento === 'Pago' && item.forma_pagamento && (
+                                  <span className="block text-[10px] text-slate-500 font-semibold mt-0.5">
+                                    {item.forma_pagamento} {item.data_pagamento && `(${item.data_pagamento.split('-').reverse().join('/')})`}
+                                  </span>
+                                )}
+                              </td>
+                              <td className="p-3 text-slate-500 italic max-w-[150px] truncate">
+                                {item.observacoes || '-'}
+                              </td>
+                              <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAbrirEdicaoInscricao(item)}
+                                  className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
+                                >
+                                  ✏️ Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleExcluirInscricao(item.id, item.nome_participante)}
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
+                                >
+                                  🗑️ Excluir
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
+              )}
 
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setInscricaoEdicao(null);
-                      setMembroSelecionadoId('');
-                      setNomeParticipante('');
-                      setCelularParticipante('');
-                      setValorParticipacao('');
-                      setStatusPagamento('Pendente');
-                      setModalInscricao(true);
-                    }}
-                    className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-                  >
-                    👤 Adicionar Inscrição
-                  </button>
+              {/* SUB-ABA 3: DESPESAS E CUSTOS REALMENTE LANÇADOS */}
+              {subAbaAtiva === 'despesas' && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
+                      Despesas do Projeto ({despesasDoProjeto.length})
+                    </h4>
 
-                  <button
-                    type="button"
-                    onClick={() => handleAbrirEdicaoProjeto(projetoSelecionado)}
-                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl cursor-pointer"
-                  >
-                    ✏️ Editar Projeto
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => handleExcluirProjeto(projetoSelecionado.id)}
-                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer"
-                  >
-                    🗑️ Excluir
-                  </button>
-                </div>
-              </div>
-
-              {/* CARDS DE BALANÇO FINANCEIRO */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                <div className="bg-slate-100 p-3.5 rounded-2xl border">
-                  <p className="text-[10px] font-bold uppercase text-slate-500">Valor do Projeto (Custo)</p>
-                  <p className="text-lg font-black text-slate-800 mt-1">
-                    R$ {valorCustoProjeto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div className="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-200">
-                  <p className="text-[10px] font-bold uppercase text-emerald-700">Total Arrecadado (Pago)</p>
-                  <p className="text-lg font-black text-emerald-800 mt-1">
-                    R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div className="bg-amber-50 p-3.5 rounded-2xl border border-amber-200">
-                  <p className="text-[10px] font-bold uppercase text-amber-700">A Receber (Pendente)</p>
-                  <p className="text-lg font-black text-amber-800 mt-1">
-                    R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                </div>
-
-                <div
-                  className={`p-3.5 rounded-2xl border ${
-                    isSuperavit
-                      ? 'bg-blue-900 text-white border-blue-900'
-                      : 'bg-rose-900 text-white border-rose-900'
-                  }`}
-                >
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
-                    Balanço (Superávit / Prejuízo)
-                  </p>
-                  <p className="text-lg font-black mt-1">
-                    {isSuperavit ? '🟢 +' : '🔴 -'} R$ {Math.abs(saldoDiferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
-                  <p className="text-[9px] mt-0.5 opacity-80">
-                    {isSuperavit ? 'Superávit (Lucro)' : 'Prejuízo (Déficit)'}
-                  </p>
-                </div>
-              </div>
-
-              {/* TABELA DE INSCRITOS */}
-              <div className="space-y-3">
-                <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
-                  Participantes Inscritos ({inscricoesDoProjeto.length})
-                </h4>
-
-                {inscricoesDoProjeto.length === 0 ? (
-                  <div className="p-6 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
-                    Nenhum participante inscrito ainda. Clique no botão de nova inscrição acima.
+                    <button
+                      type="button"
+                      onClick={handleAbrirNovaDespesa}
+                      className="px-3.5 py-1.5 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+                    >
+                      ➕ Lançar Nova Despesa
+                    </button>
                   </div>
-                ) : (
-                  <div className="overflow-x-auto border rounded-2xl">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
-                          <th className="p-3">Participante</th>
-                          <th className="p-3">Telefone</th>
-                          <th className="p-3">Valor (R$)</th>
-                          <th className="p-3">Status Pagamento</th>
-                          <th className="p-3 text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {inscricoesDoProjeto.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-50">
-                            <td className="p-3 font-bold text-slate-800">{item.nome_participante}</td>
-                            <td className="p-3 text-slate-600">{item.celular || '-'}</td>
-                            <td className="p-3 font-bold text-slate-800">
-                              R$ {Number(item.valor_participacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </td>
-                            <td className="p-3">
-                              <span
-                                className={`px-2.5 py-1 rounded-md text-[10px] font-black uppercase ${
-                                  item.status_pagamento === 'Pago'
-                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                    : 'bg-amber-100 text-amber-800 border border-amber-200'
-                                }`}
-                              >
-                                {item.status_pagamento}
-                              </span>
-                            </td>
-                            <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                              <button
-                                type="button"
-                                onClick={() => handleAbrirEdicaoInscricao(item)}
-                                className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleExcluirInscricao(item.id)}
-                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
-                              >
-                                🗑️ Excluir
-                              </button>
-                            </td>
+
+                  {despesasDoProjeto.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
+                      Nenhuma despesa executada foi lançada neste projeto ainda.
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto border rounded-2xl shadow-sm">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
+                            <th className="p-3">Data</th>
+                            <th className="p-3">Descrição da Despesa</th>
+                            <th className="p-3">Categoria</th>
+                            <th className="p-3">Valor (R$)</th>
+                            <th className="p-3 text-right">Ações</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+                        </thead>
+                        <tbody className="divide-y">
+                          {despesasDoProjeto.map((d) => (
+                            <tr key={d.id} className="hover:bg-slate-50">
+                              <td className="p-3 font-bold text-slate-800 whitespace-nowrap">
+                                📅 {d.data_despesa?.split('-').reverse().join('/')}
+                              </td>
+                              <td className="p-3 font-semibold text-slate-800">{d.descricao}</td>
+                              <td className="p-3">
+                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                                  {d.categoria || 'Geral'}
+                                </span>
+                              </td>
+                              <td className="p-3 font-bold text-rose-700">
+                                R$ {Number(d.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => handleExcluirDespesa(d.id)}
+                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
+                                >
+                                  🗑️ Excluir
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
       )}
 
-      {/* MODAL 1: PROJETO */}
+      {/* MODAL 1: CRIAR OU EDITAR PROJETO */}
       {modalNovoProjeto && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
@@ -1048,7 +967,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 <label className="block font-bold text-slate-700 mb-1">Nome do Projeto *</label>
                 <input
                   type="text"
-                  placeholder="Ex: Acampamento 2026"
+                  placeholder="Ex: Acampamento de Verão 2026"
                   value={nomeProjeto}
                   onChange={(e) => setNomeProjeto(e.target.value)}
                   className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
@@ -1056,19 +975,40 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 />
               </div>
 
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Data do Evento</label>
+                  <input
+                    type="date"
+                    value={dataEvento}
+                    onChange={(e) => setDataEvento(e.target.value)}
+                    className="w-full border rounded-xl p-2.5 bg-white font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Hora</label>
+                  <input
+                    type="time"
+                    value={horaEvento}
+                    onChange={(e) => setHoraEvento(e.target.value)}
+                    className="w-full border rounded-xl p-2.5 bg-white font-semibold"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Descrição</label>
-                <textarea
-                  placeholder="Detalhes ou objetivo do projeto..."
-                  value={descricaoProjeto}
-                  onChange={(e) => setDescricaoProjeto(e.target.value)}
+                <label className="block font-bold text-slate-700 mb-1">Local do Evento</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Templo Sede, Sitio Recanto..."
+                  value={localEvento}
+                  onChange={(e) => setLocalEvento(e.target.value)}
                   className="w-full border rounded-xl p-2.5"
-                  rows={2}
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Valor do Custo Estimado (R$)</label>
+                <label className="block font-bold text-slate-700 mb-1">Custo Estimado / Orçado (R$)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -1079,21 +1019,45 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 />
               </div>
 
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Status do Projeto</label>
+                <select
+                  value={statusProjeto}
+                  onChange={(e) => setStatusProjeto(e.target.value)}
+                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
+                >
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluído">Concluído</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Descrição / Observações</label>
+                <textarea
+                  placeholder="Detalhes adicionais..."
+                  value={descricaoProjeto}
+                  onChange={(e) => setDescricaoProjeto(e.target.value)}
+                  className="w-full border rounded-xl p-2.5"
+                  rows={2}
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
+                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
               >
-                💾 {projetoEmEdicao ? 'Salvar Alterações' : 'Criar Projeto'}
+                ⚡ {projetoEmEdicao ? 'Salvar Alterações' : 'Criar & Sincronizar com Agenda'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL 2: INSCRIÇÃO */}
+      {/* MODAL 2: INSCRIÇÃO DE PARTICIPANTE */}
       {modalInscricao && projetoSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-3">
               <div>
                 <h3 className="text-lg font-black text-blue-900">
@@ -1113,7 +1077,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
             <form onSubmit={handleSalvarInscricao} className="space-y-3 text-xs">
               {!inscricaoEdicao && (
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Buscar Membro Cadastrado (Opcional)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Membro Cadastrado (Opcional)</label>
                   <select
                     value={membroSelecionadoId}
                     onChange={(e) => handleSelecionarMembro(e.target.value)}
@@ -1141,15 +1105,28 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 />
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Telefone / WhatsApp</label>
-                <input
-                  type="text"
-                  placeholder="(00) 00000-0000"
-                  value={celularParticipante}
-                  onChange={(e) => setCelularParticipante(e.target.value)}
-                  className="w-full border rounded-xl p-2.5"
-                />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Telefone / WhatsApp</label>
+                  <input
+                    type="text"
+                    placeholder="(00) 00000-0000"
+                    value={celularParticipante}
+                    onChange={(e) => setCelularParticipante(e.target.value)}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">E-mail</label>
+                  <input
+                    type="email"
+                    placeholder="email@exemplo.com"
+                    value={emailParticipante}
+                    onChange={(e) => setEmailParticipante(e.target.value)}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
               </div>
 
               <div>
@@ -1168,12 +1145,53 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 <label className="block font-bold text-slate-700 mb-1">Status do Pagamento</label>
                 <select
                   value={statusPagamento}
-                  onChange={(e) => setStatusPagamento(e.target.value as 'Pendente' | 'Pago')}
+                  onChange={(e) => setStatusPagamento(e.target.value as any)}
                   className="w-full border rounded-xl p-2.5 bg-white font-bold"
                 >
                   <option value="Pendente">⏳ Pendente</option>
                   <option value="Pago">✅ Pago</option>
+                  <option value="Cancelado">❌ Cancelado</option>
                 </select>
+              </div>
+
+              {statusPagamento === 'Pago' && (
+                <div className="grid grid-cols-2 gap-2 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+                  <div>
+                    <label className="block font-bold text-emerald-900 mb-1">Forma de Pagamento</label>
+                    <select
+                      value={formaPagamento}
+                      onChange={(e) => setFormaPagamento(e.target.value)}
+                      className="w-full border rounded-xl p-2 bg-white font-bold"
+                    >
+                      <option value="Pix">Pix</option>
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="Cartão de Crédito">Cartão de Crédito</option>
+                      <option value="Cartão de Débito">Cartão de Débito</option>
+                      <option value="Transferência">Transferência</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-emerald-900 mb-1">Data do Pagamento</label>
+                    <input
+                      type="date"
+                      value={dataPagamento}
+                      onChange={(e) => setDataPagamento(e.target.value)}
+                      className="w-full border rounded-xl p-2 bg-white font-bold"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Observações / Anotações</label>
+                <textarea
+                  placeholder="Instruções de pagamento, camiseta ou observações..."
+                  value={obsInscricao}
+                  onChange={(e) => setObsInscricao(e.target.value)}
+                  className="w-full border rounded-xl p-2.5"
+                  rows={2}
+                />
               </div>
 
               <button
@@ -1186,14 +1204,85 @@ export default function ProjetosModule({ loggedUser }: Props) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
+
+      {/* MODAL 3: LANÇAMENTO DE DESPESA REAL DO PROJETO */}
+      {modalDespesa && projetoSelecionado && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-lg font-black text-blue-900">Lançar Despesa no Projeto</h3>
+                <p className="text-xs text-slate-500">Projeto: {projetoSelecionado.nome_projeto}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalDespesa(false)}
+                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarDespesa} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Descrição da Despesa *</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Compra de carnes para o almoço"
+                  value={descricaoDespesa}
+                  onChange={(e) => setDescricaoDespesa(e.target.value)}
+                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Categoria</label>
+                  <select
+                    value={categoriaDespesa}
+                    onChange={(e) => setCategoriaDespesa(e.target.value)}
+                    className="w-full border rounded-xl p-2.5 bg-white font-bold"
+                  >
+                    <option value="Alimentação">Alimentação</option>
+                    <option value="Transporte">Transporte</option>
+                    <option value="Locação de Espaço">Locação de Espaço</option>
+                    <option value="Som e Iluminação">Som e Iluminação</option>
+                    <option value="Material Grafico">Material Gráfico</option>
+                    <option value="Decoração">Decoração</option>
+                    <option value="Outros">Outros</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Valor Gasto (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={valorDespesa}
+                    onChange={(e) => setValorDespesa(e.target.value ? Number(e.target.value) : '')}
+                    className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Data do Pagamento/Gasto</label>
+                <input
+                  type="date"
+                  value={dataDespesa}
+                  onChange={(e) => setDataDespesa(e.target.value)}
+                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
+                />
+              </div>
+
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
+                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
               >
-                💾 {inscricaoEdicao ? 'Salvar Alterações' : 'Confirmar Inscrição'}
+                💾 Lançar Despesa
               </button>
             </form>
           </div>

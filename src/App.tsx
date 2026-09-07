@@ -1,5 +1,8 @@
 // src/App.tsx
-
+// Adicione isto bem no topo do src/App.tsx para blindar o erro globalmente
+if (typeof window !== 'undefined') {
+  (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
+}
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';

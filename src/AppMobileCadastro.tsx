@@ -14,15 +14,15 @@ interface DadosIgreja {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Estado para controle da aba ativa do aplicativo mobile
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
+  // Estado da aba ativa
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('perfil');
 
-  // Função alias para evitar que builds antigos que buscam 'setSubAbaAtiva' quebrem a execução
+  // Função para garantir que cliques em 'setSubAbaAtiva' funcionem sem dar erro de ReferenceError
   const setSubAbaAtiva = (aba: 'perfil' | 'minha_agenda' | 'celula' | 'igreja') => {
     setSubAbaApp(aba);
   };
 
-  // 1. Perfil Pessoal
+  // 1. Dados do Perfil
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
   const [fotoUrl, setFotoUrl] = useState('');
   const [rua, setRua] = useState('');
@@ -61,7 +61,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const carregarDadosApp = useCallback(async () => {
     try {
-      // 1. Perfil
       if (emailUsuario) {
         const { data: dataMembro } = await supabase
           .from('members')
@@ -97,7 +96,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         }
       }
 
-      // 2. Agenda Pessoal
       const { data: dataAgenda } = await supabase
         .from('agenda')
         .select('*')
@@ -110,7 +108,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         setMinhaAgenda(listaPessoal);
       }
 
-      // 3. Dados Igreja
       const { data: dataIgr } = await supabase
         .from('dados_igreja')
         .select('*')
@@ -119,7 +116,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataIgr) setDadosIgreja(dataIgr);
 
-      // 4. Reuniões de Célula
       const { data: dataReunioes } = await supabase
         .from('reunioes_celulas')
         .select('*')
@@ -137,7 +133,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
-  // AÇÕES PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -162,7 +157,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÕES AGENDA PESSOAL
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -202,7 +196,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÕES CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -246,14 +239,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS */}
+        {/* NAVEGAÇÃO DE ABAS DO APP */}
         <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
           <button
             type="button"
-            onClick={() => {
-              setSubAbaApp('perfil');
-              setSubAbaAtiva('perfil');
-            }}
+            onClick={() => setSubAbaAtiva('perfil')}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
@@ -263,10 +253,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
           <button
             type="button"
-            onClick={() => {
-              setSubAbaApp('minha_agenda');
-              setSubAbaAtiva('minha_agenda');
-            }}
+            onClick={() => setSubAbaAtiva('minha_agenda')}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
@@ -276,10 +263,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
           <button
             type="button"
-            onClick={() => {
-              setSubAbaApp('celula');
-              setSubAbaAtiva('celula');
-            }}
+            onClick={() => setSubAbaAtiva('celula')}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
@@ -289,10 +273,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
           <button
             type="button"
-            onClick={() => {
-              setSubAbaApp('igreja');
-              setSubAbaAtiva('igreja');
-            }}
+            onClick={() => setSubAbaAtiva('igreja')}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}

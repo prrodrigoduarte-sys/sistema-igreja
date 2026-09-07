@@ -1,6 +1,5 @@
 // src/App.tsx
 
-// Adicione isto bem no topo do src/App.tsx para blindar o erro globalmente
 if (typeof window !== 'undefined') {
   (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
 }
@@ -21,6 +20,16 @@ import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
+
+// Obter ou gerar token único do dispositivo/navegador
+function getOrCreateDeviceToken() {
+  let token = localStorage.getItem('app_device_token');
+  if (!token) {
+    token = 'DEV-' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    localStorage.setItem('app_device_token', token);
+  }
+  return token;
+}
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -47,11 +56,138 @@ function App() {
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
+  // Estados de Segurança 2FA (Dispositivo Novo / 3 Erros)
+  const [exigir2FA, setExigir2FA] = useState(false);
+  const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
+  const [codigoGerado2FA, setCodigoGerado2FA] = useState('');
+  const [motivo2FA, setMotivo2FA] = useState('');
+  const [usuarioPendente2FA, setUsuarioPendente2FA] = useState<any>(null);
+
   // Estados para o QR Code Temporário
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+
+  // Iniciar verificação de 2FA gerando um código de 6 dígitos
+  const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
+    const codigoHex = Math.floor(100000 + Math.random() * 900000).toString();
+    setCodigoGerado2FA(codigoHex);
+    setUsuarioPendente2FA(userTemp);
+    setMotivo2FA(motivo);
+    setExigir2FA(true);
+
+    alert(`🔒 SEGURANÇA (2º NÍVEL):\nMotivo: ${motivo}\n\nSeu código de verificação é: ${codigoHex}`);
+  };
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const emailLimpo = email.trim().toLowerCase();
+    const deviceToken = getOrCreateDeviceToken();
+
+    // 1. Tenta realizar o login via Supabase Auth
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: emailLimpo,
+      password,
+    });
+
+    if (error) {
+      // Registrar falha de login no banco
+      const { data: regTentativa } = await supabase
+        .from('tentativas_login')
+        .select('*')
+        .eq('email', emailLimpo)
+        .maybeSingle();
+
+      const numTentativas = (regTentativa?.tentativas || 0) + 1;
+
+      await supabase.from('tentativas_login').upsert(
+        [
+          {
+            email: emailLimpo,
+            tentativas: numTentativas,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'email' }
+      );
+
+      if (numTentativas >= 3) {
+        alert('⚠️ Senha incorreta pela 3ª vez! Por segurança, o 2º nível de verificação será exigido no próximo login correto.');
+      } else {
+        alert(`Senha incorreta! Tentativa ${numTentativas} de 3.`);
+      }
+      return;
+    }
+
+    // 2. Se a senha estiver correta, verificar histórico de tentativas e dispositivos
+    const { data: regTentativa } = await supabase
+      .from('tentativas_login')
+      .select('*')
+      .eq('email', emailLimpo)
+      .maybeSingle();
+
+    const teveTresErros = (regTentativa?.tentativas || 0) >= 3;
+
+    // Verificar se o dispositivo já está cadastrado
+    const { data: devRegistrado } = await supabase
+      .from('dispositivos_autorizados')
+      .select('*')
+      .eq('email', emailLimpo)
+      .eq('device_token', deviceToken)
+      .maybeSingle();
+
+    // Se errou 3 vezes OU for dispositivo desconhecido -> Ativa 2FA
+    if (teveTresErros) {
+      dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
+    } else if (!devRegistrado) {
+      dispararVerificacao2FA('Acesso a partir de um dispositivo novo/não reconhecido', authData.session);
+    } else {
+      // Dispositivo seguro e sem histórico de erros recentes
+      await supabase.from('dispositivos_autorizados').update({ ultimo_acesso: new Date().toISOString() }).eq('id', devRegistrado.id);
+      setSession(authData.session);
+    }
+  };
+
+  // Validar o código de 6 dígitos no 2FA
+  const handleConfirmar2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (codigoDigitado2FA.trim() !== codigoGerado2FA) {
+      alert('❌ Código incorreto! Verifique e tente novamente.');
+      return;
+    }
+
+    const emailLimpo = email.trim().toLowerCase();
+    const deviceToken = getOrCreateDeviceToken();
+
+    // 1. Zera o contador de erros
+    await supabase.from('tentativas_login').upsert(
+      [{ email: emailLimpo, tentativas: 0, updated_at: new Date().toISOString() }],
+      { onConflict: 'email' }
+    );
+
+    // 2. Autoriza o novo dispositivo no banco
+    if (usuarioPendente2FA?.user?.id) {
+      await supabase.from('dispositivos_autorizados').upsert(
+        [
+          {
+            usuario_id: usuarioPendente2FA.user.id,
+            email: emailLimpo,
+            device_token: deviceToken,
+            nome_dispositivo: navigator.userAgent.substring(0, 50),
+            ultimo_acesso: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'usuario_id,device_token' }
+      );
+    }
+
+    alert('✅ Dispositivo verificado e autorizado com sucesso!');
+    setExigir2FA(false);
+    setCodigoDigitado2FA('');
+    setSession(usuarioPendente2FA);
+  };
 
   const gerarNovoQrCodeTemporario = async () => {
     if (!isAdmin) {
@@ -163,12 +299,6 @@ function App() {
     carregarUsuario();
   }, [session]);
 
-  const handleLogin = async (event: React.FormEvent) => {
-    event.preventDefault();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) alert(error.message);
-  };
-
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
 
@@ -254,6 +384,51 @@ function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
         Carregando sistema...
+      </div>
+    );
+  }
+
+  // TELA DE SEGURANÇA 2FA (CÓDIGO DE 6 DÍGITOS)
+  if (exigir2FA) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-950 p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full space-y-5 text-center">
+          <div className="w-16 h-16 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mx-auto text-3xl font-black">
+            🔒
+          </div>
+          <h2 className="text-2xl font-black text-blue-900">VERIFICAÇÃO DE SEGURANÇA</h2>
+          <p className="text-xs text-slate-600 font-medium">{motivo2FA}</p>
+
+          <form onSubmit={handleConfirmar2FA} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">DIGITE O CÓDIGO DE 6 DÍGITOS</label>
+              <input
+                type="text"
+                maxLength={6}
+                value={codigoDigitado2FA}
+                onChange={(e) => setCodigoDigitado2FA(e.target.value)}
+                placeholder="000000"
+                required
+                className="w-full text-center text-3xl tracking-widest font-mono py-3 border-2 border-blue-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3.5 rounded-2xl transition cursor-pointer shadow-lg"
+            >
+              VERIFICAR E LIBERAR ACESSO
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => setExigir2FA(false)}
+            className="text-xs text-slate-500 font-bold hover:underline cursor-pointer pt-2 block mx-auto"
+          >
+            Cancelar e Voltar ao Login
+          </button>
+        </div>
       </div>
     );
   }
@@ -929,6 +1104,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         }
       } catch (err) {
         console.error('Erro ao buscar aniversariantes:', err);
+      } font-bold
       } finally {
         setLoadingAniversariantes(false);
       }

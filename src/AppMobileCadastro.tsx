@@ -14,8 +14,13 @@ interface DadosIgreja {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Estado padronizado: subAbaApp
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('perfil');
+  // Estado para controle da aba ativa do aplicativo mobile
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
+
+  // Função alias para evitar que builds antigos que buscam 'setSubAbaAtiva' quebrem a execução
+  const setSubAbaAtiva = (aba: 'perfil' | 'minha_agenda' | 'celula' | 'igreja') => {
+    setSubAbaApp(aba);
+  };
 
   // 1. Perfil Pessoal
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
@@ -114,7 +119,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataIgr) setDadosIgreja(dataIgr);
 
-      // 4. Reuniões
+      // 4. Reuniões de Célula
       const { data: dataReunioes } = await supabase
         .from('reunioes_celulas')
         .select('*')
@@ -132,7 +137,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
-  // AÇÕES
+  // AÇÕES PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -157,6 +162,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // AÇÕES AGENDA PESSOAL
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -196,6 +202,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // AÇÕES CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -239,11 +246,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* BARRINHA DE NAVEGAÇÃO CORRIGIDA COM setSubAbaApp */}
+        {/* NAVEGAÇÃO DE ABAS */}
         <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
           <button
             type="button"
-            onClick={() => setSubAbaApp('perfil')}
+            onClick={() => {
+              setSubAbaApp('perfil');
+              setSubAbaAtiva('perfil');
+            }}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
@@ -253,7 +263,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
           <button
             type="button"
-            onClick={() => setSubAbaApp('minha_agenda')}
+            onClick={() => {
+              setSubAbaApp('minha_agenda');
+              setSubAbaAtiva('minha_agenda');
+            }}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
@@ -263,7 +276,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
           <button
             type="button"
-            onClick={() => setSubAbaApp('celula')}
+            onClick={() => {
+              setSubAbaApp('celula');
+              setSubAbaAtiva('celula');
+            }}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
@@ -273,7 +289,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
           <button
             type="button"
-            onClick={() => setSubAbaApp('igreja')}
+            onClick={() => {
+              setSubAbaApp('igreja');
+              setSubAbaAtiva('igreja');
+            }}
             className={`py-2 rounded-lg transition cursor-pointer ${
               subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}

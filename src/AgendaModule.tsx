@@ -1,4 +1,3 @@
-// src/AgendaModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 
@@ -15,6 +14,9 @@ interface Compromisso {
   status: 'pendente' | 'realizado';
   dono_codigo: string;
   dono_tipo: string;
+  som_ativo?: boolean;
+  tipo_som?: 'bipe' | 'musica';
+  url_som?: string;
 }
 
 interface Membro {
@@ -35,6 +37,9 @@ const formInicial = {
   local_evento: '',
   responsavel: '',
   status: 'pendente' as 'pendente' | 'realizado',
+  som_ativo: true,
+  tipo_som: 'bipe' as 'bipe' | 'musica',
+  url_som: '',
 };
 
 export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
@@ -69,7 +74,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
     try {
       let query = supabase
-        .from('agenda_compromissos')
+        .from('agenda')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
         .order('data_compromisso', { ascending: true })
@@ -166,6 +171,9 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       local_evento: c.local_evento || '',
       responsavel: c.responsavel || '',
       status: c.status || 'pendente',
+      som_ativo: c.som_ativo ?? true,
+      tipo_som: c.tipo_som || 'bipe',
+      url_som: c.url_som || '',
     });
     setShowModal(true);
   };
@@ -196,11 +204,12 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
         codigo_igreja: codigoIgreja,
         dono_tipo: 'admin',
         dono_codigo: loggedUser?.id || null,
+        url_som: formCompromisso.tipo_som === 'musica' ? formCompromisso.url_som : null,
       };
 
       if (editingCompromisso) {
         const { error: updateError } = await supabase
-          .from('agenda_compromissos')
+          .from('agenda')
           .update(payload)
           .eq('id', editingCompromisso.id);
 
@@ -208,7 +217,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
         alert('Compromisso atualizado com sucesso!');
       } else {
         const { error: insertError } = await supabase
-          .from('agenda_compromissos')
+          .from('agenda')
           .insert([payload]);
 
         if (insertError) throw insertError;
@@ -233,7 +242,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
     try {
       const { error } = await supabase
-        .from('agenda_compromissos')
+        .from('agenda')
         .update({ status: novoStatus })
         .eq('id', id);
 
@@ -273,7 +282,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       }
 
       const { error: deleteError } = await supabase
-        .from('agenda_compromissos')
+        .from('agenda')
         .delete()
         .eq('id', compromissoParaExcluir.id);
 
@@ -383,6 +392,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200/60">
                     <p><strong className="text-slate-700">Local:</strong> {c.local_evento || 'Não informado'}</p>
                     <p><strong className="text-slate-700">Responsável:</strong> {c.responsavel || 'Não informado'}</p>
+                    <p><strong className="text-slate-700">Alerta de Som:</strong> {c.som_ativo ? (c.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão') : '🔕 Sem som'}</p>
                     {c.descricao && <p className="text-slate-500 italic mt-1">"{c.descricao}"</p>}
                   </div>
 
@@ -429,6 +439,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <th className="p-3">Título do Evento</th>
                   <th className="p-3">Local</th>
                   <th className="p-3">Responsável</th>
+                  <th className="p-3">Som</th>
                   <th className="p-3 text-right">Ações</th>
                 </tr>
               </thead>
@@ -466,6 +477,9 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                       </td>
                       <td className="p-3 text-slate-600">{c.local_evento || '-'}</td>
                       <td className="p-3 text-slate-600">{c.responsavel || '-'}</td>
+                      <td className="p-3 text-slate-600 whitespace-nowrap text-xs">
+                        {c.som_ativo ? (c.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão') : '🔕 Sem som'}
+                      </td>
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
                         <button
                           type="button"
@@ -609,6 +623,70 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 </div>
               </div>
 
+              {/* BLOCO DE CONFIGURAÇÃO DE SOM DO COMPROMISSO */}
+              <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="som_ativo"
+                    checked={formCompromisso.som_ativo}
+                    onChange={(e) => handleChange('som_ativo', e.target.checked)}
+                    className="w-4 h-4 text-blue-900 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="som_ativo" className="text-xs font-bold text-blue-950 uppercase cursor-pointer">
+                    Lembrar do compromisso com som no celular?
+                  </label>
+                </div>
+
+                {formCompromisso.som_ativo && (
+                  <div className="pl-6 space-y-3 pt-2 border-t border-blue-100">
+                    <span className="block text-xs font-semibold text-slate-700">Tipo de Alerta Sonoro:</span>
+                    
+                    <div className="flex flex-col sm:flex-row gap-4 text-xs font-medium text-slate-800">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tipo_som"
+                          value="bipe"
+                          checked={formCompromisso.tipo_som === 'bipe'}
+                          onChange={() => handleChange('tipo_som', 'bipe')}
+                          className="text-blue-900 focus:ring-blue-500"
+                        />
+                        🔔 Bipe Padrão do Celular
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="tipo_som"
+                          value="musica"
+                          checked={formCompromisso.tipo_som === 'musica'}
+                          onChange={() => handleChange('tipo_som', 'musica')}
+                          className="text-blue-900 focus:ring-blue-500"
+                        />
+                        🎵 Música ou Áudio MP3 Customizado
+                      </label>
+                    </div>
+
+                    {formCompromisso.tipo_som === 'musica' && (
+                      <div className="pt-2">
+                        <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                          Link/URL do Áudio MP3
+                        </label>
+                        <input
+                          type="url"
+                          value={formCompromisso.url_som}
+                          onChange={(e) => handleChange('url_som', e.target.value)}
+                          placeholder="https://seu-servidor.com/audio-vinheta.mp3"
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          required={formCompromisso.tipo_som === 'musica'}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição / Observações</label>
                 <textarea
@@ -713,6 +791,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
               </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Local</span>{compromissoSelecionado.local_evento || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Responsável</span>{compromissoSelecionado.responsavel || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Configuração de Som</span>{compromissoSelecionado.som_ativo ? (compromissoSelecionado.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão') : '🔕 Sem som'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Descrição</span>{compromissoSelecionado.descricao || 'Nenhuma descrição informada.'}</div>
             </div>
           </div>

@@ -14,9 +14,8 @@ interface DadosIgreja {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Aba ativa selecionada pelo usuário
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('perfil');
-  const [loading, setLoading] = useState(false);
+  // Aba ativa selecionada pelo usuário (Inicia na Agenda para teste direto)
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
 
   // 1. Dados do Perfil
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
@@ -55,11 +54,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const emailUsuario = loggedUser?.email;
   const usuarioId = loggedUser?.id || loggedUser?.auth_user_id || loggedUser?.email;
 
-  // Carregar todos os dados de forma segura sem travar a navegação
+  // Carregar dados silenciosamente em segundo plano sem bloquear a UI
   const carregarDadosApp = useCallback(async () => {
-    setLoading(true);
     try {
-      // 1. Perfil do Membro
+      // 1. Perfil
       if (emailUsuario) {
         const { data: dataMembro } = await supabase
           .from('members')
@@ -102,14 +100,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .eq('codigo_igreja', codigoIgreja);
 
       if (dataAgenda) {
-        // Exibe registros do usuário ou de tipo 'Pessoal'
         const listaPessoal = dataAgenda.filter(
           (a) => String(a.usuario_id) === String(usuarioId) || a.tipo === 'Pessoal' || !a.usuario_id
         );
         setMinhaAgenda(listaPessoal);
       }
 
-      // 3. Dados da Igreja
+      // 3. Dados Igreja
       const { data: dataIgr } = await supabase
         .from('dados_igreja')
         .select('*')
@@ -129,8 +126,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
-    } finally {
-      setLoading(false);
     }
   }, [codigoIgreja, emailUsuario, usuarioId]);
 
@@ -138,7 +133,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
-  // AÇÕES PERFIL
+  // PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -163,7 +158,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÕES AGENDA
+  // AGENDA
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -181,7 +176,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       const { error } = await supabase.from('agenda').insert([payload]);
 
       if (error) throw error;
-      alert('📅 Compromisso adicionado à sua agenda!');
+      alert('📅 Compromisso adicionado!');
       setNovoTitulo('');
       setModalNovaAgenda(false);
       carregarDadosApp();
@@ -191,7 +186,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   const handleExcluirCompromisso = async (id: any) => {
-    if (!window.confirm('Deseja remover este compromisso da sua agenda?')) return;
+    if (!window.confirm('Deseja remover este compromisso?')) return;
     try {
       const { error } = await supabase.from('agenda').delete().eq('id', id);
       if (error) throw error;
@@ -203,7 +198,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÕES CÉLULA
+  // CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -247,7 +242,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* BARRINHA DE NAVEGAÇÃO SUPERIOR */}
+        {/* NAVEGAÇÃO DE ABAS */}
         <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
           <button
             type="button"
@@ -293,222 +288,216 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       {/* ÁREA DE CONTEÚDO */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">
-        {loading ? (
-          <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
-        ) : (
-          <>
-            {/* 1. ABA PERFIL */}
-            {subAbaApp === 'perfil' && (
-              <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-2">✏️ Editar Meu Cadastro</h3>
-                <p className="text-[11px] text-slate-500">
-                  Atualize sua foto e seu endereço residencial.
-                </p>
+        {/* 1. ABA PERFIL */}
+        {subAbaApp === 'perfil' && (
+          <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">
+            <h3 className="font-black text-blue-900 text-sm border-b pb-2">✏️ Editar Meu Cadastro</h3>
+            <p className="text-[11px] text-slate-500">
+              Atualize sua foto e seu endereço residencial.
+            </p>
 
-                <form onSubmit={handleSalvarPerfil} className="space-y-3">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">URL / Imagem da Foto</label>
-                    <input
-                      type="text"
-                      placeholder="Cole a URL ou base64 da imagem"
-                      value={fotoUrl}
-                      onChange={(e) => setFotoUrl(e.target.value)}
-                      className="w-full border rounded-xl p-2.5 font-mono text-[10px]"
-                    />
-                  </div>
-
-                  <div className="space-y-2 border-t pt-2">
-                    <label className="block font-bold text-slate-700">Endereço Residencial</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Rua / Av."
-                        value={rua}
-                        onChange={(e) => setRua(e.target.value)}
-                        className="col-span-2 border rounded-xl p-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nº"
-                        value={numero}
-                        onChange={(e) => setNumero(e.target.value)}
-                        className="border rounded-xl p-2"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Bairro"
-                        value={bairro}
-                        onChange={(e) => setBairro(e.target.value)}
-                        className="border rounded-xl p-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Cidade"
-                        value={cidade}
-                        onChange={(e) => setCidade(e.target.value)}
-                        className="border rounded-xl p-2"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2"
-                  >
-                    💾 Atualizar Meu Cadastro
-                  </button>
-                </form>
+            <form onSubmit={handleSalvarPerfil} className="space-y-3">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">URL / Imagem da Foto</label>
+                <input
+                  type="text"
+                  placeholder="Cole a URL ou base64 da imagem"
+                  value={fotoUrl}
+                  onChange={(e) => setFotoUrl(e.target.value)}
+                  className="w-full border rounded-xl p-2.5 font-mono text-[10px]"
+                />
               </div>
-            )}
 
-            {/* 2. ABA AGENDA */}
-            {subAbaApp === 'minha_agenda' && (
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">
+              <div className="space-y-2 border-t pt-2">
+                <label className="block font-bold text-slate-700">Endereço Residencial</label>
+                <div className="grid grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Rua / Av."
+                    value={rua}
+                    onChange={(e) => setRua(e.target.value)}
+                    className="col-span-2 border rounded-xl p-2"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Nº"
+                    value={numero}
+                    onChange={(e) => setNumero(e.target.value)}
+                    className="border rounded-xl p-2"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="text"
+                    placeholder="Bairro"
+                    value={bairro}
+                    onChange={(e) => setBairro(e.target.value)}
+                    className="border rounded-xl p-2"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Cidade"
+                    value={cidade}
+                    onChange={(e) => setCidade(e.target.value)}
+                    className="border rounded-xl p-2"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2"
+              >
+                💾 Atualizar Meu Cadastro
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* 2. ABA AGENDA (RENDERIZAÇÃO DIRETA) */}
+        {subAbaApp === 'minha_agenda' && (
+          <div className="space-y-3 text-xs">
+            <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">
+              <div>
+                <h3 className="font-black text-blue-900 text-sm">📅 Minha Agenda Pessoal</h3>
+                <p className="text-[10px] text-slate-500">Seus compromissos particulares</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalNovaAgenda(true)}
+                className="px-3.5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1"
+              >
+                ➕ Criar
+              </button>
+            </div>
+
+            {minhaAgenda.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-2">
+                <p className="font-bold text-slate-700 text-xs">Sua agenda pessoal está vazia.</p>
+                <p className="text-[11px] text-slate-500">Clique em "+ Criar" para agendar um compromisso!</p>
+              </div>
+            ) : (
+              minhaAgenda.map((item) => (
+                <div key={item.id} className="bg-white p-3.5 rounded-2xl border space-y-1.5 shadow-sm flex justify-between items-center">
                   <div>
-                    <h3 className="font-black text-blue-900 text-sm">📅 Minha Agenda Pessoal</h3>
-                    <p className="text-[10px] text-slate-500">Seus compromissos particulares</p>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-blue-900">
+                        📅 {item.data_evento?.split('-').reverse().join('/')} às {item.hora_evento || '19:00'}
+                      </span>
+                      <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded">
+                        {item.tipo || 'Pessoal'}
+                      </span>
+                    </div>
+                    <p className="font-bold text-slate-800 text-sm mt-0.5">{item.titulo}</p>
                   </div>
+
                   <button
                     type="button"
-                    onClick={() => setModalNovaAgenda(true)}
-                    className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
+                    onClick={() => handleExcluirCompromisso(item.id)}
+                    className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] rounded-lg cursor-pointer"
                   >
-                    ➕ Novo
+                    🗑️
                   </button>
                 </div>
-
-                {minhaAgenda.length === 0 ? (
-                  <div className="p-8 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-1">
-                    <p className="font-bold text-slate-600">Sua agenda está vazia.</p>
-                    <p className="text-[11px]">Clique no botão "+ Novo" acima para criar um compromisso!</p>
-                  </div>
-                ) : (
-                  minhaAgenda.map((item) => (
-                    <div key={item.id} className="bg-white p-3.5 rounded-2xl border space-y-1.5 shadow-sm flex justify-between items-center">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-blue-900">
-                            📅 {item.data_evento?.split('-').reverse().join('/')} às {item.hora_evento || '19:00'}
-                          </span>
-                          <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded">
-                            {item.tipo || 'Pessoal'}
-                          </span>
-                        </div>
-                        <p className="font-bold text-slate-800 text-sm mt-0.5">{item.titulo}</p>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleExcluirCompromisso(item.id)}
-                        className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] rounded-lg cursor-pointer"
-                      >
-                        🗑️
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
+              ))
             )}
+          </div>
+        )}
 
-            {/* 3. ABA CÉLULA */}
-            {subAbaApp === 'celula' && (
-              <div className="space-y-4 text-xs">
-                <div className="bg-white p-4 rounded-2xl border space-y-2">
-                  <div className="flex justify-between items-center border-b pb-2">
-                    <h3 className="font-black text-blue-900 text-sm">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
-                    <button
-                      type="button"
-                      onClick={() => setModalNovaReuniao(true)}
-                      className="px-2.5 py-1 bg-emerald-700 text-white font-bold rounded-lg cursor-pointer"
+        {/* 3. ABA CÉLULA */}
+        {subAbaApp === 'celula' && (
+          <div className="space-y-4 text-xs">
+            <div className="bg-white p-4 rounded-2xl border space-y-2">
+              <div className="flex justify-between items-center border-b pb-2">
+                <h3 className="font-black text-blue-900 text-sm">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
+                <button
+                  type="button"
+                  onClick={() => setModalNovaReuniao(true)}
+                  className="px-2.5 py-1 bg-emerald-700 text-white font-bold rounded-lg cursor-pointer"
+                >
+                  ➕ Registrar Encontro
+                </button>
+              </div>
+
+              <p className="text-slate-500">
+                Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded-2xl border space-y-2">
+              <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
+                👥 Integrantes da Célula ({participantesCelula.length})
+              </h4>
+              <div className="space-y-1.5">
+                {participantesCelula.map((p) => (
+                  <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+                    <span className="font-bold text-slate-800">{p.nome}</span>
+                    <a
+                      href={`https://wa.me/55${p.celular_principal?.replace(/\D/g, '')}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200"
                     >
-                      ➕ Registrar Encontro
-                    </button>
+                      💬 WhatsApp
+                    </a>
                   </div>
+                ))}
+              </div>
+            </div>
 
-                  <p className="text-slate-500">
-                    Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
-                  </p>
-                </div>
-
-                <div className="bg-white p-4 rounded-2xl border space-y-2">
-                  <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
-                    👥 Integrantes da Célula ({participantesCelula.length})
-                  </h4>
-                  <div className="space-y-1.5">
-                    {participantesCelula.map((p) => (
-                      <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
-                        <span className="font-bold text-slate-800">{p.nome}</span>
-                        <a
-                          href={`https://wa.me/55${p.celular_principal?.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200"
-                        >
-                          💬 WhatsApp
-                        </a>
-                      </div>
-                    ))}
+            <div className="bg-white p-4 rounded-2xl border space-y-2">
+              <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
+                📋 Histórico de Encontros & Notas
+              </h4>
+              {reunioesCelula.length === 0 ? (
+                <p className="text-slate-400 italic text-center py-2">Nenhum evento registrado.</p>
+              ) : (
+                reunioesCelula.map((r) => (
+                  <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1">
+                    <span className="font-bold text-blue-900 block">
+                      📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
+                    </span>
+                    {r.estudo_tema && <p className="font-medium text-slate-800">📘 Estudo: {r.estudo_tema}</p>}
+                    {r.comentarios && <p className="text-slate-500 italic">💬 Nota: {r.comentarios}</p>}
                   </div>
-                </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
 
-                <div className="bg-white p-4 rounded-2xl border space-y-2">
-                  <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
-                    📋 Histórico de Encontros & Notas
-                  </h4>
-                  {reunioesCelula.length === 0 ? (
-                    <p className="text-slate-400 italic text-center py-2">Nenhum evento registrado.</p>
-                  ) : (
-                    reunioesCelula.map((r) => (
-                      <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1">
-                        <span className="font-bold text-blue-900 block">
-                          📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
-                        </span>
-                        {r.estudo_tema && <p className="font-medium text-slate-800">📘 Estudo: {r.estudo_tema}</p>}
-                        {r.comentarios && <p className="text-slate-500 italic">💬 Nota: {r.comentarios}</p>}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+        {/* 4. ABA IGREJA */}
+        {subAbaApp === 'igreja' && (
+          <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs">
+            <h3 className="font-black text-blue-900 text-sm border-b pb-2">⛪ Informações da Igreja</h3>
 
-            {/* 4. ABA IGREJA */}
-            {subAbaApp === 'igreja' && (
-              <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-2">⛪ Informações da Igreja</h3>
+            <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
+              <strong className="block text-slate-700">📍 Endereço Oficial</strong>
+              <p className="text-slate-600 font-medium">{dadosIgreja.endereco_completo}</p>
 
-                <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
-                  <strong className="block text-slate-700">📍 Endereço Oficial</strong>
-                  <p className="text-slate-600 font-medium">{dadosIgreja.endereco_completo}</p>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dadosIgreja.endereco_completo)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="block w-full text-center py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer mt-2"
+              >
+                🗺️ Como Chegar na Igreja (GPS)
+              </a>
+            </div>
 
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dadosIgreja.endereco_completo)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full text-center py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer mt-2"
-                  >
-                    🗺️ Como Chegar na Igreja (GPS)
-                  </a>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
-                  <strong className="block text-slate-700">📸 Redes Sociais</strong>
-                  <a
-                    href={dadosIgreja.link_instagram}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full text-center py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer"
-                  >
-                    📷 Acessar Instagram Oficial
-                  </a>
-                </div>
-              </div>
-            )}
-          </>
+            <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
+              <strong className="block text-slate-700">📸 Redes Sociais</strong>
+              <a
+                href={dadosIgreja.link_instagram}
+                target="_blank"
+                rel="noreferrer"
+                className="block w-full text-center py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer"
+              >
+                📷 Acessar Instagram Oficial
+              </a>
+            </div>
+          </div>
         )}
       </div>
 

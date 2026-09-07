@@ -679,13 +679,7 @@ function App() {
         </div>
       </aside>
 
-      <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-        {activeTab === 'dashboard' && <DashboardHome loggedUser={loggedUser} selecionarAba={selecionarAba} />}
-        {activeTab === 'app-mobile' && <AppMobileModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
-        
+      
         {/* ACOMPANHAMENTO DE VISITANTES */}
         {activeTab === 'acompanhamento-visitantes' && (
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />

@@ -6,9 +6,10 @@ interface LogSistema {
   id: string;
   codigo_igreja: string;
   usuario_email: string;
+  tabela_afetada: string;
   acao: string;
-  detalhes: string;
-  ip_maquina?: string;
+  dados_antigos?: any;
+  dados_novos?: any;
   created_at: string;
 }
 
@@ -54,21 +55,21 @@ export default function ControleRegistroModule({ loggedUser }: ControleRegistroP
     setLoading(true);
     setError(null);
     try {
+      // 🎯 Correção: Busca diretamente da tabela "logs_auditoria" gerada pelo trigger
       const { data, error: erroConsulta } = await supabase
-        .from('logs_sistema')
+        .from('logs_auditoria')
         .select('*')
-        .eq('codigo_igreja', codigoIgreja)
         .order('created_at', { ascending: false });
 
       if (erroConsulta) throw erroConsulta;
       setLogs(data || []);
     } catch (err: any) {
       console.error('Erro ao buscar logs:', err);
-      setError(err.message || 'Erro ao carregar registros.');
+      setError(err.message || 'Erro ao carregar registros de auditoria.');
     } finally {
       setLoading(false);
     }
-  }, [codigoIgreja]);
+  }, []);
 
   useEffect(() => {
     if (autenticado) {
@@ -112,6 +113,21 @@ export default function ControleRegistroModule({ loggedUser }: ControleRegistroP
       </div>
     );
   }
+
+  // Função para formatar os detalhes das alterações de forma legível
+  const formatarDetalhesLog = (log: LogSistema) => {
+    if (log.acao === 'INSERT' && log.dados_novos) {
+      return `Novo registro criado em "${log.tabela_afetada}": ${log.dados_novos.nome || log.dados_novos.titulo || JSON.stringify(log.dados_novos)}`;
+    }
+    if (log.acao === 'UPDATE') {
+      const nomeOuTitulo = log.dados_novos?.nome || log.dados_novos?.titulo || '';
+      return `Alteração em "${log.tabela_afetada}" (${nomeOuTitulo}).`;
+    }
+    if (log.acao === 'DELETE' && log.dados_antigos) {
+      return `Exclusão em "${log.tabela_afetada}": ${log.dados_antigos.nome || log.dados_antigos.titulo || JSON.stringify(log.dados_antigos)}`;
+    }
+    return `Ação de ${log.acao} na tabela ${log.tabela_afetada}`;
+  };
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
@@ -182,9 +198,9 @@ export default function ControleRegistroModule({ loggedUser }: ControleRegistroP
                   <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
                     <th className="p-3">Data / Hora</th>
                     <th className="p-3">Usuário</th>
+                    <th className="p-3">Tabela</th>
                     <th className="p-3">Ação</th>
                     <th className="p-3">Detalhes</th>
-                    <th className="p-3">IP da Máquina</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y text-xs sm:text-sm">
@@ -196,14 +212,22 @@ export default function ControleRegistroModule({ loggedUser }: ControleRegistroP
                     return (
                       <tr key={log.id} className="hover:bg-slate-50/80 transition">
                         <td className="p-3 whitespace-nowrap text-slate-600 font-medium">{dataFormatada}</td>
-                        <td className="p-3 font-semibold text-slate-800">{log.usuario_email}</td>
+                        <td className="p-3 font-semibold text-slate-800">{log.usuario_email || 'Sistema/Anônimo'}</td>
+                        <td className="p-3 font-mono text-xs text-slate-600">{log.tabela_afetada}</td>
                         <td className="p-3 whitespace-nowrap">
-                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-blue-100 text-blue-900 border">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                              log.acao === 'INSERT'
+                                ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                                : log.acao === 'UPDATE'
+                                ? 'bg-blue-100 text-blue-900 border-blue-300'
+                                : 'bg-rose-100 text-rose-900 border-rose-300'
+                            }`}
+                          >
                             {log.acao}
                           </span>
                         </td>
-                        <td className="p-3 text-slate-600">{log.detalhes}</td>
-                        <td className="p-3 text-slate-500 font-mono text-xs">{log.ip_maquina || '127.0.0.1'}</td>
+                        <td className="p-3 text-slate-600">{formatarDetalhesLog(log)}</td>
                       </tr>
                     );
                   })}

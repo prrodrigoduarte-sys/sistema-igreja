@@ -40,11 +40,15 @@ export default function ProjetosModule({ loggedUser }: Props) {
   const [loading, setLoading] = useState(false);
   const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
 
+  // Filtro de Busca
+  const [buscaInscrito, setBuscaInscrito] = useState('');
+  const [filtroStatusPagamento, setFiltroStatusPagamento] = useState<'Todos' | 'Pago' | 'Pendente'>('Todos');
+
   // Modais
   const [modalNovoProjeto, setModalNovoProjeto] = useState(false);
   const [modalInscricao, setModalInscricao] = useState(false);
 
-  // Form Projeto (Criar / Editar)
+  // Form Criar/Editar Projeto
   const [projetoEmEdicao, setProjetoEmEdicao] = useState<Projeto | null>(null);
   const [nomeProjeto, setNomeProjeto] = useState('');
   const [descricaoProjeto, setDescricaoProjeto] = useState('');
@@ -53,7 +57,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
   const [localEvento, setLocalEvento] = useState('');
   const [valorEstimado, setValorEstimado] = useState<number | ''>('');
 
-  // Form Inscrição (Criar / Editar)
+  // Form Inscrição (Participante)
   const [inscricaoEdicao, setInscricaoEdicao] = useState<Inscricao | null>(null);
   const [membroSelecionadoId, setMembroSelecionadoId] = useState('');
   const [nomeParticipante, setNomeParticipante] = useState('');
@@ -66,7 +70,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
-      // Carregar Membros
+      // 1. Carregar Membros
       const { data: dataMembros } = await supabase
         .from('members')
         .select('id, nome, celular_principal')
@@ -75,7 +79,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
       if (dataMembros) setMembros(dataMembros);
 
-      // Carregar Projetos
+      // 2. Carregar Projetos
       const { data: dataProjetos } = await supabase
         .from('projetos')
         .select('*')
@@ -89,7 +93,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
         }
       }
 
-      // Carregar Inscrições
+      // 3. Carregar Inscrições dos Participantes
       const { data: dataInsc } = await supabase
         .from('inscricoes_projetos')
         .select('*')
@@ -98,7 +102,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
       if (dataInsc) setInscricoes(dataInsc);
     } catch (err: any) {
-      console.error('Erro ao carregar dados do projeto:', err);
+      console.error('Erro ao carregar módulo de projetos:', err);
     } finally {
       setLoading(false);
     }
@@ -108,13 +112,13 @@ export default function ProjetosModule({ loggedUser }: Props) {
     carregarDados();
   }, [carregarDados]);
 
-  // 1. CRIAR OU EDITAR PROJETO + SINCRONIZAR AUTOMATICAMENTE COM A AGENDA
+  // Salvar Projeto + Sincronizar com Agenda
   const handleSalvarProjeto = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nomeProjeto.trim()) return alert('Informe o nome do projeto.');
 
     try {
-      const payloadProjeto = {
+      const payload = {
         codigo_igreja: codigoIgreja,
         nome_projeto: nomeProjeto.trim(),
         descricao: descricaoProjeto.trim(),
@@ -125,47 +129,42 @@ export default function ProjetosModule({ loggedUser }: Props) {
         status: 'Em Andamento',
       };
 
-      let projId = projetoEmEdicao?.id;
-
       if (projetoEmEdicao) {
         const { error } = await supabase
           .from('projetos')
-          .update(payloadProjeto)
+          .update(payload)
           .eq('id', projetoEmEdicao.id);
 
         if (error) throw error;
       } else {
-        const { data: novoProj, error } = await supabase
+        const { data: novoP, error } = await supabase
           .from('projetos')
-          .insert([payloadProjeto])
+          .insert([payload])
           .select()
           .single();
 
         if (error) throw error;
-        if (novoProj) {
-          projId = novoProj.id;
-          setProjetoSelecionado(novoProj);
-        }
+        if (novoP) setProjetoSelecionado(novoP);
       }
 
-      // SINCRONIZAÇÃO AUTOMÁTICA COM A TABELA DE AGENDA DO SISTEMA
+      // Sincronização Automática na Tabela de Agenda
       if (dataEvento) {
+        const tituloAgenda = `🚀 [PROJETO] ${nomeProjeto.trim()}`;
         const payloadAgenda = {
           codigo_igreja: codigoIgreja,
-          titulo: `🚀 [PROJETO] ${nomeProjeto.trim()}`,
+          titulo: tituloAgenda,
           data_evento: dataEvento,
           hora_evento: horaEvento || '19:30',
           local: localEvento.trim() || 'Templo Sede',
-          descricao: `Projeto/Evento: ${descricaoProjeto.trim()} | Custo estimado: R$ ${Number(valorEstimado || 0).toFixed(2)}`,
+          descricao: `Projeto/Evento: ${descricaoProjeto.trim()} | Custo orçado: R$ ${Number(valorEstimado || 0).toFixed(2)}`,
           tipo: 'Projeto',
         };
 
-        // Verifica se já existe um evento na agenda com este título/data ou insere um novo
         const { data: eventoExiste } = await supabase
           .from('agenda')
           .select('id')
           .eq('codigo_igreja', codigoIgreja)
-          .eq('titulo', `🚀 [PROJETO] ${nomeProjeto.trim()}`)
+          .eq('titulo', tituloAgenda)
           .maybeSingle();
 
         if (eventoExiste) {
@@ -175,7 +174,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
         }
       }
 
-      alert('🚀 Projeto salvo e sincronizado com a Agenda!');
+      alert('🚀 Projeto salvo e sincronizado na Agenda!');
       setModalNovoProjeto(false);
       setProjetoEmEdicao(null);
       setNomeProjeto('');
@@ -202,19 +201,12 @@ export default function ProjetosModule({ loggedUser }: Props) {
   };
 
   const handleExcluirProjeto = async (id: any, nome: string) => {
-    if (!window.confirm(`Deseja excluir o projeto "${nome}" e todas as suas inscrições?`)) return;
+    if (!window.confirm(`Deseja realmente excluir o projeto "${nome}" e todo o histórico de inscritos?`)) return;
     try {
-      // Exclui projeto
       await supabase.from('projetos').delete().eq('id', id);
+      await supabase.from('agenda').delete().eq('codigo_igreja', codigoIgreja).eq('titulo', `🚀 [PROJETO] ${nome}`);
 
-      // Remove item correspondente da agenda
-      await supabase
-        .from('agenda')
-        .delete()
-        .eq('codigo_igreja', codigoIgreja)
-        .eq('titulo', `🚀 [PROJETO] ${nome}`);
-
-      alert('Projeto e agendamento excluídos.');
+      alert('Projeto e agendamento excluídos com sucesso.');
       setProjetoSelecionado(null);
       carregarDados();
     } catch (err: any) {
@@ -222,7 +214,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
     }
   };
 
-  // Preencher dados automaticamente ao selecionar membro cadastrado
+  // Autopreenchimento ao selecionar membro
   const handleSelecionarMembro = (membroId: string) => {
     setMembroSelecionadoId(membroId);
     const enc = membros.find((m) => String(m.id) === String(membroId));
@@ -232,7 +224,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
     }
   };
 
-  // 2. SALVAR / EDITAR INSCRIÇÃO DE PARTICIPANTE
+  // Salvar/Editar Inscrição de Participante
   const handleSalvarInscricao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projetoSelecionado) return alert('Selecione um projeto.');
@@ -255,7 +247,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
           .eq('id', inscricaoEdicao.id);
 
         if (error) throw error;
-        alert('Inscrição do participante atualizada!');
+        alert('Inscrição atualizada!');
       } else {
         const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
         if (error) throw error;
@@ -286,22 +278,29 @@ export default function ProjetosModule({ loggedUser }: Props) {
   };
 
   const handleExcluirInscricao = async (id: any) => {
-    if (!window.confirm('Excluir a inscrição deste participante?')) return;
+    if (!window.confirm('Excluir esta inscrição do projeto?')) return;
     try {
       const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
       if (error) throw error;
 
-      alert('Inscrição removida!');
+      alert('Inscrição removida com sucesso!');
       carregarDados();
     } catch (err: any) {
       alert(err.message);
     }
   };
 
-  // Cálculos Financeiros (Confronto Arrecadação vs Custo do Projeto)
+  // Filtro e Cálculos
   const inscricoesDoProjeto = inscricoes.filter(
     (i) => String(i.projeto_id) === String(projetoSelecionado?.id)
   );
+
+  const inscricoesFiltradas = inscricoesDoProjeto.filter((i) => {
+    const matchBusca = (i.nome_participante || '').toLowerCase().includes(buscaInscrito.toLowerCase()) ||
+                       (i.celular || '').includes(buscaInscrito);
+    const matchStatus = filtroStatusPagamento === 'Todos' || i.status_pagamento === filtroStatusPagamento;
+    return matchBusca && matchStatus;
+  });
 
   const totalPago = inscricoesDoProjeto
     .filter((i) => i.status_pagamento === 'Pago')
@@ -317,12 +316,12 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
-      {/* CABEÇALHO */}
+      {/* CABEÇALHO PRINCIPAL */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
         <div>
           <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Módulo de Projetos</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Projetos sincronizados com a Agenda, Inscrições e Balanço Financeiro
+            Gestão Integrada de Eventos, Inscrições de Participantes e Balanço Financeiro
           </p>
         </div>
 
@@ -338,7 +337,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
             setValorEstimado('');
             setModalNovoProjeto(true);
           }}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition"
         >
           ➕ Criar Novo Projeto
         </button>
@@ -348,13 +347,13 @@ export default function ProjetosModule({ loggedUser }: Props) {
         <p className="text-center py-8 text-slate-500 text-xs">Carregando projetos...</p>
       ) : projetos.length === 0 ? (
         <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs">
-          Nenhum projeto cadastrado. Clique no botão acima para registrar o primeiro!
+          Nenhum projeto cadastrado. Clique no botão acima para criar o primeiro evento!
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* SELETOR DE PROJETOS */}
+          {/* BARRA LATERAL: SELETOR DE PROJETOS */}
           <div className="space-y-2 lg:col-span-1 border-r pr-0 lg:pr-4">
-            <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider mb-3">Selecione o Projeto</h3>
+            <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider mb-3">Lista de Projetos</h3>
             {projetos.map((p) => {
               const isSelected = String(p.id) === String(projetoSelecionado?.id);
               return (
@@ -362,25 +361,32 @@ export default function ProjetosModule({ loggedUser }: Props) {
                   key={p.id}
                   type="button"
                   onClick={() => setProjetoSelecionado(p)}
-                  className={`w-full text-left p-3 rounded-xl border transition cursor-pointer ${
+                  className={`w-full text-left p-3.5 rounded-xl border transition cursor-pointer space-y-1 ${
                     isSelected
-                      ? 'bg-blue-900 text-white border-blue-900 font-bold shadow'
+                      ? 'bg-blue-900 text-white border-blue-900 font-bold shadow-md'
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 font-medium'
                   }`}
                 >
                   <p className="text-sm truncate">{p.nome_projeto}</p>
-                  <p className={`text-[10px] mt-1 ${isSelected ? 'text-blue-200' : 'text-slate-500'}`}>
-                    Custo: R$ {Number(p.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </p>
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className={isSelected ? 'text-blue-200' : 'text-slate-500'}>
+                      Custo: R$ {Number(p.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </span>
+                    {p.data_evento && (
+                      <span className={isSelected ? 'text-blue-100 font-bold' : 'text-blue-900 font-bold'}>
+                        📅 {p.data_evento.split('-').reverse().join('/')}
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
 
-          {/* ÁREA DETALHADA DO PROJETO SELECIONADO */}
+          {/* PAINEL DE DETALHES DO PROJETO SELECIONADO */}
           {projetoSelecionado && (
             <div className="lg:col-span-3 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 bg-slate-50 p-4 rounded-2xl border">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-50 p-4 rounded-2xl border">
                 <div>
                   <h3 className="text-xl font-black text-blue-900">{projetoSelecionado.nome_projeto}</h3>
                   {projetoSelecionado.data_evento && (
@@ -394,7 +400,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={() => {
@@ -429,17 +435,17 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 </div>
               </div>
 
-              {/* CONFRONTO DE VALORES (BALANÇO DE SUPERÁVIT OU DÉFICIT) */}
+              {/* CONFRONTO DE VALORES: SUPERÁVIT / DÉFICIT */}
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <div className="bg-slate-100 p-3.5 rounded-2xl border">
-                  <p className="text-[10px] font-bold uppercase text-slate-500">Valor do Projeto (Custo)</p>
+                  <p className="text-[10px] font-bold uppercase text-slate-500">Custo do Projeto</p>
                   <p className="text-lg font-black text-slate-800 mt-1">
                     R$ {valorCustoProjeto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                 </div>
 
                 <div className="bg-emerald-50 p-3.5 rounded-2xl border border-emerald-200">
-                  <p className="text-[10px] font-bold uppercase text-emerald-700">Arrecadado (Pago)</p>
+                  <p className="text-[10px] font-bold uppercase text-emerald-700">Total Arrecadado (Pago)</p>
                   <p className="text-lg font-black text-emerald-800 mt-1">
                     R$ {totalPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
@@ -460,29 +466,51 @@ export default function ProjetosModule({ loggedUser }: Props) {
                   }`}
                 >
                   <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
-                    Balanço Final
+                    Balanço (Lucro/Prejuízo)
                   </p>
                   <p className="text-lg font-black mt-1">
                     {isSuperavit ? '🟢 +' : '🔴 -'} R$ {Math.abs(saldoDiferenca).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </p>
                   <p className="text-[9px] mt-0.5 opacity-80">
-                    {isSuperavit ? 'Superávit (Lucro)' : 'Prejuízo (Déficit)'}
+                    {isSuperavit ? 'Superávit (Saldo Positivo)' : 'Déficit (Prejuízo)'}
                   </p>
                 </div>
               </div>
 
-              {/* LISTA DE INSCRITOS NO PROJETO */}
+              {/* TABELA E FILTROS DE PARTICIPANTES */}
               <div className="space-y-3">
-                <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
-                  Participantes Inscritos ({inscricoesDoProjeto.length})
-                </h4>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
+                    Participantes Inscritos ({inscricoesDoProjeto.length})
+                  </h4>
 
-                {inscricoesDoProjeto.length === 0 ? (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <input
+                      type="text"
+                      placeholder="🔎 Buscar por nome..."
+                      value={buscaInscrito}
+                      onChange={(e) => setBuscaInscrito(e.target.value)}
+                      className="border rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-600 w-full sm:w-48"
+                    />
+
+                    <select
+                      value={filtroStatusPagamento}
+                      onChange={(e) => setFiltroStatusPagamento(e.target.value as any)}
+                      className="border rounded-xl px-2.5 py-1.5 text-xs bg-white font-bold"
+                    >
+                      <option value="Todos">Todos os Status</option>
+                      <option value="Pago">✅ Pago</option>
+                      <option value="Pendente">⏳ Pendente</option>
+                    </select>
+                  </div>
+                </div>
+
+                {inscricoesFiltradas.length === 0 ? (
                   <div className="p-6 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
-                    Nenhum participante inscrito ainda. Clique em "Adicionar Inscrição" para inscrever.
+                    Nenhum participante encontrado.
                   </div>
                 ) : (
-                  <div className="overflow-x-auto border rounded-2xl">
+                  <div className="overflow-x-auto border rounded-2xl shadow-sm">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
@@ -494,7 +522,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {inscricoesDoProjeto.map((item) => (
+                        {inscricoesFiltradas.map((item) => (
                           <tr key={item.id} className="hover:bg-slate-50">
                             <td className="p-3 font-bold text-slate-800">{item.nome_participante}</td>
                             <td className="p-3 text-slate-600">{item.celular || '-'}</td>
@@ -659,7 +687,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
             <form onSubmit={handleSalvarInscricao} className="space-y-3 text-xs">
               {!inscricaoEdicao && (
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Selecionar Membro Cadastrado (Opcional)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Membro Cadastrado (Opcional)</label>
                   <select
                     value={membroSelecionadoId}
                     onChange={(e) => handleSelecionarMembro(e.target.value)}

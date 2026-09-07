@@ -47,7 +47,6 @@ interface DespesaProjeto {
   categoria?: string;
   valor: number;
   data_despesa: string;
-  comprovante_url?: string;
   created_at?: string;
 }
 
@@ -56,7 +55,7 @@ interface Props {
 }
 
 export default function ProjetosModule({ loggedUser }: Props) {
-  // Estados Principais de Dados
+  // Estados de Dados
   const [membros, setMembros] = useState<Membro[]>([]);
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
@@ -64,27 +63,24 @@ export default function ProjetosModule({ loggedUser }: Props) {
   const [loading, setLoading] = useState(false);
   const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
 
-  // Navegação Interna de Sub-abas no Projeto
-  const [subAbaAtiva, setSubAbaAtiva] = useState<'visao_geral' | 'inscritos' | 'despesas' | 'relatorio'>('visao_geral');
+  // Sub-abas do Projeto
+  const [subAbaAtiva, setSubAbaAtiva] = useState<'visao_geral' | 'inscritos' | 'despesas'>('visao_geral');
 
-  // Filtros e Buscas
+  // Filtros
   const [buscaProjeto, setBuscaProjeto] = useState('');
   const [buscaInscrito, setBuscaInscrito] = useState('');
   const [filtroStatusPagamento, setFiltroStatusPagamento] = useState<'Todos' | 'Pago' | 'Pendente' | 'Cancelado'>('Todos');
 
-  // Modais de Projeto
+  // Modais
   const [modalNovoProjeto, setModalNovoProjeto] = useState(false);
   const [projetoEmEdicao, setProjetoEmEdicao] = useState<Projeto | null>(null);
   
-  // Modais de Inscrição
   const [modalInscricao, setModalInscricao] = useState(false);
   const [inscricaoEdicao, setInscricaoEdicao] = useState<Inscricao | null>(null);
 
-  // Modais de Despesa / Custos Reais
   const [modalDespesa, setModalDespesa] = useState(false);
-  const [despesaEdicao, setDespesaEdicao] = useState<DespesaProjeto | null>(null);
 
-  // Form Criar/Editar Projeto
+  // Form Projeto
   const [nomeProjeto, setNomeProjeto] = useState('');
   const [descricaoProjeto, setDescricaoProjeto] = useState('');
   const [dataEvento, setDataEvento] = useState('');
@@ -93,7 +89,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
   const [valorEstimado, setValorEstimado] = useState<number | ''>('');
   const [statusProjeto, setStatusProjeto] = useState('Em Andamento');
 
-  // Form Inscrição Participante
+  // Form Inscrição
   const [membroSelecionadoId, setMembroSelecionadoId] = useState('');
   const [nomeParticipante, setNomeParticipante] = useState('');
   const [celularParticipante, setCelularParticipante] = useState('');
@@ -104,7 +100,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
   const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
   const [obsInscricao, setObsInscricao] = useState('');
 
-  // Form Despesa Real do Projeto
+  // Form Despesa
   const [descricaoDespesa, setDescricaoDespesa] = useState('');
   const [categoriaDespesa, setCategoriaDespesa] = useState('Alimentação');
   const [valorDespesa, setValorDespesa] = useState<number | ''>('');
@@ -112,7 +108,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
 
-  // CARREGAR TODOS OS DADOS INTEGRADOS
+  // CARREGAR DADOS (SEM LOOP INFINITO & COM TRATAMENTO DE ERROS)
   const carregarDados = useCallback(async () => {
     setLoading(true);
     try {
@@ -134,12 +130,15 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
       if (dataProjetos) {
         setProjetos(dataProjetos);
-        if (dataProjetos.length > 0 && !projetoSelecionado) {
-          setProjetoSelecionado(dataProjetos[0]);
-        } else if (projetoSelecionado) {
-          const atualizado = dataProjetos.find((p) => String(p.id) === String(projetoSelecionado.id));
-          if (atualizado) setProjetoSelecionado(atualizado);
-        }
+        
+        setProjetoSelecionado((prev) => {
+          if (!prev && dataProjetos.length > 0) return dataProjetos[0];
+          if (prev) {
+            const atualizado = dataProjetos.find((p) => String(p.id) === String(prev.id));
+            return atualizado || prev;
+          }
+          return null;
+        });
       }
 
       // 3. Inscrições
@@ -151,34 +150,38 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
       if (dataInsc) setInscricoes(dataInsc);
 
-      // 4. Despesas Reais (Tabela de apoio ou financeiro)
-      const { data: dataDesp } = await supabase
-        .from('despesas_projetos')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('id', { ascending: false });
+      // 4. Despesas (Tratado caso a tabela não exista ainda)
+      try {
+        const { data: dataDesp } = await supabase
+          .from('despesas_projetos')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja)
+          .order('id', { ascending: false });
 
-      if (dataDesp) setDespesas(dataDesp);
+        if (dataDesp) setDespesas(dataDesp);
+      } catch (errDesp) {
+        console.warn('Tabela despesas_projetos ainda não configurada.');
+      }
 
     } catch (err: any) {
-      console.error('Erro ao carregar dados do módulo de projetos:', err);
+      console.error('Erro ao carregar módulo de projetos:', err);
     } finally {
       setLoading(false);
     }
-  }, [codigoIgreja, projetoSelecionado]);
+  }, [codigoIgreja]);
 
   useEffect(() => {
     carregarDados();
   }, [carregarDados]);
 
-  // PROJETOS FILTRADOS NA BARRA LATERAL
+  // PROJETOS FILTRADOS
   const projetosFiltrados = useMemo(() => {
     return projetos.filter((p) =>
       p.nome_projeto.toLowerCase().includes(buscaProjeto.toLowerCase())
     );
   }, [projetos, buscaProjeto]);
 
-  // PARTICIPANTES FILTRADOS DO PROJETO ATUAL
+  // PARTICIPANTES DO PROJETO ATUAL
   const inscricoesDoProjeto = useMemo(() => {
     if (!projetoSelecionado) return [];
     return inscricoes.filter((i) => String(i.projeto_id) === String(projetoSelecionado.id));
@@ -202,7 +205,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
     return despesas.filter((d) => String(d.projeto_id) === String(projetoSelecionado.id));
   }, [despesas, projetoSelecionado]);
 
-  // CÁLCULOS FINANCIAL METRICS (ARRECADAÇÃO x CUSTO ESTIMADO x DESPESAS REAIS)
+  // CÁLCULOS FINANCIAL METRICS (CONFRONTO DE VALORES)
   const totalArrecadadoPago = useMemo(() => {
     return inscricoesDoProjeto
       .filter((i) => i.status_pagamento === 'Pago')
@@ -221,16 +224,16 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   const valorCustoEstimado = Number(projetoSelecionado?.valor_estimado) || 0;
   
-  // Confronto: Total Efetivamente Arrecadado Pago vs Custo Estimado
+  // Confronto: Total Pago vs Custo Estimado
   const balancoComCustoEstimado = totalArrecadadoPago - valorCustoEstimado;
   
-  // Confronto: Total Efetivamente Arrecadado Pago vs Despesas Executadas
+  // Confronto: Total Pago vs Despesas Lançadas
   const balancoComDespesasReais = totalArrecadadoPago - totalDespesasExecutadas;
 
   const isSuperavitEstimado = balancoComCustoEstimado >= 0;
   const isSuperavitReal = balancoComDespesasReais >= 0;
 
-  // 1. GESTÃO DE PROJETO (CRIAR / EDITAR / SALVAR / EXCLUIR + AGENDA)
+  // 1. SALVAR / EDITAR PROJETO + SINCRONIZAR AGENDA
   const handleAbrirCriarProjeto = () => {
     setProjetoEmEdicao(null);
     setNomeProjeto('');
@@ -257,7 +260,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   const handleSalvarProjeto = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nomeProjeto.trim()) return alert('Por favor, digite o nome do projeto.');
+    if (!nomeProjeto.trim()) return alert('Informe o nome do projeto.');
 
     try {
       const payloadProjeto = {
@@ -293,10 +296,10 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
         if (error) throw error;
         projSalvo = data;
-        alert('🚀 Novo projeto criado com sucesso!');
+        alert('🚀 Projeto criado com sucesso!');
       }
 
-      // SINCRONIZAÇÃO COM A AGENDA DO SISTEMA
+      // SINCRONIZAÇÃO COM A AGENDA
       if (dataEvento) {
         const tituloAgenda = `🚀 [PROJETO] ${nomeProjeto.trim()}`;
         const payloadAgenda = {
@@ -332,7 +335,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
   };
 
   const handleExcluirProjeto = async (id: any, nome: string) => {
-    if (!window.confirm(`ATENÇÃO: Deseja realmente excluir o projeto "${nome}"? Todas as inscrições e lançamentos de despesas vinculados serão removidos.`)) return;
+    if (!window.confirm(`Deseja realmente excluir o projeto "${nome}"? Todas as inscrições serão removidas.`)) return;
 
     try {
       await supabase.from('projetos').delete().eq('id', id);
@@ -346,7 +349,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
     }
   };
 
-  // 2. GESTÃO DE INSCRIÇÃO DE PARTICIPANTES
+  // 2. GESTÃO DE INSCRIÇÕES DE PARTICIPANTES
   const handleAbrirNovaInscricao = () => {
     setInscricaoEdicao(null);
     setMembroSelecionadoId('');
@@ -387,7 +390,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   const handleSalvarInscricao = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!projetoSelecionado) return alert('Selecione um projeto ativo.');
+    if (!projetoSelecionado) return alert('Selecione um projeto.');
     if (!nomeParticipante.trim()) return alert('Informe o nome do participante.');
 
     try {
@@ -412,7 +415,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
           .eq('id', inscricaoEdicao.id);
 
         if (error) throw error;
-        alert('Inscrição do participante atualizada!');
+        alert('Inscrição atualizada com sucesso!');
       } else {
         const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
         if (error) throw error;
@@ -427,7 +430,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
   };
 
   const handleExcluirInscricao = async (id: any, nome: string) => {
-    if (!window.confirm(`Deseja cancelar/excluir a inscrição de "${nome}"?`)) return;
+    if (!window.confirm(`Deseja realmente remover a inscrição de "${nome}"?`)) return;
     try {
       const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
       if (error) throw error;
@@ -439,9 +442,8 @@ export default function ProjetosModule({ loggedUser }: Props) {
     }
   };
 
-  // 3. GESTÃO DE DESPESAS DO PROJETO (CUSTOS EXECUTADOS)
+  // 3. GESTÃO DE DESPESAS DO PROJETO
   const handleAbrirNovaDespesa = () => {
-    setDespesaEdicao(null);
     setDescricaoDespesa('');
     setCategoriaDespesa('Alimentação');
     setValorDespesa('');
@@ -464,34 +466,24 @@ export default function ProjetosModule({ loggedUser }: Props) {
         data_despesa: dataDespesa,
       };
 
-      if (despesaEdicao) {
-        const { error } = await supabase
-          .from('despesas_projetos')
-          .update(payload)
-          .eq('id', despesaEdicao.id);
+      const { error } = await supabase.from('despesas_projetos').insert([payload]);
+      if (error) throw error;
 
-        if (error) throw error;
-        alert('Despesa atualizada!');
-      } else {
-        const { error } = await supabase.from('despesas_projetos').insert([payload]);
-        if (error) throw error;
-        alert('Despesa lançada no projeto com sucesso!');
-      }
-
+      alert('Despesa lançada com sucesso!');
       setModalDespesa(false);
       carregarDados();
     } catch (err: any) {
-      alert('Erro ao salvar despesa: ' + err.message);
+      alert('Erro ao lançar despesa: ' + err.message);
     }
   };
 
   const handleExcluirDespesa = async (id: any) => {
-    if (!window.confirm('Excluir esta despesa lançada?')) return;
+    if (!window.confirm('Deseja excluir esta despesa lançada?')) return;
     try {
       const { error } = await supabase.from('despesas_projetos').delete().eq('id', id);
       if (error) throw error;
 
-      alert('Despesa excluída com sucesso.');
+      alert('Despesa excluída!');
       carregarDados();
     } catch (err: any) {
       alert('Erro ao excluir despesa: ' + err.message);
@@ -500,12 +492,12 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
-      {/* CABEÇALHO DO MÓDULO */}
+      {/* CABEÇALHO */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
         <div>
           <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Módulo de Projetos & Eventos</h2>
           <p className="text-sm text-slate-600 mt-1">
-            Gestão Financeira, Inscrições de Participantes, Custos Reais e Sincronização com Agenda
+            Gestão Financeira, Inscrições de Participantes e Balanço em Tempo Real
           </p>
         </div>
 
@@ -522,12 +514,12 @@ export default function ProjetosModule({ loggedUser }: Props) {
         <p className="text-center py-8 text-slate-500 text-xs">Carregando informações do módulo...</p>
       ) : projetos.length === 0 ? (
         <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs space-y-2">
-          <p className="font-bold text-slate-700 text-sm">Nenhum projeto registrado na sua igreja.</p>
-          <p>Clique no botão acima para criar o primeiro evento e gerenciar inscrições e orçamento!</p>
+          <p className="font-bold text-slate-700 text-sm">Nenhum projeto cadastrado na sua igreja.</p>
+          <p>Clique no botão acima para criar o primeiro projeto e gerenciar as inscrições e o orçamento!</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* PAINEL LATERAL ESQUERDO: LISTA DE PROJETOS E BUSCA */}
+          {/* BARRA LATERAL: SELETOR DE PROJETOS */}
           <div className="space-y-3 lg:col-span-1 border-r pr-0 lg:pr-4">
             <div className="flex justify-between items-center">
               <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider">Seus Projetos</h3>
@@ -585,7 +577,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
             </div>
           </div>
 
-          {/* ÁREA DIREITA: DETALHES, NAVEGAÇÃO E SUB-ABAS DO PROJETO SELECIONADO */}
+          {/* PAINEL DE DETALHES DO PROJETO SELECIONADO */}
           {projetoSelecionado && (
             <div className="lg:col-span-3 space-y-6">
               {/* CABEÇALHO DO PROJETO SELECIONADO */}
@@ -638,7 +630,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                   </div>
                 </div>
 
-                {/* NAVEGAÇÃO DE SUB-ABAS */}
+                {/* SUB-ABAS NAVEGÁVEIS */}
                 <div className="flex border-b border-slate-200 gap-2 pt-2">
                   <button
                     type="button"
@@ -678,10 +670,9 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 </div>
               </div>
 
-              {/* SUB-ABA 1: VISÃO GERAL & BALANÇO FINANCEIRO COMPLETO */}
+              {/* SUB-ABA 1: BALANÇO FINANCEIRO COMPLETO */}
               {subAbaAtiva === 'visao_geral' && (
                 <div className="space-y-6">
-                  {/* QUADROS FINANCEIROS */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200">
                       <p className="text-[10px] font-bold uppercase text-slate-500">Valor Orçado (Custo Estimado)</p>
@@ -696,7 +687,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                         R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                       <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pago').length} participante(s) quitado(s)
+                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pago').length} quitado(s)
                       </p>
                     </div>
 
@@ -706,7 +697,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                         R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </p>
                       <p className="text-[10px] text-amber-600 font-semibold mt-1">
-                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pendente').length} aguardando pagamento
+                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pendente').length} aguardando
                       </p>
                     </div>
 
@@ -730,7 +721,6 @@ export default function ProjetosModule({ loggedUser }: Props) {
                     </div>
                   </div>
 
-                  {/* COMPARATIVO COM DESPESAS REALMENTE LANÇADAS */}
                   <div className="bg-slate-50 border p-5 rounded-2xl space-y-3">
                     <div className="flex justify-between items-center border-b pb-2">
                       <h4 className="font-bold text-xs text-blue-900 uppercase">
@@ -875,7 +865,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 </div>
               )}
 
-              {/* SUB-ABA 3: DESPESAS E CUSTOS REALMENTE LANÇADOS */}
+              {/* SUB-ABA 3: DESPESAS EXECUTADAS */}
               {subAbaAtiva === 'despesas' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -945,7 +935,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL 1: CRIAR OU EDITAR PROJETO */}
+      {/* MODAL 1: CRIAR / EDITAR PROJETO */}
       {modalNovoProjeto && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
@@ -1045,7 +1035,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
+                className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
               >
                 ⚡ {projetoEmEdicao ? 'Salvar Alterações' : 'Criar & Sincronizar com Agenda'}
               </button>
@@ -1184,9 +1174,9 @@ export default function ProjetosModule({ loggedUser }: Props) {
               )}
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Observações / Anotações</label>
+                <label className="block font-bold text-slate-700 mb-1">Observações</label>
                 <textarea
-                  placeholder="Instruções de pagamento, camiseta ou observações..."
+                  placeholder="Observações do inscrito..."
                   value={obsInscricao}
                   onChange={(e) => setObsInscricao(e.target.value)}
                   className="w-full border rounded-xl p-2.5"
@@ -1205,7 +1195,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL 3: LANÇAMENTO DE DESPESA REAL DO PROJETO */}
+      {/* MODAL 3: LANÇAR DESPESA REAL */}
       {modalDespesa && projetoSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
@@ -1228,7 +1218,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 <label className="block font-bold text-slate-700 mb-1">Descrição da Despesa *</label>
                 <input
                   type="text"
-                  placeholder="Ex: Compra de carnes para o almoço"
+                  placeholder="Ex: Compra de materiais, aluguel..."
                   value={descricaoDespesa}
                   onChange={(e) => setDescricaoDespesa(e.target.value)}
                   className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
@@ -1255,7 +1245,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Valor Gasto (R$)</label>
+                  <label className="block font-bold text-slate-700 mb-1">Valor (R$)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -1269,7 +1259,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Data do Pagamento/Gasto</label>
+                <label className="block font-bold text-slate-700 mb-1">Data</label>
                 <input
                   type="date"
                   value={dataDespesa}

@@ -14,10 +14,11 @@ interface DadosIgreja {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
+  // Aba ativa selecionada pelo usuário
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('perfil');
   const [loading, setLoading] = useState(false);
 
-  // 1. Perfil Pessoal
+  // 1. Dados do Perfil
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
   const [fotoUrl, setFotoUrl] = useState('');
   const [rua, setRua] = useState('');
@@ -54,7 +55,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const emailUsuario = loggedUser?.email;
   const usuarioId = loggedUser?.id || loggedUser?.auth_user_id || loggedUser?.email;
 
-  // Carregar dados de forma totalmente segura
+  // Carregar todos os dados de forma segura sem travar a navegação
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -94,50 +95,37 @@ export default function AppMobileModule({ loggedUser }: Props) {
         }
       }
 
-      // 2. Buscar Agenda (com fallback seguro caso a tabela esteja sendo inicializada)
-      try {
-        const { data: dataAgenda, error: errAgenda } = await supabase
-          .from('agenda')
-          .select('*')
-          .eq('codigo_igreja', codigoIgreja)
-          .order('data_evento', { ascending: true });
+      // 2. Agenda Pessoal
+      const { data: dataAgenda } = await supabase
+        .from('agenda')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
 
-        if (!errAgenda && dataAgenda) {
-          // Filtra compromissos do usuário ou gerais
-          const filtrados = dataAgenda.filter(
-            (a) => String(a.usuario_id) === String(usuarioId) || a.tipo === 'Pessoal' || !a.usuario_id
-          );
-          setMinhaAgenda(filtrados);
-        }
-      } catch (eAgenda) {
-        console.warn('Tabela agenda ainda não pronta:', eAgenda);
+      if (dataAgenda) {
+        // Exibe registros do usuário ou de tipo 'Pessoal'
+        const listaPessoal = dataAgenda.filter(
+          (a) => String(a.usuario_id) === String(usuarioId) || a.tipo === 'Pessoal' || !a.usuario_id
+        );
+        setMinhaAgenda(listaPessoal);
       }
 
       // 3. Dados da Igreja
-      try {
-        const { data: dataIgr } = await supabase
-          .from('dados_igreja')
-          .select('*')
-          .eq('codigo_igreja', codigoIgreja)
-          .maybeSingle();
+      const { data: dataIgr } = await supabase
+        .from('dados_igreja')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .maybeSingle();
 
-        if (dataIgr) setDadosIgreja(dataIgr);
-      } catch (eIgr) {
-        console.warn('Tabela dados_igreja não pronta:', eIgr);
-      }
+      if (dataIgr) setDadosIgreja(dataIgr);
 
       // 4. Reuniões de Célula
-      try {
-        const { data: dataReunioes } = await supabase
-          .from('reunioes_celulas')
-          .select('*')
-          .eq('codigo_igreja', codigoIgreja)
-          .order('data_reuniao', { ascending: false });
+      const { data: dataReunioes } = await supabase
+        .from('reunioes_celulas')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('data_reuniao', { ascending: false });
 
-        if (dataReunioes) setReunioesCelula(dataReunioes);
-      } catch (eReun) {
-        console.warn('Tabela reunioes_celulas não pronta:', eReun);
-      }
+      if (dataReunioes) setReunioesCelula(dataReunioes);
 
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
@@ -150,7 +138,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
-  // AÇÃO PERFIL
+  // AÇÕES PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -175,7 +163,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO AGENDA PESSOAL
+  // AÇÕES AGENDA
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -215,7 +203,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO REUNIÃO CÉLULA
+  // AÇÕES CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -259,33 +247,44 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS */}
+        {/* BARRINHA DE NAVEGAÇÃO SUPERIOR */}
         <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAbaApp('perfil')}
-            className={`py-2 rounded-lg transition cursor-pointer ${subAbaApp === 'perfil' ? 'bg-blue-600 text-white' : 'text-blue-200'}`}
+            className={`py-2 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
           >
             👤 Perfil
           </button>
+
           <button
             type="button"
             onClick={() => setSubAbaApp('minha_agenda')}
-            className={`py-2 rounded-lg transition cursor-pointer ${subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white' : 'text-blue-200'}`}
+            className={`py-2 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
           >
             📅 Agenda
           </button>
+
           <button
             type="button"
             onClick={() => setSubAbaApp('celula')}
-            className={`py-2 rounded-lg transition cursor-pointer ${subAbaApp === 'celula' ? 'bg-blue-600 text-white' : 'text-blue-200'}`}
+            className={`py-2 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
           >
             🏡 Célula
           </button>
+
           <button
             type="button"
             onClick={() => setSubAbaApp('igreja')}
-            className={`py-2 rounded-lg transition cursor-pointer ${subAbaApp === 'igreja' ? 'bg-blue-600 text-white' : 'text-blue-200'}`}
+            className={`py-2 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
           >
             ⛪ Igreja
           </button>
@@ -298,7 +297,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 1. PERFIL */}
+            {/* 1. ABA PERFIL */}
             {subAbaApp === 'perfil' && (
               <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">
                 <h3 className="font-black text-blue-900 text-sm border-b pb-2">✏️ Editar Meu Cadastro</h3>
@@ -365,18 +364,18 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 2. AGENDA PESSOAL */}
+            {/* 2. ABA AGENDA */}
             {subAbaApp === 'minha_agenda' && (
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">
                   <div>
                     <h3 className="font-black text-blue-900 text-sm">📅 Minha Agenda Pessoal</h3>
-                    <p className="text-[10px] text-slate-500">Seus compromissos e lembretes</p>
+                    <p className="text-[10px] text-slate-500">Seus compromissos particulares</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setModalNovaAgenda(true)}
-                    className="px-3 py-1.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer"
+                    className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
                   >
                     ➕ Novo
                   </button>
@@ -384,8 +383,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                 {minhaAgenda.length === 0 ? (
                   <div className="p-8 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-1">
-                    <p className="font-bold text-slate-600">Sua agenda pessoal está vazia.</p>
-                    <p className="text-[11px]">Clique em "+ Novo" para cadastrar seu primeiro compromisso!</p>
+                    <p className="font-bold text-slate-600">Sua agenda está vazia.</p>
+                    <p className="text-[11px]">Clique no botão "+ Novo" acima para criar um compromisso!</p>
                   </div>
                 ) : (
                   minhaAgenda.map((item) => (
@@ -415,7 +414,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 3. CÉLULA */}
+            {/* 3. ABA CÉLULA */}
             {subAbaApp === 'celula' && (
               <div className="space-y-4 text-xs">
                 <div className="bg-white p-4 rounded-2xl border space-y-2">
@@ -477,7 +476,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 4. IGREJA */}
+            {/* 4. ABA IGREJA */}
             {subAbaApp === 'igreja' && (
               <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs">
                 <h3 className="font-black text-blue-900 text-sm border-b pb-2">⛪ Informações da Igreja</h3>
@@ -523,7 +522,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 <label className="block font-bold text-slate-700 mb-1">Compromisso / Lembrete *</label>
                 <input
                   type="text"
-                  placeholder="Ex: Discipulado com João, Visita..."
+                  placeholder="Ex: Discipulado, Reunião..."
                   value={novoTitulo}
                   onChange={(e) => setNovoTitulo(e.target.value)}
                   className="w-full border rounded-xl p-2 font-semibold"

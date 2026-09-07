@@ -17,7 +17,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
   const [loading, setLoading] = useState(false);
 
-  // 1. Dados do Perfil Pessoal
+  // 1. Perfil Pessoal
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
   const [fotoUrl, setFotoUrl] = useState('');
   const [rua, setRua] = useState('');
@@ -25,7 +25,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
 
-  // 2. Agenda Pessoal do Usuário
+  // 2. Agenda Pessoal
   const [minhaAgenda, setMinhaAgenda] = useState<any[]>([]);
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaData, setNovaData] = useState(new Date().toISOString().split('T')[0]);
@@ -39,7 +39,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     link_instagram: 'https://instagram.com',
   });
 
-  // 4. Controle de Célula
+  // 4. Célula
   const [minhaCelula, setMinhaCelula] = useState<any>(null);
   const [participantesCelula, setParticipantesCelula] = useState<any[]>([]);
   const [reunioesCelula, setReunioesCelula] = useState<any[]>([]);
@@ -54,7 +54,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const emailUsuario = loggedUser?.email;
   const usuarioId = loggedUser?.id || loggedUser?.auth_user_id || loggedUser?.email;
 
-  // Carregar Dados
+  // Carregar dados de forma totalmente segura
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -94,33 +94,50 @@ export default function AppMobileModule({ loggedUser }: Props) {
         }
       }
 
-      // 2. Buscar Agenda Pessoal do Usuário Logado
-      const { data: dataAgenda } = await supabase
-        .from('agenda')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .eq('usuario_id', usuarioId)
-        .order('data_evento', { ascending: true });
+      // 2. Buscar Agenda (com fallback seguro caso a tabela esteja sendo inicializada)
+      try {
+        const { data: dataAgenda, error: errAgenda } = await supabase
+          .from('agenda')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja)
+          .order('data_evento', { ascending: true });
 
-      if (dataAgenda) setMinhaAgenda(dataAgenda);
+        if (!errAgenda && dataAgenda) {
+          // Filtra compromissos do usuário ou gerais
+          const filtrados = dataAgenda.filter(
+            (a) => String(a.usuario_id) === String(usuarioId) || a.tipo === 'Pessoal' || !a.usuario_id
+          );
+          setMinhaAgenda(filtrados);
+        }
+      } catch (eAgenda) {
+        console.warn('Tabela agenda ainda não pronta:', eAgenda);
+      }
 
       // 3. Dados da Igreja
-      const { data: dataIgr } = await supabase
-        .from('dados_igreja')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .maybeSingle();
+      try {
+        const { data: dataIgr } = await supabase
+          .from('dados_igreja')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja)
+          .maybeSingle();
 
-      if (dataIgr) setDadosIgreja(dataIgr);
+        if (dataIgr) setDadosIgreja(dataIgr);
+      } catch (eIgr) {
+        console.warn('Tabela dados_igreja não pronta:', eIgr);
+      }
 
-      // 4. Reuniões da Célula
-      const { data: dataReunioes } = await supabase
-        .from('reunioes_celulas')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('data_reuniao', { ascending: false });
+      // 4. Reuniões de Célula
+      try {
+        const { data: dataReunioes } = await supabase
+          .from('reunioes_celulas')
+          .select('*')
+          .eq('codigo_igreja', codigoIgreja)
+          .order('data_reuniao', { ascending: false });
 
-      if (dataReunioes) setReunioesCelula(dataReunioes);
+        if (dataReunioes) setReunioesCelula(dataReunioes);
+      } catch (eReun) {
+        console.warn('Tabela reunioes_celulas não pronta:', eReun);
+      }
 
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
@@ -133,7 +150,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
-  // AÇÃO 1: SALVAR PERFIL
+  // AÇÃO PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -158,7 +175,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 2: SALVAR COMPROMISSO NA AGENDA PESSOAL
+  // AÇÃO AGENDA PESSOAL
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -185,7 +202,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 2.1: EXCLUIR COMPROMISSO DA AGENDA PESSOAL
   const handleExcluirCompromisso = async (id: any) => {
     if (!window.confirm('Deseja remover este compromisso da sua agenda?')) return;
     try {
@@ -199,7 +215,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 3: CADASTRAR REUNIÃO DA CÉLULA
+  // AÇÃO REUNIÃO CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -243,7 +259,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DO APP */}
+        {/* NAVEGAÇÃO DE ABAS */}
         <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
           <button
             type="button"
@@ -282,7 +298,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 1. MEU PERFIL */}
+            {/* 1. PERFIL */}
             {subAbaApp === 'perfil' && (
               <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">
                 <h3 className="font-black text-blue-900 text-sm border-b pb-2">✏️ Editar Meu Cadastro</h3>
@@ -349,13 +365,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 2. MINHA AGENDA PESSOAL */}
+            {/* 2. AGENDA PESSOAL */}
             {subAbaApp === 'minha_agenda' && (
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">
                   <div>
                     <h3 className="font-black text-blue-900 text-sm">📅 Minha Agenda Pessoal</h3>
-                    <p className="text-[10px] text-slate-500">Seus compromissos e lembretes particulares</p>
+                    <p className="text-[10px] text-slate-500">Seus compromissos e lembretes</p>
                   </div>
                   <button
                     type="button"
@@ -380,7 +396,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             📅 {item.data_evento?.split('-').reverse().join('/')} às {item.hora_evento || '19:00'}
                           </span>
                           <span className="text-[9px] bg-indigo-50 text-indigo-700 font-bold px-2 py-0.5 rounded">
-                            Pessoal
+                            {item.tipo || 'Pessoal'}
                           </span>
                         </div>
                         <p className="font-bold text-slate-800 text-sm mt-0.5">{item.titulo}</p>
@@ -419,7 +435,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </p>
                 </div>
 
-                {/* LISTA DOS PARTICIPANTES */}
                 <div className="bg-white p-4 rounded-2xl border space-y-2">
                   <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
                     👥 Integrantes da Célula ({participantesCelula.length})
@@ -441,7 +456,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </div>
                 </div>
 
-                {/* REUNIÕES E COMENTÁRIOS */}
                 <div className="bg-white p-4 rounded-2xl border space-y-2">
                   <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
                     📋 Histórico de Encontros & Notas
@@ -499,7 +513,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         )}
       </div>
 
-      {/* MODAL NOVO COMPROMISSO AGENDA PESSOAL */}
+      {/* MODAL AGENDA PESSOAL */}
       {modalNovaAgenda && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-5 space-y-3 text-xs">
@@ -528,8 +542,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setModalNovaAgenda(false)} className="w-full py-2.5 bg-slate-100 font-bold rounded-xl">Cancelar</button>
-                <button type="submit" className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow">Salvar</button>
+                <button type="button" onClick={() => setModalNovaAgenda(false)} className="w-full py-2.5 bg-slate-100 font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer">Salvar</button>
               </div>
             </form>
           </div>
@@ -564,8 +578,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setModalNovaReuniao(false)} className="w-full py-2.5 bg-slate-100 font-bold rounded-xl">Cancelar</button>
-                <button type="submit" className="w-full py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow">Salvar</button>
+                <button type="button" onClick={() => setModalNovaReuniao(false)} className="w-full py-2.5 bg-slate-100 font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="w-full py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer">Salvar</button>
               </div>
             </form>
           </div>

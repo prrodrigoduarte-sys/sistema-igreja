@@ -455,67 +455,93 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 3. ABA CÉLULA */}
-            {subAbaApp === 'celula' && (
-              <div className="space-y-4 text-xs">
-                <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
-                  <div className="flex justify-between items-center border-b pb-2">
-                    <h3 className="font-black text-blue-900 text-sm">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
-                    <button
-                      type="button"
-                      onClick={() => setModalNovaReuniao(true)}
-                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer"
-                    >
-                      ➕ Registrar Encontro
-                    </button>
-                  </div>
+           {/* 3. ABA CÉLULA COM EDIÇÃO E EXCLUSÃO */}
+{subAbaApp === 'celula' && (
+  <div className="space-y-4 text-xs">
+    <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
+      <div className="flex justify-between items-center border-b pb-2">
+        <h3 className="font-black text-blue-900 text-sm">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
+        <button
+          type="button"
+          onClick={() => {
+            setItemEditandoReuniao(null);
+            setDataReuniao(new Date().toISOString().split('T')[0]);
+            setHoraReuniao('19:30');
+            setTemaEstudo('');
+            setComentariosCelula('');
+            setModalNovaReuniao(true);
+          }}
+          className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer"
+        >
+          ➕ Registrar Encontro
+        </button>
+      </div>
 
-                  <p className="text-slate-500">
-                    Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
-                  </p>
-                </div>
+      <p className="text-slate-500">
+        Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
+      </p>
+    </div>
 
-                <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
-                  <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
-                    👥 Integrantes da Célula ({participantesCelula.length})
-                  </h4>
-                  <div className="space-y-1.5">
-                    {participantesCelula.map((p) => (
-                      <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
-                        <span className="font-bold text-slate-800">{p.nome}</span>
-                        <a
-                          href={`https://wa.me/55${p.celular_principal?.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200"
-                        >
-                          💬 WhatsApp
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+    {/* HISTÓRICO DE ENCONTROS COM BOTAO EDITAR E EXCLUIR */}
+    <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
+      <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
+        📋 Histórico de Encontros & Notas
+      </h4>
+      {reunioesCelula.length === 0 ? (
+        <p className="text-slate-400 italic text-center py-2">Nenhum evento registrado.</p>
+      ) : (
+        reunioesCelula.map((r) => (
+          <div key={r.id} className="p-3 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
+            <div>
+              <span className="font-bold text-blue-900 block">
+                📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
+              </span>
+              {r.estudo_tema && <p className="font-medium text-slate-800">📘 Estudo: {r.estudo_tema}</p>}
+              {r.comentarios && <p className="text-slate-500 italic">💬 Nota: {r.comentarios}</p>}
+            </div>
 
-                <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
-                  <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
-                    📋 Histórico de Encontros & Notas
-                  </h4>
-                  {reunioesCelula.length === 0 ? (
-                    <p className="text-slate-400 italic text-center py-2">Nenhum evento registrado.</p>
-                  ) : (
-                    reunioesCelula.map((r) => (
-                      <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1">
-                        <span className="font-bold text-blue-900 block">
-                          📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
-                        </span>
-                        {r.estudo_tema && <p className="font-medium text-slate-800">📘 Estudo: {r.estudo_tema}</p>}
-                        {r.comentarios && <p className="text-slate-500 italic">💬 Nota: {r.comentarios}</p>}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+            {/* AÇÕES DE EDIÇÃO E EXCLUSÃO DA REUNIÃO */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setItemEditandoReuniao(r);
+                  setDataReuniao(r.data_reuniao || new Date().toISOString().split('T')[0]);
+                  setHoraReuniao(r.hora_reuniao || '19:30');
+                  setTemaEstudo(r.estudo_tema || '');
+                  setComentariosCelula(r.comentarios || '');
+                  setModalNovaReuniao(true);
+                }}
+                className="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer"
+                title="Editar Reunião"
+              >
+                ✏️
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!window.confirm('Excluir este registro de reunião?')) return;
+                  try {
+                    const { error } = await supabase.from('reunioes_celulas').delete().eq('id', r.id);
+                    if (error) throw error;
+                    carregarDadosApp();
+                  } catch (err: any) {
+                    alert('Erro ao excluir: ' + err.message);
+                  }
+                }}
+                className="w-7 h-7 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg flex items-center justify-center cursor-pointer"
+                title="Excluir Reunião"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  </div>
+)}
 
             {/* 4. ABA IGREJA */}
             {subAbaApp === 'igreja' && (

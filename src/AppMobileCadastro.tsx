@@ -14,10 +14,10 @@ interface DadosIgreja {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Aba ativa selecionada pelo usuário (Inicia na Agenda para teste direto)
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
+  // Estado padronizado: subAbaApp
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('perfil');
 
-  // 1. Dados do Perfil
+  // 1. Perfil Pessoal
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
   const [fotoUrl, setFotoUrl] = useState('');
   const [rua, setRua] = useState('');
@@ -54,7 +54,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const emailUsuario = loggedUser?.email;
   const usuarioId = loggedUser?.id || loggedUser?.auth_user_id || loggedUser?.email;
 
-  // Carregar dados silenciosamente em segundo plano sem bloquear a UI
   const carregarDadosApp = useCallback(async () => {
     try {
       // 1. Perfil
@@ -115,7 +114,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataIgr) setDadosIgreja(dataIgr);
 
-      // 4. Reuniões de Célula
+      // 4. Reuniões
       const { data: dataReunioes } = await supabase
         .from('reunioes_celulas')
         .select('*')
@@ -133,7 +132,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
-  // PERFIL
+  // AÇÕES
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -158,7 +157,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AGENDA
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -198,7 +196,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -242,7 +239,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS */}
+        {/* BARRINHA DE NAVEGAÇÃO CORRIGIDA COM setSubAbaApp */}
         <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
           <button
             type="button"
@@ -355,7 +352,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           </div>
         )}
 
-        {/* 2. ABA AGENDA (RENDERIZAÇÃO DIRETA) */}
+        {/* 2. ABA AGENDA */}
         {subAbaApp === 'minha_agenda' && (
           <div className="space-y-3 text-xs">
             <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">

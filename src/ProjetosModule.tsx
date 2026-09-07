@@ -394,19 +394,23 @@ export default function ProjetosModule({ loggedUser }: Props) {
     if (!nomeParticipante.trim()) return alert('Informe o nome do participante.');
 
     try {
-      const payload = {
+      const payload: any = {
         codigo_igreja: codigoIgreja,
         projeto_id: projetoSelecionado.id,
-        membro_id: membroSelecionadoId ? membroSelecionadoId : null,
         nome_participante: nomeParticipante.trim(),
-        celular: celularParticipante.trim(),
-        email: emailParticipante.trim(),
         valor_participacao: Number(valorParticipacao) || 0,
         status_pagamento: statusPagamento,
-        forma_pagamento: statusPagamento === 'Pago' ? formaPagamento : null,
-        data_pagamento: statusPagamento === 'Pago' ? dataPagamento : null,
-        observacoes: obsInscricao.trim(),
       };
+
+      if (membroSelecionadoId) payload.membro_id = membroSelecionadoId;
+      if (celularParticipante.trim()) payload.celular = celularParticipante.trim();
+      if (emailParticipante.trim()) payload.email = emailParticipante.trim();
+      if (obsInscricao.trim()) payload.observacoes = obsInscricao.trim();
+
+      if (statusPagamento === 'Pago') {
+        payload.forma_pagamento = formaPagamento;
+        payload.data_pagamento = dataPagamento;
+      }
 
       if (inscricaoEdicao) {
         const { error } = await supabase

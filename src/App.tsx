@@ -14,6 +14,7 @@ import ControleRegistroModule from './ControleRegistroModule';
 import CelulasModule from './CelulasModule';
 import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
+import AppMobileModule from './AppMobileModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -415,6 +416,18 @@ function App() {
             🏠 Dashboard
           </button>
 
+          {/* APLICATIVO MOBILE */}
+          <button
+            type="button"
+            onClick={() => selecionarAba('app-mobile')}
+            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
+              activeTab === 'app-mobile' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">📱 Aplicativo Mobile</span>
+            <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">APP</span>
+          </button>
+
           {/* GRUPO CADASTROS */}
           <button
             type="button"
@@ -668,6 +681,7 @@ function App() {
 
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
         {activeTab === 'dashboard' && <DashboardHome loggedUser={loggedUser} selecionarAba={selecionarAba} />}
+        {activeTab === 'app-mobile' && <AppMobileModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}

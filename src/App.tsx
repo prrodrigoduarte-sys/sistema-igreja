@@ -1,8 +1,10 @@
 // src/App.tsx
+
 // Adicione isto bem no topo do src/App.tsx para blindar o erro globalmente
 if (typeof window !== 'undefined') {
   (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
 }
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';
@@ -18,6 +20,7 @@ import CelulasModule from './CelulasModule';
 import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
+import CadastroIgrejaModule from './CadastroIgrejaModule';
 
 function App() {
   const [rotaPublica, setRotaPublica] = useState(
@@ -652,6 +655,16 @@ function App() {
 
               <button
                 type="button"
+                onClick={() => selecionarAba('configuracoes-igreja')}
+                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                  activeTab === 'configuracoes-igreja' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                }`}
+              >
+                🏛️ Cadastro da Igreja / Congregações
+              </button>
+
+              <button
+                type="button"
                 onClick={() => selecionarAba('controle_registro')}
                 className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
                   activeTab === 'controle_registro' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
@@ -705,6 +718,7 @@ function App() {
         )}
 
         {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
+        {activeTab === 'configuracoes-igreja' && <CadastroIgrejaModule loggedUser={loggedUser} />}
         {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
         {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}
         {activeTab === 'financeiro' && <FinanceiroModule loggedUser={loggedUser} />}

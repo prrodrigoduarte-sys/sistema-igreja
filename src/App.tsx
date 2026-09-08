@@ -945,46 +945,79 @@ function App() {
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-        {activeTab === 'dashboard' && temPermissao('dashboard') && <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />}
-        {activeTab === 'app-mobile' && temPermissao('app-mobile') && <AppMobileModule loggedUser={userEfetivo} />}
-        {activeTab === 'cadastros-membros' && temPermissao('cadastros') && <MembrosModule loggedUser={userEfetivo} />}
-        {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && <FornecedoresModule loggedUser={userEfetivo} />}
-        {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && <MinisteriosModule loggedUser={userEfetivo} />}
+  {activeTab === 'dashboard' && temPermissao('dashboard') && (
+    <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
+  )}
 
-        {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
-          <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
-        )}
+  {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
+    <div className="w-full max-w-6xl mx-auto">
+      <AppMobileModule loggedUser={userEfetivo} />
+    </div>
+  )}
 
-        {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
-          <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
-        )}
+  {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
+    <MembrosModule loggedUser={userEfetivo} />
+  )}
 
-        {(activeTab === 'discipulado' || activeTab.startsWith('discipulado-')) && temPermissao('discipulado') && (
-          <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
-        )}
+  {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && (
+    <FornecedoresModule loggedUser={userEfetivo} />
+  )}
 
-        {/* CHAMADA EXATA PARA O SEU MÓDULO DE USUÁRIOS ORIGINAL */}
-        {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && <UsuariosModule loggedUser={userEfetivo} />}
-        {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && <CadastroIgrejaModule loggedUser={userEfetivo} />}
-        {activeTab === 'controle_registro' && temPermissao('configuracoes') && <ControleRegistroModule loggedUser={userEfetivo} />}
+  {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && (
+    <MinisteriosModule loggedUser={userEfetivo} />
+  )}
 
-        {activeTab === 'projetos' && temPermissao('projetos') && <ProjetosModule loggedUser={userEfetivo} />}
-        {activeTab === 'agenda' && temPermissao('agenda') && <AgendaModule loggedUser={userEfetivo} />}
-        {activeTab === 'financeiro' && temPermissao('financeiro') && <FinanceiroModule loggedUser={userEfetivo} />}
+  {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
+    <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
+  )}
 
-        {/* TELA DE MÓDULO BLOQUEADO */}
-        {!temPermissao(activeTab.split('-')[0]) && (
-          <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
-            <div className="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-3xl font-black mx-auto">
-              🔒
-            </div>
-            <h3 className="text-xl font-black text-blue-900">Módulo Bloqueado</h3>
-            <p className="text-xs text-slate-500 leading-relaxed">
-              Você ainda não possui permissão para acessar este módulo. Solicite a liberação ao Administrador da sua igreja.
-            </p>
-          </div>
-        )}
-      </main>
+  {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
+    <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
+  )}
+
+  {activeTab.startsWith('discipulado') && temPermissao('discipulado') && (
+    <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
+  )}
+
+  {/* CONFIGURAÇÕES COM PERMISSÃO INDIVIDUAL BLINDADA */}
+  {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
+    <UsuariosModule loggedUser={userEfetivo} />
+  )}
+
+  {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
+    <CadastroIgrejaModule loggedUser={userEfetivo} />
+  )}
+
+  {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
+    <ControleRegistroModule loggedUser={userEfetivo} />
+  )}
+
+  {/* OUTROS MÓDULOS COM SUAS RESPECTIVAS PERMISSÕES */}
+  {activeTab === 'projetos' && temPermissao('projetos') && (
+    <ProjetosModule loggedUser={userEfetivo} />
+  )}
+
+  {activeTab === 'agenda' && temPermissao('agenda') && (
+    <AgendaModule loggedUser={userEfetivo} />
+  )}
+
+  {activeTab === 'financeiro' && temPermissao('financeiro') && (
+    <FinanceiroModule loggedUser={userEfetivo} />
+  )}
+
+  {/* TELA DE MÓDULO BLOQUEADO CASO NÃO TENHA ACESSO */}
+  {!temPermissao(activeTab.split('-')[0]) && activeTab !== 'controle_registro' && (
+    <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
+      <div className="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-3xl font-black mx-auto">
+        🔒
+      </div>
+      <h3 className="text-xl font-black text-blue-900">Módulo Bloqueado</h3>
+      <p className="text-xs text-slate-500 leading-relaxed">
+        Você não possui permissão para acessar este módulo.
+      </p>
+    </div>
+  )}
+</main>
 
       {/* MODAL INTUITIVO MOBILE */}
       {isMobileModalOpen && (

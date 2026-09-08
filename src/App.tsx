@@ -319,43 +319,16 @@ function App() {
       return;
     }
 
-    const emailLimpo = email.trim().toLowerCase();
-
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: emailLimpo,
+      email,
       password,
     });
 
     if (authError) {
-      if (authError.message.toLowerCase().includes('already registered')) {
-        alert('Este e-mail já possui uma conta cadastrada. Por favor, faça login.');
-        setIsLogin(true);
-        return;
-      }
       alert('Erro no cadastro (Auth): ' + authError.message);
       return;
     }
 
-    const authUserId = authData.user?.id || authData.session?.user?.id;
-
-    const { error: profileError } = await supabase.from('usuarios').upsert([
-      {
-        auth_user_id: authUserId || null,
-        email: emailLimpo,
-        nome_usuario: nomeUsuario,
-        codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'comum',
-        ativo: true,
-      },
-    ], { onConflict: 'email' });
-
-    if (profileError) {
-      console.error('Erro no perfil:', profileError);
-    }
-
-    alert('Conta cadastrada com sucesso! Faça login para entrar.');
-    setIsLogin(true);
-  };
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
     const { error: profileError } = await supabase.from('usuarios').insert([
@@ -440,16 +413,24 @@ function App() {
 
   const temPermissao = (moduloKey: string) => {
     if (isAdmin) return true;
-    
-    // 1. Verifica se tem a permissão exata (ex: 'configuracoes-usuarios' ou 'configuracoes')
-    if (permissoesAtivas.includes(moduloKey)) return true;
-
-    // 2. Se for uma sub-aba (ex: 'configuracoes-usuarios'), verifica se tem permissão na categoria pai ('configuracoes')
-    const moduloBase = moduloKey.split('-')[0];
-    if (permissoesAtivas.includes(moduloBase)) return true;
-
-    return false;
+    return permissoesAtivas.includes(moduloKey);
   };
+
+  const selecionarAba = (aba: string) => {
+    setActiveTab(aba);
+  };
+
+  if (rotaPublica) {
+    return <CadastroPublico />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
+        Carregando sistema...
+      </div>
+    );
+  }
 
   if (exigir2FA) {
     return (

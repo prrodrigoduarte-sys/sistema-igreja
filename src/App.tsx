@@ -28,7 +28,7 @@ function getOrCreateDeviceToken() {
   return token;
 }
 
-function App() {
+export default function App() {
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
   const [rotaPublica, setRotaPublica] = useState(
     window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro')
@@ -121,25 +121,6 @@ function App() {
       }
       return;
     }
-    // 🔒 FUNÇÃO DE PERMISSÃO POR MÓDULO (Zera tudo se o admin não liberar)
-  const temPermissaoModulo = (modulo: string) => {
-    // Se for administrador, tem acesso total
-    if (userEfetivo?.perfil === 'administrador' || userEfetivo?.perfil === 'admin') {
-      return true;
-    }
-
-    try {
-      // Lê o JSON de permissões salvo no banco para este usuário
-      const perms = typeof userEfetivo?.permissoes === 'string' 
-        ? JSON.parse(userEfetivo.permissoes) 
-        : (userEfetivo?.permissoes || {});
-
-      // Retorna true se estiver marcado, ou false (zerado) se não estiver
-      return !!perms[modulo];
-    } catch (e) {
-      return false; // Por segurança, se der erro, vem zerado
-    }
-  };
 
     const { data: regTentativa } = await supabase
       .from('tentativas_login')
@@ -338,13 +319,11 @@ function App() {
       return;
     }
 
-    // Verifica se já existe algum usuário cadastrado para esta igreja
     const { count, error: countError } = await supabase
       .from('usuarios')
       .select('*', { count: 'exact', head: true })
       .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
 
-    // O primeiro usuário da igreja vira 'administrador' automaticamente; os demais entram como 'comum' (zerados)
     const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -371,19 +350,13 @@ function App() {
     ]);
 
     if (profileError) {
-      alert('Erro ao salvar perfil: ' + profileError.message);
-    } else {
-      alert(perfilInicial === 'administrador' 
-        ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
-        : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
-    }
-  };
-    if (profileError) {
       alert('Erro ao criar perfil do usuário: ' + profileError.message);
       return;
     }
 
-    alert('Conta cadastrada com sucesso! Faça login para entrar.');
+    alert(perfilInicial === 'administrador' 
+      ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+      : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
     setIsLogin(true);
   };
 
@@ -456,29 +429,11 @@ function App() {
     setActiveTab(aba);
   };
 
-  export default function App() {
-    // ... seus estados e funções (temPermissao, selecionarAba, etc.) ...
-  
-    // SE FOR ROTA PÚBLICA, RENDERIZA DIRETO AQUI
-    if (rotaPublica) {
-      return <CadastroPublico />;
-    }
-  
-    if (loading) {
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
-          Carregando sistema...
-        </div>
-      );
-    }
-  
-    // AQUI COMEÇA O RETURN PRINCIPAL DO SISTEMA LOGADO
-    return (
-      <div className="...">
-        {/* Todo o resto do seu layout, menus e módulos */}
-      </div>
-    );
+  // ROTA PÚBLICA
+  if (rotaPublica) {
+    return <CadastroPublico />;
   }
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
@@ -946,14 +901,14 @@ function App() {
               {isConfiguracoesOpen && (
                 <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
                   <button
-  type="button"
-  onClick={() => selecionarAba('configuracoes-usuarios')}
-  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-    activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-  }`}
->
-  Controle de Usuários
-</button>
+                    type="button"
+                    onClick={() => selecionarAba('configuracoes-usuarios')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Controle de Usuários
+                  </button>
                   <button
                     type="button"
                     onClick={() => selecionarAba('configuracoes-igreja')}
@@ -999,66 +954,64 @@ function App() {
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-  {activeTab === 'dashboard' && temPermissao('dashboard') && (
-    <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
-  )}
+        {activeTab === 'dashboard' && temPermissao('dashboard') && (
+          <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
+        )}
 
-{activeTab === 'app-mobile' && temPermissao('app-mobile') && (
-  <div className="w-full max-w-4xl mx-auto">
-    <AppMobileModule loggedUser={userEfetivo} />
-  </div>
-)}
+        {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
+          <div className="w-full max-w-4xl mx-auto">
+            <AppMobileModule loggedUser={userEfetivo} />
+          </div>
+        )}
 
-  {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
-    <MembrosModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
+          <MembrosModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && (
-    <FornecedoresModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && (
+          <FornecedoresModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && (
-    <MinisteriosModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && (
+          <MinisteriosModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
-    <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
+          <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
-    <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
-  )}
+        {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
+          <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
+        )}
 
-  {activeTab.startsWith('discipulado') && temPermissao('discipulado') && (
-    <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
-  )}
+        {activeTab.startsWith('discipulado') && temPermissao('discipulado') && (
+          <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
+        )}
 
-{activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
-  <UsuariosModule loggedUser={userEfetivo} />
-)}
+        {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
+          <UsuariosModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
-    <CadastroIgrejaModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
+          <CadastroIgrejaModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
-    <ControleRegistroModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
+          <ControleRegistroModule loggedUser={userEfetivo} />
+        )}
 
-  {/* OUTROS MÓDULOS COM SUAS RESPECTIVAS PERMISSÕES */}
-  {activeTab === 'projetos' && temPermissao('projetos') && (
-    <ProjetosModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'projetos' && temPermissao('projetos') && (
+          <ProjetosModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'agenda' && temPermissao('agenda') && (
-    <AgendaModule loggedUser={userEfetivo} />
-  )}
+        {activeTab === 'agenda' && temPermissao('agenda') && (
+          <AgendaModule loggedUser={userEfetivo} />
+        )}
 
-  {activeTab === 'financeiro' && temPermissao('financeiro') && (
-    <FinanceiroModule loggedUser={userEfetivo} />
-  )}
-
-</main>
+        {activeTab === 'financeiro' && temPermissao('financeiro') && (
+          <FinanceiroModule loggedUser={userEfetivo} />
+        )}
+      </main>
 
       {/* MODAL INTUITIVO MOBILE */}
       {isMobileModalOpen && (
@@ -1430,10 +1383,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         )}
       </div>
 
-      <div className="p-8 bg-slate-50 rounded-2xl border border-dashed border-slate-300 text-slate-500 text-center">
-        <p className="font-medium">Utilize os cards acima para rápida edição de cadastros ou navegue pelo menu lateral.</p>
-      </div>
-
       {modalListaOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
@@ -1685,5 +1634,3 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     </div>
   );
 }
-
-export default App;

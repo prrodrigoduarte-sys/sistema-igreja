@@ -978,11 +978,9 @@ function App() {
     <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
   )}
 
-{activeTab === 'configuracoes-usuarios' && (
-    <div className="bg-red-100 p-8 text-red-900 font-bold text-xl rounded-2xl">
-      TESTE: O CONTROLE DE USUÁRIOS ESTÁ ABRINDO AQUI!
-    </div>
-  )}
+{activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
+  <UsuariosModule loggedUser={userEfetivo} />
+)}
 
   {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
     <CadastroIgrejaModule loggedUser={userEfetivo} />

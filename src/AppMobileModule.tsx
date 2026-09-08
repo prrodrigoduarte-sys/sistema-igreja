@@ -1,10 +1,18 @@
-// src/AppMobileModule.tsx
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 
 interface Props {
   loggedUser: any;
+}
+
+interface Compromisso {
+  id: string;
+  descricao: string;
+  data: string;
+  hora: string;
+  lembrete_minutos?: number;
+  frequencia?: string;
+  concluido?: boolean;
 }
 
 interface DadosIgreja {
@@ -26,13 +34,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
 
-  // 2. Agenda Pessoal (Criação e Edição)
-  const [minhaAgenda, setMinhaAgenda] = useState<any[]>([]);
+  // 2. Agenda Pessoal (Criação e Edição com Alarme)
+  const [minhaAgenda, setMinhaAgenda] = useState<Compromisso[]>([]);
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaData, setNovaData] = useState(new Date().toISOString().split('T')[0]);
   const [novaHora, setNovaHora] = useState('08:00');
+  const [lembreteMinutos, setLembreteMinutos] = useState(15);
+  const [frequencia, setFrequencia] = useState('unica');
   const [modalNovaAgenda, setModalNovaAgenda] = useState(false);
-  const [itemEditandoAgenda, setItemEditandoAgenda] = useState<any | null>(null);
+  const [itemEditandoAgenda, setItemEditandoAgenda] = useState<Compromisso | null>(null);
 
   // 3. Dados da Igreja
   const [dadosIgreja, setDadosIgreja] = useState<DadosIgreja>({
@@ -56,6 +66,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
   const emailUsuario = loggedUser?.email;
   const usuarioId = loggedUser?.id || loggedUser?.auth_user_id || loggedUser?.email;
+
+  // Solicitar permissão de Notificação do Navegador ao carregar
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Carregar todos os dados das abas
   const carregarDadosApp = useCallback(async () => {
@@ -97,12 +114,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
         }
       }
 
-      // 2. Agenda Pessoal
+      // 2. Agenda Pessoal / Mobile com Alarmes
       const { data: dataAgenda } = await supabase
-        .from('agenda')
+        .from('agenda_mobile')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
-        .order('data_evento', { ascending: true });
+        .order('data', { ascending: true })
+        .order('hora', { ascending: true });
 
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
@@ -135,6 +153,40 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
   }, [carregarDadosApp]);
 
+  // Alarme sonoro e notificação ativa em tempo real
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const agora = new Date();
+      const dataHoje = agora.toISOString().split('T')[0];
+      const horaAgora = agora.toTimeString().substring(0, 5);
+
+      minhaAgenda.forEach((c) => {
+        if (c.data === dataHoje && c.hora === horaAgora && !c.concluido) {
+          try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, ctx.currentTime);
+            osc.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 1.5);
+          } catch (e) {
+            console.log('Audio Context bloqueado pelo navegador');
+          }
+
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('⏰ Lembrete de Compromisso!', {
+              body: `${c.descricao} às ${c.hora}`,
+              icon: '/icon.png',
+            });
+          }
+        }
+      });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [minhaAgenda]);
+
   // AÇÃO 1: SALVAR / ATUALIZAR PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,15 +218,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setNovoTitulo('');
     setNovaData(new Date().toISOString().split('T')[0]);
     setNovaHora('08:00');
+    setLembreteMinutos(15);
+    setFrequencia('unica');
     setModalNovaAgenda(true);
   };
 
   // AÇÃO 3: ABRIR MODAL AGENDA (EDITAR)
-  const handleAbrirEditarAgenda = (item: any) => {
+  const handleAbrirEditarAgenda = (item: Compromisso) => {
     setItemEditandoAgenda(item);
-    setNovoTitulo(item.titulo || '');
-    setNovaData(item.data_evento || new Date().toISOString().split('T')[0]);
-    setNovaHora(item.hora_evento ? item.hora_evento.substring(0, 5) : '08:00');
+    setNovoTitulo(item.descricao || '');
+    setNovaData(item.data || new Date().toISOString().split('T')[0]);
+    setNovaHora(item.hora || '08:00');
+    setLembreteMinutos(item.lembrete_minutos || 15);
+    setFrequencia(item.frequencia || 'unica');
     setModalNovaAgenda(true);
   };
 
@@ -184,29 +240,25 @@ export default function AppMobileModule({ loggedUser }: Props) {
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
 
     try {
+      const payload = {
+        codigo_igreja: codigoIgreja,
+        descricao: novoTitulo.trim(),
+        data: novaData,
+        hora: novaHora,
+        lembrete_minutos: Number(lembreteMinutos),
+        frequencia,
+      };
+
       if (itemEditandoAgenda) {
         const { error } = await supabase
-          .from('agenda')
-          .update({
-            titulo: novoTitulo.trim(),
-            data_evento: novaData,
-            hora_evento: novaHora,
-          })
+          .from('agenda_mobile')
+          .update(payload)
           .eq('id', itemEditandoAgenda.id);
 
         if (error) throw error;
         alert('✏️ Compromisso atualizado com sucesso!');
       } else {
-        const payload = {
-          codigo_igreja: codigoIgreja,
-          usuario_id: usuarioId,
-          titulo: novoTitulo.trim(),
-          data_evento: novaData,
-          hora_evento: novaHora,
-          tipo: 'Pessoal',
-        };
-
-        const { error } = await supabase.from('agenda').insert([payload]);
+        const { error } = await supabase.from('agenda_mobile').insert([payload]);
         if (error) throw error;
         alert('📅 Compromisso adicionado!');
       }
@@ -221,10 +273,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   // AÇÃO 5: EXCLUIR AGENDA
-  const handleExcluirCompromisso = async (id: any) => {
+  const handleExcluirCompromisso = async (id: string) => {
     if (!window.confirm('Deseja remover este compromisso da sua agenda?')) return;
     try {
-      const { error } = await supabase.from('agenda').delete().eq('id', id);
+      const { error } = await supabase.from('agenda_mobile').delete().eq('id', id);
       if (error) throw error;
 
       alert('Compromisso removido.');
@@ -438,15 +490,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 2. ABA AGENDA */}
+            {/* 2. ABA AGENDA & ALARMES */}
             {subAbaApp === 'minha_agenda' && (
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">
                   <div>
                     <h3 className="font-black text-blue-900 text-sm flex items-center gap-1.5">
-                      📅 Minha Agenda
+                      📅 Minha Agenda & Alarmes
                     </h3>
-                    <p className="text-[10px] text-slate-500">Seus compromissos agendados</p>
+                    <p className="text-[10px] text-slate-500">Seus compromissos com alerta sonoro</p>
                   </div>
                   <button
                     type="button"
@@ -466,10 +518,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   minhaAgenda.map((item) => (
                     <div key={item.id} className="bg-white p-4 rounded-2xl border space-y-1 shadow-sm flex justify-between items-center">
                       <div>
-                        <span className="font-bold text-blue-900 text-xs flex items-center gap-1">
-                          📅 {item.data_evento} às {item.hora_evento || '08:00'}
-                        </span>
-                        <p className="font-bold text-slate-800 text-sm mt-0.5">{item.titulo}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-blue-900 text-xs">
+                            📅 {item.data} às {item.hora}
+                          </span>
+                          {item.lembrete_minutos !== undefined && (
+                            <span className="text-[10px] bg-amber-50 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
+                              🔔 {item.lembrete_minutos}m antes
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-bold text-slate-800 text-sm mt-0.5">{item.descricao}</p>
                       </div>
 
                       <div className="flex items-center gap-1.5">
@@ -616,7 +675,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         )}
       </div>
 
-      {/* MODAL AGENDA */}
+      {/* MODAL AGENDA MOBILE COM ALARME */}
       {modalNovaAgenda && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-5 space-y-3 text-xs shadow-2xl">
@@ -628,7 +687,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 <label className="block font-bold text-slate-700 mb-1">Descrição *</label>
                 <input
                   type="text"
-                  placeholder="Ex: Chacara, Discipulado..."
+                  placeholder="Ex: Reunião, Culto..."
                   value={novoTitulo}
                   onChange={(e) => setNovoTitulo(e.target.value)}
                   className="w-full border rounded-xl p-2.5 font-semibold text-slate-800"
@@ -643,6 +702,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     value={novaData}
                     onChange={(e) => setNovaData(e.target.value)}
                     className="w-full border rounded-xl p-2 font-semibold"
+                    required
                   />
                 </div>
                 <div>
@@ -652,8 +712,24 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     value={novaHora}
                     onChange={(e) => setNovaHora(e.target.value)}
                     className="w-full border rounded-xl p-2 font-semibold"
+                    required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">🔔 Alarme Sonoro</label>
+                <select
+                  value={lembreteMinutos}
+                  onChange={(e) => setLembreteMinutos(Number(e.target.value))}
+                  className="w-full border rounded-xl p-2.5 bg-white outline-none"
+                >
+                  <option value={0}>Na hora exata</option>
+                  <option value={5}>5 minutos antes</option>
+                  <option value={15}>15 minutos antes</option>
+                  <option value={30}>30 minutos antes</option>
+                  <option value={60}>1 hora antes</option>
+                </select>
               </div>
 
               <div className="flex gap-2 pt-2">

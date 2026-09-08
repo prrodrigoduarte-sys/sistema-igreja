@@ -74,7 +74,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
     try {
       let query = supabase
-        .from('agenda')
+        .from('agenda_compromissos')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
         .order('data_compromisso', { ascending: true })
@@ -99,7 +99,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     }
   }, [codigoIgreja, filtroData]);
 
-  // Busca robusta de membros (tenta 'membros' ou 'members' e várias colunas de nome)
+  // Busca de membros da igreja
   const fetchMembros = useCallback(async () => {
     if (!codigoIgreja) return;
     try {
@@ -209,7 +209,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
       if (editingCompromisso) {
         const { error: updateError } = await supabase
-          .from('agenda')
+          .from('agenda_compromissos')
           .update(payload)
           .eq('id', editingCompromisso.id);
 
@@ -217,7 +217,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
         alert('Compromisso atualizado com sucesso!');
       } else {
         const { error: insertError } = await supabase
-          .from('agenda')
+          .from('agenda_compromissos')
           .insert([payload]);
 
         if (insertError) throw insertError;
@@ -242,7 +242,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
     try {
       const { error } = await supabase
-        .from('agenda')
+        .from('agenda_compromissos')
         .update({ status: novoStatus })
         .eq('id', id);
 
@@ -282,7 +282,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       }
 
       const { error: deleteError } = await supabase
-        .from('agenda')
+        .from('agenda_compromissos')
         .delete()
         .eq('id', compromissoParaExcluir.id);
 
@@ -360,7 +360,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
       {!loading && !error && compromissos.length > 0 && (
         <>
-          {/* VISÃO MOBILE: CARDS INTUITIVOS */}
+          {/* VISÃO MOBILE */}
           <div className="block md:hidden space-y-4">
             {compromissos.map((c) => {
               const realizado = c.status === 'realizado';
@@ -429,7 +429,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
             })}
           </div>
 
-          {/* VISÃO DESKTOP: TABELA TRADICIONAL */}
+          {/* VISÃO DESKTOP */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -623,7 +623,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 </div>
               </div>
 
-              {/* BLOCO DE CONFIGURAÇÃO DE SOM DO COMPROMISSO */}
+              {/* BLOCO DE CONFIGURAÇÃO DE SOM */}
               <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-3">
                 <div className="flex items-center gap-2">
                   <input
@@ -719,7 +719,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
         </div>
       )}
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO POR SENHA */}
+      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       {showDeleteModal && compromissoParaExcluir && isAdmin && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">

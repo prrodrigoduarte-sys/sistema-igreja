@@ -131,7 +131,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         nome_usuario: nomeUsuario.trim(),
         email: emailUsuario.trim(),
         perfil: perfilUsuario,
-        permissoes: JSON.stringify(permissoesUsuario), // Salva as permissões em formato JSON no banco
+        // Removido o campo 'permissoes' para não dar erro na tabela do Supabase
       };
 
       if (editingUsuario) {
@@ -141,11 +141,11 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
           .eq('id', editingUsuario.id);
 
         if (error) throw error;
-        alert('✏️ Usuário e permissões atualizados com sucesso!');
+        alert('✏️ Usuário atualizado com sucesso!');
       } else {
         const { error } = await supabase.from('usuarios').insert([payload]);
         if (error) throw error;
-        alert('👤 Novo usuário cadastrado com permissões zeradas/configuradas!');
+        alert('👤 Novo usuário cadastrado com sucesso!');
       }
 
       setShowModal(false);

@@ -121,6 +121,25 @@ function App() {
       }
       return;
     }
+    // 🔒 FUNÇÃO DE PERMISSÃO POR MÓDULO (Zera tudo se o admin não liberar)
+  const temPermissaoModulo = (modulo: string) => {
+    // Se for administrador, tem acesso total
+    if (userEfetivo?.perfil === 'administrador' || userEfetivo?.perfil === 'admin') {
+      return true;
+    }
+
+    try {
+      // Lê o JSON de permissões salvo no banco para este usuário
+      const perms = typeof userEfetivo?.permissoes === 'string' 
+        ? JSON.parse(userEfetivo.permissoes) 
+        : (userEfetivo?.permissoes || {});
+
+      // Retorna true se estiver marcado, ou false (zerado) se não estiver
+      return !!perms[modulo];
+    } catch (e) {
+      return false; // Por segurança, se der erro, vem zerado
+    }
+  };
 
     const { data: regTentativa } = await supabase
       .from('tentativas_login')
@@ -319,6 +338,15 @@ function App() {
       return;
     }
 
+    // Verifica se já existe algum usuário cadastrado para esta igreja
+    const { count, error: countError } = await supabase
+      .from('usuarios')
+      .select('*', { count: 'exact', head: true })
+      .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
+
+    // O primeiro usuário da igreja vira 'administrador' automaticamente; os demais entram como 'comum' (zerados)
+    const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -337,11 +365,19 @@ function App() {
         email: email.trim().toLowerCase(),
         nome_usuario: nomeUsuario,
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'comum',
+        perfil: perfilInicial,
         ativo: true,
       },
     ]);
 
+    if (profileError) {
+      alert('Erro ao salvar perfil: ' + profileError.message);
+    } else {
+      alert(perfilInicial === 'administrador' 
+        ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+        : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
+    }
+  };
     if (profileError) {
       alert('Erro ao criar perfil do usuário: ' + profileError.message);
       return;

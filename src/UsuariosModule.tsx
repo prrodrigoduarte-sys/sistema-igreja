@@ -5,7 +5,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados para Modal de Edição / Criação com Senha de Segurança
+  // Estados do Modal de Cadastro/Edição
   const [showModal, setShowModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<any | null>(null);
   
@@ -58,9 +58,8 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação de senha administrativa para alterações sensíveis
     if (senhaAdmin !== '1234' && loggedUser?.perfil !== 'administrador') {
-      alert('🔒 Senha de segurança incorreta ou acesso não autorizado para esta alteração.');
+      alert('🔒 Senha de segurança incorreta ou acesso não autorizado.');
       return;
     }
 
@@ -162,7 +161,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                       type="button"
                       onClick={() => handleOpenEdit(u)}
                       className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-lg transition cursor-pointer"
-                      title="Editar usuário"
                     >
                       ✏️ Editar
                     </button>
@@ -170,7 +168,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                       type="button"
                       onClick={() => handleDelete(u.id)}
                       className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg transition cursor-pointer"
-                      title="Excluir usuário"
                     >
                       🗑️ Excluir
                     </button>
@@ -182,7 +179,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO COM SENHA */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-xs">
@@ -238,7 +234,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold border-amber-300 bg-amber-50/50"
                   required
                 />
-                <span className="text-[10px] text-slate-400 mt-0.5 block">Necessária para confirmar alterações.</span>
               </div>
 
               <div className="flex gap-2 justify-end border-t pt-4">

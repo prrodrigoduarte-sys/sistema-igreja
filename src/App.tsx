@@ -343,16 +343,19 @@ function App() {
       return;
     }
 
-    const { error } = await supabase.from('usuarios').insert([
-      {
-        auth_user_id: session.user.id,
-        email: session.user.email,
-        nome_usuario: nomeUsuario,
-        codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'admin',
-        ativo: true,
-      },
-    ]);
+    const { error } = await supabase.from('usuarios').upsert(
+      [
+        {
+          auth_user_id: session.user.id,
+          email: session.user.email,
+          nome_usuario: nomeUsuario,
+          codigo_igreja: codigoIgreja.toUpperCase().trim(),
+          perfil: 'admin',
+          ativo: true,
+        },
+      ],
+      { onConflict: 'auth_user_id' }
+    );
 
     if (error) {
       alert('Erro ao salvar perfil: ' + error.message);
@@ -574,7 +577,6 @@ function App() {
   }
 
   // --- SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) ---
-  // Exibe estritamente a interface da agenda sem barra lateral ou sobreposição
   if (isMobileSubdomain) {
     return (
       <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">

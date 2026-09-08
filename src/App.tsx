@@ -1117,26 +1117,16 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
       }
     };
 
-    carregarAniversariantes();
-  }, [codigoIgreja, modoAniversariantes]);
-
-  const abrirModalLista = async (tipo: 'Membros' | 'Visitantes') => {
-    setTipoListaModal(tipo);
-    setBuscaModal('');
-    setModalListaOpen(true);
-    setLoadingLista(true);
-
-    try {
-      let query = supabase
-        .from('members')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja);
-
-      if (tipo === 'Visitantes') {
-        query = query.eq('tipo_cadastro', 'Visitante');
-      } else {
-        query = query.neq('tipo_cadastro', 'Visitante');
+    const fetchAniversariantes = async () => {
+      try {
+        setLoadingAniversariantes(true);
+        // Lógica de busca dos aniversariantes
+      } catch (err) {
+        console.error('Erro ao buscar aniversariantes:', err);
+      } finally {
+        setLoadingAniversariantes(false);
       }
+    };
 
       const { data, error } = await query.order('nome', { ascending: true });
 

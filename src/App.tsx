@@ -1120,7 +1120,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     const fetchAniversariantes = async () => {
       try {
         setLoadingAniversariantes(true);
-        // Lógica de busca dos aniversariantes
+        // Sua lógica de busca de aniversariantes aqui
       } catch (err) {
         console.error('Erro ao buscar aniversariantes:', err);
       } finally {

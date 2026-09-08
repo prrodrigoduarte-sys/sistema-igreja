@@ -19,7 +19,6 @@ import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
 
-// Obter ou gerar token único do dispositivo/navegador
 function getOrCreateDeviceToken() {
   let token = localStorage.getItem('app_device_token');
   if (!token) {
@@ -39,6 +38,7 @@ function App() {
   const [session, setSession] = useState<any>(null);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   const [precisaCompletarPerfil, setPrecisaCompletarPerfil] = useState(false);
+  const [permissoesAtivas, setPermissoesAtivas] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
@@ -55,20 +55,19 @@ function App() {
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  // Estados de Segurança 2FA
+  // Estados de Segurança 2FA (Dispositivo Novo / 3 Erros)
   const [exigir2FA, setExigir2FA] = useState(false);
   const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
   const [codigoGerado2FA, setCodigoGerado2FA] = useState('');
   const [motivo2FA, setMotivo2FA] = useState('');
   const [usuarioPendente2FA, setUsuarioPendente2FA] = useState<any>(null);
 
-  // Estados para QR Code Temporário
+  // Estados para o QR Code Temporário
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
 
-  // Detectar acesso via subdomínio app.
   useEffect(() => {
     if (window.location.hostname.startsWith('app.')) {
       setIsMobileSubdomain(true);
@@ -241,31 +240,25 @@ function App() {
 
   useEffect(() => {
     const carregarSessao = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
+      const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setLoading(false);
     };
 
     carregarSessao();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
       setSession(novaSessao);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
-  const carregarUsuario = useCallback(async () => {
+  const carregarUsuarioEPermissoes = useCallback(async () => {
     if (!session?.user?.id) {
       setLoggedUser(null);
       setPrecisaCompletarPerfil(false);
+      setPermissoesAtivas([]);
       return;
     }
 
@@ -287,10 +280,7 @@ function App() {
       data = resEmail.data;
 
       if (data && !data.auth_user_id) {
-        await supabase
-          .from('usuarios')
-          .update({ auth_user_id: authUserId })
-          .eq('id', data.id);
+        await supabase.from('usuarios').update({ auth_user_id: authUserId }).eq('id', data.id);
       }
     }
 
@@ -302,11 +292,25 @@ function App() {
 
     setPrecisaCompletarPerfil(false);
     setLoggedUser(data);
+
+    // Administrador tem acesso irrestrito
+    if (data.perfil === 'admin' || data.perfil === 'administrador') {
+      setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
+    } else {
+      const { data: permData } = await supabase
+        .from('permissoes_usuario')
+        .select('modulo')
+        .eq('usuario_id', data.id)
+        .eq('permitido', true);
+
+      const mods = permData ? permData.map((p) => p.modulo) : [];
+      setPermissoesAtivas(mods);
+    }
   }, [session]);
 
   useEffect(() => {
-    carregarUsuario();
-  }, [carregarUsuario]);
+    carregarUsuarioEPermissoes();
+  }, [carregarUsuarioEPermissoes]);
 
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -334,7 +338,7 @@ function App() {
         email: email.trim().toLowerCase(),
         nome_usuario: nomeUsuario,
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'admin',
+        perfil: 'comum', // Entra zerado aguardando o Admin liberar
         ativo: true,
       },
     ]);
@@ -374,7 +378,7 @@ function App() {
           email: emailLimpo,
           nome_usuario: nomeUsuario,
           codigo_igreja: codigoIgreja.toUpperCase().trim(),
-          perfil: 'admin',
+          perfil: 'comum',
           ativo: true,
         })
         .eq('id', registroExistente.id);
@@ -386,7 +390,7 @@ function App() {
           email: emailLimpo,
           nome_usuario: nomeUsuario,
           codigo_igreja: codigoIgreja.toUpperCase().trim(),
-          perfil: 'admin',
+          perfil: 'comum',
           ativo: true,
         },
       ]);
@@ -398,7 +402,7 @@ function App() {
       return;
     }
 
-    await carregarUsuario();
+    await carregarUsuarioEPermissoes();
   };
 
   const handleLogout = async () => {
@@ -406,6 +410,11 @@ function App() {
     setLoggedUser(null);
     setPrecisaCompletarPerfil(false);
     setActiveTab('dashboard');
+  };
+
+  const temPermissao = (moduloKey: string) => {
+    if (isAdmin) return true;
+    return permissoesAtivas.includes(moduloKey);
   };
 
   const selecionarAba = (aba: string) => {
@@ -477,7 +486,7 @@ function App() {
           </h2>
 
           <p className="text-center text-slate-600 mt-2 mb-6">
-            {isLogin ? 'Faça login para continuar.' : 'Cadastre sua igreja e seu usuário administrador.'}
+            {isLogin ? 'Faça login para continuar.' : 'Cadastre sua igreja e seu usuário.'}
           </p>
 
           <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
@@ -609,12 +618,12 @@ function App() {
 
   const userEfetivo = loggedUser || {
     email: session?.user?.email,
-    nome_usuario: session?.user?.email?.split('@')[0] || 'Administrador',
+    nome_usuario: session?.user?.email?.split('@')[0] || 'Usuário',
     codigo_igreja: 'IGR-001',
-    perfil: 'admin',
+    perfil: 'comum',
   };
 
-  // SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) - Sincronizado integralmente
+  // SUBDOMÍNIO MOBILE
   if (isMobileSubdomain) {
     return (
       <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
@@ -634,257 +643,285 @@ function App() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => selecionarAba('dashboard')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            🏠 Dashboard
-          </button>
+          {temPermissao('dashboard') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('dashboard')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🏠 Dashboard
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => selecionarAba('app-mobile')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
-              activeTab === 'app-mobile' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
-            }`}
-          >
-            <span className="flex items-center gap-2">📱 Aplicativo Mobile</span>
-            <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">APP</span>
-          </button>
+          {temPermissao('app-mobile') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('app-mobile')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
+                activeTab === 'app-mobile' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
+              }`}
+            >
+              <span className="flex items-center gap-2">📱 Aplicativo Mobile</span>
+              <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">APP</span>
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
-            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('cadastros') && activeTab !== 'cadastros-usuario' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            <span>👥 Cadastros</span>
-            <span>{isCadastrosOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {isCadastrosOpen && (
-            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+          {temPermissao('cadastros') && (
+            <div>
               <button
                 type="button"
-                onClick={() => selecionarAba('cadastros-membros')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab.startsWith('cadastros') && activeTab !== 'cadastros-usuario' ? 'bg-blue-700' : 'hover:bg-blue-800'
                 }`}
               >
-                Membros
+                <span>👥 Cadastros</span>
+                <span>{isCadastrosOpen ? '▲' : '▼'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('cadastros-fornecedores')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Fornecedores
-              </button>
+              {isCadastrosOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('cadastros-membros')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Membros
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('cadastros-ministerios')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Ministérios
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('cadastros-fornecedores')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Fornecedores
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('cadastros-ministerios')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Ministérios
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => selecionarAba('acompanhamento-visitantes')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'acompanhamento-visitantes' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            🤝 Acompanhamento Visitantes
-          </button>
+          {temPermissao('visitantes') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('acompanhamento-visitantes')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'acompanhamento-visitantes' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🤝 Acompanhamento Visitantes
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setIsCelulasOpen(!isCelulasOpen);
-              setSubAbaCelulas('celulas');
-              selecionarAba('celulas-modulo');
-            }}
-            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab === 'celulas-modulo' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            <span>🏡 Células</span>
-            <span>{isCelulasOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {isCelulasOpen && (
-            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+          {temPermissao('celulas') && (
+            <div>
               <button
                 type="button"
                 onClick={() => {
+                  setIsCelulasOpen(!isCelulasOpen);
                   setSubAbaCelulas('celulas');
                   selecionarAba('celulas-modulo');
                 }}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab === 'celulas-modulo' ? 'bg-blue-700' : 'hover:bg-blue-800'
                 }`}
               >
-                Células
+                <span>🏡 Células</span>
+                <span>{isCelulasOpen ? '▲' : '▼'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSubAbaCelulas('setores');
-                  selecionarAba('celulas-modulo');
-                }}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Setores
-              </button>
+              {isCelulasOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubAbaCelulas('celulas');
+                      selecionarAba('celulas-modulo');
+                    }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'celulas-modulo' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Células
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSubAbaCelulas('redes');
-                  selecionarAba('celulas-modulo');
-                }}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'celulas-modulo' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Redes
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubAbaCelulas('setores');
+                      selecionarAba('celulas-modulo');
+                    }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'celulas-modulo' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Setores
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubAbaCelulas('redes');
+                      selecionarAba('celulas-modulo');
+                    }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'celulas-modulo' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Redes
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => setIsDiscipuladoOpen(!isDiscipuladoOpen)}
-            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('discipulado') ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            <span>🌱 Discipulado</span>
-            <span>{isDiscipuladoOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {isDiscipuladoOpen && (
-            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+          {temPermissao('discipulado') && (
+            <div>
               <button
                 type="button"
-                onClick={() => selecionarAba('discipulado-dea')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'discipulado-dea' || activeTab === 'discipulado' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                onClick={() => setIsDiscipuladoOpen(!isDiscipuladoOpen)}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab.startsWith('discipulado') ? 'bg-blue-700' : 'hover:bg-blue-800'
                 }`}
               >
-                D.E.A. / G.U.I.
+                <span>🌱 Discipulado</span>
+                <span>{isDiscipuladoOpen ? '▲' : '▼'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('discipulado-agenda-discipulador')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'discipulado-agenda-discipulador' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Lista do Agendamento: Por Discipulador
-              </button>
+              {isDiscipuladoOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('discipulado-dea')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'discipulado-dea' || activeTab === 'discipulado' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    D.E.A. / G.U.I.
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('discipulado-agenda-geral')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'discipulado-agenda-geral' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                Lista do Agendamento: Geral
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('discipulado-agenda-discipulador')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'discipulado-agenda-discipulador' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Lista do Agendamento: Por Discipulador
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('discipulado-agenda-geral')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'discipulado-agenda-geral' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Lista do Agendamento: Geral
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => selecionarAba('agenda')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            📅 Agenda
-          </button>
+          {temPermissao('agenda') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('agenda')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              📅 Agenda
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => selecionarAba('financeiro')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            💰 Financeiro
-          </button>
+          {temPermissao('financeiro') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('financeiro')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              💰 Financeiro
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => selecionarAba('projetos')}
-            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
-              activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            🚀 Projetos
-          </button>
+          {temPermissao('projetos') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('projetos')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🚀 Projetos
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
-            className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-              activeTab.startsWith('configuracoes') || activeTab === 'controle_registro' ? 'bg-blue-700' : 'hover:bg-blue-800'
-            }`}
-          >
-            <span>⚙️ Configurações</span>
-            <span>{isConfiguracoesOpen ? '▲' : '▼'}</span>
-          </button>
-
-          {isConfiguracoesOpen && (
-            <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+          {temPermissao('configuracoes') && (
+            <div>
               <button
                 type="button"
-                onClick={() => selecionarAba('configuracoes-usuarios')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab.startsWith('configuracoes') || activeTab === 'controle_registro' ? 'bg-blue-700' : 'hover:bg-blue-800'
                 }`}
               >
-                Controle de Usuários
+                <span>⚙️ Configurações</span>
+                <span>{isConfiguracoesOpen ? '▲' : '▼'}</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('configuracoes-igreja')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'configuracoes-igreja' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                🏛️ Cadastro da Igreja / Congregações
-              </button>
+              {isConfiguracoesOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('configuracoes-usuarios')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Controle de Usuários
+                  </button>
 
-              <button
-                type="button"
-                onClick={() => selecionarAba('controle_registro')}
-                className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                  activeTab === 'controle_registro' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                }`}
-              >
-                🔒 Controle de Registro
-              </button>
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('configuracoes-igreja')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'configuracoes-igreja' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    🏛️ Cadastro da Igreja / Congregações
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('controle_registro')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'controle_registro' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    🔒 Controle de Registro
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </nav>
@@ -909,30 +946,43 @@ function App() {
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-        {activeTab === 'dashboard' && <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />}
-        {activeTab === 'app-mobile' && <AppMobileModule loggedUser={userEfetivo} />}
-        {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={userEfetivo} />}
-        {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={userEfetivo} />}
-        {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={userEfetivo} />}
+        {activeTab === 'dashboard' && temPermissao('dashboard') && <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />}
+        {activeTab === 'app-mobile' && temPermissao('app-mobile') && <AppMobileModule loggedUser={userEfetivo} />}
+        {activeTab === 'cadastros-membros' && temPermissao('cadastros') && <MembrosModule loggedUser={userEfetivo} />}
+        {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && <FornecedoresModule loggedUser={userEfetivo} />}
+        {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && <MinisteriosModule loggedUser={userEfetivo} />}
 
-        {activeTab === 'acompanhamento-visitantes' && (
+        {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
           <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
         )}
 
-        {activeTab === 'celulas-modulo' && (
+        {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
           <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
         )}
 
-        {(activeTab === 'discipulado' || activeTab.startsWith('discipulado-')) && (
+        {(activeTab === 'discipulado' || activeTab.startsWith('discipulado-')) && temPermissao('discipulado') && (
           <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
         )}
 
-        {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={userEfetivo} />}
-        {activeTab === 'configuracoes-igreja' && <CadastroIgrejaModule loggedUser={userEfetivo} />}
-        {activeTab === 'projetos' && <ProjetosModule loggedUser={userEfetivo} />}
-        {activeTab === 'agenda' && <AgendaModule loggedUser={userEfetivo} />}
-        {activeTab === 'financeiro' && <FinanceiroModule loggedUser={userEfetivo} />}
-        {activeTab === 'controle_registro' && <ControleRegistroModule loggedUser={userEfetivo} />}
+        {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && <UsuariosModule loggedUser={userEfetivo} />}
+        {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && <CadastroIgrejaModule loggedUser={userEfetivo} />}
+        {activeTab === 'projetos' && temPermissao('projetos') && <ProjetosModule loggedUser={userEfetivo} />}
+        {activeTab === 'agenda' && temPermissao('agenda') && <AgendaModule loggedUser={userEfetivo} />}
+        {activeTab === 'financeiro' && temPermissao('financeiro') && <FinanceiroModule loggedUser={userEfetivo} />}
+        {activeTab === 'controle_registro' && temPermissao('configuracoes') && <ControleRegistroModule loggedUser={userEfetivo} />}
+
+        {/* TELA DE MÓDULO BLOQUEADO */}
+        {!temPermissao(activeTab.split('-')[0]) && (
+          <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
+            <div className="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-3xl font-black mx-auto">
+              🔒
+            </div>
+            <h3 className="text-xl font-black text-blue-900">Módulo Bloqueado</h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Você ainda não possui permissão para acessar este módulo. Solicite a liberação ao Administrador da sua igreja.
+            </p>
+          </div>
+        )}
       </main>
 
       {/* MODAL INTUITIVO MOBILE */}

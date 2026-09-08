@@ -204,4 +204,4 @@ export default function AppMobileModule({ loggedUser }: Props) {
       )}
     </div>
   );
-}
+}e

@@ -12,9 +12,19 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [nomeUsuario, setNomeUsuario] = useState('');
   const [emailUsuario, setEmailUsuario] = useState('');
   const [perfilUsuario, setPerfilUsuario] = useState('comum');
-  const [senhaAdmin, setSenhaAdmin] = useState('');
+  const [senhaAdminInput, setSenhaAdminInput] = useState('');
 
+  // Senha mestre global da igreja/sistema (armazenada no localStorage ou padrão '1234')
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
+  const chaveSenhaMestre = `senha_mestre_${codigoIgreja}`;
+  const [senhaMestreAtual, setSenhaMestreAtual] = useState(() => {
+    return localStorage.getItem(chaveSenhaMestre) || '1234';
+  });
+  
+  // Modal para alterar a senha mestre
+  const [showModalSenhaMestre, setShowModalSenhaMestre] = useState(false);
+  const [novaSenhaMestre, setNovaSenhaMestre] = useState('');
+  const [senhaAntigaInput, setSenhaAntigaInput] = useState('');
 
   useEffect(() => {
     carregarUsuarios();
@@ -41,8 +51,9 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setEditingUsuario(null);
     setNomeUsuario('');
     setEmailUsuario('');
-    setPerfilUsuario('comum');
-    setSenhaAdmin('');
+    // Se for o primeiro usuário da igreja, define como administrador automaticamente
+    setPerfilUsuario(usuarios.length === 0 ? 'administrador' : 'comum');
+    setSenhaAdminInput('');
     setShowModal(true);
   };
 
@@ -51,15 +62,16 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setNomeUsuario(usuario.nome_usuario || '');
     setEmailUsuario(usuario.email || '');
     setPerfilUsuario(usuario.perfil || 'comum');
-    setSenhaAdmin('');
+    setSenhaAdminInput('');
     setShowModal(true);
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (senhaAdmin !== '1234' && loggedUser?.perfil !== 'administrador') {
-      alert('🔒 Senha de segurança incorreta ou acesso não autorizado.');
+    // Validação com a senha mestre atual
+    if (senhaAdminInput !== senhaMestreAtual && loggedUser?.perfil !== 'administrador') {
+      alert('🔒 Senha mestre de segurança incorreta.');
       return;
     }
 
@@ -93,10 +105,10 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   };
 
   const handleDelete = async (id: string) => {
-    const confirmacaoSenha = window.prompt('🔒 Digite a senha administrativa para excluir este usuário:');
+    const confirmacaoSenha = window.prompt('🔒 Digite a senha mestre para excluir este usuário:');
     
-    if (confirmacaoSenha !== '1234') {
-      alert('Senha incorreta. Exclusão cancelada.');
+    if (confirmacaoSenha !== senhaMestreAtual) {
+      alert('Senha mestre incorreta. Exclusão cancelada.');
       return;
     }
 
@@ -111,27 +123,104 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     }
   };
 
+  const handleAlterarSenhaMestre = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (senhaAntigaInput !== senhaMestreAtual) {
+      alert('A senha mestre atual informada está incorreta.');
+      return;
+    }
+    if (!novaSenhaMestre.trim() || novaSenhaMestre.length < 4) {
+      alert('A nova senha mestre deve ter pelo menos 4 caracteres.');
+      return;
+    }
+
+    localStorage.setItem(chaveSenhaMestre, novaSenhaMestre.trim());
+    setSenhaMestreAtual(novaSenhaMestre.trim());
+    alert('🔑 Senha mestre alterada com sucesso!');
+    setShowModalSenhaMestre(false);
+    setNovaSenhaMestre('');
+    setSenhaAntigaInput('');
+  };
+
+  // Estatísticas para o Gráfico de Perfis
+  const totalUsuarios = usuarios.length;
+  const qtdAdmin = usuarios.filter((u) => u.perfil === 'administrador' || u.perfil === 'admin').length;
+  const qtdLider = usuarios.filter((u) => u.perfil === 'lider').length;
+  const qtdComum = usuarios.filter((u) => u.perfil === 'comum' || !u.perfil).length;
+
+  const percAdmin = totalUsuarios > 0 ? (qtdAdmin / totalUsuarios) * 100 : 0;
+  const percLider = totalUsuarios > 0 ? (qtdLider / totalUsuarios) * 100 : 0;
+  const percComum = totalUsuarios > 0 ? (qtdComum / totalUsuarios) * 100 : 0;
+
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center border-b pb-4">
         <div>
           <h2 className="text-xl font-black text-blue-900">👥 Controle de Usuários</h2>
-          <p className="text-xs text-slate-500">Gerencie os acessos e permissões dos membros da igreja ({codigoIgreja})</p>
+          <p className="text-xs text-slate-500">Gerenciamento de acessos e segurança da igreja ({codigoIgreja})</p>
         </div>
-        <button
-          type="button"
-          onClick={handleOpenNew}
-          className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
-        >
-          + Novo Usuário
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowModalSenhaMestre(true)}
+            className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
+            title="Alterar Senha Mestre do Administrador"
+          >
+            🔑 Alterar Senha Mestre
+          </button>
+          <button
+            type="button"
+            onClick={handleOpenNew}
+            className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
+          >
+            + Novo Usuário
+          </button>
+        </div>
       </div>
+
+      {/* GRÁFICO VISUAL DE DISTRIBUIÇÃO DE PERFIS */}
+      {!loading && totalUsuarios > 0 && (
+        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+          <div className="flex justify-between items-center text-xs font-bold text-slate-700">
+            <span>📊 Distribuição de Perfis de Acesso</span>
+            <span className="text-blue-900">Total: {totalUsuarios} usuários</span>
+          </div>
+
+          <div className="w-full h-4 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
+            {percAdmin > 0 && (
+              <div style={{ width: `${percAdmin}%` }} className="bg-blue-900 h-full transition-all" title={`Administradores: ${qtdAdmin}`} />
+            )}
+            {percLider > 0 && (
+              <div style={{ width: `${percLider}%` }} className="bg-emerald-600 h-full transition-all" title={`Líderes: ${qtdLider}`} />
+            )}
+            {percComum > 0 && (
+              <div style={{ width: `${percComum}%` }} className="bg-slate-400 h-full transition-all" title={`Comuns: ${qtdComum}`} />
+            )}
+          </div>
+
+          <div className="flex gap-4 text-[11px] font-semibold text-slate-600 pt-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-blue-900 inline-block" />
+              <span>Administradores ({qtdAdmin})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" />
+              <span>Líderes ({qtdLider})</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" />
+              <span>Comuns ({qtdComum})</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-center py-8 text-xs text-slate-500">Carregando usuários...</p>
       ) : usuarios.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-xs border border-dashed rounded-2xl">
-          Nenhum usuário cadastrado encontrado para esta igreja.
+        <div className="text-center py-12 text-slate-400 text-xs border border-dashed rounded-2xl space-y-2">
+          <p>Nenhum usuário cadastrado encontrado para esta igreja.</p>
+          <p className="text-blue-900 font-bold">O primeiro cadastro criado aqui será configurado automaticamente como Administrador.</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -179,6 +268,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
+      {/* MODAL DE CADASTRO / EDIÇÃO */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-xs">
@@ -222,15 +312,18 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   <option value="lider">Líder</option>
                   <option value="administrador">Administrador</option>
                 </select>
+                {usuarios.length === 0 && !editingUsuario && (
+                  <span className="text-[10px] text-emerald-700 font-bold mt-1 block">ℹ️ Este será o primeiro usuário da igreja e assumirá Administrador automaticamente.</span>
+                )}
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">🔒 Senha de Segurança (Admin)</label>
+                <label className="block font-bold text-slate-700 mb-1">🔒 Senha Mestre de Segurança</label>
                 <input
                   type="password"
-                  value={senhaAdmin}
-                  onChange={(e) => setSenhaAdmin(e.target.value)}
-                  placeholder="Digite a senha para autorizar"
+                  value={senhaAdminInput}
+                  onChange={(e) => setSenhaAdminInput(e.target.value)}
+                  placeholder="Digite a senha mestre"
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold border-amber-300 bg-amber-50/50"
                   required
                 />
@@ -249,6 +342,57 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
                 >
                   Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PARA ALTERAR A SENHA MESTRE */}
+      {showModalSenhaMestre && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-xs">
+            <h3 className="text-lg font-black text-amber-800 border-b pb-3">🔑 Alterar Senha Mestre</h3>
+
+            <form onSubmit={handleAlterarSenhaMestre} className="space-y-3">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Senha Mestre Atual *</label>
+                <input
+                  type="password"
+                  value={senhaAntigaInput}
+                  onChange={(e) => setSenhaAntigaInput(e.target.value)}
+                  placeholder="Digite a senha atual"
+                  className="w-full border rounded-xl p-2.5 outline-none font-semibold"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nova Senha Mestre *</label>
+                <input
+                  type="password"
+                  value={novaSenhaMestre}
+                  onChange={(e) => setNovaSenhaMestre(e.target.value)}
+                  placeholder="Digite a nova senha (mínimo 4 caracteres)"
+                  className="w-full border rounded-xl p-2.5 outline-none font-semibold border-amber-300 bg-amber-50/50"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModalSenhaMestre(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer"
+                >
+                  Atualizar Senha
                 </button>
               </div>
             </form>

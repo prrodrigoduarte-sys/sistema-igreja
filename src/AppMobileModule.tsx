@@ -234,7 +234,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalNovaAgenda(true);
   };
 
-  // AÇÃO 4: SALVAR / ATUALIZAR AGENDA (COM USUARIO_ID CORRIGIDO)
+  // AÇÃO 4: SALVAR / ATUALIZAR AGENDA (SEM O USUARIO_ID)
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -242,7 +242,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     try {
       const payload = {
         codigo_igreja: codigoIgreja,
-        usuario_id: usuarioId, // Corrigido para passar a chave e evitar erro de RLS
         descricao: novoTitulo.trim(),
         data: novaData,
         hora: novaHora,

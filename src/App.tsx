@@ -456,10 +456,29 @@ function App() {
     setActiveTab(aba);
   };
 
-  if (rotaPublica) {
-    return <CadastroPublico />;
+  export default function App() {
+    // ... seus estados e funções (temPermissao, selecionarAba, etc.) ...
+  
+    // SE FOR ROTA PÚBLICA, RENDERIZA DIRETO AQUI
+    if (rotaPublica) {
+      return <CadastroPublico />;
+    }
+  
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
+          Carregando sistema...
+        </div>
+      );
+    }
+  
+    // AQUI COMEÇA O RETURN PRINCIPAL DO SISTEMA LOGADO
+    return (
+      <div className="...">
+        {/* Todo o resto do seu layout, menus e módulos */}
+      </div>
+    );
   }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">

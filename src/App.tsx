@@ -413,24 +413,16 @@ function App() {
 
   const temPermissao = (moduloKey: string) => {
     if (isAdmin) return true;
-    return permissoesAtivas.includes(moduloKey);
+    
+    // 1. Verifica se tem a permissão exata (ex: 'configuracoes-usuarios' ou 'configuracoes')
+    if (permissoesAtivas.includes(moduloKey)) return true;
+
+    // 2. Se for uma sub-aba (ex: 'configuracoes-usuarios'), verifica se tem permissão na categoria pai ('configuracoes')
+    const moduloBase = moduloKey.split('-')[0];
+    if (permissoesAtivas.includes(moduloBase)) return true;
+
+    return false;
   };
-
-  const selecionarAba = (aba: string) => {
-    setActiveTab(aba);
-  };
-
-  if (rotaPublica) {
-    return <CadastroPublico />;
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
-        Carregando sistema...
-      </div>
-    );
-  }
 
   if (exigir2FA) {
     return (

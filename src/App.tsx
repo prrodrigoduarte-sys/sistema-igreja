@@ -55,14 +55,14 @@ function App() {
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  // Estados de Segurança 2FA (Dispositivo Novo / 3 Erros)
+  // Estados de Segurança 2FA
   const [exigir2FA, setExigir2FA] = useState(false);
   const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
   const [codigoGerado2FA, setCodigoGerado2FA] = useState('');
   const [motivo2FA, setMotivo2FA] = useState('');
   const [usuarioPendente2FA, setUsuarioPendente2FA] = useState<any>(null);
 
-  // Estados para o QR Code Temporário
+  // Estados para QR Code Temporário
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
@@ -262,7 +262,6 @@ function App() {
     };
   }, []);
 
-  // Carregamento robusto buscando prioritariamente por auth_user_id
   const carregarUsuario = useCallback(async () => {
     if (!session?.user?.id) {
       setLoggedUser(null);
@@ -273,14 +272,12 @@ function App() {
     const authUserId = session.user.id;
     const emailUsuario = session.user.email?.trim().toLowerCase();
 
-    // 1. Tenta buscar primeiro por auth_user_id
     let { data } = await supabase
       .from('usuarios')
       .select('*')
       .eq('auth_user_id', authUserId)
       .maybeSingle();
 
-    // 2. Se não achou por id, tenta pelo email
     if (!data && emailUsuario) {
       const resEmail = await supabase
         .from('usuarios')
@@ -289,7 +286,6 @@ function App() {
         .maybeSingle();
       data = resEmail.data;
 
-      // Se achou por email mas faltava o auth_user_id, associa automaticamente
       if (data && !data.auth_user_id) {
         await supabase
           .from('usuarios')
@@ -362,7 +358,6 @@ function App() {
     const emailLimpo = session.user.email.trim().toLowerCase();
     const authUserId = session.user.id;
 
-    // Procura se já existe algum registro com este auth_user_id ou email
     const { data: registroExistente } = await supabase
       .from('usuarios')
       .select('id')
@@ -372,7 +367,6 @@ function App() {
     let error;
 
     if (registroExistente) {
-      // Atualiza o registro existente
       const res = await supabase
         .from('usuarios')
         .update({
@@ -386,7 +380,6 @@ function App() {
         .eq('id', registroExistente.id);
       error = res.error;
     } else {
-      // Insere um novo caso não exista
       const res = await supabase.from('usuarios').insert([
         {
           auth_user_id: authUserId,
@@ -621,11 +614,11 @@ function App() {
     perfil: 'admin',
   };
 
-  // SUBDOMÍNIO MOBILE
+  // SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) - Sincronizado integralmente
   if (isMobileSubdomain) {
     return (
       <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
-        <AgendaModule loggedUser={userEfetivo} />
+        <AppMobileModule loggedUser={userEfetivo} />
       </div>
     );
   }

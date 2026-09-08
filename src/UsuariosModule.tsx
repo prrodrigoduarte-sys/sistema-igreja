@@ -1,17 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+
+interface Compromisso {
+  id: string;
+  descricao: string;
+  data: string;
+  hora: string;
+  lembrete_minutos?: number;
+  frequencia?: string;
+  concluido?: boolean;
+}
 
 export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loadingUsuarios, setLoadingUsuarios] = useState(true);
+
+  const [activeTab, setActiveTab] = useState<'usuarios' | 'agenda' | 'perfil' | 'celula' | 'igreja'>('usuarios');
+  const [compromissos, setCompromissos] = useState<Compromisso[]>([]);
+  const [loadingAgenda, setLoadingAgenda] = useState(false);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingCompromisso, setEditingCompromisso] = useState<Compromisso | null>(null);
+
+  // Campos do Formulário
+  const [descricao, setDescricao] = useState('');
+  const [dataCompromisso, setDataCompromisso] = useState('');
+  const [horaCompromisso, setHoraCompromisso] = useState('');
+  const [lembreteMinutos, setLembreteMinutos] = useState(15);
+  const [frequencia, setFrequencia] = useState('unica');
+
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
 
-  useEffect(() => {
-    carregarUsuarios();
-  }, [codigoIgreja]);
-
-  const carregarUsuarios = async () => {
-    setLoading(true);
+  // Carregar Usuários
+  const carregarUsuarios = useCallback(async () => {
+    setLoadingUsuarios(true);
     try {
       const { data, error } = await supabase
         .from('usuarios')
@@ -23,57 +45,43 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     } catch (err: any) {
       console.error('Erro ao carregar usuários:', err.message);
     } finally {
-      setLoading(false);
+      setLoadingUsuarios(false);
     }
-  };
+  }, [codigoIgreja]);
 
-  return (
-    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-4xl mx-auto">
-      <div className="flex justify-between items-center border-b pb-4">
-        <div>
-          <h2 className="text-xl font-black text-blue-900">👥 Controle de Usuários</h2>
-          <p className="text-xs text-slate-500">Gerencie os acessos dos membros da igreja ({codigoIgreja})</p>
-        </div>
-      </div>
+  // Carregar Agenda
+  const fetchCompromissos = useCallback(async () => {
+    setLoadingAgenda(true);
+    try {
+      const { data, error } = await supabase
+        .from('agenda_mobile')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('data', { ascending: true })
+        .order('hora', { ascending: true });
 
-      {loading ? (
-        <p className="text-center py-8 text-xs text-slate-500">Carregando usuários...</p>
-      ) : usuarios.length === 0 ? (
-        <div className="text-center py-12 text-slate-400 text-xs border border-dashed rounded-2xl">
-          Nenhum usuário cadastrado encontrado para esta igreja.
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 text-slate-700 uppercase">
-              <tr>
-                <th className="p-3">Nome</th>
-                <th className="p-3">E-mail</th>
-                <th className="p-3">Perfil</th>
-                <th className="p-3">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {usuarios.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50">
-                  <td className="p-3 font-bold text-slate-800">{u.nome_usuario || 'Sem nome'}</td>
-                  <td className="p-3 text-slate-600">{u.email}</td>
-                  <td className="p-3 font-semibold text-blue-900">{u.perfil || 'comum'}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg border border-emerald-200">
-                      Ativo
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-  // Alarme sonoro e notificação ativa em tempo real
+      if (error) throw error;
+      setCompromissos(data || []);
+    } catch (err: any) {
+      console.error('Erro ao buscar agenda:', err);
+    } finally {
+      setLoadingAgenda(false);
+    }
+  }, [codigoIgreja]);
+
+  useEffect(() => {
+    carregarUsuarios();
+    fetchCompromissos();
+  }, [carregarUsuarios, fetchCompromissos]);
+
+  // Solicitar permissão de Notificação
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Alarme sonoro em tempo real
   useEffect(() => {
     const interval = setInterval(() => {
       const agora = new Date();
@@ -82,7 +90,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
       compromissos.forEach((c) => {
         if (c.data === dataHoje && c.hora === horaAgora && !c.concluido) {
-          // Tocar alarme sintético
           try {
             const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
             const osc = ctx.createOscillator();
@@ -95,7 +102,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
             console.log('Audio Context bloqueado pelo navegador');
           }
 
-          // Disparar notificação visual no celular
           if ('Notification' in window && Notification.permission === 'granted') {
             new Notification('⏰ Lembrete de Compromisso!', {
               body: `${c.descricao} às ${c.hora}`,
@@ -104,7 +110,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
           }
         }
       });
-    }, 30000); // Checa a cada 30 segundos
+    }, 30000);
 
     return () => clearInterval(interval);
   }, [compromissos]);
@@ -173,72 +179,96 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-slate-100 min-h-screen pb-12 shadow-2xl rounded-3xl overflow-hidden border border-slate-200">
-      {/* HEADER MOBILE ORIGINAL */}
-      <div className="bg-blue-900 text-white p-6 rounded-b-3xl shadow-lg space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-xl font-black flex items-center gap-2">📱 App Sua Igreja</h2>
-            <p className="text-xs text-blue-200 mt-0.5">Olá, {loggedUser?.nome_usuario || 'RODRIGO DUARTE LUIZ'}</p>
-          </div>
-          <div className="w-12 h-12 rounded-full border-2 border-white/40 overflow-hidden bg-blue-800 flex items-center justify-center font-bold text-lg">
-            👤
-          </div>
-        </div>
-
-        {/* NAVEGAÇÃO DE ABAS DO APP */}
-        <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1.5 rounded-2xl text-xs font-bold">
-          <button
-            type="button"
-            onClick={() => setActiveTab('perfil')}
-            className={`py-2 rounded-xl transition ${activeTab === 'perfil' ? 'bg-blue-600 text-white shadow' : 'text-blue-200 hover:text-white'}`}
-          >
-            👤 Perfil
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('agenda')}
-            className={`py-2 rounded-xl transition ${activeTab === 'agenda' ? 'bg-blue-600 text-white shadow' : 'text-blue-200 hover:text-white'}`}
-          >
-            📅 Agenda
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('celula')}
-            className={`py-2 rounded-xl transition ${activeTab === 'celula' ? 'bg-blue-600 text-white shadow' : 'text-blue-200 hover:text-white'}`}
-          >
-            🏡 Célula
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('igreja')}
-            className={`py-2 rounded-xl transition ${activeTab === 'igreja' ? 'bg-blue-600 text-white shadow' : 'text-blue-200 hover:text-white'}`}
-          >
-            🏛️ Igreja
-          </button>
-        </div>
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-4xl mx-auto">
+      {/* Abas Internas para alternar entre Gestão e Ferramentas */}
+      <div className="flex gap-2 border-b pb-4">
+        <button
+          type="button"
+          onClick={() => setActiveTab('usuarios')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'usuarios' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          👥 Controle de Usuários
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('agenda')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+            activeTab === 'agenda' ? 'bg-blue-900 text-white shadow' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+          }`}
+        >
+          📅 Módulo Agenda / Alarme
+        </button>
       </div>
 
-      {/* CONTEÚDO DA AGENDA */}
+      {/* CONTEÚDO 1: CONTROLE DE USUÁRIOS */}
+      {activeTab === 'usuarios' && (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center border-b pb-4">
+            <div>
+              <h2 className="text-xl font-black text-blue-900">👥 Controle de Usuários</h2>
+              <p className="text-xs text-slate-500">Gerencie os acessos dos membros da igreja ({codigoIgreja})</p>
+            </div>
+          </div>
+
+          {loadingUsuarios ? (
+            <p className="text-center py-8 text-xs text-slate-500">Carregando usuários...</p>
+          ) : usuarios.length === 0 ? (
+            <div className="text-center py-12 text-slate-400 text-xs border border-dashed rounded-2xl">
+              Nenhum usuário cadastrado encontrado para esta igreja.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-50 text-slate-700 uppercase">
+                  <tr>
+                    <th className="p-3">Nome</th>
+                    <th className="p-3">E-mail</th>
+                    <th className="p-3">Perfil</th>
+                    <th className="p-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {usuarios.map((u) => (
+                    <tr key={u.id} className="hover:bg-slate-50">
+                      <td className="p-3 font-bold text-slate-800">{u.nome_usuario || 'Sem nome'}</td>
+                      <td className="p-3 text-slate-600">{u.email}</td>
+                      <td className="p-3 font-semibold text-blue-900">{u.perfil || 'comum'}</td>
+                      <td className="p-3">
+                        <span className="px-2 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg border border-emerald-200">
+                          Ativo
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* CONTEÚDO 2: AGENDA / ALARME */}
       {activeTab === 'agenda' && (
-        <div className="p-4 space-y-4">
-          <div className="bg-white p-5 rounded-2xl shadow-sm border flex justify-between items-center">
+        <div className="space-y-4">
+          <div className="bg-slate-50 p-5 rounded-2xl shadow-sm border flex justify-between items-center">
             <div>
               <h3 className="font-black text-blue-900 text-lg flex items-center gap-1.5">
-                📅 Minha Agenda
+                📅 Minha Agenda & Alarmes
               </h3>
-              <p className="text-xs text-slate-500">Seus compromissos e alarmes</p>
+              <p className="text-xs text-slate-500">Seus compromissos agendados com alerta</p>
             </div>
             <button
               type="button"
               onClick={handleOpenNew}
-              className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition"
+              className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
             >
               + Criar
             </button>
           </div>
 
-          {loading ? (
+          {loadingAgenda ? (
             <p className="text-center text-xs text-slate-500 py-6">Carregando compromissos...</p>
           ) : compromissos.length === 0 ? (
             <div className="bg-white p-8 rounded-2xl text-center border border-dashed text-slate-400 text-xs">
@@ -266,14 +296,14 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                     <button
                       type="button"
                       onClick={() => handleOpenEdit(c)}
-                      className="p-2 bg-slate-100 hover:bg-blue-50 text-slate-700 rounded-xl transition"
+                      className="p-2 bg-slate-100 hover:bg-blue-50 text-slate-700 rounded-xl transition cursor-pointer"
                     >
                       ✏️
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDelete(c.id)}
-                      className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition"
+                      className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition cursor-pointer"
                     >
                       🗑️
                     </button>
@@ -285,7 +315,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO COM ALARME */}
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE COMPROMISSO */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4">
@@ -300,7 +330,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   type="text"
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
-                  placeholder="Ex: Pilates, Reunião da Célula..."
+                  placeholder="Ex: Reunião, Culto..."
                   className="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-600"
                   required
                 />
@@ -331,13 +361,13 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">🔔 Notificar / Alarme Sonoro</label>
+                <label className="block font-bold text-slate-700 mb-1">🔔 Alarme Sonoro</label>
                 <select
                   value={lembreteMinutos}
                   onChange={(e) => setLembreteMinutos(Number(e.target.value))}
                   className="w-full border rounded-xl p-2.5 bg-white outline-none"
                 >
-                  <option value={0}>Na hora exata do compromisso</option>
+                  <option value={0}>Na hora exata</option>
                   <option value={5}>5 minutos antes</option>
                   <option value={15}>15 minutos antes</option>
                   <option value={30}>30 minutos antes</option>
@@ -345,32 +375,19 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                 </select>
               </div>
 
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">🔁 Frequência de Repetição</label>
-                <select
-                  value={frequencia}
-                  onChange={(e) => setFrequencia(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 bg-white outline-none"
-                >
-                  <option value="unica">Única vez</option>
-                  <option value="semanal">Toda semana neste dia</option>
-                  <option value="mensal">Todo mês nesta data</option>
-                </select>
-              </div>
-
               <div className="flex gap-2 justify-end border-t pt-4">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl"
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow"
+                  className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
                 >
-                  Salvar Alterações
+                  Salvar
                 </button>
               </div>
             </form>

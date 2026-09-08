@@ -262,51 +262,55 @@ function App() {
     };
   }, []);
 
-  // Busca do perfil com verificação por ID ou E-mail (suporta ilike e atalho de falhas)
-  useEffect(() => {
-    const carregarUsuario = async () => {
-      if (!session?.user?.email) {
-        setLoggedUser(null);
-        setPrecisaCompletarPerfil(false);
-        return;
-      }
+  // Carregamento robusto buscando prioritariamente por auth_user_id
+  const carregarUsuario = useCallback(async () => {
+    if (!session?.user?.id) {
+      setLoggedUser(null);
+      setPrecisaCompletarPerfil(false);
+      return;
+    }
 
-      const emailUsuario = session.user.email.trim().toLowerCase();
-      const authUserId = session.user.id;
+    const authUserId = session.user.id;
+    const emailUsuario = session.user.email?.trim().toLowerCase();
 
-      // 1. Tenta buscar por auth_user_id ou email
-      let { data, error } = await supabase
+    // 1. Tenta buscar primeiro por auth_user_id
+    let { data } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+
+    // 2. Se não achou por id, tenta pelo email
+    if (!data && emailUsuario) {
+      const resEmail = await supabase
         .from('usuarios')
         .select('*')
-        .or(`auth_user_id.eq.${authUserId},email.ilike.${emailUsuario}`)
+        .ilike('email', emailUsuario)
         .maybeSingle();
+      data = resEmail.data;
 
-      if (error) {
-        console.error('Erro ao carregar perfil:', error);
-      }
-
-      // Se ainda não achou cadastro, busca qualquer usuario admin associado a igreja padrão
-      if (!data) {
-        const fallback = await supabase
+      // Se achou por email mas faltava o auth_user_id, associa automaticamente
+      if (data && !data.auth_user_id) {
+        await supabase
           .from('usuarios')
-          .select('*')
-          .ilike('email', emailUsuario)
-          .maybeSingle();
-        data = fallback.data;
+          .update({ auth_user_id: authUserId })
+          .eq('id', data.id);
       }
+    }
 
-      if (!data) {
-        setPrecisaCompletarPerfil(true);
-        setLoggedUser(null);
-        return;
-      }
+    if (!data) {
+      setPrecisaCompletarPerfil(true);
+      setLoggedUser(null);
+      return;
+    }
 
-      setPrecisaCompletarPerfil(false);
-      setLoggedUser(data);
-    };
-
-    carregarUsuario();
+    setPrecisaCompletarPerfil(false);
+    setLoggedUser(data);
   }, [session]);
+
+  useEffect(() => {
+    carregarUsuario();
+  }, [carregarUsuario]);
 
   const handleSignUp = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -356,32 +360,36 @@ function App() {
     }
 
     const emailLimpo = session.user.email.trim().toLowerCase();
+    const authUserId = session.user.id;
 
-    // Tenta atualizar se já existir o e-mail cadastrado
-    const { data: existente } = await supabase
+    // Procura se já existe algum registro com este auth_user_id ou email
+    const { data: registroExistente } = await supabase
       .from('usuarios')
       .select('id')
-      .ilike('email', emailLimpo)
+      .or(`auth_user_id.eq.${authUserId},email.ilike.${emailLimpo}`)
       .maybeSingle();
 
     let error;
 
-    if (existente) {
+    if (registroExistente) {
+      // Atualiza o registro existente
       const res = await supabase
         .from('usuarios')
         .update({
-          auth_user_id: session.user.id,
+          auth_user_id: authUserId,
+          email: emailLimpo,
           nome_usuario: nomeUsuario,
           codigo_igreja: codigoIgreja.toUpperCase().trim(),
           perfil: 'admin',
           ativo: true,
         })
-        .eq('id', existente.id);
+        .eq('id', registroExistente.id);
       error = res.error;
     } else {
+      // Insere um novo caso não exista
       const res = await supabase.from('usuarios').insert([
         {
-          auth_user_id: session.user.id,
+          auth_user_id: authUserId,
           email: emailLimpo,
           nome_usuario: nomeUsuario,
           codigo_igreja: codigoIgreja.toUpperCase().trim(),
@@ -397,7 +405,7 @@ function App() {
       return;
     }
 
-    window.location.reload();
+    await carregarUsuario();
   };
 
   const handleLogout = async () => {
@@ -606,7 +614,6 @@ function App() {
     );
   }
 
-  // Fallback seguro caso o usuario logado ainda esteja sendo processado
   const userEfetivo = loggedUser || {
     email: session?.user?.email,
     nome_usuario: session?.user?.email?.split('@')[0] || 'Administrador',

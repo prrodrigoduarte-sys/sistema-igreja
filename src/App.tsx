@@ -1,5 +1,3 @@
-// src/App.tsx
-
 if (typeof window !== 'undefined') {
   (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
 }
@@ -20,13 +18,6 @@ import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
-useEffect(() => {
-  // Se o usuário acessar via subdomínio app.brsistemaigreja.com.br
-  if (window.location.hostname.startsWith('app.')) {
-    // Redireciona ou abre direto o módulo da Agenda/Mobile
-    setModuloAtivo('agenda'); 
-  }
-}, []);
 
 // Obter ou gerar token único do dispositivo/navegador
 function getOrCreateDeviceToken() {
@@ -75,6 +66,13 @@ function App() {
   const [gerandoQr, setGerandoQr] = useState(false);
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+
+  // Redirecionamento automático se acessado via subdomínio app.
+  useEffect(() => {
+    if (window.location.hostname.startsWith('app.')) {
+      setActiveTab('agenda');
+    }
+  }, []);
 
   // Iniciar verificação de 2FA gerando um código de 6 dígitos
   const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
@@ -1069,7 +1067,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
   useEffect(() => {
     if (!codigoIgreja) return;
 
-    const carregarAniversariantes = async () => {
+    const fetchAniversariantes = async () => {
       setLoadingAniversariantes(true);
       try {
         const { data, error } = await supabase
@@ -1111,22 +1109,30 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         }
       } catch (err) {
         console.error('Erro ao buscar aniversariantes:', err);
-      } font-bold
       } finally {
         setLoadingAniversariantes(false);
       }
     };
 
-    const fetchAniversariantes = async () => {
-      try {
-        setLoadingAniversariantes(true);
-        // Sua lógica de busca de aniversariantes aqui
-      } catch (err) {
-        console.error('Erro ao buscar aniversariantes:', err);
-      } finally {
-        setLoadingAniversariantes(false);
+    fetchAniversariantes();
+  }, [codigoIgreja, modoAniversariantes]);
+
+  const abrirModalLista = async (tipo: 'Membros' | 'Visitantes') => {
+    setTipoListaModal(tipo);
+    setModalListaOpen(true);
+    setLoadingLista(true);
+
+    try {
+      let query = supabase
+        .from('members')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
+      if (tipo === 'Visitantes') {
+        query = query.eq('tipo_cadastro', 'Visitante');
+      } else {
+        query = query.neq('tipo_cadastro', 'Visitante');
       }
-    };
 
       const { data, error } = await query.order('nome', { ascending: true });
 

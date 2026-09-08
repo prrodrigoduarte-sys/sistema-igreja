@@ -30,6 +30,7 @@ function getOrCreateDeviceToken() {
 }
 
 function App() {
+  const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
   const [rotaPublica, setRotaPublica] = useState(
     window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro')
   );
@@ -67,10 +68,10 @@ function App() {
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
 
-  // Redirecionamento automático se acessado via subdomínio app.
+  // Detectar acesso exclusivo via subdomínio móvel (app.)
   useEffect(() => {
     if (window.location.hostname.startsWith('app.')) {
-      setActiveTab('agenda');
+      setIsMobileSubdomain(true);
     }
   }, []);
 
@@ -90,14 +91,12 @@ function App() {
     const emailLimpo = email.trim().toLowerCase();
     const deviceToken = getOrCreateDeviceToken();
 
-    // 1. Tenta realizar o login via Supabase Auth
     const { data: authData, error } = await supabase.auth.signInWithPassword({
       email: emailLimpo,
       password,
     });
 
     if (error) {
-      // Registrar falha de login no banco
       const { data: regTentativa } = await supabase
         .from('tentativas_login')
         .select('*')
@@ -125,7 +124,6 @@ function App() {
       return;
     }
 
-    // 2. Se a senha estiver correta, verificar histórico de tentativas e dispositivos
     const { data: regTentativa } = await supabase
       .from('tentativas_login')
       .select('*')
@@ -134,7 +132,6 @@ function App() {
 
     const teveTresErros = (regTentativa?.tentativas || 0) >= 3;
 
-    // Verificar se o dispositivo já está cadastrado
     const { data: devRegistrado } = await supabase
       .from('dispositivos_autorizados')
       .select('*')
@@ -142,19 +139,16 @@ function App() {
       .eq('device_token', deviceToken)
       .maybeSingle();
 
-    // Se errou 3 vezes OU for dispositivo desconhecido -> Ativa 2FA
     if (teveTresErros) {
       dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
     } else if (!devRegistrado) {
       dispararVerificacao2FA('Acesso a partir de um dispositivo novo/não reconhecido', authData.session);
     } else {
-      // Dispositivo seguro e sem histórico de erros recentes
       await supabase.from('dispositivos_autorizados').update({ ultimo_acesso: new Date().toISOString() }).eq('id', devRegistrado.id);
       setSession(authData.session);
     }
   };
 
-  // Validar o código de 6 dígitos no 2FA
   const handleConfirmar2FA = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -166,13 +160,11 @@ function App() {
     const emailLimpo = email.trim().toLowerCase();
     const deviceToken = getOrCreateDeviceToken();
 
-    // 1. Zera o contador de erros
     await supabase.from('tentativas_login').upsert(
       [{ email: emailLimpo, tentativas: 0, updated_at: new Date().toISOString() }],
       { onConflict: 'email' }
     );
 
-    // 2. Autoriza o novo dispositivo no banco
     if (usuarioPendente2FA?.user?.id) {
       await supabase.from('dispositivos_autorizados').upsert(
         [
@@ -581,6 +573,17 @@ function App() {
     return null;
   }
 
+  // --- SE FOR O SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) ---
+  // Renderiza APENAS o módulo da agenda de forma isolada e limpa
+  if (isMobileSubdomain) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
+        <AgendaModule loggedUser={loggedUser} />
+      </div>
+    );
+  }
+
+  // --- CASO CONTRÁRIO (DESKTOP E ACESSO PRINCIPAL COM MENU COMPLETO) ---
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
@@ -602,7 +605,6 @@ function App() {
             🏠 Dashboard
           </button>
 
-          {/* APLICATIVO MOBILE */}
           <button
             type="button"
             onClick={() => selecionarAba('app-mobile')}
@@ -614,7 +616,6 @@ function App() {
             <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">APP</span>
           </button>
 
-          {/* GRUPO CADASTROS */}
           <button
             type="button"
             onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
@@ -660,7 +661,6 @@ function App() {
             </div>
           )}
 
-          {/* MÓDULO: ACOMPANHAMENTO DE VISITANTES */}
           <button
             type="button"
             onClick={() => selecionarAba('acompanhamento-visitantes')}
@@ -671,7 +671,6 @@ function App() {
             🤝 Acompanhamento Visitantes
           </button>
 
-          {/* GRUPO CÉLULAS */}
           <button
             type="button"
             onClick={() => {
@@ -730,7 +729,6 @@ function App() {
             </div>
           )}
 
-          {/* GRUPO DISCIPULADO */}
           <button
             type="button"
             onClick={() => setIsDiscipuladoOpen(!isDiscipuladoOpen)}
@@ -776,7 +774,6 @@ function App() {
             </div>
           )}
 
-          {/* AGENDA */}
           <button
             type="button"
             onClick={() => selecionarAba('agenda')}
@@ -787,7 +784,6 @@ function App() {
             📅 Agenda
           </button>
 
-          {/* FINANCEIRO */}
           <button
             type="button"
             onClick={() => selecionarAba('financeiro')}
@@ -798,7 +794,6 @@ function App() {
             💰 Financeiro
           </button>
 
-          {/* PROJETOS */}
           <button
             type="button"
             onClick={() => selecionarAba('projetos')}
@@ -809,7 +804,6 @@ function App() {
             🚀 Projetos
           </button>
 
-          {/* MENU CONFIGURAÇÕES */}
           <button
             type="button"
             onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
@@ -882,17 +876,14 @@ function App() {
         {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
         {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
 
-        {/* ACOMPANHAMENTO DE VISITANTES */}
         {activeTab === 'acompanhamento-visitantes' && (
           <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
         )}
 
-        {/* CÉLULAS MODULE */}
         {activeTab === 'celulas-modulo' && (
           <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
         )}
 
-        {/* MÓDULO EXCLUSIVO DE DISCIPULADO COM ROTAS INTERNAS */}
         {(activeTab === 'discipulado' || activeTab.startsWith('discipulado-')) && (
           <DiscipuladoDEAModule loggedUser={loggedUser} activeTab={activeTab} />
         )}
@@ -1022,7 +1013,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
   const [aniversariantes, setAniversariantes] = useState<any[]>([]);
   const [loadingAniversariantes, setLoadingAniversariantes] = useState(false);
 
-  // Estados de contagem e modais para Membros e Visitantes
   const [qtdMembros, setQtdMembros] = useState(0);
   const [qtdVisitantes, setQtdVisitantes] = useState(0);
   
@@ -1032,13 +1022,11 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
   const [buscaModal, setBuscaModal] = useState('');
   const [loadingLista, setLoadingLista] = useState(false);
 
-  // Estado para Edição do registro diretamente da modal do Dashboard
   const [itemEditando, setItemEditando] = useState<any | null>(null);
   const [itemDetalhes, setItemDetalhes] = useState<any | null>(null);
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
 
-  // Buscar totais de Membros e Visitantes
   const carregarTotais = useCallback(async () => {
     try {
       const { count: countMembros } = await supabase
@@ -1141,6 +1129,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     } catch (err) {
       console.error('Erro ao buscar lista:', err);
       alert('Erro ao carregar lista de ' + tipo);
+    } font-bold
     } finally {
       setLoadingLista(false);
     }

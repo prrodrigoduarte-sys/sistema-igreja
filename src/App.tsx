@@ -68,7 +68,7 @@ function App() {
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
 
-  // Detectar acesso exclusivo via subdomínio móvel (app.)
+  // Detectar acesso via subdomínio app.
   useEffect(() => {
     if (window.location.hostname.startsWith('app.')) {
       setIsMobileSubdomain(true);
@@ -573,8 +573,8 @@ function App() {
     return null;
   }
 
-  // --- SE FOR O SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) ---
-  // Renderiza APENAS o módulo da agenda de forma isolada e limpa
+  // --- SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) ---
+  // Exibe estritamente a interface da agenda sem barra lateral ou sobreposição
   if (isMobileSubdomain) {
     return (
       <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
@@ -583,7 +583,7 @@ function App() {
     );
   }
 
-  // --- CASO CONTRÁRIO (DESKTOP E ACESSO PRINCIPAL COM MENU COMPLETO) ---
+  // --- DESKTOP E NAVEGAÇÃO PRINCIPAL ---
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
@@ -1129,7 +1129,6 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
     } catch (err) {
       console.error('Erro ao buscar lista:', err);
       alert('Erro ao carregar lista de ' + tipo);
-    } font-bold
     } finally {
       setLoadingLista(false);
     }

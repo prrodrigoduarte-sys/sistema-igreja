@@ -963,7 +963,7 @@ function App() {
           <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
         )}
 
-        {/* ROTEAMENTO CORRETO PARA O USUÁRIO E CONFIGURAÇÕES */}
+        {/* CONTROLE DE USUÁRIOS CORRETO */}
         {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && <UsuariosModule loggedUser={userEfetivo} />}
         {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && <CadastroIgrejaModule loggedUser={userEfetivo} />}
         {activeTab === 'controle_registro' && temPermissao('configuracoes') && <ControleRegistroModule loggedUser={userEfetivo} />}

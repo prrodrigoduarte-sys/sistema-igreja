@@ -20,6 +20,13 @@ import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
+useEffect(() => {
+  // Se o usuário acessar via subdomínio app.brsistemaigreja.com.br
+  if (window.location.hostname.startsWith('app.')) {
+    // Redireciona ou abre direto o módulo da Agenda/Mobile
+    setModuloAtivo('agenda'); 
+  }
+}, []);
 
 // Obter ou gerar token único do dispositivo/navegador
 function getOrCreateDeviceToken() {

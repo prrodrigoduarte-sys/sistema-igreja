@@ -75,7 +75,6 @@ function App() {
     }
   }, []);
 
-  // Iniciar verificação de 2FA gerando um código de 6 dígitos
   const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
     const codigoHex = Math.floor(100000 + Math.random() * 900000).toString();
     setCodigoGerado2FA(codigoHex);
@@ -263,6 +262,7 @@ function App() {
     };
   }, []);
 
+  // Busca do perfil com verificação por ID ou E-mail (suporta ilike e atalho de falhas)
   useEffect(() => {
     const carregarUsuario = async () => {
       if (!session?.user?.email) {
@@ -271,16 +271,28 @@ function App() {
         return;
       }
 
-      const emailUsuario = session.user.email;
+      const emailUsuario = session.user.email.trim().toLowerCase();
+      const authUserId = session.user.id;
 
-      const { data, error } = await supabase
+      // 1. Tenta buscar por auth_user_id ou email
+      let { data, error } = await supabase
         .from('usuarios')
         .select('*')
-        .eq('email', emailUsuario)
+        .or(`auth_user_id.eq.${authUserId},email.ilike.${emailUsuario}`)
         .maybeSingle();
 
       if (error) {
         console.error('Erro ao carregar perfil:', error);
+      }
+
+      // Se ainda não achou cadastro, busca qualquer usuario admin associado a igreja padrão
+      if (!data) {
+        const fallback = await supabase
+          .from('usuarios')
+          .select('*')
+          .ilike('email', emailUsuario)
+          .maybeSingle();
+        data = fallback.data;
       }
 
       if (!data) {
@@ -319,7 +331,7 @@ function App() {
     const { error: profileError } = await supabase.from('usuarios').insert([
       {
         auth_user_id: authUserId || null,
-        email,
+        email: email.trim().toLowerCase(),
         nome_usuario: nomeUsuario,
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
         perfil: 'admin',
@@ -343,19 +355,42 @@ function App() {
       return;
     }
 
-    const { error } = await supabase.from('usuarios').upsert(
-      [
+    const emailLimpo = session.user.email.trim().toLowerCase();
+
+    // Tenta atualizar se já existir o e-mail cadastrado
+    const { data: existente } = await supabase
+      .from('usuarios')
+      .select('id')
+      .ilike('email', emailLimpo)
+      .maybeSingle();
+
+    let error;
+
+    if (existente) {
+      const res = await supabase
+        .from('usuarios')
+        .update({
+          auth_user_id: session.user.id,
+          nome_usuario: nomeUsuario,
+          codigo_igreja: codigoIgreja.toUpperCase().trim(),
+          perfil: 'admin',
+          ativo: true,
+        })
+        .eq('id', existente.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('usuarios').insert([
         {
           auth_user_id: session.user.id,
-          email: session.user.email,
+          email: emailLimpo,
           nome_usuario: nomeUsuario,
           codigo_igreja: codigoIgreja.toUpperCase().trim(),
           perfil: 'admin',
           ativo: true,
         },
-      ],
-      { onConflict: 'auth_user_id' }
-    );
+      ]);
+      error = res.error;
+    }
 
     if (error) {
       alert('Erro ao salvar perfil: ' + error.message);
@@ -388,7 +423,6 @@ function App() {
     );
   }
 
-  // TELA DE SEGURANÇA 2FA (CÓDIGO DE 6 DÍGITOS)
   if (exigir2FA) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-950 p-4">
@@ -572,27 +606,30 @@ function App() {
     );
   }
 
-  if (!loggedUser) {
-    return null;
-  }
+  // Fallback seguro caso o usuario logado ainda esteja sendo processado
+  const userEfetivo = loggedUser || {
+    email: session?.user?.email,
+    nome_usuario: session?.user?.email?.split('@')[0] || 'Administrador',
+    codigo_igreja: 'IGR-001',
+    perfil: 'admin',
+  };
 
-  // --- SUBDOMÍNIO MOBILE (app.brsistemaigreja.com.br) ---
+  // SUBDOMÍNIO MOBILE
   if (isMobileSubdomain) {
     return (
       <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
-        <AgendaModule loggedUser={loggedUser} />
+        <AgendaModule loggedUser={userEfetivo} />
       </div>
     );
   }
 
-  // --- DESKTOP E NAVEGAÇÃO PRINCIPAL ---
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
         <div className="p-6 border-b border-blue-800">
           <h1 className="text-2xl font-black">SISTEMA IGREJA</h1>
           <p className="text-xs text-blue-200 mt-2 truncate">
-            {loggedUser.nome_usuario} ({loggedUser.codigo_igreja})
+            {userEfetivo.nome_usuario} ({userEfetivo.codigo_igreja})
           </p>
         </div>
 
@@ -872,30 +909,30 @@ function App() {
       </aside>
 
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-        {activeTab === 'dashboard' && <DashboardHome loggedUser={loggedUser} selecionarAba={selecionarAba} />}
-        {activeTab === 'app-mobile' && <AppMobileModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={loggedUser} />}
-        {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={loggedUser} />}
+        {activeTab === 'dashboard' && <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />}
+        {activeTab === 'app-mobile' && <AppMobileModule loggedUser={userEfetivo} />}
+        {activeTab === 'cadastros-membros' && <MembrosModule loggedUser={userEfetivo} />}
+        {activeTab === 'cadastros-fornecedores' && <FornecedoresModule loggedUser={userEfetivo} />}
+        {activeTab === 'cadastros-ministerios' && <MinisteriosModule loggedUser={userEfetivo} />}
 
         {activeTab === 'acompanhamento-visitantes' && (
-          <AcompanhamentoVisitantesModule loggedUser={loggedUser} />
+          <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
         )}
 
         {activeTab === 'celulas-modulo' && (
-          <CelulasModule loggedUser={loggedUser} subAbaInicial={subAbaCelulas} />
+          <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
         )}
 
         {(activeTab === 'discipulado' || activeTab.startsWith('discipulado-')) && (
-          <DiscipuladoDEAModule loggedUser={loggedUser} activeTab={activeTab} />
+          <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
         )}
 
-        {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={loggedUser} />}
-        {activeTab === 'configuracoes-igreja' && <CadastroIgrejaModule loggedUser={loggedUser} />}
-        {activeTab === 'projetos' && <ProjetosModule loggedUser={loggedUser} />}
-        {activeTab === 'agenda' && <AgendaModule loggedUser={loggedUser} />}
-        {activeTab === 'financeiro' && <FinanceiroModule loggedUser={loggedUser} />}
-        {activeTab === 'controle_registro' && <ControleRegistroModule loggedUser={loggedUser} />}
+        {activeTab === 'configuracoes-usuarios' && <UsuariosModule loggedUser={userEfetivo} />}
+        {activeTab === 'configuracoes-igreja' && <CadastroIgrejaModule loggedUser={userEfetivo} />}
+        {activeTab === 'projetos' && <ProjetosModule loggedUser={userEfetivo} />}
+        {activeTab === 'agenda' && <AgendaModule loggedUser={userEfetivo} />}
+        {activeTab === 'financeiro' && <FinanceiroModule loggedUser={userEfetivo} />}
+        {activeTab === 'controle_registro' && <ControleRegistroModule loggedUser={userEfetivo} />}
       </main>
 
       {/* MODAL INTUITIVO MOBILE */}

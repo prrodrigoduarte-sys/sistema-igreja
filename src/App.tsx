@@ -293,7 +293,6 @@ function App() {
     setPrecisaCompletarPerfil(false);
     setLoggedUser(data);
 
-    // Administrador tem acesso irrestrito
     if (data.perfil === 'admin' || data.perfil === 'administrador') {
       setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
     } else {
@@ -338,7 +337,7 @@ function App() {
         email: email.trim().toLowerCase(),
         nome_usuario: nomeUsuario,
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'comum', // Entra zerado aguardando o Admin liberar
+        perfil: 'comum',
         ativo: true,
       },
     ]);
@@ -964,12 +963,14 @@ function App() {
           <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
         )}
 
+        {/* ROTEAMENTO CORRETO PARA O USUÁRIO E CONFIGURAÇÕES */}
         {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && <UsuariosModule loggedUser={userEfetivo} />}
         {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && <CadastroIgrejaModule loggedUser={userEfetivo} />}
+        {activeTab === 'controle_registro' && temPermissao('configuracoes') && <ControleRegistroModule loggedUser={userEfetivo} />}
+
         {activeTab === 'projetos' && temPermissao('projetos') && <ProjetosModule loggedUser={userEfetivo} />}
         {activeTab === 'agenda' && temPermissao('agenda') && <AgendaModule loggedUser={userEfetivo} />}
         {activeTab === 'financeiro' && temPermissao('financeiro') && <FinanceiroModule loggedUser={userEfetivo} />}
-        {activeTab === 'controle_registro' && temPermissao('configuracoes') && <ControleRegistroModule loggedUser={userEfetivo} />}
 
         {/* TELA DE MÓDULO BLOQUEADO */}
         {!temPermissao(activeTab.split('-')[0]) && (

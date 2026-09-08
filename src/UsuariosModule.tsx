@@ -5,7 +5,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Estados do Modal de Cadastro/Edição
+  // Estados do Modal de Edição / Cadastro
   const [showModal, setShowModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<any | null>(null);
   
@@ -14,14 +14,25 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [perfilUsuario, setPerfilUsuario] = useState('comum');
   const [senhaAdminInput, setSenhaAdminInput] = useState('');
 
-  // Senha mestre global da igreja/sistema (armazenada no localStorage ou padrão '1234')
+  // Permissões individuais por usuário (Chaves dos módulos)
+  const [permissoesUsuario, setPermissoesUsuario] = useState<{ [key: string]: boolean }>({
+    dashboard: false,
+    cadastros: false,
+    celulas: false,
+    discipulado: false,
+    agenda: false,
+    financeiro: false,
+    projetos: false,
+    app_mobile: true, // App mobile padrão liberado
+  });
+
+  // Senha Mestre
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
   const chaveSenhaMestre = `senha_mestre_${codigoIgreja}`;
   const [senhaMestreAtual, setSenhaMestreAtual] = useState(() => {
     return localStorage.getItem(chaveSenhaMestre) || '1234';
   });
   
-  // Modal para alterar a senha mestre
   const [showModalSenhaMestre, setShowModalSenhaMestre] = useState(false);
   const [novaSenhaMestre, setNovaSenhaMestre] = useState('');
   const [senhaAntigaInput, setSenhaAntigaInput] = useState('');
@@ -51,8 +62,21 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setEditingUsuario(null);
     setNomeUsuario('');
     setEmailUsuario('');
-    // Se for o primeiro usuário da igreja, define como administrador automaticamente
-    setPerfilUsuario(usuarios.length === 0 ? 'administrador' : 'comum');
+    const isPrimeiro = usuarios.length === 0;
+    setPerfilUsuario(isPrimeiro ? 'administrador' : 'comum');
+    
+    // Se for admin, libera tudo. Se for comum, vem tudo zerado (false)
+    setPermissoesUsuario({
+      dashboard: isPrimeiro,
+      cadastros: isPrimeiro,
+      celulas: isPrimeiro,
+      discipulado: isPrimeiro,
+      agenda: isPrimeiro,
+      financeiro: isPrimeiro,
+      projetos: isPrimeiro,
+      app_mobile: true,
+    });
+
     setSenhaAdminInput('');
     setShowModal(true);
   };
@@ -62,14 +86,40 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setNomeUsuario(usuario.nome_usuario || '');
     setEmailUsuario(usuario.email || '');
     setPerfilUsuario(usuario.perfil || 'comum');
+
+    // Carrega as permissões salvas do usuário (se houver no banco ou define padrão zerado)
+    let permsSalvas = {};
+    try {
+      permsSalvas = typeof usuario.permissoes === 'string' ? JSON.parse(usuario.permissoes) : (usuario.permissoes || {});
+    } catch (e) {
+      permsSalvas = {};
+    }
+
+    setPermissoesUsuario({
+      dashboard: !!permsSalvas['dashboard'],
+      cadastros: !!permsSalvas['cadastros'],
+      celulas: !!permsSalvas['celulas'],
+      discipulado: !!permsSalvas['discipulado'],
+      agenda: !!permsSalvas['agenda'],
+      financeiro: !!permsSalvas['financeiro'],
+      projetos: !!permsSalvas['projetos'],
+      app_mobile: permsSalvas['app_mobile'] !== undefined ? !!permsSalvas['app_mobile'] : true,
+    });
+
     setSenhaAdminInput('');
     setShowModal(true);
+  };
+
+  const handleCheckboxChange = (modulo: string) => {
+    setPermissoesUsuario((prev) => ({
+      ...prev,
+      [modulo]: !prev[modulo],
+    }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validação com a senha mestre atual
     if (senhaAdminInput !== senhaMestreAtual && loggedUser?.perfil !== 'administrador') {
       alert('🔒 Senha mestre de segurança incorreta.');
       return;
@@ -81,6 +131,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         nome_usuario: nomeUsuario.trim(),
         email: emailUsuario.trim(),
         perfil: perfilUsuario,
+        permissoes: JSON.stringify(permissoesUsuario), // Salva as permissões em formato JSON no banco
       };
 
       if (editingUsuario) {
@@ -90,11 +141,11 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
           .eq('id', editingUsuario.id);
 
         if (error) throw error;
-        alert('✏️ Usuário atualizado com sucesso!');
+        alert('✏️ Usuário e permissões atualizados com sucesso!');
       } else {
         const { error } = await supabase.from('usuarios').insert([payload]);
         if (error) throw error;
-        alert('👤 Novo usuário cadastrado com sucesso!');
+        alert('👤 Novo usuário cadastrado com permissões zeradas/configuradas!');
       }
 
       setShowModal(false);
@@ -142,7 +193,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setSenhaAntigaInput('');
   };
 
-  // Estatísticas para o Gráfico de Perfis
+  // Estatísticas do Gráfico
   const totalUsuarios = usuarios.length;
   const qtdAdmin = usuarios.filter((u) => u.perfil === 'administrador' || u.perfil === 'admin').length;
   const qtdLider = usuarios.filter((u) => u.perfil === 'lider').length;
@@ -156,17 +207,16 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center border-b pb-4">
         <div>
-          <h2 className="text-xl font-black text-blue-900">👥 Controle de Usuários</h2>
-          <p className="text-xs text-slate-500">Gerenciamento de acessos e segurança da igreja ({codigoIgreja})</p>
+          <h2 className="text-xl font-black text-blue-900">👥 Controle de Usuários & Permissões</h2>
+          <p className="text-xs text-slate-500">Libere o acesso aos módulos por usuário ({codigoIgreja})</p>
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setShowModalSenhaMestre(true)}
             className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer"
-            title="Alterar Senha Mestre do Administrador"
           >
-            🔑 Alterar Senha Mestre
+            🔑 Senha Mestre
           </button>
           <button
             type="button"
@@ -178,7 +228,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       </div>
 
-      {/* GRÁFICO VISUAL DE DISTRIBUIÇÃO DE PERFIS */}
+      {/* GRÁFICO DE PERFIS */}
       {!loading && totalUsuarios > 0 && (
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
           <div className="flex justify-between items-center text-xs font-bold text-slate-700">
@@ -187,30 +237,15 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
           </div>
 
           <div className="w-full h-4 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
-            {percAdmin > 0 && (
-              <div style={{ width: `${percAdmin}%` }} className="bg-blue-900 h-full transition-all" title={`Administradores: ${qtdAdmin}`} />
-            )}
-            {percLider > 0 && (
-              <div style={{ width: `${percLider}%` }} className="bg-emerald-600 h-full transition-all" title={`Líderes: ${qtdLider}`} />
-            )}
-            {percComum > 0 && (
-              <div style={{ width: `${percComum}%` }} className="bg-slate-400 h-full transition-all" title={`Comuns: ${qtdComum}`} />
-            )}
+            {percAdmin > 0 && <div style={{ width: `${percAdmin}%` }} className="bg-blue-900 h-full" />}
+            {percLider > 0 && <div style={{ width: `${percLider}%` }} className="bg-emerald-600 h-full" />}
+            {percComum > 0 && <div style={{ width: `${percComum}%` }} className="bg-slate-400 h-full" />}
           </div>
 
           <div className="flex gap-4 text-[11px] font-semibold text-slate-600 pt-1">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-blue-900 inline-block" />
-              <span>Administradores ({qtdAdmin})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" />
-              <span>Líderes ({qtdLider})</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" />
-              <span>Comuns ({qtdComum})</span>
-            </div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-900 inline-block" /><span>Administradores ({qtdAdmin})</span></div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" /><span>Líderes ({qtdLider})</span></div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /><span>Comuns ({qtdComum})</span></div>
           </div>
         </div>
       )}
@@ -219,8 +254,8 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         <p className="text-center py-8 text-xs text-slate-500">Carregando usuários...</p>
       ) : usuarios.length === 0 ? (
         <div className="text-center py-12 text-slate-400 text-xs border border-dashed rounded-2xl space-y-2">
-          <p>Nenhum usuário cadastrado encontrado para esta igreja.</p>
-          <p className="text-blue-900 font-bold">O primeiro cadastro criado aqui será configurado automaticamente como Administrador.</p>
+          <p>Nenhum usuário cadastrado encontrado.</p>
+          <p className="text-blue-900 font-bold">O primeiro cadastro será configurado como Administrador com acesso total.</p>
         </div>
       ) : (
         <div className="overflow-x-auto">
@@ -241,9 +276,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   <td className="p-3 text-slate-600">{u.email}</td>
                   <td className="p-3 font-semibold text-blue-900">{u.perfil || 'comum'}</td>
                   <td className="p-3">
-                    <span className="px-2 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg border border-emerald-200">
-                      Ativo
-                    </span>
+                    <span className="px-2 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg border border-emerald-200">Ativo</span>
                   </td>
                   <td className="p-3 text-right space-x-2">
                     <button
@@ -251,7 +284,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                       onClick={() => handleOpenEdit(u)}
                       className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-lg transition cursor-pointer"
                     >
-                      ✏️ Editar
+                      🛡️ Gerenciar Permissões
                     </button>
                     <button
                       type="button"
@@ -268,22 +301,21 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
-      {/* MODAL DE CADASTRO / EDIÇÃO */}
+      {/* MODAL DE EDIÇÃO E LIBERAÇÃO DE MÓDULOS */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-xs">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-black text-blue-900 border-b pb-3">
-              {editingUsuario ? '✏️ Editar Usuário' : '👤 Novo Usuário'}
+              {editingUsuario ? '🛡️ Gerenciar Usuário & Módulos' : '👤 Novo Usuário'}
             </h3>
 
-            <form onSubmit={handleSave} className="space-y-3">
+            <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="block font-bold text-slate-700 mb-1">Nome do Usuário *</label>
                 <input
                   type="text"
                   value={nomeUsuario}
                   onChange={(e) => setNomeUsuario(e.target.value)}
-                  placeholder="Ex: Rodrigo"
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold"
                   required
                 />
@@ -295,14 +327,13 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   type="email"
                   value={emailUsuario}
                   onChange={(e) => setEmailUsuario(e.target.value)}
-                  placeholder="email@exemplo.com"
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold"
                   required
                 />
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Perfil de Acesso</label>
+                <label className="block font-bold text-slate-700 mb-1">Perfil Principal</label>
                 <select
                   value={perfilUsuario}
                   onChange={(e) => setPerfilUsuario(e.target.value)}
@@ -312,9 +343,54 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   <option value="lider">Líder</option>
                   <option value="administrador">Administrador</option>
                 </select>
-                {usuarios.length === 0 && !editingUsuario && (
-                  <span className="text-[10px] text-emerald-700 font-bold mt-1 block">ℹ️ Este será o primeiro usuário da igreja e assumirá Administrador automaticamente.</span>
-                )}
+              </div>
+
+              {/* PAINEL DE LIBERAÇÃO DE MÓDULOS (CHECKBOXES) */}
+              <div className="border-t pt-3 space-y-2">
+                <label className="block font-black text-blue-900 text-sm">🔓 Liberação de Módulos (Zerar ou Conceder)</label>
+                <p className="text-[11px] text-slate-500">Marque apenas os módulos que este usuário poderá visualizar e acessar:</p>
+
+                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.dashboard} onChange={() => handleCheckboxChange('dashboard')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">📊 Dashboard</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.cadastros} onChange={() => handleCheckboxChange('cadastros')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">📂 Cadastros</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.celulas} onChange={() => handleCheckboxChange('celulas')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">🏡 Células</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.discipulado} onChange={() => handleCheckboxChange('discipulado')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">🌱 Discipulado</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.agenda} onChange={() => handleCheckboxChange('agenda')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">📅 Agenda Geral</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.financeiro} onChange={() => handleCheckboxChange('financeiro')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">💰 Financeiro</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.projetos} onChange={() => handleCheckboxChange('projetos')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">📁 Projetos</span>
+                  </label>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={permissoesUsuario.app_mobile} onChange={() => handleCheckboxChange('app_mobile')} className="w-4 h-4 rounded text-blue-900" />
+                    <span className="font-semibold text-slate-700">📱 App Mobile</span>
+                  </label>
+                </div>
               </div>
 
               <div>
@@ -323,7 +399,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   type="password"
                   value={senhaAdminInput}
                   onChange={(e) => setSenhaAdminInput(e.target.value)}
-                  placeholder="Digite a senha mestre"
+                  placeholder="Digite a senha mestre para salvar"
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold border-amber-300 bg-amber-50/50"
                   required
                 />
@@ -341,7 +417,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   type="submit"
                   className="px-5 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
                 >
-                  Salvar
+                  Salvar Permissões
                 </button>
               </div>
             </form>
@@ -349,7 +425,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
-      {/* MODAL PARA ALTERAR A SENHA MESTRE */}
+      {/* MODAL SENHA MESTRE */}
       {showModalSenhaMestre && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-xs">
@@ -362,7 +438,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   type="password"
                   value={senhaAntigaInput}
                   onChange={(e) => setSenhaAntigaInput(e.target.value)}
-                  placeholder="Digite a senha atual"
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold"
                   required
                 />
@@ -374,7 +449,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   type="password"
                   value={novaSenhaMestre}
                   onChange={(e) => setNovaSenhaMestre(e.target.value)}
-                  placeholder="Digite a nova senha (mínimo 4 caracteres)"
                   className="w-full border rounded-xl p-2.5 outline-none font-semibold border-amber-300 bg-amber-50/50"
                   required
                 />
@@ -384,7 +458,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                 <button
                   type="button"
                   onClick={() => setShowModalSenhaMestre(false)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
+                  className="px-4 py-2.5 bg-slate-100 font-bold rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>

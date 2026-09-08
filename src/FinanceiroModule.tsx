@@ -11,6 +11,7 @@ interface Lancamento {
   valor: number;
   conta_corrente_id: string;
   id_conta_contabil: string;
+  membro_id?: string;
 }
 
 interface ContaContabil {
@@ -29,6 +30,11 @@ interface ContaFinanceiraAdm {
   numero_conta?: string;
 }
 
+interface Membro {
+  id: string;
+  nome: string;
+}
+
 interface FinanceiroModuleProps {
   loggedUser: any;
 }
@@ -40,6 +46,7 @@ const formLancamentoInicial = {
   valor: '',
   conta_corrente_id: '',
   id_conta_contabil: '',
+  membro_id: '',
 };
 
 const formContaContabilInicial = {
@@ -63,6 +70,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
   const [contasAdmList, setContasAdmList] = useState<ContaFinanceiraAdm[]>([]);
+  const [membrosList, setMembrosList] = useState<Membro[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,6 +79,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [showModalLancamento, setShowModalLancamento] = useState(false);
   const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
+  const [relacionadoMembro, setRelacionadoMembro] = useState(false);
 
   // Modais Plano de Contas
   const [showModalConta, setShowModalConta] = useState(false);
@@ -133,6 +142,16 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .eq('codigo_igreja', codigoIgreja);
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
+
+      // Busca membros para o vínculo financeiro
+      const resMemb = await supabase
+        .from('members')
+        .select('id, nome')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome', { ascending: true });
+
+      if (!resMemb.error) setMembrosList(resMemb.data || []);
+
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
       setError(err.message);
@@ -167,6 +186,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         valor: parseFloat(formLancamento.valor as string),
         conta_corrente_id: formLancamento.conta_corrente_id || null,
         id_conta_contabil: formLancamento.id_conta_contabil || null,
+        membro_id: relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
       };
 
       if (editingLancamento) {
@@ -188,6 +208,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       setShowModalLancamento(false);
       setEditingLancamento(null);
       setFormLancamento(formLancamentoInicial);
+      setRelacionadoMembro(false);
       setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
@@ -320,6 +341,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return adm ? `${adm.codigo_conta} (${adm.nome_conta})` : 'Caixa Geral';
   };
 
+  const getNomeMembroVinculado = (membroId?: string) => {
+    if (!membroId) return null;
+    const m = membrosList.find((x) => x.id === membroId);
+    return m ? m.nome : null;
+  };
+
   // Balancete agrupado por contas contábeis
   const dadosBalancete = contasContabeis.map((conta) => {
     const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
@@ -435,6 +462,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             onClick={() => {
               setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
+              setRelacionadoMembro(false);
               setSenhaExclusao('');
               setShowModalLancamento(true);
             }}
@@ -493,6 +521,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <th className="p-3">Data</th>
                     <th className="p-3">Tipo</th>
                     <th className="p-3">Descrição</th>
+                    <th className="p-3">Membro Vinculado</th>
                     <th className="p-3">Conta Adm</th>
                     <th className="p-3">Conta Contábil (DRE)</th>
                     <th className="p-3 text-right">Valor</th>
@@ -502,6 +531,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 <tbody className="divide-y text-sm">
                   {lancamentos.map((l) => {
                     const isReceita = l.tipo === 'receita';
+                    const nomeMembro = getNomeMembroVinculado(l.membro_id);
                     return (
                       <tr key={l.id} className="hover:bg-slate-50/80 transition">
                         <td className="p-3 whitespace-nowrap text-slate-600">
@@ -515,6 +545,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           </span>
                         </td>
                         <td className="p-3 font-semibold text-slate-800">{l.descricao}</td>
+                        <td className="p-3">
+                          {nomeMembro ? (
+                            <span className="px-2 py-1 bg-blue-50 text-blue-800 font-bold text-xs rounded-lg border border-blue-100">
+                              👤 {nomeMembro}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
                         <td className="p-3 text-slate-600 text-xs">{getNomeContaAdm(l.conta_corrente_id)}</td>
                         <td className="p-3 text-blue-900 font-medium text-xs">{getNomeContaContabil(l.id_conta_contabil)}</td>
                         <td className={`p-3 text-right font-black ${isReceita ? 'text-emerald-700' : 'text-rose-700'}`}>
@@ -532,7 +571,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                                 valor: l.valor?.toString() || '',
                                 conta_corrente_id: l.conta_corrente_id || '',
                                 id_conta_contabil: l.id_conta_contabil || '',
+                                membro_id: l.membro_id || '',
                               });
+                              setRelacionadoMembro(!!l.membro_id);
                               setSenhaExclusao('');
                               setShowModalLancamento(true);
                             }}
@@ -855,7 +896,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 4: DRE (ATUALIZADA PARA CAPTURAR TODAS AS ENTRADAS E SAÍDAS) */}
+            {/* RELATÓRIO 4: DRE */}
             {tipoRelatorio === 'dre' && (
               <div className="space-y-4">
                 <div>
@@ -989,6 +1030,39 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <option key={c.id} value={c.id}>{c.codigo_conta} - {c.nome_conta} ({c.tipo_natureza})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* VÍNCULO COM MEMBRO */}
+              <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={relacionadoMembro}
+                    onChange={(e) => {
+                      setRelacionadoMembro(e.target.checked);
+                      if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
+                    }}
+                    className="w-4 h-4 rounded text-blue-900"
+                  />
+                  <span>Está relacionado a algum membro?</span>
+                </label>
+
+                {relacionadoMembro && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pesquisar / Selecionar Membro *</label>
+                    <select
+                      value={formLancamento.membro_id}
+                      onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900"
+                      required={relacionadoMembro}
+                    >
+                      <option value="">Selecione o membro...</option>
+                      {membrosList.map((m) => (
+                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="pt-2 border-t">

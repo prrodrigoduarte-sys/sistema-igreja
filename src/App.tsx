@@ -948,11 +948,11 @@ function App() {
     <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
   )}
 
-  {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
-    <div className="w-full max-w-6xl mx-auto">
-      <AppMobileModule loggedUser={userEfetivo} />
-    </div>
-  )}
+{activeTab === 'app-mobile' && temPermissao('app-mobile') && (
+  <div className="w-full max-w-4xl mx-auto">
+    <AppMobileModule loggedUser={userEfetivo} />
+  </div>
+)}
 
   {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
     <MembrosModule loggedUser={userEfetivo} />
@@ -1005,17 +1005,9 @@ function App() {
     <FinanceiroModule loggedUser={userEfetivo} />
   )}
 
-  {/* TELA DE MÓDULO BLOQUEADO CASO NÃO TENHA ACESSO */}
-  {!temPermissao(activeTab.split('-')[0]) && activeTab !== 'controle_registro' && (
-    <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center max-w-md mx-auto my-12 space-y-4 shadow-sm">
-      <div className="w-16 h-16 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center text-3xl font-black mx-auto">
-        🔒
-      </div>
-      <h3 className="text-xl font-black text-blue-900">Módulo Bloqueado</h3>
-      <p className="text-xs text-slate-500 leading-relaxed">
-        Você não possui permissão para acessar este módulo.
-      </p>
-    </div>
+  {/* CONFIGURAÇÕES COM PERMISSÃO INDIVIDUAL BLINDADA */}
+  {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
+    <UsuariosModule loggedUser={userEfetivo} />
   )}
 </main>
 

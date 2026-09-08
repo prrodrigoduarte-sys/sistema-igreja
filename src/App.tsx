@@ -1003,10 +1003,6 @@ function App() {
     <FinanceiroModule loggedUser={userEfetivo} />
   )}
 
-  {/* CONFIGURAÇÕES COM PERMISSÃO INDIVIDUAL BLINDADA */}
-  {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
-    <UsuariosModule loggedUser={userEfetivo} />
-  )}
 </main>
 
       {/* MODAL INTUITIVO MOBILE */}

@@ -891,15 +891,14 @@ function App() {
               {isConfiguracoesOpen && (
                 <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
                   <button
-                    type="button"
-                    onClick={() => selecionarAba('configuracoes-usuarios')}
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                      activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                    }`}
-                  >
-                    Controle de Usuários
-                  </button>
-
+  type="button"
+  onClick={() => selecionarAba('configuracoes-usuarios')}
+  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+    activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+  }`}
+>
+  Controle de Usuários
+</button>
                   <button
                     type="button"
                     onClick={() => selecionarAba('configuracoes-igreja')}

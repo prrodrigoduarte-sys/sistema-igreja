@@ -10,6 +10,9 @@ interface Membro {
   cpf: string;
   rg: string;
   data_nascimento: string;
+  data_batismo: string;
+  conjuge: string;
+  filhos: string | string[];
   estado_civil: string;
   celular_principal: string;
   email: string;
@@ -31,6 +34,14 @@ interface Ministerio {
   descricao?: string;
 }
 
+interface TransacaoFinanceira {
+  id: string;
+  descricao: string;
+  valor: number;
+  tipo: 'receita' | 'despesa';
+  data_transacao: string;
+}
+
 interface MembrosModuleProps {
   loggedUser: any;
 }
@@ -41,6 +52,9 @@ const formInicial = {
   cpf: '',
   rg: '',
   data_nascimento: '',
+  data_batismo: '',
+  conjuge: '',
+  filhos: [''] as string[],
   estado_civil: 'Solteiro(a)',
   celular_principal: '',
   email: '',
@@ -56,7 +70,7 @@ const formInicial = {
 };
 
 export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
-  const [membros, setMembros] = useState<Membro[]>([]);
+  const [membros, setMembros] = MembrosState(); // Mantém compatibilidade com o hook do useState padrão
   const [ministerios, setMinisterios] = useState<Ministerio[]>([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [loading, setLoading] = useState(false);
@@ -74,9 +88,18 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [formMembro, setFormMembro] = useState(formInicial);
   const [uploadingFoto, setUploadingFoto] = useState(false);
 
+  // Estados para o Extrato Financeiro do Membro
+  const [extratoMembro, setExtratoMembro] = useState<TransacaoFinanceira[]>([]);
+  const [loadingExtrato, setLoadingExtrato] = useState(false);
+
   const codigoIgreja =
     loggedUser?.codigo_igreja ||
     loggedUser?.igrejas?.codigo_igreja;
+
+  // Função auxiliar correta para o useState de membros
+  function MembrosState() {
+    return useState<Membro[]>([]);
+  }
 
   // Buscar Membros e Ministérios
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
@@ -91,7 +114,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setError(null);
 
     try {
-      // 1. Consulta de Membros (exclui tipo "Visitante")
       let query = supabase
         .from('members')
         .select('*')
@@ -108,7 +130,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       if (erroConsulta) throw erroConsulta;
       setMembros(data || []);
 
-      // 2. Consulta de Ministérios
       const resMin = await supabase
         .from('ministerios')
         .select('*')
@@ -131,6 +152,36 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     handlePesquisar();
   }, [loggedUser, codigoIgreja, handlePesquisar]);
 
+  // Carregar Extrato Financeiro do Membro selecionado
+  useEffect(() => {
+    const carregarExtratoFinanceiro = async () => {
+      if (!membroSelecionado?.id) return;
+      setLoadingExtrato(true);
+      try {
+        const { data, error } = await supabase
+          .from('lancamentos_financeiros')
+          .select('*')
+          .eq('membro_id', membroSelecionado.id)
+          .order('data_transacao', { ascending: false });
+
+        if (!error && data) {
+          setExtratoMembro(data);
+        } else {
+          setExtratoMembro([]);
+        }
+      } catch (err) {
+        console.error('Erro ao carregar extrato financeiro:', err);
+        setExtratoMembro([]);
+      } finally {
+        setLoadingExtrato(false);
+      }
+    };
+
+    if (showDetalhesModal && membroSelecionado) {
+      carregarExtratoFinanceiro();
+    }
+  }, [showDetalhesModal, membroSelecionado]);
+
   const handleOpenNewMemberModal = () => {
     setEditingMember(null);
     setFormMembro(formInicial);
@@ -139,12 +190,29 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
   const handleOpenEditMemberModal = (membro: Membro) => {
     setEditingMember(membro);
+    
+    // Processa os filhos salvos (pode vir como string JSON ou array)
+    let filhosFormatados = [''];
+    try {
+      if (typeof membro.filhos === 'string' && membro.filhos.trim() !== '') {
+        const parsed = JSON.parse(membro.filhos);
+        if (Array.isArray(parsed) && parsed.length > 0) filhosFormatados = parsed;
+      } else if (Array.isArray(membro.filhos) && membro.filhos.length > 0) {
+        filhosFormatados = membro.filhos;
+      }
+    } catch (e) {
+      filhosFormatados = [''];
+    }
+
     setFormMembro({
       tipo_cadastro: membro.tipo_cadastro || 'Membro',
       nome: membro.nome || '',
       cpf: membro.cpf || '',
       rg: membro.rg || '',
       data_nascimento: membro.data_nascimento || '',
+      data_batismo: membro.data_batismo || '',
+      conjuge: membro.conjuge || '',
+      filhos: filhosFormatados,
       estado_civil: membro.estado_civil || 'Solteiro(a)',
       celular_principal: membro.celular_principal || '',
       email: membro.email || '',
@@ -161,7 +229,29 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setShowMemberModal(true);
   };
 
-  // Manipulador para carregar/tirar foto
+  // Funções para gerenciar o rol dinâmico de filhos (+1)
+  const handleAddFilho = () => {
+    setFormMembro((prev) => ({
+      ...prev,
+      filhos: [...prev.filhos, ''],
+    }));
+  };
+
+  const handleFilhoChange = (index: number, valor: string) => {
+    const novosFilhos = [...formMembro.filhos];
+    novosFilhos[index] = valor;
+    setFormMembro((prev) => ({ ...prev, filhos: novosFilhos }));
+  };
+
+  const handleRemoveFilho = (index: number) => {
+    const novosFilhos = formMembro.filhos.filter((_, i) => i !== index);
+    setFormMembro((prev) => ({
+      ...prev,
+      filhos: novosFilhos.length > 0 ? novosFilhos : [''],
+    }));
+  };
+
+  // Upload de foto
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -205,7 +295,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setFormMembro(formInicial);
   };
 
-  const handleChange = (campo: string, valor: string) => {
+  const handleChange = (campo: string, valor: any) => {
     setFormMembro((formAtual) => ({
       ...formAtual,
       [campo]: valor,
@@ -221,16 +311,16 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
 
     try {
-      // TRATAMENTO DOS CAMPOS VAZIOS PARA EVITAR ERRO DE SINTAXE DE DATA/ID NO SUPABASE
+      const filhosValidos = formMembro.filhos.filter((f) => f.trim() !== '');
+
       const payload = {
         ...formMembro,
         codigo_igreja: codigoIgreja,
-        data_nascimento: formMembro.data_nascimento && formMembro.data_nascimento.trim() !== '' 
-          ? formMembro.data_nascimento 
-          : null,
-        ministerio_id: formMembro.ministerio_id && formMembro.ministerio_id.trim() !== '' 
-          ? formMembro.ministerio_id 
-          : null,
+        filhos: JSON.stringify(filhosValidos),
+        data_nascimento: formMembro.data_nascimento?.trim() !== '' ? formMembro.data_nascimento : null,
+        data_batismo: formMembro.data_batismo?.trim() !== '' ? formMembro.data_batismo : null,
+        ministerio_id: formMembro.ministerio_id?.trim() !== '' ? formMembro.ministerio_id : null,
+        conjuge: formMembro.conjuge?.trim() || null,
         cpf: formMembro.cpf?.trim() || null,
         rg: formMembro.rg?.trim() || null,
         email: formMembro.email?.trim() || null,
@@ -262,7 +352,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   };
 
-  // Solicitar exclusão com senha
   const handleIniciarExclusao = (id: string, nome: string) => {
     setMembroParaExcluir({ id, nome });
     setSenhaExclusao('');
@@ -304,7 +393,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   };
 
-  // Helper para exibir o nome do ministério vinculado
   const getNomeMinisterio = (ministerioId?: string) => {
     if (!ministerioId) return '-';
     const m = ministerios.find((x) => String(x.id) === String(ministerioId));
@@ -328,7 +416,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             Consulta de Membros
           </h2>
           <p className="text-slate-600 mt-1">
-            Pesquise por nome ou cadastre novos membros na instituição.
+            Pesquise por nome, gerencie familiares e acompanhe o extrato financeiro.
           </p>
         </div>
 
@@ -493,7 +581,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* CAIXA INBOX DE MINISTÉRIO */}
+                {/* MINISTÉRIO */}
                 <div className="sm:col-span-3">
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🏛️ Ministério</label>
                   <select
@@ -508,6 +596,76 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* NOVOS CAMPOS: DATAS & FAMÍLIA */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data de Nascimento</label>
+                  <input
+                    type="date"
+                    value={formMembro.data_nascimento}
+                    onChange={(e) => handleChange('data_nascimento', e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data do Batismo</label>
+                  <input
+                    type="date"
+                    value={formMembro.data_batismo}
+                    onChange={(e) => handleChange('data_batismo', e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Nome do Cônjuge</label>
+                  <input
+                    type="text"
+                    value={formMembro.conjuge}
+                    onChange={(e) => handleChange('conjuge', e.target.value)}
+                    placeholder="Esposo(a)"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* ROL DINÂMICO DE FILHOS (+1) */}
+                <div className="sm:col-span-3 bg-slate-50 p-4 rounded-2xl border space-y-3">
+                  <div className="flex justify-between items-center">
+                    <label className="block text-xs font-bold text-slate-700 uppercase">Filhos (+1)</label>
+                    <button
+                      type="button"
+                      onClick={handleAddFilho}
+                      className="px-3 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                    >
+                      + Adicionar Filho
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {formMembro.filhos.map((filho, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <input
+                          type="text"
+                          value={filho}
+                          onChange={(e) => handleFilhoChange(index, e.target.value)}
+                          placeholder={`Nome do ${index + 1}º filho(a)`}
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none bg-white font-medium"
+                        />
+                        {formMembro.filhos.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveFilho(index)}
+                            className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition cursor-pointer"
+                            title="Remover filho"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -529,16 +687,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                     onChange={(e) => handleChange('rg', e.target.value)}
                     placeholder="Número do RG"
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data de Nascimento</label>
-                  <input
-                    type="date"
-                    value={formMembro.data_nascimento}
-                    onChange={(e) => handleChange('data_nascimento', e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                   />
                 </div>
 
@@ -705,10 +853,10 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </div>
       )}
 
-      {/* MODAL DE DETALHES */}
+      {/* MODAL DE DETALHES + EXTRATO FINANCEIRO DO MEMBRO */}
       {showDetalhesModal && membroSelecionado && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto space-y-6">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-8 my-8 max-h-[90vh] overflow-y-auto space-y-6">
             <div className="flex justify-between items-center border-b pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-600">
@@ -719,7 +867,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   )}
                 </div>
                 <div>
-                  <h3 className="text-xl font-black text-blue-900">Ficha do Membro</h3>
+                  <h3 className="text-xl font-black text-blue-900">Ficha do Membro & Extrato</h3>
                   <p className="text-xs text-slate-500">{membroSelecionado.nome}</p>
                 </div>
               </div>
@@ -732,17 +880,72 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            {/* DADOS CADASTRAIS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Tipo</span>{membroSelecionado.tipo_cadastro}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Ministério</span>{getNomeMinisterio(membroSelecionado.ministerio_id)}</div>
-              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">CPF</span>{membroSelecionado.cpf || '-'}</div>
-              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">RG</span>{membroSelecionado.rg || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Nascimento</span>{membroSelecionado.data_nascimento || '-'}</div>
-              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Estado Civil</span>{membroSelecionado.estado_civil || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Batismo</span>{membroSelecionado.data_batismo || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Cônjuge</span>{membroSelecionado.conjuge || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Filhos</span>
+                {(() => {
+                  try {
+                    const fList = typeof membroSelecionado.filhos === 'string' ? JSON.parse(membroSelecionado.filhos) : membroSelecionado.filhos;
+                    return Array.isArray(fList) && fList.length > 0 ? fList.join(', ') : '-';
+                  } catch (e) {
+                    return '-';
+                  }
+                })()}
+              </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Celular</span>{membroSelecionado.celular_principal || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">E-mail</span>{membroSelecionado.email || '-'}</div>
               <div className="sm:col-span-2 bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Endereço</span>{[membroSelecionado.rua, membroSelecionado.numero, membroSelecionado.bairro, membroSelecionado.cidade, membroSelecionado.estado].filter(Boolean).join(', ') || '-'}</div>
             </div>
+
+            {/* EXTRATO FINANCEIRO DO MEMBRO */}
+            <div className="border-t pt-4 space-y-3">
+              <h4 className="font-black text-blue-900 text-sm">💰 Extrato de Caixa do Membro (Dízimos, Ofertas e Lançamentos)</h4>
+              
+              {loadingExtrato ? (
+                <p className="text-xs text-slate-400 py-2">Carregando extrato financeiro...</p>
+              ) : extratoMembro.length === 0 ? (
+                <div className="bg-slate-50 p-4 rounded-xl text-center text-slate-400 text-xs border border-dashed">
+                  Nenhum registro financeiro vinculado a este membro.
+                </div>
+              ) : (
+                <div className="overflow-x-auto max-h-48 overflow-y-auto border rounded-xl">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 uppercase text-slate-600 sticky top-0">
+                      <tr>
+                        <th className="p-2.5">Data</th>
+                        <th className="p-2.5">Descrição</th>
+                        <th className="p-2.5">Tipo</th>
+                        <th className="p-2.5 text-right">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {extratoMembro.map((t) => (
+                        <tr key={t.id} className="hover:bg-slate-50">
+                          <td className="p-2.5 text-slate-600">{t.data_transacao ? new Date(t.data_transacao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</td>
+                          <td className="p-2.5 font-bold text-slate-800">{t.descricao}</td>
+                          <td className="p-2.5">
+                            <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${t.tipo === 'receita' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                              {t.tipo}
+                            </span>
+                          </td>
+                          <td className={`p-2.5 text-right font-black ${t.tipo === 'receita' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            {t.tipo === 'receita' ? '+ ' : '- '}
+                            R$ {Number(t.valor || 0).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       )}

@@ -1,63 +1,78 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
-interface Compromisso {
-  id: string;
-  descricao: string;
-  data: string;
-  hora: string;
-  lembrete_minutos?: number;
-  frequencia?: string;
-  concluido?: boolean;
-}
-
-export default function AppMobileModule({ loggedUser }: { loggedUser: any }) {
-  const [activeTab, setActiveTab] = useState<'perfil' | 'agenda' | 'celula' | 'igreja'>('agenda');
-  const [compromissos, setCompromissos] = useState<Compromisso[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  const [showModal, setShowModal] = useState(false);
-  const [editingCompromisso, setEditingCompromisso] = useState<Compromisso | null>(null);
-
-  // Campos do Formulário Expandido com Alarme
-  const [descricao, setDescricao] = useState('');
-  const [dataCompromisso, setDataCompromisso] = useState('');
-  const [horaCompromisso, setHoraCompromisso] = useState('');
-  const [lembreteMinutos, setLembreteMinutos] = useState(15);
-  const [frequencia, setFrequencia] = useState('unica');
-
+export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
+  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
 
-  // Solicitar permissão de Notificação do Navegador ao carregar
   useEffect(() => {
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
-  }, []);
+    carregarUsuarios();
+  }, [codigoIgreja]);
 
-  const fetchCompromissos = useCallback(async () => {
+  const carregarUsuarios = async () => {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .from('agenda_mobile')
+        .from('usuarios')
         .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('data', { ascending: true })
-        .order('hora', { ascending: true });
+        .eq('codigo_igreja', codigoIgreja);
 
       if (error) throw error;
-      setCompromissos(data || []);
+      setUsuarios(data || []);
     } catch (err: any) {
-      console.error('Erro ao buscar agenda:', err);
+      console.error('Erro ao carregar usuários:', err.message);
     } finally {
       setLoading(false);
     }
-  }, [codigoIgreja]);
+  };
 
-  useEffect(() => {
-    fetchCompromissos();
-  }, [fetchCompromissos]);
+  return (
+    <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-4xl mx-auto">
+      <div className="flex justify-between items-center border-b pb-4">
+        <div>
+          <h2 className="text-xl font-black text-blue-900">👥 Controle de Usuários</h2>
+          <p className="text-xs text-slate-500">Gerencie os acessos dos membros da igreja ({codigoIgreja})</p>
+        </div>
+      </div>
 
+      {loading ? (
+        <p className="text-center py-8 text-xs text-slate-500">Carregando usuários...</p>
+      ) : usuarios.length === 0 ? (
+        <div className="text-center py-12 text-slate-400 text-xs border border-dashed rounded-2xl">
+          Nenhum usuário cadastrado encontrado para esta igreja.
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 text-slate-700 uppercase">
+              <tr>
+                <th className="p-3">Nome</th>
+                <th className="p-3">E-mail</th>
+                <th className="p-3">Perfil</th>
+                <th className="p-3">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {usuarios.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50">
+                  <td className="p-3 font-bold text-slate-800">{u.nome_usuario || 'Sem nome'}</td>
+                  <td className="p-3 text-slate-600">{u.email}</td>
+                  <td className="p-3 font-semibold text-blue-900">{u.perfil || 'comum'}</td>
+                  <td className="p-3">
+                    <span className="px-2 py-1 bg-emerald-50 text-emerald-700 font-bold rounded-lg border border-emerald-200">
+                      Ativo
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
   // Alarme sonoro e notificação ativa em tempo real
   useEffect(() => {
     const interval = setInterval(() => {

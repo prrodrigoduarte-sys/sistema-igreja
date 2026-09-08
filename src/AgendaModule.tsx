@@ -17,6 +17,7 @@ interface Compromisso {
   som_ativo?: boolean;
   tipo_som?: 'bipe' | 'musica';
   url_som?: string;
+  tempo_antecedencia?: number;
 }
 
 interface Membro {
@@ -40,6 +41,7 @@ const formInicial = {
   som_ativo: true,
   tipo_som: 'bipe' as 'bipe' | 'musica',
   url_som: '',
+  tempo_antecedencia: 15,
 };
 
 export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
@@ -99,7 +101,6 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     }
   }, [codigoIgreja, filtroData]);
 
-  // Busca de membros da igreja
   const fetchMembros = useCallback(async () => {
     if (!codigoIgreja) return;
     try {
@@ -174,6 +175,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
       som_ativo: c.som_ativo ?? true,
       tipo_som: c.tipo_som || 'bipe',
       url_som: c.url_som || '',
+      tempo_antecedencia: c.tempo_antecedencia ?? 15,
     });
     setShowModal(true);
   };
@@ -299,6 +301,16 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
     }
   };
 
+  const formatarAntecedencia = (minutos?: number) => {
+    if (minutos === 0) return 'No horário exato';
+    if (minutos === 5) return '5 minutos antes';
+    if (minutos === 15) return '15 minutos antes';
+    if (minutos === 30) return '30 minutos antes';
+    if (minutos === 60) return '1 hora antes';
+    if (minutos === 1440) return '1 dia antes';
+    return `${minutos || 15} minutos antes`;
+  };
+
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
       
@@ -392,7 +404,12 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <div className="text-xs text-slate-600 space-y-1 pt-1 border-t border-slate-200/60">
                     <p><strong className="text-slate-700">Local:</strong> {c.local_evento || 'Não informado'}</p>
                     <p><strong className="text-slate-700">Responsável:</strong> {c.responsavel || 'Não informado'}</p>
-                    <p><strong className="text-slate-700">Alerta de Som:</strong> {c.som_ativo ? (c.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão') : '🔕 Sem som'}</p>
+                    <p>
+                      <strong className="text-slate-700">Alerta de Som:</strong>{' '}
+                      {c.som_ativo
+                        ? `${c.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão'} (${formatarAntecedencia(c.tempo_antecedencia)})`
+                        : '🔕 Sem som'}
+                    </p>
                     {c.descricao && <p className="text-slate-500 italic mt-1">"{c.descricao}"</p>}
                   </div>
 
@@ -439,7 +456,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                   <th className="p-3">Título do Evento</th>
                   <th className="p-3">Local</th>
                   <th className="p-3">Responsável</th>
-                  <th className="p-3">Som</th>
+                  <th className="p-3">Alerta de Som</th>
                   <th className="p-3 text-right">Ações</th>
                 </tr>
               </thead>
@@ -478,7 +495,14 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                       <td className="p-3 text-slate-600">{c.local_evento || '-'}</td>
                       <td className="p-3 text-slate-600">{c.responsavel || '-'}</td>
                       <td className="p-3 text-slate-600 whitespace-nowrap text-xs">
-                        {c.som_ativo ? (c.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão') : '🔕 Sem som'}
+                        {c.som_ativo ? (
+                          <div>
+                            <span className="font-semibold">{c.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão'}</span>
+                            <span className="block text-[10px] text-slate-500">{formatarAntecedencia(c.tempo_antecedencia)}</span>
+                          </div>
+                        ) : (
+                          '🔕 Sem som'
+                        )}
                       </td>
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
                         <button
@@ -623,7 +647,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                 </div>
               </div>
 
-              {/* BLOCO DE CONFIGURAÇÃO DE SOM */}
+              {/* BLOCO DE CONFIGURAÇÃO DE SOM E ANTECEDÊNCIA */}
               <div className="p-4 bg-blue-50/60 rounded-2xl border border-blue-100 space-y-3">
                 <div className="flex items-center gap-2">
                   <input
@@ -640,36 +664,59 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
 
                 {formCompromisso.som_ativo && (
                   <div className="pl-6 space-y-3 pt-2 border-t border-blue-100">
-                    <span className="block text-xs font-semibold text-slate-700">Tipo de Alerta Sonoro:</span>
-                    
-                    <div className="flex flex-col sm:flex-row gap-4 text-xs font-medium text-slate-800">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="tipo_som"
-                          value="bipe"
-                          checked={formCompromisso.tipo_som === 'bipe'}
-                          onChange={() => handleChange('tipo_som', 'bipe')}
-                          className="text-blue-900 focus:ring-blue-500"
-                        />
-                        🔔 Bipe Padrão do Celular
-                      </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Avisar quanto tempo antes?
+                        </label>
+                        <select
+                          value={formCompromisso.tempo_antecedencia}
+                          onChange={(e) => handleChange('tempo_antecedencia', Number(e.target.value))}
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+                        >
+                          <option value={0}>⏰ No horário exato do evento</option>
+                          <option value={5}>⏱️ 5 minutos antes</option>
+                          <option value={15}>⏱️ 15 minutos antes</option>
+                          <option value={30}>⏱️ 30 minutos antes</option>
+                          <option value={60}>⌛ 1 hora antes</option>
+                          <option value={1440}>📅 1 dia antes</option>
+                        </select>
+                      </div>
 
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name="tipo_som"
-                          value="musica"
-                          checked={formCompromisso.tipo_som === 'musica'}
-                          onChange={() => handleChange('tipo_som', 'musica')}
-                          className="text-blue-900 focus:ring-blue-500"
-                        />
-                        🎵 Música ou Áudio MP3 Customizado
-                      </label>
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">
+                          Tipo de Alerta Sonoro:
+                        </label>
+                        <div className="flex flex-col gap-1.5 pt-1 text-xs font-medium text-slate-800">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="tipo_som"
+                              value="bipe"
+                              checked={formCompromisso.tipo_som === 'bipe'}
+                              onChange={() => handleChange('tipo_som', 'bipe')}
+                              className="text-blue-900 focus:ring-blue-500"
+                            />
+                            🔔 Bipe Padrão
+                          </label>
+
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="tipo_som"
+                              value="musica"
+                              checked={formCompromisso.tipo_som === 'musica'}
+                              onChange={() => handleChange('tipo_som', 'musica')}
+                              className="text-blue-900 focus:ring-blue-500"
+                            />
+                            🎵 Música MP3
+                          </label>
+                        </div>
+                      </div>
                     </div>
 
                     {formCompromisso.tipo_som === 'musica' && (
-                      <div className="pt-2">
+                      <div className="pt-1">
                         <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                           Link/URL do Áudio MP3
                         </label>
@@ -678,7 +725,7 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
                           value={formCompromisso.url_som}
                           onChange={(e) => handleChange('url_som', e.target.value)}
                           placeholder="https://seu-servidor.com/audio-vinheta.mp3"
-                          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                          className="w-full border border-slate-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                           required={formCompromisso.tipo_som === 'musica'}
                         />
                       </div>
@@ -791,7 +838,12 @@ export default function AgendaModule({ loggedUser }: AgendaModuleProps) {
               </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Local</span>{compromissoSelecionado.local_evento || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Responsável</span>{compromissoSelecionado.responsavel || '-'}</div>
-              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Configuração de Som</span>{compromissoSelecionado.som_ativo ? (compromissoSelecionado.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão') : '🔕 Sem som'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl">
+                <span className="block text-xs font-bold text-slate-400 uppercase">Configuração de Som</span>
+                {compromissoSelecionado.som_ativo
+                  ? `${compromissoSelecionado.tipo_som === 'musica' ? '🎵 Música MP3' : '🔔 Bipe Padrão'} (${formatarAntecedencia(compromissoSelecionado.tempo_antecedencia)})`
+                  : '🔕 Sem som'}
+              </div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Descrição</span>{compromissoSelecionado.descricao || 'Nenhuma descrição informada.'}</div>
             </div>
           </div>

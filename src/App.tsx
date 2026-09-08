@@ -319,16 +319,43 @@ function App() {
       return;
     }
 
+    const emailLimpo = email.trim().toLowerCase();
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
+      email: emailLimpo,
       password,
     });
 
     if (authError) {
+      if (authError.message.toLowerCase().includes('already registered')) {
+        alert('Este e-mail já possui uma conta cadastrada. Por favor, faça login.');
+        setIsLogin(true);
+        return;
+      }
       alert('Erro no cadastro (Auth): ' + authError.message);
       return;
     }
 
+    const authUserId = authData.user?.id || authData.session?.user?.id;
+
+    const { error: profileError } = await supabase.from('usuarios').upsert([
+      {
+        auth_user_id: authUserId || null,
+        email: emailLimpo,
+        nome_usuario: nomeUsuario,
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
+        perfil: 'comum',
+        ativo: true,
+      },
+    ], { onConflict: 'email' });
+
+    if (profileError) {
+      console.error('Erro no perfil:', profileError);
+    }
+
+    alert('Conta cadastrada com sucesso! Faça login para entrar.');
+    setIsLogin(true);
+  };
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
     const { error: profileError } = await supabase.from('usuarios').insert([

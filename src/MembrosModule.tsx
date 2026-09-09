@@ -39,7 +39,7 @@ interface TransacaoFinanceira {
   descricao: string;
   valor: number;
   tipo: 'receita' | 'despesa';
-  data_transacao: string;
+  data_lancamento: string;
 }
 
 interface MembrosModuleProps {
@@ -70,7 +70,7 @@ const formInicial = {
 };
 
 export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
-  const [membros, setMembros] = MembrosState(); // Mantém compatibilidade com o hook do useState padrão
+  const [membros, setMembros] = useState<Membro[]>([]);
   const [ministerios, setMinisterios] = useState<Ministerio[]>([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [loading, setLoading] = useState(false);
@@ -95,11 +95,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const codigoIgreja =
     loggedUser?.codigo_igreja ||
     loggedUser?.igrejas?.codigo_igreja;
-
-  // Função auxiliar correta para o useState de membros
-  function MembrosState() {
-    return useState<Membro[]>([]);
-  }
 
   // Buscar Membros e Ministérios
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
@@ -152,7 +147,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     handlePesquisar();
   }, [loggedUser, codigoIgreja, handlePesquisar]);
 
-  // Carregar Extrato Financeiro do Membro selecionado
+  // Carregar Extrato Financeiro do Membro selecionado (ÚNICO E LIMPO)
   useEffect(() => {
     const carregarExtratoFinanceiro = async () => {
       if (!membroSelecionado?.id) return;
@@ -162,7 +157,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
           .from('lancamentos_financeiros')
           .select('*')
           .eq('membro_id', membroSelecionado.id)
-          .order('data_lancamento', { ascending: false }); // CORRIGIDO AQUI
+          .order('data_lancamento', { ascending: false });
 
         if (!error && data) {
           setExtratoMembro(data);
@@ -182,11 +177,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }
   }, [showDetalhesModal, membroSelecionado]);
 
-    if (showDetalhesModal && membroSelecionado) {
-      carregarExtratoFinanceiro();
-    }
-  }, [showDetalhesModal, membroSelecionado]);
-
   const handleOpenNewMemberModal = () => {
     setEditingMember(null);
     setFormMembro(formInicial);
@@ -196,7 +186,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const handleOpenEditMemberModal = (membro: Membro) => {
     setEditingMember(membro);
     
-    // Processa os filhos salvos (pode vir como string JSON ou array)
     let filhosFormatados = [''];
     try {
       if (typeof membro.filhos === 'string' && membro.filhos.trim() !== '') {
@@ -234,7 +223,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setShowMemberModal(true);
   };
 
-  // Funções para gerenciar o rol dinâmico de filhos (+1)
   const handleAddFilho = () => {
     setFormMembro((prev) => ({
       ...prev,
@@ -256,7 +244,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     }));
   };
 
-  // Upload de foto
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -603,7 +590,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   </select>
                 </div>
 
-                {/* NOVOS CAMPOS: DATAS & FAMÍLIA */}
+                {/* DATAS & FAMÍLIA */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data de Nascimento</label>
                   <input
@@ -635,7 +622,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                   />
                 </div>
 
-                {/* ROL DINÂMICO DE FILHOS (+1) */}
+                {/* ROL DINÂMICO DE FILHOS */}
                 <div className="sm:col-span-3 bg-slate-50 p-4 rounded-2xl border space-y-3">
                   <div className="flex justify-between items-center">
                     <label className="block text-xs font-bold text-slate-700 uppercase">Filhos (+1)</label>
@@ -932,7 +919,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                     <tbody className="divide-y">
                       {extratoMembro.map((t) => (
                         <tr key={t.id} className="hover:bg-slate-50">
-                          <td className="p-2.5 text-slate-600">{t.data_transacao ? new Date(t.data_transacao + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</td>
+                          <td className="p-2.5 text-slate-600">{t.data_lancamento ? new Date(t.data_lancamento + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}</td>
                           <td className="p-2.5 font-bold text-slate-800">{t.descricao}</td>
                           <td className="p-2.5">
                             <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase ${t.tipo === 'receita' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>

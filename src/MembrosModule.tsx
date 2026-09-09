@@ -99,6 +99,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   // Buscar Membros e Ministérios
   // Buscar Membros apenas sob demanda ou por pesquisa (Ignora maiúsculas/minúsculas)
   // Buscar Membros apenas por ação do usuário (evita timeout automático)
+  // Buscar Membros de forma ultra rápida com limite de segurança
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -118,10 +119,9 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         .neq('tipo_cadastro', 'Visitante');
 
       if (termoBusca.trim() !== '') {
-        queryMembros = queryMembros.ilike('nome', `%${termoBusca.trim()}%`);
+        queryMembros = queryMembros.ilike('nome', `%${termoBusca.trim()}%`).limit(15);
       } else {
-        // Se a busca estiver vazia, traz no máximo 20 registros recentes para não estourar o tempo
-        queryMembros = queryMembros.limit(20).order('nome', { ascending: true });
+        queryMembros = queryMembros.limit(10).order('nome', { ascending: true });
       }
 
       const { data, error: erroConsulta } = await queryMembros;
@@ -129,7 +129,6 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
       setMembros(data || []);
 
-      // Busca ministérios separadamente de forma leve
       const resMin = await supabase
         .from('ministerios')
         .select('*')

@@ -486,7 +486,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                         onClick={() => { setMembroSelecionado(m); setShowDetalhesModal(true); }}
                         className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
                       >
-                        Ver Completo
+                        Ver Completo/financeiro
                       </button>
                       <button
                         type="button"

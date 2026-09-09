@@ -81,31 +81,40 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setShowModal(true);
   };
 
-  const handleOpenEdit = (usuario: any) => {
+  const handleOpenEdit = async (usuario: any) => {
     setEditingUsuario(usuario);
     setNomeUsuario(usuario.nome_usuario || '');
     setEmailUsuario(usuario.email || '');
     setPerfilUsuario(usuario.perfil || 'comum');
 
-    // Carrega as permissões salvas do usuário (se houver no banco ou define padrão zerado)
-    let permsSalvas = {};
+    // Carregar permissões da tabela 'permissoes_usuario'
+    let permsIniciais: { [key: string]: boolean } = {
+      dashboard: false,
+      cadastros: false,
+      celulas: false,
+      discipulado: false,
+      agenda: false,
+      financeiro: false,
+      projetos: false,
+      app_mobile: true,
+    };
+
     try {
-      permsSalvas = typeof usuario.permissoes === 'string' ? JSON.parse(usuario.permissoes) : (usuario.permissoes || {});
-    } catch (e) {
-      permsSalvas = {};
+      const { data: permData } = await supabase
+        .from('permissoes_usuario')
+        .select('modulo, permitido')
+        .eq('usuario_id', usuario.id);
+
+      if (permData && permData.length > 0) {
+        permData.forEach((p) => {
+          permsIniciais[p.modulo] = p.permitido;
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao carregar permissões do usuário:', err);
     }
 
-    setPermissoesUsuario({
-      dashboard: !!permsSalvas['dashboard'],
-      cadastros: !!permsSalvas['cadastros'],
-      celulas: !!permsSalvas['celulas'],
-      discipulado: !!permsSalvas['discipulado'],
-      agenda: !!permsSalvas['agenda'],
-      financeiro: !!permsSalvas['financeiro'],
-      projetos: !!permsSalvas['projetos'],
-      app_mobile: permsSalvas['app_mobile'] !== undefined ? !!permsSalvas['app_mobile'] : true,
-    });
-
+    setPermissoesUsuario(permsIniciais);
     setSenhaAdminInput('');
     setShowModal(true);
   };
@@ -131,8 +140,9 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         nome_usuario: nomeUsuario.trim(),
         email: emailUsuario.trim(),
         perfil: perfilUsuario,
-        // Removido o campo 'permissoes' para não dar erro na tabela do Supabase
       };
+
+      let usuarioId = editingUsuario?.id;
 
       if (editingUsuario) {
         const { error } = await supabase
@@ -141,13 +151,37 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
           .eq('id', editingUsuario.id);
 
         if (error) throw error;
-        alert('✏️ Usuário atualizado com sucesso!');
       } else {
-        const { error } = await supabase.from('usuarios').insert([payload]);
+        const { data: novoUsuario, error } = await supabase
+          .from('usuarios')
+          .insert([payload])
+          .select()
+          .single();
+
         if (error) throw error;
-        alert('👤 Novo usuário cadastrado com sucesso!');
+        usuarioId = novoUsuario.id;
       }
 
+      // Salva ou atualiza as permissões na tabela 'permissoes_usuario' para que o login reconheça
+      if (usuarioId) {
+        await supabase.from('permissoes_usuario').delete().eq('usuario_id', usuarioId);
+
+        const novasPermissoesRows = Object.entries(permissoesUsuario).map(([modulo, permitido]) => ({
+          usuario_id: usuarioId,
+          modulo: modulo,
+          permitido: permitido,
+        }));
+
+        const { error: permError } = await supabase
+          .from('permissoes_usuario')
+          .insert(novasPermissoesRows);
+
+        if (permError) {
+          console.error('Erro ao salvar permissões granulares:', permError);
+        }
+      }
+
+      alert('✏️ Usuário e permissões salvos com sucesso!');
       setShowModal(false);
       carregarUsuarios();
     } catch (err: any) {
@@ -164,6 +198,9 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     }
 
     try {
+      // Exclui permissões vinculadas primeiro
+      await supabase.from('permissoes_usuario').delete().eq('usuario_id', id);
+
       const { error } = await supabase.from('usuarios').delete().eq('id', id);
       if (error) throw error;
 

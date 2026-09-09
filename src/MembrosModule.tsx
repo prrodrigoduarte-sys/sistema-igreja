@@ -98,6 +98,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
   // Buscar Membros e Ministérios
   // Buscar Membros apenas sob demanda ou por pesquisa (Ignora maiúsculas/minúsculas)
+  // Buscar Membros apenas por ação do usuário (evita timeout automático)
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -116,22 +117,24 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         .eq('codigo_igreja', codigoIgreja)
         .neq('tipo_cadastro', 'Visitante');
 
-      // Se o usuário digitou algo, filtra ignorando maiúsculas/minúsculas
       if (termoBusca.trim() !== '') {
         queryMembros = queryMembros.ilike('nome', `%${termoBusca.trim()}%`);
       } else {
-        // Se não digitou nada, traz um limite seguro (ex: primeiros 50 ou deixa vazio se preferir)
-        queryMembros = queryMembros.limit(50).order('nome', { ascending: true });
+        // Se a busca estiver vazia, traz no máximo 20 registros recentes para não estourar o tempo
+        queryMembros = queryMembros.limit(20).order('nome', { ascending: true });
       }
 
-      const [resMembros, resMin] = await Promise.all([
-        queryMembros,
-        supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja)
-      ]);
+      const { data, error: erroConsulta } = await queryMembros;
+      if (erroConsulta) throw erroConsulta;
 
-      if (resMembros.error) throw resMembros.error;
+      setMembros(data || []);
 
-      setMembros(resMembros.data || []);
+      // Busca ministérios separadamente de forma leve
+      const resMin = await supabase
+        .from('ministerios')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
       if (!resMin.error) {
         setMinisterios(resMin.data || []);
       }
@@ -143,7 +146,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       setLoading(false);
     }
   }, [codigoIgreja, termoBusca]);
-  
+
   useEffect(() => {
     if (!loggedUser || !codigoIgreja) return;
     handlePesquisar();

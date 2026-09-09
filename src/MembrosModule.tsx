@@ -159,10 +159,11 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       setLoadingExtrato(true);
       try {
         const { data, error } = await supabase
-        .from('lancamentos_financeiros')
-        .select('*')
-        .eq('membro_id', membroSelecionado.id)
-        .order('data_transacao', { ascending: false }); // <-- Aqui está buscando por 'data_transacao'
+          .from('lancamentos_financeiros')
+          .select('*')
+          .eq('membro_id', membroSelecionado.id)
+          .order('data_lancamento', { ascending: false }); // CORRIGIDO AQUI
+
         if (!error && data) {
           setExtratoMembro(data);
         } else {
@@ -175,6 +176,11 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         setLoadingExtrato(false);
       }
     };
+
+    if (showDetalhesModal && membroSelecionado) {
+      carregarExtratoFinanceiro();
+    }
+  }, [showDetalhesModal, membroSelecionado]);
 
     if (showDetalhesModal && membroSelecionado) {
       carregarExtratoFinanceiro();

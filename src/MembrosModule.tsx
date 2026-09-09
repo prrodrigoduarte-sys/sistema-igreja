@@ -97,6 +97,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     loggedUser?.igrejas?.codigo_igreja;
 
   // Buscar Membros e Ministérios
+  // Buscar Membros apenas sob demanda ou por pesquisa (Ignora maiúsculas/minúsculas)
   const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
@@ -109,27 +110,28 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setError(null);
 
     try {
-      let query = supabase
+      let queryMembros = supabase
         .from('members')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
         .neq('tipo_cadastro', 'Visitante');
 
+      // Se o usuário digitou algo, filtra ignorando maiúsculas/minúsculas
       if (termoBusca.trim() !== '') {
-        query = query.ilike('nome', `%${termoBusca.trim()}%`);
+        queryMembros = queryMembros.ilike('nome', `%${termoBusca.trim()}%`);
       } else {
-        query = query.limit(35);
+        // Se não digitou nada, traz um limite seguro (ex: primeiros 50 ou deixa vazio se preferir)
+        queryMembros = queryMembros.limit(50).order('nome', { ascending: true });
       }
 
-      const { data, error: erroConsulta } = await query;
-      if (erroConsulta) throw erroConsulta;
-      setMembros(data || []);
+      const [resMembros, resMin] = await Promise.all([
+        queryMembros,
+        supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja)
+      ]);
 
-      const resMin = await supabase
-        .from('ministerios')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja);
+      if (resMembros.error) throw resMembros.error;
 
+      setMembros(resMembros.data || []);
       if (!resMin.error) {
         setMinisterios(resMin.data || []);
       }
@@ -141,7 +143,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       setLoading(false);
     }
   }, [codigoIgreja, termoBusca]);
-
+  
   useEffect(() => {
     if (!loggedUser || !codigoIgreja) return;
     handlePesquisar();

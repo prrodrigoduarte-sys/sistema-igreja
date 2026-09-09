@@ -159,11 +159,10 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       setLoadingExtrato(true);
       try {
         const { data, error } = await supabase
-          .from('lancamentos_financeiros')
-          .select('*')
-          .eq('membro_id', membroSelecionado.id)
-          .order('data_transacao', { ascending: false });
-
+        .from('lancamentos_financeiros')
+        .select('*')
+        .eq('membro_id', membroSelecionado.id)
+        .order('data_transacao', { ascending: false }); // <-- Aqui está buscando por 'data_transacao'
         if (!error && data) {
           setExtratoMembro(data);
         } else {

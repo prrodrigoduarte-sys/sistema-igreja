@@ -1040,9 +1040,9 @@ export default function App() {
       </main>
 
       {/* ========================================================================== */}
-      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
-      /* ========================================================================== */}
-      {isMobileModalOpen && (
+        {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */}
+        {/* ========================================================================== */}
+              {isMobileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
             <div className="flex justify-between items-center border-b pb-4">

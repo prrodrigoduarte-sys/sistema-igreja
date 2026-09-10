@@ -36,29 +36,29 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [loading, setLoading] = useState(false);
 
   // 1. Dados do Perfil Pessoal
-  // Estados do Cadastro Completo em 4 Etapas
-  const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3 | 4>(1);
-  const [tipoCadastro, setTipoCadastro] = useState('Membro');
+  const [membroPerfil, setMembroPerfil] = useState<any>(null);
+  const [fotoUrl, setFotoUrl] = useState('');
+  const [rua, setRua] = useState('');
+  const [numero, setNumero] = useState('');
+  const [bairro, setBairro] = useState('');
+  const [cidade, setCidade] = useState('');
+
+  // 1.1 Estados do Formulário de Cadastro Único Sequencial (Etapas)
+  const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3>(1);
   const [nomeMembro, setNomeMembro] = useState('');
-  const [ministerio, setMinisterio] = useState('');
-  const [dataNascMembro, setDataNascMembro] = useState('');
-  const [dataBatismo, setDataBatismo] = useState('');
-  const [nomeConjugue, setNomeConjugue] = useState('');
-  const [filhos, setFilhos] = useState<string[]>(['']);
-  const [cpfMembro, setCpfMembro] = useState('');
-  const [rgMembro, setRgMembro] = useState('');
-  const [estadoCivil, setEstadoCivil] = useState('Solteiro(a)');
   const [celularMembro, setCelularMembro] = useState('');
-  const [emailMembro, setEmailMembro] = useState('');
+  const [dataNascMembro, setDataNascMembro] = useState('');
+  const [estadoCivil, setEstadoCivil] = useState('Solteiro(a)');
   const [cepMembro, setCepMembro] = useState('');
+  const [bairroMembro, setBairroMembro] = useState('');
   const [ruaMembro, setRuaMembro] = useState('');
   const [numeroMembro, setNumeroMembro] = useState('');
-  const [bairroMembro, setBairroMembro] = useState('');
-  const [cidadeMembro, setCidadeMembro] = useState('');
-  const [ufMembro, setUfMembro] = useState('MG');
+  const [batizado, setBatizado] = useState('Sim');
+  const [observacoesMembro, setObservacoesMembro] = useState('');
 
   const [jaCadastrado, setJaCadastrado] = useState(false);
   const [carregandoCadastro, setCarregandoCadastro] = useState(false);
+
   // 2. Agenda Pessoal (Criação e Edição com Alarme)
   const [minhaAgenda, setMinhaAgenda] = useState<Compromisso[]>([]);
   const [novoTitulo, setNovoTitulo] = useState('');
@@ -305,8 +305,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // FUNÇÃO DE SALVAMENTO DO CADASTRO COMPLETO EM 4 ETAPAS
-  const handleFinalizarCadastroCompleto = async (e: React.FormEvent) => {
+  // LÓGICA DO CADASTRO ÚNICO EM ETAPAS
+  const handleFinalizarCadastroUnico = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (jaCadastrado && !isAdminOuLider) {
@@ -331,37 +331,34 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       const payload = {
         codigo_igreja: codigoIgreja,
-        email: emailMembro.trim() || emailUsuario,
-        tipo_cadastro: tipoCadastro,
+        email: emailUsuario,
         nome: nomeMembro.trim(),
-        ministerio: ministerio.trim(),
-        data_nascimento: dataNascMembro || null,
-        data_batismo: dataBatismo || null,
-        nome_conjugue: nomeConjugue.trim(),
-        filhos: filhos.filter(f => f.trim() !== ''),
-        cpf: cpfMembro.trim(),
-        rg: rgMembro.trim(),
-        estado_civil: estadoCivil,
         celular_principal: celularMembro.trim(),
+        data_nascimento: dataNascMembro || null,
+        estado_civil: estadoCivil,
         cep: cepMembro.trim(),
+        bairro: bairroMembro.trim(),
         rua: ruaMembro.trim(),
         numero: numeroMembro.trim(),
-        bairro: bairroMembro.trim(),
-        cidade: cidadeMembro.trim(),
-        uf: ufMembro.trim(),
+        batizado,
+        observacoes: observacoesMembro.trim(),
+        tipo_cadastro: 'Membro',
         cadastro_concluido: true,
         status_acesso: 'Ativo',
       };
 
       if (membroAtual?.id) {
-        const { error } = await supabase.from('members').update(payload).eq('id', membroAtual.id);
+        const { error } = await supabase
+          .from('members')
+          .update(payload)
+          .eq('id', membroAtual.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('members').insert([payload]);
         if (error) throw error;
       }
 
-      alert('✅ Cadastro completo salvo com sucesso!');
+      alert('✅ Cadastro concluído com sucesso!');
       setJaCadastrado(true);
       carregarDadosApp();
     } catch (err: any) {
@@ -928,10 +925,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             <label className="font-bold">Filhos</label>
                             <button type="button" onClick={() => setFilhos([...filhos, ''])} className="text-[10px] text-blue-600 font-bold cursor-pointer">+ Adicionar Filho</button>
                           </div>
-                          {Array.isArray(filhos) && filhos.map((filho, idx) => (
+                          {filhos.map((filho, idx) => (
                             <div key={idx} className="flex gap-1 mb-1.5">
-                              <input type="text" placeholder={`Nome do ${idx + 1}º filho(a)`} value={filho || ''} onChange={(e) => { const novos = [...filhos]; novos[idx] = e.target.value; setFilhos(novos); }} className="w-full border rounded-xl p-2" />
-                              <button type="button" onClick={() => setFilhos(filhos.filter((_, i) => i !== idx))} className="px-2 bg-rose-100 text-rose-700 rounded-xl font-bold cursor-pointer">✕</button>
+                              <input type="text" placeholder={`Nome do ${idx + 1}º filho(a)`} value={filho} onChange={(e) => { const novos = [...filhos]; novos[idx] = e.target.value; setFilhos(novos); }} className="w-full border rounded-xl p-2" />
+                              {filhos.length > 1 && <button type="button" onClick={() => setFilhos(filhos.filter((_, i) => i !== idx))} className="px-2 bg-rose-100 text-rose-700 rounded-xl font-bold cursor-pointer">✕</button>}
                             </div>
                           ))}
                         </div>

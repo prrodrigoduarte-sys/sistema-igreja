@@ -305,8 +305,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // LÓGICA DO CADASTRO ÚNICO EM ETAPAS
-  const handleFinalizarCadastroUnico = async (e: React.FormEvent) => {
+  // FUNÇÃO DE SALVAMENTO DO CADASTRO COMPLETO EM 4 ETAPAS
+  const handleFinalizarCadastroCompleto = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (jaCadastrado && !isAdminOuLider) {
@@ -331,18 +331,24 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       const payload = {
         codigo_igreja: codigoIgreja,
-        email: emailUsuario,
+        email: emailMembro.trim() || emailUsuario,
+        tipo_cadastro: tipoCadastro,
         nome: nomeMembro.trim(),
-        celular_principal: celularMembro.trim(),
+        ministerio: ministerio.trim(),
         data_nascimento: dataNascMembro || null,
+        data_batismo: dataBatismo || null,
+        nome_conjugue: nomeConjugue.trim(),
+        filhos: filhos.filter(f => f.trim() !== ''),
+        cpf: cpfMembro.trim(),
+        rg: rgMembro.trim(),
         estado_civil: estadoCivil,
+        celular_principal: celularMembro.trim(),
         cep: cepMembro.trim(),
-        bairro: bairroMembro.trim(),
         rua: ruaMembro.trim(),
         numero: numeroMembro.trim(),
-        batizado,
-        observacoes: observacoesMembro.trim(),
-        tipo_cadastro: 'Membro',
+        bairro: bairroMembro.trim(),
+        cidade: cidadeMembro.trim(),
+        uf: ufMembro.trim(),
         cadastro_concluido: true,
         status_acesso: 'Ativo',
       };
@@ -358,7 +364,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         if (error) throw error;
       }
 
-      alert('✅ Cadastro concluído com sucesso!');
+      alert('✅ Cadastro completo salvo com sucesso!');
       setJaCadastrado(true);
       carregarDadosApp();
     } catch (err: any) {

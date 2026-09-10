@@ -3,9 +3,7 @@
 /* ========================================================================== */
 if (typeof window !== 'undefined') {
   (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
-}
-
-import React, { useEffect, useState, useCallback } from 'react';
+}import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';
 import MembrosModule from './MembrosModule';
@@ -29,10 +27,11 @@ function getOrCreateDeviceToken() {
     localStorage.setItem('app_device_token', token);
   }
   return token;
-}
+
+} // <--- ADICIONE ESTA CHAVE AQUI PARA FECHAR CORRETAMENTE O ESCOPO ANTERIOR
 
 /* ========================================================================== */
-/* 2. COMPONENTE PRINCIPAL (APP)                                              */
+/* 2. COMPONENTE PRINCIPAL (APP)                                            */
 /* ========================================================================== */
 export default function App() {
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
@@ -1646,7 +1645,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </div>
       )}
 
-      {itemDetalhes && (
+{itemDetalhes && (
         <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 my-8">
             <div className="flex justify-between items-center border-b pb-3">

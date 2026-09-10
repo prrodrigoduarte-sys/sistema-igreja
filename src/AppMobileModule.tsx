@@ -19,6 +19,7 @@ interface DadosIgreja {
   nome_igreja: string;
   endereco_completo: string;
   link_instagram: string;
+  cnpj?: string;
   chave_pix?: string;
 }
 
@@ -65,7 +66,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
     nome_igreja: 'Sua Igreja',
     endereco_completo: 'Teófilo Otoni - MG',
     link_instagram: 'https://instagram.com',
-    chave_pix: 'contato@suaigreja.com.br (PIX)',
+    cnpj: '',
+    chave_pix: '',
   });
 
   // 3.1 Devocional Dinâmico (Puxando do Supabase)
@@ -175,18 +177,22 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
+      // Carregando os dados da tabela correta 'igrejas'
       const { data: dataIgr } = await supabase
-      .from('dados_igreja')
-      .select('*')
-      .eq('codigo_igreja', codigoIgreja)
-      .maybeSingle();
+        .from('igrejas')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .maybeSingle();
 
-    if (dataIgr) {
-      setDadosIgreja({
-        ...dataIgr,
-        chave_pix: dataIgr.cnpj || dataIgr.chave_pix || 'CNPJ não configurado',
-      });
-    }
+      if (dataIgr) {
+        setDadosIgreja({
+          nome_igreja: dataIgr.nome_fantasia || dataIgr.razao_social || 'Sua Igreja',
+          endereco_completo: `${dataIgr.logradouro || ''}, ${dataIgr.numero || ''} - CEP: ${dataIgr.cep || ''}`.trim(),
+          link_instagram: dataIgr.link_instagram || 'https://instagram.com',
+          cnpj: dataIgr.cnpj || '',
+          chave_pix: dataIgr.cnpj || dataIgr.chave_pix || '',
+        });
+      }
 
       // Carregar o Devocional mais recente cadastrado na tabela 'devocionais'
       const { data: dataDev } = await supabase
@@ -936,8 +942,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     📋 Copiar Chave PIX (CNPJ)
                   </button>
                 </div>
-              </div>
-            )}
 
                 <div className="p-3 bg-slate-50 rounded-xl border text-[11px] text-slate-500 text-center">
                   Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!

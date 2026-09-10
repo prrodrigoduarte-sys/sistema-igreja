@@ -3,7 +3,9 @@
 /* ========================================================================== */
 if (typeof window !== 'undefined') {
   (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
-}import React, { useEffect, useState, useCallback } from 'react';
+}
+
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 import ProjetosModule from './ProjetosModule';
 import MembrosModule from './MembrosModule';
@@ -27,8 +29,7 @@ function getOrCreateDeviceToken() {
     localStorage.setItem('app_device_token', token);
   }
   return token;
-
-} // <--- ADICIONE ESTA CHAVE AQUI PARA FECHAR CORRETAMENTE O ESCOPO ANTERIOR
+}
 
 /* ========================================================================== */
 /* 2. COMPONENTE PRINCIPAL (APP)                                            */
@@ -139,19 +140,12 @@ export default function App() {
 
     const teveTresErros = (regTentativa?.tentativas || 0) >= 3;
 
-    const { data: devRegistrado } = await supabase
-      .from('dispositivos_autorizados')
-      .select('*')
-      .eq('email', emailLimpo)
-      .eq('device_token', deviceToken)
-      .maybeSingle();
-
-      if (teveTresErros) {
-        dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
-      } else {
-        // Libera o acesso direto para qualquer dispositivo novo, mantendo apenas a trava de 3 erros de senha
-        setSession(authData.session);
-      }
+    if (teveTresErros) {
+      dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
+    } else {
+      setSession(authData.session);
+    }
+  };
 
   const handleConfirmar2FA = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -260,200 +254,198 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
- /* ========================================================================== */
-/* 4. CARREGAMENTO DE USUÁRIO E PERMISSÕES (COM TRAVA DE CADASTRO ÚNICO)      */
-/* ========================================================================== */
-const carregarUsuarioEPermissoes = useCallback(async () => {
-  if (!session?.user?.id) {
-    setLoggedUser(null);
-    setPrecisaCompletarPerfil(false);
-    setPrecisaCompletarCadastro(false);
-    setPermissoesAtivas([]);
-    return;
-  }
+  /* ========================================================================== */
+  /* 4. CARREGAMENTO DE USUÁRIO E PERMISSÕES (COM TRAVA DE CADASTRO ÚNICO)      */
+  /* ========================================================================== */
+  const carregarUsuarioEPermissoes = useCallback(async () => {
+    if (!session?.user?.id) {
+      setLoggedUser(null);
+      setPrecisaCompletarPerfil(false);
+      setPrecisaCompletarCadastro(false);
+      setPermissoesAtivas([]);
+      return;
+    }
 
-  const authUserId = session.user.id;
-  const emailUsuario = session.user.email?.trim().toLowerCase();
+    const authUserId = session.user.id;
+    const emailUsuario = session.user.email?.trim().toLowerCase();
 
-  let { data } = await supabase
-    .from('usuarios')
-    .select('*')
-    .eq('auth_user_id', authUserId)
-    .maybeSingle();
-
-  if (!data && emailUsuario) {
-    const resEmail = await supabase
+    let { data } = await supabase
       .from('usuarios')
       .select('*')
-      .ilike('email', emailUsuario)
+      .eq('auth_user_id', authUserId)
       .maybeSingle();
-    data = resEmail.data;
 
-    if (data && !data.auth_user_id) {
-      await supabase.from('usuarios').update({ auth_user_id: authUserId }).eq('id', data.id);
+    if (!data && emailUsuario) {
+      const resEmail = await supabase
+        .from('usuarios')
+        .select('*')
+        .ilike('email', emailUsuario)
+        .maybeSingle();
+      data = resEmail.data;
+
+      if (data && !data.auth_user_id) {
+        await supabase.from('usuarios').update({ auth_user_id: authUserId }).eq('id', data.id);
+      }
     }
-  }
 
-  if (!data) {
-    setPrecisaCompletarPerfil(true);
-    setLoggedUser(null);
-    return;
-  }
+    if (!data) {
+      setPrecisaCompletarPerfil(true);
+      setLoggedUser(null);
+      return;
+    }
 
-  setPrecisaCompletarPerfil(false);
-  setLoggedUser(data);
+    setPrecisaCompletarPerfil(false);
+    setLoggedUser(data);
 
-  // Administradores e Líderes têm permissão total e passam direto
-  if (data.perfil === 'admin' || data.perfil === 'administrador' || data.perfil === 'lider') {
-    setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
-    setPrecisaCompletarCadastro(false);
-  } else {
-    const { data: permData } = await supabase
-      .from('permissoes_usuario')
-      .select('modulo')
-      .eq('usuario_id', data.id)
-      .eq('permitido', true);
-
-    const mods = permData ? permData.map((p) => p.modulo) : [];
-    setPermissoesAtivas(mods);
-
-    // Verificação para membros comuns: Checa se o cadastro já foi concluído na tabela members
-    const { data: membroInfo } = await supabase
-      .from('members')
-      .select('id, cadastro_concluido')
-      .eq('email', emailUsuario)
-      .maybeSingle();
-
-    if (!membroInfo || !membroInfo.cadastro_concluido) {
-      setPrecisaCompletarCadastro(true);
-    } else {
+    if (data.perfil === 'admin' || data.perfil === 'administrador' || data.perfil === 'lider') {
+      setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
       setPrecisaCompletarCadastro(false);
+    } else {
+      const { data: permData } = await supabase
+        .from('permissoes_usuario')
+        .select('modulo')
+        .eq('usuario_id', data.id)
+        .eq('permitido', true);
+
+      const mods = permData ? permData.map((p) => p.modulo) : [];
+      setPermissoesAtivas(mods);
+
+      const { data: membroInfo } = await supabase
+        .from('members')
+        .select('id, cadastro_concluido')
+        .eq('email', emailUsuario)
+        .maybeSingle();
+
+      if (!membroInfo || !membroInfo.cadastro_concluido) {
+        setPrecisaCompletarCadastro(true);
+      } else {
+        setPrecisaCompletarCadastro(false);
+      }
     }
-  }
-}, [session]);
+  }, [session]);
 
-useEffect(() => {
-  carregarUsuarioEPermissoes();
-}, [carregarUsuarioEPermissoes]);
+  useEffect(() => {
+    carregarUsuarioEPermissoes();
+  }, [carregarUsuarioEPermissoes]);
 
-const handleSignUp = async (event: React.FormEvent) => {
-  event.preventDefault();
+  const handleSignUp = async (event: React.FormEvent) => {
+    event.preventDefault();
 
-  if (!nomeUsuario || !codigoIgreja) {
-    alert('Preencha o Nome de Usuário e o Código da Igreja.');
-    return;
-  }
+    if (!nomeUsuario || !codigoIgreja) {
+      alert('Preencha o Nome de Usuário e o Código da Igreja.');
+      return;
+    }
 
-  const { count, error: countError } = await supabase
-    .from('usuarios')
-    .select('*', { count: 'exact', head: true })
-    .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
-
-  const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
-
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
-
-  if (authError) {
-    alert('Erro no cadastro (Auth): ' + authError.message);
-    return;
-  }
-
-  const authUserId = authData.user?.id || authData.session?.user?.id;
-
-  const { error: profileError } = await supabase.from('usuarios').insert([
-    {
-      auth_user_id: authUserId || null,
-      email: email.trim().toLowerCase(),
-      nome_usuario: nomeUsuario,
-      codigo_igreja: codigoIgreja.toUpperCase().trim(),
-      perfil: perfilInicial,
-      ativo: true,
-    },
-  ]);
-
-  if (profileError) {
-    alert('Erro ao criar perfil do usuário: ' + profileError.message);
-    return;
-  }
-
-  alert(perfilInicial === 'administrador' 
-    ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
-    : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
-  setIsLogin(true);
-};
-
-const handleCompletarPerfil = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!nomeUsuario || !codigoIgreja) {
-    alert('Preencha todos os campos.');
-    return;
-  }
-
-  const emailLimpo = session.user.email.trim().toLowerCase();
-  const authUserId = session.user.id;
-
-  const { data: registroExistente } = await supabase
-    .from('usuarios')
-    .select('id')
-    .or(`auth_user_id.eq.${authUserId},email.ilike.${emailLimpo}`)
-    .maybeSingle();
-
-  let error;
-
-  if (registroExistente) {
-    const res = await supabase
+    const { count, error: countError } = await supabase
       .from('usuarios')
-      .update({
-        auth_user_id: authUserId,
-        email: emailLimpo,
-        nome_usuario: nomeUsuario,
-        codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'comum',
-        ativo: true,
-      })
-      .eq('id', registroExistente.id);
-    error = res.error;
-  } else {
-    const res = await supabase.from('usuarios').insert([
+      .select('*', { count: 'exact', head: true })
+      .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
+
+    const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      alert('Erro no cadastro (Auth): ' + authError.message);
+      return;
+    }
+
+    const authUserId = authData.user?.id || authData.session?.user?.id;
+
+    const { error: profileError } = await supabase.from('usuarios').insert([
       {
-        auth_user_id: authUserId,
-        email: emailLimpo,
+        auth_user_id: authUserId || null,
+        email: email.trim().toLowerCase(),
         nome_usuario: nomeUsuario,
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
-        perfil: 'comum',
+        perfil: perfilInicial,
         ativo: true,
       },
     ]);
-    error = res.error;
-  }
 
-  if (error) {
-    alert('Erro ao salvar perfil: ' + error.message);
-    return;
-  }
+    if (profileError) {
+      alert('Erro ao criar perfil do usuário: ' + profileError.message);
+      return;
+    }
 
-  await carregarUsuarioEPermissoes();
-};
+    alert(perfilInicial === 'administrador' 
+      ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+      : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
+    setIsLogin(true);
+  };
 
-const handleLogout = async () => {
-  await supabase.auth.signOut();
-  setLoggedUser(null);
-  setPrecisaCompletarPerfil(false);
-  setPrecisaCompletarCadastro(false);
-  setActiveTab('dashboard');
-};
+  const handleCompletarPerfil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nomeUsuario || !codigoIgreja) {
+      alert('Preencha todos os campos.');
+      return;
+    }
 
-const temPermissao = (moduloKey: string) => {
-  if (isAdmin || loggedUser?.perfil === 'lider') return true;
-  return permissoesAtivas.includes(moduloKey);
-};
+    const emailLimpo = session.user.email.trim().toLowerCase();
+    const authUserId = session.user.id;
 
-const selecionarAba = (aba: string) => {
-  setActiveTab(aba);
-};
+    const { data: registroExistente } = await supabase
+      .from('usuarios')
+      .select('id')
+      .or(`auth_user_id.eq.${authUserId},email.ilike.${emailLimpo}`)
+      .maybeSingle();
+
+    let error;
+
+    if (registroExistente) {
+      const res = await supabase
+        .from('usuarios')
+        .update({
+          auth_user_id: authUserId,
+          email: emailLimpo,
+          nome_usuario: nomeUsuario,
+          codigo_igreja: codigoIgreja.toUpperCase().trim(),
+          perfil: 'comum',
+          ativo: true,
+        })
+        .eq('id', registroExistente.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('usuarios').insert([
+        {
+          auth_user_id: authUserId,
+          email: emailLimpo,
+          nome_usuario: nomeUsuario,
+          codigo_igreja: codigoIgreja.toUpperCase().trim(),
+          perfil: 'comum',
+          ativo: true,
+        },
+      ]);
+      error = res.error;
+    }
+
+    if (error) {
+      alert('Erro ao salvar perfil: ' + error.message);
+      return;
+    }
+
+    await carregarUsuarioEPermissoes();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setLoggedUser(null);
+    setPrecisaCompletarPerfil(false);
+    setPrecisaCompletarCadastro(false);
+    setActiveTab('dashboard');
+  };
+
+  const temPermissao = (moduloKey: string) => {
+    if (isAdmin || loggedUser?.perfil === 'lider') return true;
+    return permissoesAtivas.includes(moduloKey);
+  };
+
+  const selecionarAba = (aba: string) => {
+    setActiveTab(aba);
+  };
 
   /* ========================================================================== */
   /* 5. RENDERIZAÇÃO DE TELAS DE AUTENTICAÇÃO E BLOQUEIO                        */
@@ -984,8 +976,8 @@ const selecionarAba = (aba: string) => {
         </div>
       </aside>
 
-      {/* ========================================================================== */
-      /* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                    */
+      {/* ========================================================================== */}
+      /* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                  */
       /* ========================================================================== */}
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
@@ -1047,7 +1039,7 @@ const selecionarAba = (aba: string) => {
         )}
       </main>
 
-      {/* ========================================================================== */
+      {/* ========================================================================== */}
       /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
       /* ========================================================================== */}
       {isMobileModalOpen && (
@@ -1162,7 +1154,7 @@ const selecionarAba = (aba: string) => {
 }
 
 /* ========================================================================== */
-/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)         */
+/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)          */
 /* ========================================================================== */
 function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecionarAba: (aba: string) => void }) {
   const [modoAniversariantes, setModoAniversariantes] = useState<'dia' | 'mes'>('dia');
@@ -1645,7 +1637,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
         </div>
       )}
 
-{itemDetalhes && (
+      {itemDetalhes && (
         <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 my-8">
             <div className="flex justify-between items-center border-b pb-3">

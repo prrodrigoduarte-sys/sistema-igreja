@@ -354,10 +354,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       };
 
       if (membroAtual?.id) {
-        const { error } = await supabase
-          .from('members')
-          .update(payload)
-          .eq('id', membroAtual.id);
+        const { error } = await supabase.from('members').update(payload).eq('id', membroAtual.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('members').insert([payload]);

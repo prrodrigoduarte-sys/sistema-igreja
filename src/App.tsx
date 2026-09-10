@@ -325,11 +325,9 @@ const carregarUsuarioEPermissoes = useCallback(async () => {
       .eq('email', emailUsuario)
       .maybeSingle();
 
-    // Se nunca preencheu, ativa a tela de cadastro obrigatório
     if (!membroInfo || !membroInfo.cadastro_concluido) {
       setPrecisaCompletarCadastro(true);
     } else {
-      // Se já preencheu antes, bloqueia nova alteração por conta própria
       setPrecisaCompletarCadastro(false);
     }
   }

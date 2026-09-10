@@ -176,12 +176,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
       const { data: dataIgr } = await supabase
-        .from('dados_igreja')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .maybeSingle();
+      .from('dados_igreja')
+      .select('*')
+      .eq('codigo_igreja', codigoIgreja)
+      .maybeSingle();
 
-      if (dataIgr) setDadosIgreja(dataIgr);
+    if (dataIgr) {
+      setDadosIgreja({
+        ...dataIgr,
+        chave_pix: dataIgr.cnpj || dataIgr.chave_pix || 'CNPJ não configurado',
+      });
+    }
 
       // Carregar o Devocional mais recente cadastrado na tabela 'devocionais'
       const { data: dataDev } = await supabase

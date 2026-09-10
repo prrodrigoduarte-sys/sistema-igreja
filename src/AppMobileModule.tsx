@@ -919,21 +919,25 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2 text-center">
                   <span className="text-2xl">💠</span>
-                  <strong className="block text-amber-900 font-bold">Chave PIX da Igreja</strong>
-                  <p className="font-mono text-xs bg-white p-2.5 rounded-lg border text-slate-700 select-all">
-                    {dadosIgreja.chave_pix || 'contato@suaigreja.com.br'}
+                  <strong className="block text-amber-900 font-bold">Chave PIX (CNPJ da Igreja)</strong>
+                  <p className="font-mono text-xs bg-white p-2.5 rounded-lg border text-slate-700 select-all font-bold">
+                    {dadosIgreja.chave_pix || dadosIgreja.cnpj || 'CNPJ não configurado'}
                   </p>
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(dadosIgreja.chave_pix || 'contato@suaigreja.com.br');
-                      alert('Chave PIX copiada para a área de transferência!');
+                      const pixChave = dadosIgreja.chave_pix || dadosIgreja.cnpj || '';
+                      if (!pixChave) return alert('Nenhum CNPJ/Chave PIX cadastrado para esta igreja.');
+                      navigator.clipboard.writeText(pixChave);
+                      alert('CNPJ / Chave PIX copiado com sucesso!');
                     }}
-                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs"
+                    className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs"
                   >
-                    📋 Copiar Chave PIX
+                    📋 Copiar Chave PIX (CNPJ)
                   </button>
                 </div>
+              </div>
+            )}
 
                 <div className="p-3 bg-slate-50 rounded-xl border text-[11px] text-slate-500 text-center">
                   Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!

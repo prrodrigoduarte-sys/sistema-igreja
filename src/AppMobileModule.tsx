@@ -36,29 +36,29 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [loading, setLoading] = useState(false);
 
   // 1. Dados do Perfil Pessoal
-  const [membroPerfil, setMembroPerfil] = useState<any>(null);
-  const [fotoUrl, setFotoUrl] = useState('');
-  const [rua, setRua] = useState('');
-  const [numero, setNumero] = useState('');
-  const [bairro, setBairro] = useState('');
-  const [cidade, setCidade] = useState('');
-
-  // 1.1 Estados do Formulário de Cadastro Único Sequencial (Etapas)
-  const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3>(1);
+  // Estados do Cadastro Completo em 4 Etapas
+  const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3 | 4>(1);
+  const [tipoCadastro, setTipoCadastro] = useState('Membro');
   const [nomeMembro, setNomeMembro] = useState('');
-  const [celularMembro, setCelularMembro] = useState('');
+  const [ministerio, setMinisterio] = useState('');
   const [dataNascMembro, setDataNascMembro] = useState('');
+  const [dataBatismo, setDataBatismo] = useState('');
+  const [nomeConjugue, setNomeConjugue] = useState('');
+  const [filhos, setFilhos] = useState<string[]>(['']);
+  const [cpfMembro, setCpfMembro] = useState('');
+  const [rgMembro, setRgMembro] = useState('');
   const [estadoCivil, setEstadoCivil] = useState('Solteiro(a)');
+  const [celularMembro, setCelularMembro] = useState('');
+  const [emailMembro, setEmailMembro] = useState('');
   const [cepMembro, setCepMembro] = useState('');
-  const [bairroMembro, setBairroMembro] = useState('');
   const [ruaMembro, setRuaMembro] = useState('');
   const [numeroMembro, setNumeroMembro] = useState('');
-  const [batizado, setBatizado] = useState('Sim');
-  const [observacoesMembro, setObservacoesMembro] = useState('');
+  const [bairroMembro, setBairroMembro] = useState('');
+  const [cidadeMembro, setCidadeMembro] = useState('');
+  const [ufMembro, setUfMembro] = useState('MG');
 
   const [jaCadastrado, setJaCadastrado] = useState(false);
   const [carregandoCadastro, setCarregandoCadastro] = useState(false);
-
   // 2. Agenda Pessoal (Criação e Edição com Alarme)
   const [minhaAgenda, setMinhaAgenda] = useState<Compromisso[]>([]);
   const [novoTitulo, setNovoTitulo] = useState('');

@@ -8,10 +8,18 @@ interface Props {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  const [subAba, setSubAba] = useState<'perfil' | 'agenda' | 'celula' | 'igreja'>('agenda');
+  const [subAba, setSubAba] = useState<'perfil' | 'agenda' | 'celula' | 'igreja' | 'cadastro'>('agenda');
   const [agenda, setAgenda] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(false);
   const [erroAgenda, setErroAgenda] = useState<string | null>(null);
+
+  // Estados do Formulário de Cadastro Único do Membro
+  const [nomeMembro, setNomeMembro] = useState('');
+  const [celularMembro, setCelularMembro] = useState('');
+  const [dataNascMembro, setDataNascMembro] = useState('');
+  const [bairroMembro, setBairroMembro] = useState('');
+  const [jaCadastrado, setJaCadastrado] = useState(false);
+  const [carregandoCadastro, setCarregandoCadastro] = useState(false);
 
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaData, setNovaData] = useState(new Date().toISOString().split('T')[0]);
@@ -19,37 +27,64 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [modalNovaAgenda, setModalNovaAgenda] = useState(false);
 
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
+  const emailUsuario = loggedUser?.email?.trim().toLowerCase();
+  const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider';
 
   const buscarAgenda = async () => {
     setCarregando(true);
     setErroAgenda(null);
     try {
-      console.log('🔍 Buscando agenda para a igreja:', codigoIgreja);
       const { data, error } = await supabase
         .from('agenda')
         .select('*')
         .eq('codigo_igreja', codigoIgreja);
 
       if (error) {
-        console.error('❌ Erro no Supabase:', error);
         setErroAgenda(error.message);
       } else {
-        console.log('✅ Agenda carregada com sucesso:', data);
         setAgenda(data || []);
       }
     } catch (err: any) {
-      console.error('❌ Erro inesperado:', err);
       setErroAgenda(err.message || 'Erro desconhecido');
     } finally {
       setCarregando(false);
     }
   };
 
+  // Verifica se o membro já concluiu o cadastro anteriormente
+  const verificarStatusCadastro = async () => {
+    if (!emailUsuario) return;
+    setCarregandoCadastro(true);
+    try {
+      const { data } = await supabase
+        .from('members')
+        .select('*')
+        .eq('email', emailUsuario)
+        .maybeSingle();
+
+      if (data) {
+        setNomeMembro(data.nome || '');
+        setCelularMembro(data.celular_principal || '');
+        setDataNascMembro(data.data_nascimento || '');
+        setBairroMembro(data.bairro || '');
+
+        if (data.cadastro_concluido && !isAdminOuLider) {
+          setJaCadastrado(true);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao verificar cadastro:', err);
+    } finally {
+      setCarregandoCadastro(false);
+    }
+  };
+
   useEffect(() => {
     buscarAgenda();
-  }, [codigoIgreja]);
+    verificarStatusCadastro();
+  }, [codigoIgreja, emailUsuario]);
 
-  const handleSalvar = async (e: React.FormEvent) => {
+  const handleSalvarAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe o compromisso.');
 
@@ -74,6 +109,63 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // Salvar o Cadastro Único
+  const handleSalvarCadastroUnico = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Trava de segurança: Se não for admin/lider e já estiver concluído, bloqueia
+    if (jaCadastrado && !isAdminOuLider) {
+      alert('Dados já confirmados. Procure a secretaria.');
+      return;
+    }
+
+    if (!nomeMembro.trim()) return alert('Informe seu nome completo.');
+
+    try {
+      // Verifica mais uma vez no banco antes de salvar
+      const { data: membroAtual } = await supabase
+        .from('members')
+        .select('id, cadastro_concluido')
+        .eq('email', emailUsuario)
+        .maybeSingle();
+
+      if (membroAtual && membroAtual.cadastro_concluido && !isAdminOuLider) {
+        alert('Dados já confirmados. Procure a secretaria.');
+        setJaCadastrado(true);
+        return;
+      }
+
+      const payload = {
+        codigo_igreja: codigoIgreja,
+        email: emailUsuario,
+        nome: nomeMembro.trim(),
+        celular_principal: celularMembro.trim(),
+        data_nascimento: dataNascMembro || null,
+        bairro: bairroMembro.trim(),
+        tipo_cadastro: 'Membro',
+        cadastro_concluido: true,
+        status_acesso: 'Ativo',
+      };
+
+      if (membroAtual?.id) {
+        const { error } = await supabase
+          .from('members')
+          .update(payload)
+          .eq('id', membroAtual.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('members').insert([payload]);
+        if (error) throw error;
+      }
+
+      alert('✅ Cadastro realizado com sucesso!');
+      setJaCadastrado(true);
+      window.location.reload(); // Recarrega para atualizar o estado do app
+    } catch (err: any) {
+      alert('Erro ao salvar cadastro: ' + err.message);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto bg-slate-100 min-h-[85vh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col p-4">
       {/* CABEÇALHO */}
@@ -83,8 +175,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <span className="text-[10px] bg-emerald-500 font-bold px-2 py-0.5 rounded-full">ONLINE</span>
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS */}
-        <div className="grid grid-cols-4 gap-1 bg-blue-950 p-1 rounded-xl text-[11px] font-bold text-center">
+        {/* NAVEGAÇÃO DE ABAS (INCLUINDO CADASTRO) */}
+        <div className="grid grid-cols-5 gap-1 bg-blue-950 p-1 rounded-xl text-[10px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAba('perfil')}
@@ -113,10 +205,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
           >
             ⛪ Igreja
           </button>
+          <button
+            type="button"
+            onClick={() => setSubAba('cadastro')}
+            className={`py-2 rounded-lg cursor-pointer ${subAba === 'cadastro' ? 'bg-blue-600 text-white' : 'text-blue-300'}`}
+          >
+            📝 Cadastro
+          </button>
         </div>
       </div>
 
-      {/* CONTEÚDO DA AGENDA */}
+      {/* CONTEÚDO DA ABA: AGENDA */}
       {subAba === 'agenda' && (
         <div className="space-y-3 flex-1 overflow-y-auto">
           <div className="flex justify-between items-center bg-white p-3 rounded-xl border shadow-sm">
@@ -163,6 +262,85 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       )}
 
+      {/* CONTEÚDO DA ABA: CADASTRO ÚNICO DO MEMBRO */}
+      {subAba === 'cadastro' && (
+        <div className="bg-white p-4 rounded-xl border shadow-sm flex-1 overflow-y-auto space-y-4">
+          <div>
+            <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro</h3>
+            <p className="text-[11px] text-slate-500">
+              {jaCadastrado && !isAdminOuLider 
+                ? 'Seus dados já foram confirmados. Para alterações, procure a secretaria.' 
+                : 'Preencha seus dados oficiais abaixo. Este preenchimento é feito apenas uma vez.'}
+            </p>
+          </div>
+
+          {carregandoCadastro ? (
+            <p className="text-center text-xs text-slate-500 py-6">Carregando informações...</p>
+          ) : (
+            <form onSubmit={handleSalvarCadastroUnico} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
+                <input
+                  type="text"
+                  value={nomeMembro}
+                  onChange={(e) => setNomeMembro(e.target.value)}
+                  disabled={jaCadastrado && !isAdminOuLider}
+                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp</label>
+                <input
+                  type="text"
+                  value={celularMembro}
+                  onChange={(e) => setCelularMembro(e.target.value)}
+                  disabled={jaCadastrado && !isAdminOuLider}
+                  className="w-full border rounded-xl p-2.5 disabled:bg-slate-100 disabled:text-slate-500"
+                  placeholder="(00) 00000-0000"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Data de Nascimento</label>
+                <input
+                  type="date"
+                  value={dataNascMembro}
+                  onChange={(e) => setDataNascMembro(e.target.value)}
+                  disabled={jaCadastrado && !isAdminOuLider}
+                  className="w-full border rounded-xl p-2.5 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Bairro</label>
+                <input
+                  type="text"
+                  value={bairroMembro}
+                  onChange={(e) => setBairroMembro(e.target.value)}
+                  disabled={jaCadastrado && !isAdminOuLider}
+                  className="w-full border rounded-xl p-2.5 disabled:bg-slate-100 disabled:text-slate-500"
+                />
+              </div>
+
+              {jaCadastrado && !isAdminOuLider ? (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs">
+                  🔒 Dados já confirmados. Procure a secretaria.
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer transition"
+                >
+                  💾 Confirmar e Salvar Cadastro
+                </button>
+              )}
+            </form>
+          )}
+        </div>
+      )}
+
       {subAba === 'perfil' && <div className="p-4 bg-white rounded-xl border text-xs">Perfil do Usuário</div>}
       {subAba === 'celula' && <div className="p-4 bg-white rounded-xl border text-xs">Informações da Célula</div>}
       {subAba === 'igreja' && <div className="p-4 bg-white rounded-xl border text-xs">Informações da Igreja</div>}
@@ -172,7 +350,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-2xl p-4 space-y-3 text-xs">
             <h3 className="font-bold text-blue-900 text-sm border-b pb-2">Novo Compromisso</h3>
-            <form onSubmit={handleSalvar} className="space-y-3">
+            <form onSubmit={handleSalvarAgenda} className="space-y-3">
               <div>
                 <label className="block font-bold mb-1">Título</label>
                 <input
@@ -195,8 +373,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
               </div>
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={() => setModalNovaAgenda(false)} className="w-full py-2 bg-slate-100 font-bold rounded-lg">Cancelar</button>
-                <button type="submit" className="w-full py-2 bg-blue-900 text-white font-bold rounded-lg">Salvar</button>
+                <button type="button" onClick={() => setModalNovaAgenda(false)} className="w-full py-2 bg-slate-100 font-bold rounded-lg cursor-pointer">Cancelar</button>
+                <button type="submit" className="w-full py-2 bg-blue-900 text-white font-bold rounded-lg cursor-pointer">Salvar</button>
               </div>
             </form>
           </div>
@@ -204,4 +382,4 @@ export default function AppMobileModule({ loggedUser }: Props) {
       )}
     </div>
   );
-}e
+}

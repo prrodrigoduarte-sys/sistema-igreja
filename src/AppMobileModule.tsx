@@ -19,11 +19,12 @@ interface DadosIgreja {
   nome_igreja: string;
   endereco_completo: string;
   link_instagram: string;
+  chave_pix?: string;
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Controle de Abas (Incluindo a aba de Cadastro)
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro'>('minha_agenda');
+  // Controle de Abas (Perfil, Agenda, Célula, Igreja, Cadastro, Contribua, Devocional)
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional'>('minha_agenda');
   const [loading, setLoading] = useState(false);
 
   // 1. Dados do Perfil Pessoal
@@ -57,6 +58,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     nome_igreja: 'Sua Igreja',
     endereco_completo: 'Teófilo Otoni - MG',
     link_instagram: 'https://instagram.com',
+    chave_pix: 'contato@suaigreja.com.br (PIX)',
   });
 
   // 4. Controle de Célula (Criação e Edição)
@@ -448,25 +450,25 @@ export default function AppMobileModule({ loggedUser }: Props) {
   return (
     <div className="max-w-md mx-auto bg-slate-100 min-h-[85vh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col">
       {/* CABEÇALHO */}
-      <div className="bg-blue-900 text-white p-5 space-y-3">
+      <div className="bg-blue-900 text-white p-4 space-y-3">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-black">📱 App {dadosIgreja.nome_igreja}</h2>
-            <p className="text-xs text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'Membro'}</p>
+            <h2 className="text-lg font-black">📱 App {dadosIgreja.nome_igreja}</h2>
+            <p className="text-[11px] text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'Membro'}</p>
           </div>
           {fotoUrl ? (
-            <img src={fotoUrl} alt="Foto" className="w-10 h-10 rounded-full border-2 border-white object-cover" />
+            <img src={fotoUrl} alt="Foto" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
           ) : (
-            <div className="w-10 h-10 bg-blue-800 rounded-full flex items-center justify-center font-bold border-2 border-white">👤</div>
+            <div className="w-9 h-9 bg-blue-800 rounded-full flex items-center justify-center font-bold border-2 border-white text-xs">👤</div>
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE 5 ABAS */}
-        <div className="grid grid-cols-5 gap-1 bg-blue-950/60 p-1 rounded-xl text-[10px] font-bold text-center">
+        {/* NAVEGAÇÃO DE ABAS (AGORA COM 7 OPÇÕES) */}
+        <div className="grid grid-cols-7 gap-0.5 bg-blue-950/60 p-1 rounded-xl text-[9px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAbaApp('perfil')}
-            className={`py-2 rounded-lg transition cursor-pointer ${
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
               subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
           >
@@ -476,7 +478,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <button
             type="button"
             onClick={() => setSubAbaApp('minha_agenda')}
-            className={`py-2 rounded-lg transition cursor-pointer ${
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
               subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
           >
@@ -486,7 +488,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <button
             type="button"
             onClick={() => setSubAbaApp('celula')}
-            className={`py-2 rounded-lg transition cursor-pointer ${
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
               subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
           >
@@ -496,7 +498,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <button
             type="button"
             onClick={() => setSubAbaApp('igreja')}
-            className={`py-2 rounded-lg transition cursor-pointer ${
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
               subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
           >
@@ -506,11 +508,31 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <button
             type="button"
             onClick={() => setSubAbaApp('cadastro')}
-            className={`py-2 rounded-lg transition cursor-pointer ${
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
               subAbaApp === 'cadastro' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
             }`}
           >
             📝 Cadastro
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubAbaApp('contribua')}
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'contribua' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
+          >
+            💖 Contribua
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubAbaApp('devocional')}
+            className={`py-1.5 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'devocional' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
+          >
+            📖 Devocional
           </button>
         </div>
       </div>
@@ -846,6 +868,67 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     )}
                   </form>
                 )}
+              </div>
+            )}
+
+            {/* 6. ABA CONTRIBUA */}
+            {subAbaApp === 'contribua' && (
+              <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
+                <h3 className="font-black text-blue-900 text-sm border-b pb-2">💖 Contribua com a Obra</h3>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  "Cada um contribua según propusitou em seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria." (2 Coríntios 9:7)
+                </p>
+
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2 text-center">
+                  <span className="text-2xl">💠</span>
+                  <strong className="block text-amber-900 font-bold">Chave PIX da Igreja</strong>
+                  <p className="font-mono text-xs bg-white p-2.5 rounded-lg border text-slate-700 select-all">
+                    {dadosIgreja.chave_pix || 'contato@suaigreja.com.br'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(dadosIgreja.chave_pix || 'contato@suaigreja.com.br');
+                      alert('Chave PIX copiada para a área de transferência!');
+                    }}
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs"
+                  >
+                    📋 Copiar Chave PIX
+                  </button>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-xl border text-[11px] text-slate-500 text-center">
+                  Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!
+                </div>
+              </div>
+            )}
+
+            {/* 7. ABA DEVOCIONAL */}
+            {subAbaApp === 'devocional' && (
+              <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
+                <div className="border-b pb-2 flex justify-between items-center">
+                  <h3 className="font-black text-blue-900 text-sm">📖 Devocional Diário</h3>
+                  <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                    {new Date().toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
+
+                <div className="space-y-3 bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-4 rounded-2xl shadow">
+                  <span className="text-xs uppercase font-bold tracking-wider text-blue-300">Palavra do Dia</span>
+                  <h4 className="font-black text-base text-yellow-300">"O Senhor é o meu pastor; nada me faltará."</h4>
+                  <p className="text-[11px] text-blue-100 italic">Salmos 23:1</p>
+                </div>
+
+                <div className="space-y-2 text-slate-700 leading-relaxed">
+                  <strong className="block text-blue-900 font-bold">Reflexão:</strong>
+                  <p className="text-xs">
+                    Em momentos de incerteza ou calmaria, lembrar que o Criador do universo cuida de cada detalhe da nossa jornada traz paz ao coração. Entregar a direção dos nossos passos a Ele é a chave para uma vida guiada pela fé e esperança.
+                  </p>
+                </div>
+
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-center font-medium text-[11px]">
+                  ✨ Compartilhe esta palavra com alguém hoje e leve esperança!
+                </div>
               </div>
             )}
           </>

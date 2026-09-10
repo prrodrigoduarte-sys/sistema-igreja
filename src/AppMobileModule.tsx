@@ -22,8 +22,8 @@ interface DadosIgreja {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Controle de Abas
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja'>('minha_agenda');
+  // Controle de Abas (Incluindo a aba de Cadastro)
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro'>('minha_agenda');
   const [loading, setLoading] = useState(false);
 
   // 1. Dados do Perfil Pessoal
@@ -33,6 +33,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [numero, setNumero] = useState('');
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
+
+  // 1.1 Estados do Formulário de Cadastro Único do Membro
+  const [nomeMembro, setNomeMembro] = useState('');
+  const [celularMembro, setCelularMembro] = useState('');
+  const [dataNascMembro, setDataNascMembro] = useState('');
+  const [bairroMembro, setBairroMembro] = useState('');
+  const [jaCadastrado, setJaCadastrado] = useState(false);
+  const [carregandoCadastro, setCarregandoCadastro] = useState(false);
 
   // 2. Agenda Pessoal (Criação e Edição com Alarme)
   const [minhaAgenda, setMinhaAgenda] = useState<Compromisso[]>([]);
@@ -64,7 +72,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [comentariosCelula, setComentariosCelula] = useState('');
 
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
-  const emailUsuario = loggedUser?.email;
+  const emailUsuario = loggedUser?.email?.trim().toLowerCase();
+  const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider';
 
   // Solicitar permissão de Notificação do Navegador ao carregar
   useEffect(() => {
@@ -73,11 +82,38 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, []);
 
+  // Verificar status do cadastro único na tabela members
+  const verificarStatusCadastro = async () => {
+    if (!emailUsuario) return;
+    setCarregandoCadastro(true);
+    try {
+      const { data } = await supabase
+        .from('members')
+        .select('*')
+        .eq('email', emailUsuario)
+        .maybeSingle();
+
+      if (data) {
+        setNomeMembro(data.nome || '');
+        setCelularMembro(data.celular_principal || '');
+        setDataNascMembro(data.data_nascimento || '');
+        setBairroMembro(data.bairro || '');
+
+        if (data.cadastro_concluido && !isAdminOuLider) {
+          setJaCadastrado(true);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao verificar cadastro:', err);
+    } finally {
+      setCarregandoCadastro(false);
+    }
+  };
+
   // Carregar todos os dados das abas
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Perfil do Membro
       if (emailUsuario) {
         const { data: dataMembro } = await supabase
           .from('members')
@@ -113,7 +149,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         }
       }
 
-      // 2. Agenda Pessoal / Mobile com Alarmes
       const { data: dataAgenda } = await supabase
         .from('agenda_mobile')
         .select('*')
@@ -123,7 +158,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
-      // 3. Dados da Igreja
       const { data: dataIgr } = await supabase
         .from('dados_igreja')
         .select('*')
@@ -132,7 +166,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataIgr) setDadosIgreja(dataIgr);
 
-      // 4. Reuniões da Célula
       const { data: dataReunioes } = await supabase
         .from('reunioes_celulas')
         .select('*')
@@ -150,6 +183,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   useEffect(() => {
     carregarDadosApp();
+    verificarStatusCadastro();
   }, [carregarDadosApp]);
 
   // Alarme sonoro e notificação ativa em tempo real
@@ -208,6 +242,61 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarDadosApp();
     } catch (err: any) {
       alert('Erro ao atualizar perfil: ' + err.message);
+    }
+  };
+
+  // LÓGICA DO CADASTRO ÚNICO (Com trava para membros comuns)
+  const handleSalvarCadastroUnico = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (jaCadastrado && !isAdminOuLider) {
+      alert('Dados já confirmados. Procure a secretaria.');
+      return;
+    }
+
+    if (!nomeMembro.trim()) return alert('Informe seu nome completo.');
+
+    try {
+      const { data: membroAtual } = await supabase
+        .from('members')
+        .select('id, cadastro_concluido')
+        .eq('email', emailUsuario)
+        .maybeSingle();
+
+      if (membroAtual && membroAtual.cadastro_concluido && !isAdminOuLider) {
+        alert('Dados já confirmados. Procure a secretaria.');
+        setJaCadastrado(true);
+        return;
+      }
+
+      const payload = {
+        codigo_igreja: codigoIgreja,
+        email: emailUsuario,
+        nome: nomeMembro.trim(),
+        celular_principal: celularMembro.trim(),
+        data_nascimento: dataNascMembro || null,
+        bairro: bairroMembro.trim(),
+        tipo_cadastro: 'Membro',
+        cadastro_concluido: true,
+        status_acesso: 'Ativo',
+      };
+
+      if (membroAtual?.id) {
+        const { error } = await supabase
+          .from('members')
+          .update(payload)
+          .eq('id', membroAtual.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('members').insert([payload]);
+        if (error) throw error;
+      }
+
+      alert('✅ Cadastro realizado com sucesso!');
+      setJaCadastrado(true);
+      carregarDadosApp();
+    } catch (err: any) {
+      alert('Erro ao salvar cadastro: ' + err.message);
     }
   };
 
@@ -372,8 +461,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS */}
-        <div className="grid grid-cols-4 gap-1 bg-blue-950/60 p-1 rounded-xl text-[11px] font-bold text-center">
+        {/* NAVEGAÇÃO DE 5 ABAS */}
+        <div className="grid grid-cols-5 gap-1 bg-blue-950/60 p-1 rounded-xl text-[10px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAbaApp('perfil')}
@@ -412,6 +501,16 @@ export default function AppMobileModule({ loggedUser }: Props) {
             }`}
           >
             ⛪ Igreja
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setSubAbaApp('cadastro')}
+            className={`py-2 rounded-lg transition cursor-pointer ${
+              subAbaApp === 'cadastro' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            }`}
+          >
+            📝 Cadastro
           </button>
         </div>
       </div>
@@ -668,6 +767,85 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     📷 Acessar Instagram Oficial
                   </a>
                 </div>
+              </div>
+            )}
+
+            {/* 5. ABA CADASTRO (COM A TRAVA DE PREENCHIMENTO ÚNICO) */}
+            {subAbaApp === 'cadastro' && (
+              <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-4 text-xs">
+                <div>
+                  <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro</h3>
+                  <p className="text-[11px] text-slate-500">
+                    {jaCadastrado && !isAdminOuLider 
+                      ? 'Dados já confirmados. Procure a secretaria.' 
+                      : 'Preencha seus dados oficiais abaixo. Este preenchimento é feito apenas uma vez.'}
+                  </p>
+                </div>
+
+                {carregandoCadastro ? (
+                  <p className="text-center text-xs text-slate-500 py-6">Carregando informações...</p>
+                ) : (
+                  <form onSubmit={handleSalvarCadastroUnico} className="space-y-3">
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
+                      <input
+                        type="text"
+                        value={nomeMembro}
+                        onChange={(e) => setNomeMembro(e.target.value)}
+                        disabled={jaCadastrado && !isAdminOuLider}
+                        className="w-full border rounded-xl p-2.5 font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp</label>
+                      <input
+                        type="text"
+                        value={celularMembro}
+                        onChange={(e) => setCelularMembro(e.target.value)}
+                        disabled={jaCadastrado && !isAdminOuLider}
+                        className="w-full border rounded-xl p-2.5 disabled:bg-slate-100 disabled:text-slate-500"
+                        placeholder="(00) 00000-0000"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Data de Nascimento</label>
+                      <input
+                        type="date"
+                        value={dataNascMembro}
+                        onChange={(e) => setDataNascMembro(e.target.value)}
+                        disabled={jaCadastrado && !isAdminOuLider}
+                        className="w-full border rounded-xl p-2.5 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-700 mb-1">Bairro</label>
+                      <input
+                        type="text"
+                        value={bairroMembro}
+                        onChange={(e) => setBairroMembro(e.target.value)}
+                        disabled={jaCadastrado && !isAdminOuLider}
+                        className="w-full border rounded-xl p-2.5 disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                    </div>
+
+                    {jaCadastrado && !isAdminOuLider ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs">
+                        🔒 Dados já confirmados. Procure a secretaria.
+                      </div>
+                    ) : (
+                      <button
+                        type="submit"
+                        className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer transition"
+                      >
+                        💾 Confirmar e Salvar Cadastro
+                      </button>
+                    )}
+                  </form>
+                )}
               </div>
             )}
           </>

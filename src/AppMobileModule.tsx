@@ -993,6 +993,68 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 )}
               </div>
             )}
+                    {/* ETAPA 1: DADOS BÁSICOS */}
+                    {etapaCadastro === 1 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">1️⃣ Dados Pessoais Básicos</h4>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
+                          <input
+                            type="text"
+                            value={nomeMembro}
+                            onChange={(e) => setNomeMembro(e.target.value)}
+                            className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp *</label>
+                          <input
+                            type="text"
+                            value={celularMembro}
+                            onChange={(e) => setCelularMembro(e.target.value)}
+                            className="w-full border rounded-xl p-2.5"
+                            placeholder="(00) 00000-0000"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nascimento</label>
+                            <input
+                              type="date"
+                              value={dataNascMembro}
+                              onChange={(e) => setDataNascMembro(e.target.value)}
+                              className="w-full border rounded-xl p-2.5 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Estado Civil</label>
+                            <select
+                              value={estadoCivil}
+                              onChange={(e) => setEstadoCivil(e.target.value)}
+                              className="w-full border rounded-xl p-2.5 bg-white"
+                            >
+                              <option value="Solteiro(a)">Solteiro(a)</option>
+                              <option value="Casado(a)">Casado(a)</option>
+                              <option value="Divorciado(a)">Divorciado(a)</option>
+                              <option value="Viúvo(a)">Viúvo(a)</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
+                            setEtapaCadastro(2);
+                          }}
+                          className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-3"
+                        >
+                          Próxima ➡️
+                        </button>
+                      </div>
+                    )}
+
                     {/* ETAPA 2: ENDEREÇO */}
                     {etapaCadastro === 2 && (
                       <div className="space-y-3">

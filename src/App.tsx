@@ -1,3 +1,6 @@
+/* ========================================================================== */
+/* 1. IMPORTAÇÕES E CONFIGURAÇÕES INICIAIS                                    */
+/* ========================================================================== */
 if (typeof window !== 'undefined') {
   (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
 }
@@ -28,6 +31,9 @@ function getOrCreateDeviceToken() {
   return token;
 }
 
+/* ========================================================================== */
+/* 2. COMPONENTE PRINCIPAL (APP)                                              */
+/* ========================================================================== */
 export default function App() {
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
   const [rotaPublica, setRotaPublica] = useState(
@@ -38,6 +44,7 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loggedUser, setLoggedUser] = useState<any>(null);
   const [precisaCompletarPerfil, setPrecisaCompletarPerfil] = useState(false);
+  const [precisaCompletarCadastro, setPrecisaCompletarCadastro] = useState(false);
   const [permissoesAtivas, setPermissoesAtivas] = useState<string[]>([]);
 
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -84,6 +91,9 @@ export default function App() {
     alert(`🔒 SEGURANÇA (2º NÍVEL):\nMotivo: ${motivo}\n\nSeu código de verificação é: ${codigoHex}`);
   };
 
+  /* ========================================================================== */
+  /* 3. LÓGICA DE AUTENTICAÇÃO E LOGIN                                          */
+  /* ========================================================================== */
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     const emailLimpo = email.trim().toLowerCase();
@@ -254,10 +264,14 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  /* ========================================================================== */
+  /* 4. CARREGAMENTO DE USUÁRIO E PERMISSÕES (COM TRAVA DE CADASTRO)            */
+  /* ========================================================================== */
   const carregarUsuarioEPermissoes = useCallback(async () => {
     if (!session?.user?.id) {
       setLoggedUser(null);
       setPrecisaCompletarPerfil(false);
+      setPrecisaCompletarCadastro(false);
       setPermissoesAtivas([]);
       return;
     }
@@ -295,6 +309,7 @@ export default function App() {
 
     if (data.perfil === 'admin' || data.perfil === 'administrador') {
       setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
+      setPrecisaCompletarCadastro(false);
     } else {
       const { data: permData } = await supabase
         .from('permissoes_usuario')
@@ -304,6 +319,22 @@ export default function App() {
 
       const mods = permData ? permData.map((p) => p.modulo) : [];
       setPermissoesAtivas(mods);
+
+      if (data.perfil === 'comum' || data.perfil === 'lider' || !data.perfil) {
+        const { data: membroInfo } = await supabase
+          .from('members')
+          .select('id, cadastro_concluido')
+          .eq('email', emailUsuario)
+          .maybeSingle();
+
+        if (!membroInfo || !membroInfo.cadastro_concluido) {
+          setPrecisaCompletarCadastro(true);
+        } else {
+          setPrecisaCompletarCadastro(false);
+        }
+      } else {
+        setPrecisaCompletarCadastro(false);
+      }
     }
   }, [session]);
 
@@ -417,6 +448,7 @@ export default function App() {
     await supabase.auth.signOut();
     setLoggedUser(null);
     setPrecisaCompletarPerfil(false);
+    setPrecisaCompletarCadastro(false);
     setActiveTab('dashboard');
   };
 
@@ -429,7 +461,9 @@ export default function App() {
     setActiveTab(aba);
   };
 
-  // ROTA PÚBLICA
+  /* ========================================================================== */
+  /* 5. RENDERIZAÇÃO DE TELAS DE AUTENTICAÇÃO E BLOQUEIO                        */
+  /* ========================================================================== */
   if (rotaPublica) {
     return <CadastroPublico />;
   }
@@ -641,6 +675,9 @@ export default function App() {
     );
   }
 
+  /* ========================================================================== */
+  /* 6. LAYOUT PRINCIPAL DO SISTEMA (SIDEBAR E NAVEGAÇÃO)                       */
+  /* ========================================================================== */
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
@@ -953,6 +990,9 @@ export default function App() {
         </div>
       </aside>
 
+      {/* ========================================================================== */
+      /* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                    */
+      /* ========================================================================== */}
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1013,7 +1053,9 @@ export default function App() {
         )}
       </main>
 
-      {/* MODAL INTUITIVO MOBILE */}
+      {/* ========================================================================== */
+      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
+      /* ========================================================================== */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
@@ -1125,6 +1167,9 @@ export default function App() {
   );
 }
 
+/* ========================================================================== */
+/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)         */
+/* ========================================================================== */
 function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecionarAba: (aba: string) => void }) {
   const [modoAniversariantes, setModoAniversariantes] = useState<'dia' | 'mes'>('dia');
   const [aniversariantes, setAniversariantes] = useState<any[]>([]);

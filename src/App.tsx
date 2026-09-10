@@ -147,15 +147,12 @@ export default function App() {
       .eq('device_token', deviceToken)
       .maybeSingle();
 
-    if (teveTresErros) {
-      dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
-    } else if (!devRegistrado) {
-      dispararVerificacao2FA('Acesso a partir de um dispositivo novo/não reconhecido', authData.session);
-    } else {
-      await supabase.from('dispositivos_autorizados').update({ ultimo_acesso: new Date().toISOString() }).eq('id', devRegistrado.id);
-      setSession(authData.session);
-    }
-  };
+      if (teveTresErros) {
+        dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
+      } else {
+        // Libera o acesso direto para qualquer dispositivo novo, mantendo apenas a trava de 3 erros de senha
+        setSession(authData.session);
+      }
 
   const handleConfirmar2FA = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -65,7 +65,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
   const emailUsuario = loggedUser?.email;
-  const usuarioId = loggedUser?.id || loggedUser?.auth_user_id || loggedUser?.email;
 
   // Solicitar permissão de Notificação do Navegador ao carregar
   useEffect(() => {
@@ -234,7 +233,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalNovaAgenda(true);
   };
 
-  // AÇÃO 4: SALVAR / ATUALIZAR AGENDA (SEM O USUARIO_ID)
+  // AÇÃO 4: SALVAR / ATUALIZAR AGENDA
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -364,7 +363,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-xl font-black">📱 App {dadosIgreja.nome_igreja}</h2>
-            <p className="text-xs text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'RODRIGO'}</p>
+            <p className="text-xs text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'Membro'}</p>
           </div>
           {fotoUrl ? (
             <img src={fotoUrl} alt="Foto" className="w-10 h-10 rounded-full border-2 border-white object-cover" />
@@ -428,7 +427,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">
                 <h3 className="font-black text-blue-900 text-sm border-b pb-2">✏️ Editar Meu Cadastro</h3>
                 <p className="text-[11px] text-slate-500">
-                  Você pode atualizar apenas sua foto de perfil e seu endereço residencial.
+                  Você pode atualizar sua foto de perfil e seu endereço residencial.
                 </p>
 
                 <form onSubmit={handleSalvarPerfil} className="space-y-3">

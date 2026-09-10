@@ -43,11 +43,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
 
-  // 1.1 Estados do Formulário de Cadastro Único do Membro
+  // 1.1 Estados do Formulário de Cadastro Único Sequencial (Etapas)
+  const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3>(1);
   const [nomeMembro, setNomeMembro] = useState('');
   const [celularMembro, setCelularMembro] = useState('');
   const [dataNascMembro, setDataNascMembro] = useState('');
+  const [estadoCivil, setEstadoCivil] = useState('Solteiro(a)');
+  const [cepMembro, setCepMembro] = useState('');
   const [bairroMembro, setBairroMembro] = useState('');
+  const [ruaMembro, setRuaMembro] = useState('');
+  const [numeroMembro, setNumeroMembro] = useState('');
+  const [batizado, setBatizado] = useState('Sim');
+  const [observacoesMembro, setObservacoesMembro] = useState('');
+
   const [jaCadastrado, setJaCadastrado] = useState(false);
   const [carregandoCadastro, setCarregandoCadastro] = useState(false);
 
@@ -116,7 +124,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
         setNomeMembro(data.nome || '');
         setCelularMembro(data.celular_principal || '');
         setDataNascMembro(data.data_nascimento || '');
+        setEstadoCivil(data.estado_civil || 'Solteiro(a)');
+        setCepMembro(data.cep || '');
         setBairroMembro(data.bairro || '');
+        setRuaMembro(data.rua || '');
+        setNumeroMembro(data.numero || '');
+        setBatizado(data.batizado || 'Sim');
+        setObservacoesMembro(data.observacoes || '');
 
         if (data.cadastro_concluido && !isAdminOuLider) {
           setJaCadastrado(true);
@@ -291,8 +305,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // LÓGICA DO CADASTRO ÚNICO (Com trava para membros comuns)
-  const handleSalvarCadastroUnico = async (e: React.FormEvent) => {
+  // LÓGICA DO CADASTRO ÚNICO EM ETAPAS
+  const handleFinalizarCadastroUnico = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (jaCadastrado && !isAdminOuLider) {
@@ -300,7 +314,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       return;
     }
 
-    if (!nomeMembro.trim()) return alert('Informe seu nome completo.');
+    if (!nomeMembro.trim()) return alert('Informe seu nome completo na Etapa 1.');
 
     try {
       const { data: membroAtual } = await supabase
@@ -321,7 +335,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
         nome: nomeMembro.trim(),
         celular_principal: celularMembro.trim(),
         data_nascimento: dataNascMembro || null,
+        estado_civil: estadoCivil,
+        cep: cepMembro.trim(),
         bairro: bairroMembro.trim(),
+        rua: ruaMembro.trim(),
+        numero: numeroMembro.trim(),
+        batizado,
+        observacoes: observacoesMembro.trim(),
         tipo_cadastro: 'Membro',
         cadastro_concluido: true,
         status_acesso: 'Ativo',
@@ -338,7 +358,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         if (error) throw error;
       }
 
-      alert('✅ Cadastro realizado com sucesso!');
+      alert('✅ Cadastro concluído com sucesso!');
       setJaCadastrado(true);
       carregarDadosApp();
     } catch (err: any) {
@@ -836,79 +856,188 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 5. ABA CADASTRO (COM A TRAVA DE PREENCHIMENTO ÚNICO) */}
+            {/* 5. ABA CADASTRO EM ETAPAS (SEQUENCIAL) */}
             {subAbaApp === 'cadastro' && (
               <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-4 text-xs">
-                <div>
-                  <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro</h3>
-                  <p className="text-[11px] text-slate-500">
-                    {jaCadastrado && !isAdminOuLider 
-                      ? 'Dados já confirmados. Procure a secretaria.' 
-                      : 'Preencha seus dados oficiais abaixo. Este preenchimento é feito apenas uma vez.'}
-                  </p>
+                <div className="border-b pb-2 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro Oficial</h3>
+                    <p className="text-[10px] text-slate-500">Etapa {etapaCadastro} de 3</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 1 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 2 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                  </div>
                 </div>
 
                 {carregandoCadastro ? (
                   <p className="text-center text-xs text-slate-500 py-6">Carregando informações...</p>
+                ) : jaCadastrado && !isAdminOuLider ? (
+                  <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-2">
+                    <p>🔒 Dados já confirmados e salvos.</p>
+                    <p className="text-[10px] text-amber-700">Caso precise alterar algum dado, por favor procure a secretaria da igreja.</p>
+                  </div>
                 ) : (
-                  <form onSubmit={handleSalvarCadastroUnico} className="space-y-3">
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
-                      <input
-                        type="text"
-                        value={nomeMembro}
-                        onChange={(e) => setNomeMembro(e.target.value)}
-                        disabled={jaCadastrado && !isAdminOuLider}
-                        className="w-full border rounded-xl p-2.5 font-bold text-slate-800 disabled:bg-slate-100 disabled:text-slate-500"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp</label>
-                      <input
-                        type="text"
-                        value={celularMembro}
-                        onChange={(e) => setCelularMembro(e.target.value)}
-                        disabled={jaCadastrado && !isAdminOuLider}
-                        className="w-full border rounded-xl p-2.5 disabled:bg-slate-100 disabled:text-slate-500"
-                        placeholder="(00) 00000-0000"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Data de Nascimento</label>
-                      <input
-                        type="date"
-                        value={dataNascMembro}
-                        onChange={(e) => setDataNascMembro(e.target.value)}
-                        disabled={jaCadastrado && !isAdminOuLider}
-                        className="w-full border rounded-xl p-2.5 bg-white disabled:bg-slate-100 disabled:text-slate-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block font-bold text-slate-700 mb-1">Bairro</label>
-                      <input
-                        type="text"
-                        value={bairroMembro}
-                        onChange={(e) => setBairroMembro(e.target.value)}
-                        disabled={jaCadastrado && !isAdminOuLider}
-                        className="w-full border rounded-xl p-2.5 disabled:bg-slate-100 disabled:text-slate-500"
-                      />
-                    </div>
-
-                    {jaCadastrado && !isAdminOuLider ? (
-                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs">
-                        🔒 Dados já confirmados. Procure a secretaria.
+                  <form onSubmit={handleFinalizarCadastroUnico} className="space-y-3">
+                    {/* ETAPA 1: DADOS BÁSICOS */}
+                    {etapaCadastro === 1 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">1️⃣ Dados Pessoais Básicos</h4>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
+                          <input
+                            type="text"
+                            value={nomeMembro}
+                            onChange={(e) => setNomeMembro(e.target.value)}
+                            className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp *</label>
+                          <input
+                            type="text"
+                            value={celularMembro}
+                            onChange={(e) => setCelularMembro(e.target.value)}
+                            className="w-full border rounded-xl p-2.5"
+                            placeholder="(00) 00000-0000"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Nascimento</label>
+                            <input
+                              type="date"
+                              value={dataNascMembro}
+                              onChange={(e) => setDataNascMembro(e.target.value)}
+                              className="w-full border rounded-xl p-2.5 bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-1">Estado Civil</label>
+                            <select
+                              value={estadoCivil}
+                              onChange={(e) => setEstadoCivil(e.target.value)}
+                              className="w-full border rounded-xl p-2.5 bg-white"
+                            >
+                              <option value="Solteiro(a)">Solteiro(a)</option>
+                              <option value="Casado(a)">Casado(a)</option>
+                              <option value="Divorciado(a)">Divorciado(a)</option>
+                              <option value="Viúvo(a)">Viúvo(a)</option>
+                            </select>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
+                            setEtapaCadastro(2);
+                          }}
+                          className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-3"
+                        >
+                          Próxima ➡️
+                        </button>
                       </div>
-                    ) : (
-                      <button
-                        type="submit"
-                        className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer transition"
-                      >
-                        💾 Confirmar e Salvar Cadastro
-                      </button>
+                    )}
+
+                    {/* ETAPA 2: ENDEREÇO */}
+                    {etapaCadastro === 2 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">2️⃣ Endereço Residencial</h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            placeholder="CEP"
+                            value={cepMembro}
+                            onChange={(e) => setCepMembro(e.target.value)}
+                            className="border rounded-xl p-2.5"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Bairro"
+                            value={bairroMembro}
+                            onChange={(e) => setBairroMembro(e.target.value)}
+                            className="col-span-2 border rounded-xl p-2.5"
+                          />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input
+                            type="text"
+                            placeholder="Rua / Avenida"
+                            value={ruaMembro}
+                            onChange={(e) => setRuaMembro(e.target.value)}
+                            className="col-span-2 border rounded-xl p-2.5"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Nº"
+                            value={numeroMembro}
+                            onChange={(e) => setNumeroMembro(e.target.value)}
+                            className="border rounded-xl p-2.5"
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setEtapaCadastro(1)}
+                            className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer"
+                          >
+                            ⬅️ Voltar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEtapaCadastro(3)}
+                            className="w-1/2 py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer"
+                          >
+                            Próxima ➡️
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ETAPA 3: DADOS ECLESIÁSTICOS & FINALIZAÇÃO */}
+                    {etapaCadastro === 3 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">3️⃣ Dados Eclesiásticos & Finalização</h4>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">É batizado(a) nas águas?</label>
+                          <select
+                            value={batizado}
+                            onChange={(e) => setBatizado(e.target.value)}
+                            className="w-full border rounded-xl p-2.5 bg-white"
+                          >
+                            <option value="Sim">Sim</option>
+                            <option value="Não">Não</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block font-bold text-slate-700 mb-1">Observações ou Pedido de Oração</label>
+                          <textarea
+                            value={observacoesMembro}
+                            onChange={(e) => setObservacoesMembro(e.target.value)}
+                            className="w-full border rounded-xl p-2.5"
+                            rows={3}
+                            placeholder="Alguma observação importante..."
+                          />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setEtapaCadastro(2)}
+                            className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer"
+                          >
+                            ⬅️ Voltar
+                          </button>
+                          <button
+                            type="submit"
+                            className="w-1/2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer"
+                          >
+                            💾 Salvar Cadastro
+                          </button>
+                        </div>
+                      </div>
                     )}
                   </form>
                 )}

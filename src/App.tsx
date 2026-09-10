@@ -304,6 +304,7 @@ const carregarUsuarioEPermissoes = useCallback(async () => {
   setPrecisaCompletarPerfil(false);
   setLoggedUser(data);
 
+  // Administradores e Líderes têm permissão total e passam direto
   if (data.perfil === 'admin' || data.perfil === 'administrador' || data.perfil === 'lider') {
     setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
     setPrecisaCompletarCadastro(false);
@@ -317,19 +318,145 @@ const carregarUsuarioEPermissoes = useCallback(async () => {
     const mods = permData ? permData.map((p) => p.modulo) : [];
     setPermissoesAtivas(mods);
 
+    // Verificação para membros comuns: Checa se o cadastro já foi concluído na tabela members
     const { data: membroInfo } = await supabase
       .from('members')
       .select('id, cadastro_concluido')
       .eq('email', emailUsuario)
       .maybeSingle();
 
+    // Se nunca preencheu, ativa a tela de cadastro obrigatório
     if (!membroInfo || !membroInfo.cadastro_concluido) {
       setPrecisaCompletarCadastro(true);
     } else {
+      // Se já preencheu antes, bloqueia nova alteração por conta própria
       setPrecisaCompletarCadastro(false);
     }
   }
 }, [session]);
+
+useEffect(() => {
+  carregarUsuarioEPermissoes();
+}, [carregarUsuarioEPermissoes]);
+
+const handleSignUp = async (event: React.FormEvent) => {
+  event.preventDefault();
+
+  if (!nomeUsuario || !codigoIgreja) {
+    alert('Preencha o Nome de Usuário e o Código da Igreja.');
+    return;
+  }
+
+  const { count, error: countError } = await supabase
+    .from('usuarios')
+    .select('*', { count: 'exact', head: true })
+    .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
+
+  const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
+
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (authError) {
+    alert('Erro no cadastro (Auth): ' + authError.message);
+    return;
+  }
+
+  const authUserId = authData.user?.id || authData.session?.user?.id;
+
+  const { error: profileError } = await supabase.from('usuarios').insert([
+    {
+      auth_user_id: authUserId || null,
+      email: email.trim().toLowerCase(),
+      nome_usuario: nomeUsuario,
+      codigo_igreja: codigoIgreja.toUpperCase().trim(),
+      perfil: perfilInicial,
+      ativo: true,
+    },
+  ]);
+
+  if (profileError) {
+    alert('Erro ao criar perfil do usuário: ' + profileError.message);
+    return;
+  }
+
+  alert(perfilInicial === 'administrador' 
+    ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+    : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
+  setIsLogin(true);
+};
+
+const handleCompletarPerfil = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!nomeUsuario || !codigoIgreja) {
+    alert('Preencha todos os campos.');
+    return;
+  }
+
+  const emailLimpo = session.user.email.trim().toLowerCase();
+  const authUserId = session.user.id;
+
+  const { data: registroExistente } = await supabase
+    .from('usuarios')
+    .select('id')
+    .or(`auth_user_id.eq.${authUserId},email.ilike.${emailLimpo}`)
+    .maybeSingle();
+
+  let error;
+
+  if (registroExistente) {
+    const res = await supabase
+      .from('usuarios')
+      .update({
+        auth_user_id: authUserId,
+        email: emailLimpo,
+        nome_usuario: nomeUsuario,
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
+        perfil: 'comum',
+        ativo: true,
+      })
+      .eq('id', registroExistente.id);
+    error = res.error;
+  } else {
+    const res = await supabase.from('usuarios').insert([
+      {
+        auth_user_id: authUserId,
+        email: emailLimpo,
+        nome_usuario: nomeUsuario,
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
+        perfil: 'comum',
+        ativo: true,
+      },
+    ]);
+    error = res.error;
+  }
+
+  if (error) {
+    alert('Erro ao salvar perfil: ' + error.message);
+    return;
+  }
+
+  await carregarUsuarioEPermissoes();
+};
+
+const handleLogout = async () => {
+  await supabase.auth.signOut();
+  setLoggedUser(null);
+  setPrecisaCompletarPerfil(false);
+  setPrecisaCompletarCadastro(false);
+  setActiveTab('dashboard');
+};
+
+const temPermissao = (moduloKey: string) => {
+  if (isAdmin || loggedUser?.perfil === 'lider') return true;
+  return permissoesAtivas.includes(moduloKey);
+};
+
+const selecionarAba = (aba: string) => {
+  setActiveTab(aba);
+};
 
   /* ========================================================================== */
   /* 5. RENDERIZAÇÃO DE TELAS DE AUTENTICAÇÃO E BLOQUEIO                        */

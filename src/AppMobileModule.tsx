@@ -856,18 +856,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 5. ABA CADASTRO EM ETAPAS (SEQUENCIAL) */}
+            {/* 5. ABA CADASTRO COMPLETO EM 4 ETAPAS (ESTILO WEB) */}
             {subAbaApp === 'cadastro' && (
               <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-4 text-xs">
                 <div className="border-b pb-2 flex justify-between items-center">
                   <div>
-                    <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro Oficial</h3>
-                    <p className="text-[10px] text-slate-500">Etapa {etapaCadastro} de 3</p>
+                    <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro</h3>
+                    <p className="text-[10px] text-slate-500">Etapa {etapaCadastro} de 4</p>
                   </div>
                   <div className="flex gap-1">
-                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 1 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 2 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 1 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 2 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 4 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
                   </div>
                 </div>
 
@@ -876,72 +877,122 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 ) : jaCadastrado && !isAdminOuLider ? (
                   <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-2">
                     <p>🔒 Dados já confirmados e salvos.</p>
-                    <p className="text-[10px] text-amber-700">Caso precise alterar algum dado, por favor procure a secretaria da igreja.</p>
+                    <p className="text-[10px] text-amber-700">Procure a secretaria para alterações.</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleFinalizarCadastroUnico} className="space-y-3">
-                    {/* ETAPA 1: DADOS BÁSICOS */}
+                  <form onSubmit={handleFinalizarCadastroCompleto} className="space-y-3">
+                    {/* ETAPA 1 */}
                     {etapaCadastro === 1 && (
                       <div className="space-y-3">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">1️⃣ Dados Pessoais Básicos</h4>
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">1️⃣ Dados Pessoais & Foto</h4>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
-                          <input
-                            type="text"
-                            value={nomeMembro}
-                            onChange={(e) => setNomeMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp *</label>
-                          <input
-                            type="text"
-                            value={celularMembro}
-                            onChange={(e) => setCelularMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2.5"
-                            placeholder="(00) 00000-0000"
-                            required
-                          />
+                          <label className="block font-bold mb-1">URL da Foto de Perfil</label>
+                          <input type="text" placeholder="https://..." value={fotoUrl} onChange={(e) => setFotoUrl(e.target.value)} className="w-full border rounded-xl p-2.5 font-mono text-[10px]" />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block font-bold text-slate-700 mb-1">Nascimento</label>
-                            <input
-                              type="date"
-                              value={dataNascMembro}
-                              onChange={(e) => setDataNascMembro(e.target.value)}
-                              className="w-full border rounded-xl p-2.5 bg-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 mb-1">Estado Civil</label>
-                            <select
-                              value={estadoCivil}
-                              onChange={(e) => setEstadoCivil(e.target.value)}
-                              className="w-full border rounded-xl p-2.5 bg-white"
-                            >
-                              <option value="Solteiro(a)">Solteiro(a)</option>
-                              <option value="Casado(a)">Casado(a)</option>
-                              <option value="Divorciado(a)">Divorciado(a)</option>
-                              <option value="Viúvo(a)">Viúvo(a)</option>
+                            <label className="block font-bold mb-1">Tipo de Cadastro</label>
+                            <select value={tipoCadastro} onChange={(e) => setTipoCadastro(e.target.value)} className="w-full border rounded-xl p-2.5 bg-white">
+                              <option value="Membro">Membro</option>
+                              <option value="Congregado">Congregado</option>
+                              <option value="Visitante">Visitante</option>
                             </select>
                           </div>
+                          <div>
+                            <label className="block font-bold mb-1">Ministério</label>
+                            <input type="text" placeholder="Ex: Louvor..." value={ministerio} onChange={(e) => setMinisterio(e.target.value)} className="w-full border rounded-xl p-2.5" />
+                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
-                            setEtapaCadastro(2);
-                          }}
-                          className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-3"
-                        >
-                          Próxima ➡️
-                        </button>
+                        <div>
+                          <label className="block font-bold mb-1">Nome Completo *</label>
+                          <input type="text" value={nomeMembro} onChange={(e) => setNomeMembro(e.target.value)} className="w-full border rounded-xl p-2.5 font-bold" required />
+                        </div>
+                        <button type="button" onClick={() => { if (!nomeMembro.trim()) return alert('Informe o nome completo'); setEtapaCadastro(2); }} className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl mt-3 cursor-pointer">Próxima ➡️</button>
                       </div>
                     )}
 
+                    {/* ETAPA 2 */}
+                    {etapaCadastro === 2 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">2️⃣ Datas & Família</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><label className="block font-bold mb-1">Nascimento</label><input type="date" value={dataNascMembro} onChange={(e) => setDataNascMembro(e.target.value)} className="w-full border rounded-xl p-2.5 bg-white" /></div>
+                          <div><label className="block font-bold mb-1">Batismo</label><input type="date" value={dataBatismo} onChange={(e) => setDataBatismo(e.target.value)} className="w-full border rounded-xl p-2.5 bg-white" /></div>
+                        </div>
+                        <div><label className="block font-bold mb-1">Nome do Cônjuge</label><input type="text" placeholder="Esposo(a)" value={nomeConjugue} onChange={(e) => setNomeConjugue(e.target.value)} className="w-full border rounded-xl p-2.5" /></div>
+                        <div>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="font-bold">Filhos</label>
+                            <button type="button" onClick={() => setFilhos([...filhos, ''])} className="text-[10px] text-blue-600 font-bold cursor-pointer">+ Adicionar Filho</button>
+                          </div>
+                          {filhos.map((filho, idx) => (
+                            <div key={idx} className="flex gap-1 mb-1.5">
+                              <input type="text" placeholder={`Nome do ${idx + 1}º filho(a)`} value={filho} onChange={(e) => { const novos = [...filhos]; novos[idx] = e.target.value; setFilhos(novos); }} className="w-full border rounded-xl p-2" />
+                              {filhos.length > 1 && <button type="button" onClick={() => setFilhos(filhos.filter((_, i) => i !== idx))} className="px-2 bg-rose-100 text-rose-700 rounded-xl font-bold cursor-pointer">✕</button>}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button type="button" onClick={() => setEtapaCadastro(1)} className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer">⬅️ Voltar</button>
+                          <button type="button" onClick={() => setEtapaCadastro(3)} className="w-1/2 py-3 bg-blue-900 text-white font-bold rounded-xl cursor-pointer">Próxima ➡️</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ETAPA 3 */}
+                    {etapaCadastro === 3 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">3️⃣ Documentos & Contato</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><label className="block font-bold mb-1">CPF</label><input type="text" placeholder="000.000.000-00" value={cpfMembro} onChange={(e) => setCpfMembro(e.target.value)} className="w-full border rounded-xl p-2.5" /></div>
+                          <div><label className="block font-bold mb-1">RG</label><input type="text" placeholder="Número do RG" value={rgMembro} onChange={(e) => setRgMembro(e.target.value)} className="w-full border rounded-xl p-2.5" /></div>
+                        </div>
+                        <div>
+                          <label className="block font-bold mb-1">Estado Civil</label>
+                          <select value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)} className="w-full border rounded-xl p-2.5 bg-white">
+                            <option value="Solteiro(a)">Solteiro(a)</option>
+                            <option value="Casado(a)">Casado(a)</option>
+                            <option value="Divorciado(a)">Divorciado(a)</option>
+                            <option value="Viúvo(a)">Viúvo(a)</option>
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div><label className="block font-bold mb-1">Celular *</label><input type="text" placeholder="(00) 00000-0000" value={celularMembro} onChange={(e) => setCelularMembro(e.target.value)} className="w-full border rounded-xl p-2.5" required /></div>
+                          <div><label className="block font-bold mb-1">E-mail</label><input type="email" placeholder="email@exemplo.com" value={emailMembro} onChange={(e) => setEmailMembro(e.target.value)} className="w-full border rounded-xl p-2.5" /></div>
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button type="button" onClick={() => setEtapaCadastro(2)} className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer">⬅️ Voltar</button>
+                          <button type="button" onClick={() => setEtapaCadastro(4)} className="w-1/2 py-3 bg-blue-900 text-white font-bold rounded-xl cursor-pointer">Próxima ➡️</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ETAPA 4 */}
+                    {etapaCadastro === 4 && (
+                      <div className="space-y-3">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">4️⃣ Endereço Residencial</h4>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input type="text" placeholder="CEP" value={cepMembro} onChange={(e) => setCepMembro(e.target.value)} className="border rounded-xl p-2.5" />
+                          <input type="text" placeholder="Bairro" value={bairroMembro} onChange={(e) => setBairroMembro(e.target.value)} className="col-span-2 border rounded-xl p-2.5" />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <input type="text" placeholder="Rua / Av." value={ruaMembro} onChange={(e) => setRuaMembro(e.target.value)} className="col-span-2 border rounded-xl p-2.5" />
+                          <input type="text" placeholder="Nº" value={numeroMembro} onChange={(e) => setNumeroMembro(e.target.value)} className="border rounded-xl p-2.5" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input type="text" placeholder="Cidade" value={cidadeMembro} onChange={(e) => setCidadeMembro(e.target.value)} className="border rounded-xl p-2.5" />
+                          <input type="text" placeholder="UF" value={ufMembro} onChange={(e) => setUfMembro(e.target.value)} className="border rounded-xl p-2.5 uppercase" maxLength={2} />
+                        </div>
+                        <div className="flex gap-2 pt-2">
+                          <button type="button" onClick={() => setEtapaCadastro(3)} className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer">⬅️ Voltar</button>
+                          <button type="submit" className="w-1/2 py-3 bg-emerald-600 text-white font-bold rounded-xl shadow cursor-pointer">💾 Cadastrar membro</button>
+                        </div>
+                      </div>
+                    )}
+                  </form>
+                )}
+              </div>
+            )}
                     {/* ETAPA 2: ENDEREÇO */}
                     {etapaCadastro === 2 && (
                       <div className="space-y-3">

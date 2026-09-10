@@ -977,8 +977,8 @@ export default function App() {
       </aside>
 
       {/* ========================================================================== */}
-      /* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                  */
-      /* ========================================================================== */}
+        {/* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                  */}
+        {/* ========================================================================== */}
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />

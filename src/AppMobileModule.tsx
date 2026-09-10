@@ -931,10 +931,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             <label className="font-bold">Filhos</label>
                             <button type="button" onClick={() => setFilhos([...filhos, ''])} className="text-[10px] text-blue-600 font-bold cursor-pointer">+ Adicionar Filho</button>
                           </div>
-                          {filhos.map((filho, idx) => (
+                          {Array.isArray(filhos) && filhos.map((filho, idx) => (
                             <div key={idx} className="flex gap-1 mb-1.5">
-                              <input type="text" placeholder={`Nome do ${idx + 1}º filho(a)`} value={filho} onChange={(e) => { const novos = [...filhos]; novos[idx] = e.target.value; setFilhos(novos); }} className="w-full border rounded-xl p-2" />
-                              {filhos.length > 1 && <button type="button" onClick={() => setFilhos(filhos.filter((_, i) => i !== idx))} className="px-2 bg-rose-100 text-rose-700 rounded-xl font-bold cursor-pointer">✕</button>}
+                              <input type="text" placeholder={`Nome do ${idx + 1}º filho(a)`} value={filho || ''} onChange={(e) => { const novos = [...filhos]; novos[idx] = e.target.value; setFilhos(novos); }} className="w-full border rounded-xl p-2" />
+                              <button type="button" onClick={() => setFilhos(filhos.filter((_, i) => i !== idx))} className="px-2 bg-rose-100 text-rose-700 rounded-xl font-bold cursor-pointer">✕</button>
                             </div>
                           ))}
                         </div>

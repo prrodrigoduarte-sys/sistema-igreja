@@ -22,6 +22,13 @@ interface DadosIgreja {
   chave_pix?: string;
 }
 
+interface Devocional {
+  versiculo: string;
+  referencia: string;
+  reflexao: string;
+  data: string;
+}
+
 export default function AppMobileModule({ loggedUser }: Props) {
   // Controle de Abas (Perfil, Agenda, Célula, Igreja, Cadastro, Contribua, Devocional)
   const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional'>('minha_agenda');
@@ -59,6 +66,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
     endereco_completo: 'Teófilo Otoni - MG',
     link_instagram: 'https://instagram.com',
     chave_pix: 'contato@suaigreja.com.br (PIX)',
+  });
+
+  // 3.1 Devocional Dinâmico (Puxando do Supabase)
+  const [devocionalDoDia, setDevocionalDoDia] = useState<Devocional>({
+    versiculo: 'Carregando palavra do dia...',
+    referencia: '',
+    reflexao: 'Aguarde um momento.',
+    data: new Date().toLocaleDateString('pt-BR'),
   });
 
   // 4. Controle de Célula (Criação e Edição)
@@ -112,7 +127,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // Carregar todos os dados das abas
+  // Carregar todos os dados das abas (incluindo o Devocional do Supabase)
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -167,6 +182,24 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .maybeSingle();
 
       if (dataIgr) setDadosIgreja(dataIgr);
+
+      // Carregar o Devocional mais recente cadastrado na tabela 'devocionais'
+      const { data: dataDev } = await supabase
+        .from('devocionais')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (dataDev) {
+        setDevocionalDoDia({
+          versiculo: dataDev.versiculo || 'O Senhor é o meu pastor...',
+          referencia: dataDev.referencia || 'Salmos 23:1',
+          reflexao: dataDev.reflexao || 'Reflexão diária...',
+          data: dataDev.data ? dataDev.data.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR'),
+        });
+      }
 
       const { data: dataReunioes } = await supabase
         .from('reunioes_celulas')
@@ -463,7 +496,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS (AGORA COM 7 OPÇÕES) */}
+        {/* NAVEGAÇÃO DE ABAS (7 OPÇÕES) */}
         <div className="grid grid-cols-7 gap-0.5 bg-blue-950/60 p-1 rounded-xl text-[9px] font-bold text-center">
           <button
             type="button"
@@ -876,7 +909,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
                 <h3 className="font-black text-blue-900 text-sm border-b pb-2">💖 Contribua com a Obra</h3>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  "Cada um contribua según propusitou em seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria." (2 Coríntios 9:7)
+                  "Cada um contribua segundo propôs no seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria." (2 Coríntios 9:7)
                 </p>
 
                 <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2 text-center">
@@ -903,26 +936,26 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 7. ABA DEVOCIONAL */}
+            {/* 7. ABA DEVOCIONAL (DINÂMICO DO SUPABASE) */}
             {subAbaApp === 'devocional' && (
               <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
                 <div className="border-b pb-2 flex justify-between items-center">
                   <h3 className="font-black text-blue-900 text-sm">📖 Devocional Diário</h3>
                   <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                    {new Date().toLocaleDateString('pt-BR')}
+                    {devocionalDoDia.data}
                   </span>
                 </div>
 
                 <div className="space-y-3 bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-4 rounded-2xl shadow">
                   <span className="text-xs uppercase font-bold tracking-wider text-blue-300">Palavra do Dia</span>
-                  <h4 className="font-black text-base text-yellow-300">"O Senhor é o meu pastor; nada me faltará."</h4>
-                  <p className="text-[11px] text-blue-100 italic">Salmos 23:1</p>
+                  <h4 className="font-black text-base text-yellow-300">"{devocionalDoDia.versiculo}"</h4>
+                  <p className="text-[11px] text-blue-100 italic">{devocionalDoDia.referencia}</p>
                 </div>
 
                 <div className="space-y-2 text-slate-700 leading-relaxed">
                   <strong className="block text-blue-900 font-bold">Reflexão:</strong>
-                  <p className="text-xs">
-                    Em momentos de incerteza ou calmaria, lembrar que o Criador do universo cuida de cada detalhe da nossa jornada traz paz ao coração. Entregar a direção dos nossos passos a Ele é a chave para uma vida guiada pela fé e esperança.
+                  <p className="text-xs whitespace-pre-wrap">
+                    {devocionalDoDia.reflexao}
                   </p>
                 </div>
 

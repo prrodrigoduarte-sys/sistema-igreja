@@ -527,80 +527,87 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO DE ABAS (7 OPÇÕES) */}
-        <div className="grid grid-cols-7 gap-0.5 bg-blue-950/60 p-1 rounded-xl text-[9px] font-bold text-center">
+        {/* NAVEGAÇÃO EM CAIXAS RETANGULARES (2 LINHAS) */}
+        <div className="grid grid-cols-4 gap-1.5 bg-blue-950/60 p-2 rounded-2xl text-[10px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAbaApp('perfil')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
             }`}
           >
-            👤 Perfil
+            <span className="text-sm">👤</span>
+            <span>Perfil</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('minha_agenda')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
             }`}
           >
-            📅 Agenda
+            <span className="text-sm">📅</span>
+            <span>Agenda</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('celula')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
             }`}
           >
-            🏡 Célula
+            <span className="text-sm">🏡</span>
+            <span>Célula</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('igreja')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
             }`}
           >
-            ⛪ Igreja
+            <span className="text-sm">⛪</span>
+            <span>Igreja</span>
           </button>
+        </div>
 
+        <div className="grid grid-cols-3 gap-1.5 bg-blue-950/60 p-2 rounded-2xl text-[10px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAbaApp('cadastro')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'cadastro' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'cadastro' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
             }`}
           >
-            📝 Cadastro
+            <span className="text-sm">📝</span>
+            <span>Cadastro</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('contribua')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'contribua' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'contribua' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:text-blue-800'
             }`}
           >
-            💖 Contribua
+            <span className="text-sm">💖</span>
+            <span>Contribua</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('devocional')}
-            className={`py-1.5 rounded-lg transition cursor-pointer ${
-              subAbaApp === 'devocional' ? 'bg-blue-600 text-white font-extrabold shadow' : 'text-blue-200 hover:text-white'
+            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
+              subAbaApp === 'devocional' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
             }`}
           >
-            📖 Devocional
+            <span className="text-sm">📖</span>
+            <span>Devocional</span>
           </button>
         </div>
-      </div>
-
       {/* ÁREA DE CONTEÚDO */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">
         {loading ? (

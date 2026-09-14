@@ -608,6 +608,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <span>Devocional</span>
           </button>
         </div>
+      </div> {/* <--- FECHAMENTO CORRETO DA DIV DO CABEÇALHO AZUL */}
+
       {/* ÁREA DE CONTEÚDO */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">
         {loading ? (

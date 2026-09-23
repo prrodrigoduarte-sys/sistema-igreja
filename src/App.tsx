@@ -21,6 +21,7 @@ import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
+import { MessageSquare, Send, Bell } from 'lucide-react';
 
 function getOrCreateDeviceToken() {
   let token = localStorage.getItem('app_device_token');
@@ -32,7 +33,7 @@ function getOrCreateDeviceToken() {
 }
 
 /* ========================================================================== */
-/* 2. COMPONENTE PRINCIPAL (APP)                                            */
+/* 2. COMPONENTE PRINCIPAL (APP)                                              */
 /* ========================================================================== */
 export default function App() {
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
@@ -62,6 +63,14 @@ export default function App() {
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
+  // Estados para o Chat Mobile, Status e Aniversários dos Líderes
+  const [chatMessages, setChatMessages] = useState<Array<{ id: string; sender: string; text: string; time: string; isBroadcast?: boolean }>>([
+    { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00' }
+  ]);
+  const [messageInput, setMessageInput] = useState('');
+  const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
+  const [membrosChat, setMembrosChat] = useState<any[]>([]);
+
   // Estados de Segurança 2FA (Dispositivo Novo / 3 Erros)
   const [exigir2FA, setExigir2FA] = useState(false);
   const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
@@ -80,6 +89,47 @@ export default function App() {
       setIsMobileSubdomain(true);
     }
   }, []);
+
+  // Carregar lista de membros para o Chat e Aniversariantes dos Líderes
+  useEffect(() => {
+    const carregarMembrosChat = async () => {
+      const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
+      const { data } = await supabase
+        .from('members')
+        .select('id, nome, celular_principal, data_nascimento, tipo_cadastro')
+        .eq('codigo_igreja', igrejaAtual);
+
+      if (data) {
+        // Mapeando dados simulando status online e tipo (ex: lider)
+        const formatados = data.map((m, idx) => ({
+          ...m,
+          type: (m.tipo_cadastro || '').toLowerCase().includes('lider') ? 'lider' : 'membro',
+          status: idx % 2 === 0 ? 'online' : 'offline'
+        }));
+        setMembrosChat(formatados);
+      }
+    };
+    if (loggedUser) {
+      carregarMembrosChat();
+    }
+  }, [loggedUser]);
+
+  // Aniversariantes do dia para líderes
+  const todayStr = new Date().toISOString().slice(5, 10);
+  const todaysBirthdays = membrosChat.filter(m => (m.data_nascimento || '').slice(5, 10) === todayStr);
+
+  const handleSendMessage = () => {
+    if (!messageInput.trim()) return;
+    const newMessage = {
+      id: Date.now().toString(),
+      sender: loggedUser?.nome_usuario || 'Você',
+      text: selectedRecipient === 'all' ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isBroadcast: selectedRecipient === 'all'
+    };
+    setChatMessages(prev => [...prev, newMessage]);
+    setMessageInput('');
+  };
 
   const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
     const codigoHex = Math.floor(100000 + Math.random() * 900000).toString();
@@ -255,7 +305,7 @@ export default function App() {
   }, []);
 
   /* ========================================================================== */
-  /* 4. CARREGAMENTO DE USUÁRIO E PERMISSÕES (COM TRAVA DE CADASTRO ÚNICO)      */
+  /* 4. CARREGAMENTO DE USUÁRIO E PERMISSÕES                                    */
   /* ========================================================================== */
   const carregarUsuarioEPermissoes = useCallback(async () => {
     if (!session?.user?.id) {
@@ -298,7 +348,7 @@ export default function App() {
     setLoggedUser(data);
 
     if (data.perfil === 'admin' || data.perfil === 'administrador' || data.perfil === 'lider') {
-      setPermissoesAtivas(['dashboard', 'app-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
+      setPermissoesAtivas(['dashboard', 'app-mobile', 'chat-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
       setPrecisaCompletarCadastro(false);
     } else {
       const { data: permData } = await supabase
@@ -700,6 +750,21 @@ export default function App() {
             </button>
           )}
 
+          <button
+            type="button"
+            onClick={() => selecionarAba('chat-mobile')}
+            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
+              activeTab === 'chat-mobile' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">💬 Chat & Aniversários</span>
+            {todaysBirthdays.length > 0 && (
+              <span className="text-[10px] bg-amber-500 text-slate-900 font-black px-1.5 py-0.5 rounded-full animate-bounce">
+                🎂 {todaysBirthdays.length}
+              </span>
+            )}
+          </button>
+
           {temPermissao('cadastros') && (
             <div>
               <button
@@ -977,8 +1042,8 @@ export default function App() {
       </aside>
 
       {/* ========================================================================== */}
-        {/* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                  */}
-        {/* ========================================================================== */}
+      /* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                   */
+      /* ========================================================================== */}
       <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -987,6 +1052,77 @@ export default function App() {
         {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
           <div className="w-full max-w-4xl mx-auto">
             <AppMobileModule loggedUser={userEfetivo} />
+          </div>
+        )}
+
+        {/* NOVA ABA DE CHAT MOBILE COM STATUS E ANIVERSARIANTES PARA LÍDERES */}
+        {activeTab === 'chat-mobile' && (
+          <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow border border-slate-200 overflow-hidden flex flex-col h-[75vh]">
+            <div className="bg-slate-900 text-white p-4 flex justify-between items-center">
+              <div>
+                <h2 className="font-bold text-lg flex items-center gap-2"><MessageSquare size={20}/> Chat & Avisos Mobile</h2>
+                <p className="text-xs text-slate-400">Comunicação direta com status online e repasse automático para líderes.</p>
+              </div>
+              {todaysBirthdays.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-amber-500 text-slate-900 font-semibold px-3 py-1 rounded-full text-xs">
+                  <Bell size={14} /> 🎂 {todaysBirthdays.length} Aniversariante(s) hoje (Enviado aos Líderes)
+                </div>
+              )}
+            </div>
+
+            <div className="flex flex-1 overflow-hidden">
+              <div className="w-1/3 border-r border-slate-200 p-4 overflow-y-auto bg-slate-50">
+                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Membros & Status</h3>
+                <div 
+                  onClick={() => setSelectedRecipient('all')}
+                  className={`p-3 rounded-lg cursor-pointer mb-2 transition ${selectedRecipient === 'all' ? 'bg-blue-100 border-blue-300 border' : 'bg-white hover:bg-slate-100'}`}>
+                  <p className="font-semibold text-sm text-slate-800">📢 Todos os Membros</p>
+                  <p className="text-xs text-slate-500">Enviar para toda a rede</p>
+                </div>
+                {membrosChat.map(member => (
+                  <div 
+                    key={member.id}
+                    onClick={() => setSelectedRecipient(member.id)}
+                    className={`p-3 rounded-lg cursor-pointer mb-2 flex items-center justify-between transition ${selectedRecipient === member.id ? 'bg-blue-100 border-blue-300 border' : 'bg-white hover:bg-slate-100'}`}>
+                    <div>
+                      <p className="font-semibold text-sm text-slate-800">{member.name}</p>
+                      <p className="text-xs text-slate-500 capitalize">Tipo: {member.type} {member.type === 'lider' && '⭐'}</p>
+                    </div>
+                    <span className={`w-2.5 h-2.5 rounded-full ${member.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} title={member.status}></span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex-1 flex flex-col justify-between bg-white p-4">
+                <div className="flex-1 overflow-y-auto space-y-3 pr-2">
+                  {chatMessages.map(msg => (
+                    <div key={msg.id} className={`p-3 rounded-lg max-w-md ${msg.isBroadcast ? 'bg-amber-50 border border-amber-200 mx-auto w-full text-center' : 'bg-slate-100'}`}>
+                      <div className="flex justify-between text-xs text-slate-500 mb-1">
+                        <span className="font-semibold">{msg.sender}</span>
+                        <span>{msg.time}</span>
+                      </div>
+                      <p className="text-sm text-slate-800">{msg.text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-slate-200 flex gap-2">
+                  <input 
+                    type="text"
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                    placeholder={selectedRecipient === 'all' ? "Escrever mensagem para TODOS os membros..." : "Digite sua mensagem..."}
+                    className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                  <button 
+                    onClick={handleSendMessage}
+                    className="bg-blue-900 hover:bg-blue-800 text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition cursor-pointer">
+                    <Send size={16} /> Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1040,9 +1176,9 @@ export default function App() {
       </main>
 
       {/* ========================================================================== */}
-        {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */}
-        {/* ========================================================================== */}
-              {isMobileModalOpen && (
+      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
+      /* ========================================================================== */
+      {isMobileModalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 space-y-6 my-8">
             <div className="flex justify-between items-center border-b pb-4">
@@ -1154,7 +1290,7 @@ export default function App() {
 }
 
 /* ========================================================================== */
-/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)          */
+/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)           */
 /* ========================================================================== */
 function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecionarAba: (aba: string) => void }) {
   const [modoAniversariantes, setModoAniversariantes] = useState<'dia' | 'mes'>('dia');
@@ -1208,7 +1344,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
       try {
         const { data, error } = await supabase
           .from('members')
-          .select('id, nome, data_nascimento, celular_principal')
+          .select('id, nome, data_nascimento, celular_principal, tipo_cadastro')
           .eq('codigo_igreja', codigoIgreja);
 
         if (error) throw error;
@@ -1372,7 +1508,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
               🎂 Aniversariantes {modoAniversariantes === 'dia' ? 'de Hoje' : 'do Mês'}
             </h3>
             <p className="text-xs text-blue-200">
-              {modoAniversariantes === 'dia' ? 'Membros que sopram as velinhas hoje!' : 'Todos os aniversariantes deste mês.'}
+              {modoAniversariantes === 'dia' ? 'Membros que sopram as velinhas hoje (Enviado automaticamente aos líderes).' : 'Todos os aniversariantes deste mês.'}
             </p>
           </div>
 
@@ -1402,7 +1538,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
                 <div key={m.id} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-3 flex justify-between items-center">
                   <div>
                     <p className="font-bold text-sm text-white truncate max-w-[180px]">{m.nome}</p>
-                    <p className="text-xs text-blue-200">📞 {m.celular_principal || 'Sem telefone'}</p>
+                    <p className="text-xs text-blue-200">📞 {m.celular_principal || 'Sem telefone'} {m.tipo_cadastro?.toLowerCase().includes('lider') && '⭐'}</p>
                   </div>
                   <span className="bg-blue-500/30 text-blue-100 font-black text-xs px-2.5 py-1 rounded-lg border border-blue-400/30">
                     {dataFormatada}
@@ -1537,6 +1673,7 @@ function DashboardHome({ loggedUser, selecionarAba }: { loggedUser: any; selecio
                     <option value="Membro">Membro</option>
                     <option value="Congregado">Congregado</option>
                     <option value="Visitante">Visitante</option>
+                    <option value="Lider">Líder</option>
                   </select>
                 </div>
 

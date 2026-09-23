@@ -1183,7 +1183,6 @@ export default function App() {
                           <span className="font-semibold">{msg.sender}</span>
                           <div className="flex items-center gap-2">
                             <span>{msg.time}</span>
-                            {/* Botão de Excluir: visível nas mensagens gerais apenas para admin, ou visível em mensagens individuais */}
                             {(!msg.isBroadcast || isAdmin) && (
                               <button
                                 type="button"

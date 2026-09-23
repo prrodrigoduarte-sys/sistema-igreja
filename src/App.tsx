@@ -1111,37 +1111,36 @@ export default function App() {
           </div>
 
           {membrosChat.map((member) => (
-            <div
-              key={member.id}
-              onClick={() => setSelectedRecipient(member.id)}
-              className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg p-3 transition ${
-                selectedRecipient === member.id
-                  ? 'border border-blue-300 bg-blue-100'
-                  : 'bg-white hover:bg-slate-100'
-              }`}
-            >
-              <div>
-                <p className="text-sm font-semibold text-slate-800">
-                {member.nome || 'Membro sem nome'}
-                </p>
+  <div
+    key={member.id}
+    onClick={() => setSelectedRecipient(member.id)}
+    className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg p-3 transition ${
+      selectedRecipient === member.id
+        ? 'border border-blue-300 bg-blue-100'
+        : 'bg-white hover:bg-slate-100'
+    }`}
+  >
+    <div className="min-w-0">
+      <p className="truncate text-sm font-semibold text-slate-800">
+        {member.nome || 'Membro sem nome'}
+      </p>
 
-                <p className="text-xs capitalize text-slate-500">
-                  Tipo: {member.type}
-                  {member.type === 'lider' ? ' ⭐' : ''}
-                </p>
-              </div>
+      <p className="text-xs capitalize text-slate-500">
+        Tipo: {member.type}
+        {member.ehLiderOuPastor ? ' ⭐' : ''}
+      </p>
+    </div>
 
-              <span
-                className={`h-2.5 w-2.5 rounded-full ${
-                  member.status === 'online'
-                    ? 'bg-emerald-500'
-                    : 'bg-slate-300'
-                }`}
-                title={member.status}
-              />
-            </div>
-          ))}
-        </div>
+    <span
+      className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${
+        member.status === 'online'
+          ? 'bg-emerald-500'
+          : 'bg-slate-300'
+      }`}
+      title={member.status === 'online' ? 'Online' : 'Offline'}
+    />
+  </div>
+))}
 
         <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">

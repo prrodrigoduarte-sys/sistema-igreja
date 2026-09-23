@@ -100,7 +100,6 @@ export default function App() {
         .eq('codigo_igreja', igrejaAtual);
 
       if (data) {
-        // Mapeando dados simulando status online e tipo (ex: lider)
         const formatados = data.map((m, idx) => ({
           ...m,
           type: (m.tipo_cadastro || '').toLowerCase().includes('lider') ? 'lider' : 'membro',
@@ -1022,11 +1021,11 @@ export default function App() {
           )}
         </nav>
 
-        <div className="p-4 border-t border-blue-800 space-y-2">
+        <div className="space-y-2 border-t border-blue-800 p-4">
           <button
             type="button"
             onClick={() => setIsMobileModalOpen(true)}
-            className="block w-full text-center px-4 py-2.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition cursor-pointer shadow"
+            className="block w-full cursor-pointer rounded-xl bg-blue-800 px-4 py-2.5 text-center text-xs font-bold text-white shadow transition hover:bg-blue-700"
           >
             📱 Abrir Tela Mobile / Opções
           </button>
@@ -1034,354 +1033,353 @@ export default function App() {
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full text-left px-4 py-2 rounded-lg text-red-300 hover:bg-blue-800 font-medium transition cursor-pointer text-sm"
+            className="w-full cursor-pointer rounded-lg px-4 py-2 text-left text-sm font-medium text-red-300 transition hover:bg-blue-800"
           >
             Sair
           </button>
-          </div>
-          </aside>
-
-{/* ========================================================================== */}
-{/* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                  */}
-{/* ========================================================================== */}
-
-<main className="flex-1 w-full max-w-full overflow-y-auto p-4 sm:p-8">
-  {activeTab === 'dashboard' &&
-    temPermissao('dashboard') && (
-      <DashboardHome
-        loggedUser={userEfetivo}
-        selecionarAba={selecionarAba}
-      />
-    )}
-
-  {activeTab === 'app-mobile' &&
-    temPermissao('app-mobile') && (
-      <div className="mx-auto w-full max-w-4xl">
-        <AppMobileModule loggedUser={userEfetivo} />
-      </div>
-    )}
-
-  {/* ====================================================================== */}
-  {/* 7.1 CHAT MOBILE                                                        */}
-  {/* ====================================================================== */}
-
-  {activeTab === 'chat-mobile' && (
-    <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
-      <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
-        <div>
-          <h2 className="flex items-center gap-2 text-lg font-bold">
-            <MessageSquare size={20} />
-            Chat e Avisos Mobile
-          </h2>
-
-          <p className="text-xs text-slate-400">
-            Comunicação direta com status online e repasse automático para líderes.
-          </p>
         </div>
+      </aside>
 
-        {todaysBirthdays.length > 0 && (
-          <div className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900">
-            <Bell size={14} />
-            🎂 {todaysBirthdays.length} aniversariante(s) hoje
-          </div>
-        )}
-      </div>
+      {/* ========================================================================== */}
+      {/* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */}
+      {/* ========================================================================== */}
 
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="w-1/3 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
-          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-            Membros e Status
-          </h3>
-
-          <div
-            onClick={() => setSelectedRecipient('all')}
-            className={`mb-2 cursor-pointer rounded-lg p-3 transition ${
-              selectedRecipient === 'all'
-                ? 'border border-blue-300 bg-blue-100'
-                : 'bg-white hover:bg-slate-100'
-            }`}
-          >
-            <p className="text-sm font-semibold text-slate-800">
-              📢 Todos os Membros
-            </p>
-
-            <p className="text-xs text-slate-500">
-              Enviar para toda a rede
-            </p>
-          </div>
-
-          {membrosChat.map((member) => (
-  <div
-    key={member.id}
-    onClick={() => setSelectedRecipient(member.id)}
-    className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg p-3 transition ${
-      selectedRecipient === member.id
-        ? 'border border-blue-300 bg-blue-100'
-        : 'bg-white hover:bg-slate-100'
-    }`}
-  >
-    <div className="min-w-0">
-      <p className="truncate text-sm font-semibold text-slate-800">
-        {member.nome || 'Membro sem nome'}
-      </p>
-
-      <p className="text-xs capitalize text-slate-500">
-        Tipo: {member.type}
-        {member.ehLiderOuPastor ? ' ⭐' : ''}
-      </p>
-    </div>
-
-    <span
-      className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${
-        member.status === 'online'
-          ? 'bg-emerald-500'
-          : 'bg-slate-300'
-      }`}
-      title={member.status === 'online' ? 'Online' : 'Offline'}
-    />
-  </div>
-))}
-
-        <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-            {chatMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`max-w-md rounded-lg p-3 ${
-                  msg.isBroadcast
-                    ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
-                    : 'bg-slate-100'
-                }`}
-              >
-                <div className="mb-1 flex justify-between text-xs text-slate-500">
-                  <span className="font-semibold">{msg.sender}</span>
-                  <span>{msg.time}</span>
-                </div>
-
-                <p className="text-sm text-slate-800">{msg.text}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
-            <input
-              type="text"
-              value={messageInput}
-              onChange={(event) => setMessageInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  handleSendMessage();
-                }
-              }}
-              placeholder={
-                selectedRecipient === 'all'
-                  ? 'Escrever mensagem para todos os membros...'
-                  : 'Digite sua mensagem...'
-              }
-              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
+        {activeTab === 'dashboard' &&
+          temPermissao('dashboard') && (
+            <DashboardHome
+              loggedUser={userEfetivo}
+              selecionarAba={selecionarAba}
             />
+          )}
 
-            <button
-              type="button"
-              onClick={handleSendMessage}
-              className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
-            >
-              <Send size={16} />
-              Enviar
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )}
-
-  {/* ====================================================================== */}
-  {/* 7.2 DEMAIS MÓDULOS                                                    */}
-  {/* ====================================================================== */}
-
-  {activeTab === 'cadastros-membros' &&
-    temPermissao('cadastros') && (
-      <MembrosModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'cadastros-fornecedores' &&
-    temPermissao('cadastros') && (
-      <FornecedoresModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'cadastros-ministerios' &&
-    temPermissao('cadastros') && (
-      <MinisteriosModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'acompanhamento-visitantes' &&
-    temPermissao('visitantes') && (
-      <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'celulas-modulo' &&
-    temPermissao('celulas') && (
-      <CelulasModule
-        loggedUser={userEfetivo}
-        subAbaInicial={subAbaCelulas}
-      />
-    )}
-
-  {activeTab.startsWith('discipulado') &&
-    temPermissao('discipulado') && (
-      <DiscipuladoDEAModule
-        loggedUser={userEfetivo}
-        activeTab={activeTab}
-      />
-    )}
-
-  {activeTab === 'configuracoes-usuarios' &&
-    temPermissao('configuracoes') && (
-      <UsuariosModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'configuracoes-igreja' &&
-    temPermissao('configuracoes') && (
-      <CadastroIgrejaModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'controle_registro' &&
-    temPermissao('configuracoes') && (
-      <ControleRegistroModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'projetos' &&
-    temPermissao('projetos') && (
-      <ProjetosModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'agenda' &&
-    temPermissao('agenda') && (
-      <AgendaModule loggedUser={userEfetivo} />
-    )}
-
-  {activeTab === 'financeiro' &&
-    temPermissao('financeiro') && (
-      <FinanceiroModule loggedUser={userEfetivo} />
-    )}
-</main> 
-     {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE */}
-
-{isMobileModalOpen && (
-  <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
-    <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
-      <div className="mb-6 flex items-center justify-between border-b pb-4">
-        <div>
-          <h3 className="text-xl font-black text-blue-900">
-            Painel Mobile e Atalhos
-          </h3>
-
-          <p className="text-xs text-slate-500">
-            Opções rápidas para dispositivos móveis
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsMobileModalOpen(false)}
-          className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600"
-        >
-          ✕ Fechar
-        </button>
-      </div>
-
-      <div className="space-y-6">
-        <div className="space-y-2">
-          <a
-            href="#cadastro"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full rounded-xl bg-blue-900 px-4 py-3 text-center text-sm font-bold text-white shadow transition hover:bg-blue-800"
-          >
-            🔗 1. Abrir Tela de Cadastro Público
-          </a>
-
-          <p className="px-1 text-xs text-slate-500">
-            Abre a interface externa de cadastro de membros e visitantes.
-          </p>
-        </div>
-
-        <div className="space-y-2 border-t pt-4">
-          <button
-            type="button"
-            onClick={() => {
-              setIsMobileModalOpen(false);
-              selecionarAba('agenda');
-            }}
-            className="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center text-sm font-bold text-indigo-900 transition hover:bg-indigo-100"
-          >
-            📅 2. Ver Agenda e Próximos Eventos
-          </button>
-
-          <p className="px-1 text-xs text-slate-500">
-            Acesse cultos, reuniões e programações agendadas.
-          </p>
-        </div>
-
-        <div className="space-y-3 border-t pt-4">
-          <h4 className="text-sm font-bold text-blue-900">
-            📱 3. Gerar QR Code para Membros Escanearem
-          </h4>
-
-          <p className="text-xs leading-relaxed text-slate-600">
-            Gere um QR Code temporário, válido por 6 horas, para cadastro pelo
-            celular.
-          </p>
-
-          {isAdmin && (
-            <div className="space-y-3">
-              <button
-                type="button"
-                onClick={gerarNovoQrCodeTemporario}
-                disabled={gerandoQr}
-                className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50"
-              >
-                {gerandoQr
-                  ? 'Gerando QR Code...'
-                  : '⚡ Gerar QR Code na Tela'}
-              </button>
-
-              {qrCodeUrlDinamico && (
-                <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
-                  <img
-                    src={qrCodeUrlDinamico}
-                    alt="QR Code temporário para cadastro"
-                    className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
-                  />
-
-                  <p className="text-[10px] font-semibold text-slate-500">
-                    Mostre esta imagem para o membro escanear.
-                  </p>
-
-                  <button
-                    type="button"
-                    onClick={() => setQrCodeUrlDinamico('')}
-                    className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
-                  >
-                    ✕ Fechar QR Code
-                  </button>
-                </div>
-              )}
+        {activeTab === 'app-mobile' &&
+          temPermissao('app-mobile') && (
+            <div className="mx-auto w-full max-w-4xl">
+              <AppMobileModule loggedUser={userEfetivo} />
             </div>
           )}
 
-{!isAdmin && (
-            <p className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center text-xs font-semibold text-rose-600">
-              🔒 Recurso restrito: apenas administradores podem gerar o QR Code
-              de cadastro.
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  </div>
-)}
+        {/* ====================================================================== */}
+        {/* 7.1 CHAT MOBILE                                                        */}
+        {/* ====================================================================== */}
 
+        {activeTab === 'chat-mobile' && (
+          <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
+            <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <MessageSquare size={20} />
+                  Chat e Avisos Mobile
+                </h2>
+
+                <p className="text-xs text-slate-400">
+                  Comunicação direta com status online e repasse automático para líderes.
+                </p>
+              </div>
+
+              {todaysBirthdays.length > 0 && (
+                <div className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900">
+                  <Bell size={14} />
+                  🎂 {todaysBirthdays.length} aniversariante(s) hoje
+                </div>
+              )}
+            </div>
+
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="w-1/3 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Membros e Status
+                </h3>
+
+                <div
+                  onClick={() => setSelectedRecipient('all')}
+                  className={`mb-2 cursor-pointer rounded-lg p-3 transition ${
+                    selectedRecipient === 'all'
+                      ? 'border border-blue-300 bg-blue-100'
+                      : 'bg-white hover:bg-slate-100'
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-slate-800">
+                    📢 Todos os Membros
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Enviar para toda a rede
+                  </p>
+                </div>
+
+                {membrosChat.map((member) => (
+                  <div
+                    key={member.id}
+                    onClick={() => setSelectedRecipient(member.id)}
+                    className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg p-3 transition ${
+                      selectedRecipient === member.id
+                        ? 'border border-blue-300 bg-blue-100'
+                        : 'bg-white hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {member.nome || 'Membro sem nome'}
+                      </p>
+
+                      <p className="text-xs capitalize text-slate-500">
+                        Tipo: {member.type}
+                        {member.ehLiderOuPastor ? ' ⭐' : ''}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${
+                        member.status === 'online'
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-300'
+                      }`}
+                      title={member.status === 'online' ? 'Online' : 'Offline'}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {chatMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={`max-w-md rounded-lg p-3 ${
+                        msg.isBroadcast
+                          ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
+                          : 'bg-slate-100'
+                      }`}
+                    >
+                      <div className="mb-1 flex justify-between text-xs text-slate-500">
+                        <span className="font-semibold">{msg.sender}</span>
+                        <span>{msg.time}</span>
+                      </div>
+
+                      <p className="text-sm text-slate-800">{msg.text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
+                  <input
+                    type="text"
+                    value={messageInput}
+                    onChange={(event) => setMessageInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder={
+                      selectedRecipient === 'all'
+                        ? 'Escrever mensagem para todos os membros...'
+                        : 'Digite sua mensagem...'
+                    }
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleSendMessage}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+                  >
+                    <Send size={16} />
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ====================================================================== */}
+        {/* 7.2 DEMAIS MÓDULOS                                                     */}
+        {/* ====================================================================== */}
+
+        {activeTab === 'cadastros-membros' &&
+          temPermissao('cadastros') && (
+            <MembrosModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'cadastros-fornecedores' &&
+          temPermissao('cadastros') && (
+            <FornecedoresModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'cadastros-ministerios' &&
+          temPermissao('cadastros') && (
+            <MinisteriosModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'acompanhamento-visitantes' &&
+          temPermissao('visitantes') && (
+            <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'celulas-modulo' &&
+          temPermissao('celulas') && (
+            <CelulasModule
+              loggedUser={userEfetivo}
+              subAbaInicial={subAbaCelulas}
+            />
+          )}
+
+        {activeTab.startsWith('discipulado') &&
+          temPermissao('discipulado') && (
+            <DiscipuladoDEAModule
+              loggedUser={userEfetivo}
+              activeTab={activeTab}
+            />
+          )}
+
+        {activeTab === 'configuracoes-usuarios' &&
+          temPermissao('configuracoes') && (
+            <UsuariosModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'configuracoes-igreja' &&
+          temPermissao('configuracoes') && (
+            <CadastroIgrejaModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'controle_registro' &&
+          temPermissao('configuracoes') && (
+            <ControleRegistroModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'projetos' &&
+          temPermissao('projetos') && (
+            <ProjetosModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'agenda' &&
+          temPermissao('agenda') && (
+            <AgendaModule loggedUser={userEfetivo} />
+          )}
+
+        {activeTab === 'financeiro' &&
+          temPermissao('financeiro') && (
+            <FinanceiroModule loggedUser={userEfetivo} />
+          )}
+      </main>
+
+      {/* ========================================================================== */}
+      {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */}
+      {/* ========================================================================== */}
+
+      {isMobileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
+          <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between border-b pb-4">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">
+                  Painel Mobile e Atalhos
+                </h3>
+
+                <p className="text-xs text-slate-500">
+                  Opções rápidas para dispositivos móveis
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsMobileModalOpen(false)}
+                className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <a
+                  href="#cadastro"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full rounded-xl bg-blue-900 px-4 py-3 text-center text-sm font-bold text-white shadow transition hover:bg-blue-800"
+                >
+                  🔗 1. Abrir Tela de Cadastro Público
+                </a>
+
+                <p className="px-1 text-xs text-slate-500">
+                  Abre a interface externa de cadastro de membros e visitantes.
+                </p>
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileModalOpen(false);
+                    selecionarAba('agenda');
+                  }}
+                  className="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center text-sm font-bold text-indigo-900 transition hover:bg-indigo-100"
+                >
+                  📅 2. Ver Agenda e Próximos Eventos
+                </button>
+
+                <p className="px-1 text-xs text-slate-500">
+                  Acesse cultos, reuniões e programações agendadas.
+                </p>
+              </div>
+
+              <div className="space-y-3 border-t pt-4">
+                <h4 className="text-sm font-bold text-blue-900">
+                  📱 3. Gerar QR Code para Membros Escanearem
+                </h4>
+
+                <p className="text-xs leading-relaxed text-slate-600">
+                  Gere um QR Code temporário, válido por 6 horas, para cadastro pelo celular.
+                </p>
+
+                {isAdmin && (
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={gerarNovoQrCodeTemporario}
+                      disabled={gerandoQr}
+                      className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50"
+                    >
+                      {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
+                    </button>
+
+                    {qrCodeUrlDinamico && (
+                      <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
+                        <img
+                          src={qrCodeUrlDinamico}
+                          alt="QR Code temporário para cadastro"
+                          className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
+                        />
+
+                        <p className="text-[10px] font-semibold text-slate-500">
+                          Mostre esta imagem para o membro escanear.
+                        </p>
+
+                        <button
+                          type="button"
+                          onClick={() => setQrCodeUrlDinamico('')}
+                          className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                        >
+                          ✕ Fechar QR Code
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isAdmin && (
+                  <p className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center text-xs font-semibold text-rose-600">
+                    🔒 Recurso restrito: apenas administradores podem gerar o QR Code de cadastro.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -106,17 +106,18 @@ export default function App() {
     }
   }, []);
 
-  // 1. Carregar mensagens do Supabase ao iniciar ou trocar de igreja
+  // 1. Carregar mensagens e membros do Supabase ao iniciar ou trocar de igreja
   useEffect(() => {
-    const carregarMensagensChat = async () => {
-      const { data, error } = await supabase
+    const carregarDadosDoChat = async () => {
+      // Carregar as mensagens do chat
+      const { data: msgData, error: msgError } = await supabase
         .from('chat_mensagens')
         .select('*')
         .eq('codigo_igreja', igrejaAtual)
         .order('created_at', { ascending: true });
 
-      if (!error && data) {
-        const formatadas = data.map((m: any) => ({
+      if (!msgError && msgData) {
+        const formatadas = msgData.map((m: any) => ({
           id: m.id,
           sender: m.sender,
           text: m.text,
@@ -128,10 +129,30 @@ export default function App() {
           { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
         ]);
       }
+
+      // Carregar os membros para a barra lateral esquerda
+      const { data: membrosData, error: membrosError } = await supabase
+        .from('members')
+        .select('id, nome, tipo_cadastro, celular_principal, data_nascimento')
+        .eq('codigo_igreja', igrejaAtual)
+        .order('nome', { ascending: true });
+
+      if (!membrosError && membrosData) {
+        const membrosFormatados = membrosData.map((m: any) => ({
+          id: m.id.toString(),
+          nome: m.nome,
+          type: m.tipo_cadastro || 'Membro',
+          status: 'online',
+          celular_principal: m.celular_principal,
+          data_nascimento: m.data_nascimento,
+          ehLiderOuPastor: m.tipo_cadastro?.toLowerCase().includes('lider') || m.tipo_cadastro?.toLowerCase().includes('pastor')
+        }));
+        setMembrosChat(membrosFormatados);
+      }
     };
 
     if (loggedUser) {
-      carregarMensagensChat();
+      carregarDadosDoChat();
     }
   }, [igrejaAtual, loggedUser]);
 
@@ -1109,8 +1130,8 @@ export default function App() {
       </aside>
 
       {/* ========================================================================== */}
-      {/* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */}
-      {/* ========================================================================== */}
+      /* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */
+      /* ========================================================================== */}
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1355,8 +1376,8 @@ export default function App() {
       </main>
 
       {/* ========================================================================== */}
-      {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */}
-      {/* ========================================================================== */}
+      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
+      /* ========================================================================== */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
           <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">

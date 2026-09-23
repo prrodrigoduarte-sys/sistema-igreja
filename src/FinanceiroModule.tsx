@@ -154,13 +154,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
+      // Busca garantida de membros da igreja
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, telefone, whatsapp')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (!resMemb.error) setMembrosList(resMemb.data || []);
+      if (resMemb.error) {
+        console.error('Erro ao carregar membros:', resMemb.error.message);
+      } else {
+        setMembrosList(resMemb.data || []);
+      }
 
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);

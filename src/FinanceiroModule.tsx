@@ -377,32 +377,23 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
 
     try {
-      const mensagemAgradecimento = `Deus abençoe pela sua contribuição, prosperando sua casa.`;
+      const assunto = 'Comprovante de Contribuição - Agradecimento';
+      const mensagem = `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\nDeus abençoe pela sua contribuição, prosperando sua casa.`;
       
-      // Inserção real na fila de e-mails do banco de dados (Supabase)
-      const { error: emailError } = await supabase.from('fila_emails').insert([
-        {
-          codigo_igreja: codigoIgreja,
-          destinatario: membro.email,
-          assunto: 'Comprovante de Contribuição - Agradecimento',
-          mensagem: `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\n${mensagemAgradecimento}`,
-          status: 'pendente',
-        },
-      ]);
+      // Abre instantaneamente o aplicativo de e-mail com os dados preenchidos
+      const mailtoLink = `mailto:${membro.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
+      window.location.href = mailtoLink;
 
-      if (emailError) throw emailError;
-
-      // Atualiza o registro no banco para marcar que o agradecimento foi enviado
+      // Atualiza o registro no banco para marcar visualmente como agradecido (verde)
       await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
         .eq('id', lanc.id);
 
-      alert(`✅ E-mail de agradecimento enfileirado e disparado com sucesso para ${membro.email}!`);
-      await registrarLog('ENVIO_AGRADECIMENTO', `Enviou email de agradecimento para ${membro.email}`);
+      await registrarLog('ENVIO_AGRADECIMENTO', `Abriu cliente de e-mail para agradecimento a ${membro.email}`);
       fetchDados();
     } catch (err: any) {
-      alert('Erro ao enviar e-mail: ' + err.message);
+      alert('Erro ao preparar e-mail: ' + err.message);
     }
   };
 

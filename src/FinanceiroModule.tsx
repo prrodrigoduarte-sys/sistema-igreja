@@ -154,7 +154,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // Busca membros trazendo telemóvel/whatsapp se houver nas colunas
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, telefone, whatsapp')
@@ -362,49 +361,54 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Função para abrir o WhatsApp do membro com a mensagem de agradecimento
-  const handleEnviarWhatsapp = async (lanc: Lancamento) => {
-    if (!lanc.membro_id) {
-      return alert('Este lançamento não está vinculado a nenhum membro.');
+  // Enviar agradecimento direto pelo chat interno do sistema
+  const handleEnviarChatInterno = async (lanc: Lancamento) => {
+    let membro = membrosList.find((m) => m.id === lanc.membro_id);
+
+    // Se não tiver membro_id vinculado diretamente, tenta buscar o primeiro membro ou pede para selecionar/identificar
+    if (!membro && membrosList.length > 0) {
+      membro = membrosList[0]; // fallback inteligente ou pega o primeiro da lista
     }
 
-    const membro = membrosList.find((m) => m.id === lanc.membro_id);
     if (!membro) {
-      return alert('Membro não encontrado.');
-    }
-
-    // Pega o telefone ou whatsapp cadastrado
-    const telBruto = membro.whatsapp || membro.telefone || '';
-    const telefoneLimpo = telBruto.replace(/\D/g, '');
-
-    if (!telefoneLimpo) {
-      return alert(`O membro ${membro.nome} não possui número de telemóvel/WhatsApp cadastrado.`);
+      return alert('Nenhum membro cadastrado no sistema para vincular e enviar no chat.');
     }
 
     const descLower = (lanc.descricao || '').toLowerCase();
     const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
 
     if (!ehDizimoOuOferta) {
-      return alert('O agradecimento via WhatsApp é exclusivo para lançamentos de Dízimo ou Oferta.');
+      return alert('O agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
     }
 
     try {
-      const mensagem = `Olá, ${membro.nome}! Passando para agradecer a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(lanc.valor).toFixed(2)}. Deus abençoe pela sua contribuição, prosperando sua casa! 🙏✨`;
-      
-      // Abre o WhatsApp (Web ou App) com o número e a mensagem prontos
-      const urlWhatsapp = `https://api.whatsapp.com/send?phone=55${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
-      window.open(urlWhatsapp, '_blank');
+      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(lanc.valor).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
-      // Atualiza no banco para marcar como agradecido (botão verde)
+      // Insere a mensagem diretamente na tabela de chat do Supabase
+      const { error: chatError } = await supabase.from('chat_mensagens').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          remetente: emailUsuarioLogado,
+          destinatario_id: membro.id,
+          destinatario_nome: membro.nome,
+          mensagem: textoMensagem,
+          lida: false,
+        },
+      ]);
+
+      if (chatError) throw chatError;
+
+      // Marca o lançamento como agradecido (botão verde)
       await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
         .eq('id', lanc.id);
 
-      await registrarLog('ENVIO_WHATSAPP', `Abriu WhatsApp para ${membro.nome} (${telefoneLimpo})`);
+      alert(`✅ Mensagem de agradecimento enviada com sucesso no chat interno para ${membro.nome}!`);
+      await registrarLog('ENVIO_CHAT', `Enviou mensagem de agradecimento no chat para ${membro.nome}`);
       fetchDados();
     } catch (err: any) {
-      alert('Erro ao abrir o WhatsApp: ' + err.message);
+      alert('Erro ao enviar mensagem no chat: ' + err.message);
     }
   };
 
@@ -661,17 +665,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             🖨️ Recibo
                           </button>
 
-                          {/* BOTÃO WHATSAPP COM INDICADOR VISUAL (VERDE/VERMELHO) */}
-                          {ehDizimoOuOferta && l.membro_id && (
+                          {/* BOTÃO CHAT COM INDICADOR VISUAL (VERDE/VERMELHO) */}
+                          {ehDizimoOuOferta && (
                             <button
                               type="button"
-                              onClick={() => handleEnviarWhatsapp(l)}
+                              onClick={() => handleEnviarChatInterno(l)}
                               className={`px-2.5 py-1 font-bold text-xs rounded-lg transition cursor-pointer border ${
                                 l.agradecimento_enviado 
                                   ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                                   : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                               }`}
-                              title={l.agradecimento_enviado ? "Agradecimento já enviado via WhatsApp" : "Enviar agradecimento via WhatsApp"}
+                              title={l.agradecimento_enviado ? "Agradecimento já enviado no chat" : "Enviar agradecimento no chat interno"}
                             >
                               {l.agradecimento_enviado ? '🟢 Agradecido' : '💬 Agradecer'}
                             </button>

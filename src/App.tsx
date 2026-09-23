@@ -36,27 +36,6 @@ function getOrCreateDeviceToken() {
 /* 2. COMPONENTE PRINCIPAL (APP)                                              */
 /* ========================================================================== */
 export default function App() {
-  // ... seus estados (useState) ...
-  const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  // ✅ COLOCA ELE AQUI EM CIMA (junto com os outros useEffects do App):
-  useEffect(() => {
-    const hoje = new Date();
-    const dia = hoje.getDate();
-    const mes = hoje.getMonth() + 1; // 1 = Janeiro
-    const anoAtual = hoje.getFullYear();
-
-    const ultimaLimpezaAno = localStorage.getItem('ultimo_ano_limpeza_chat');
-
-    if (dia === 1 && mes === 1 && ultimaLimpezaAno !== anoAtual.toString()) {
-      // Limpa apenas as mensagens de broadcast/geral no dia 1 de janeiro
-      setChatMessages(prev => prev.filter(m => !m.isBroadcast));
-      localStorage.setItem('ultimo_ano_limpeza_chat', anoAtual.toString());
-    }
-  }, []);
-
-  // ... restante do código e o return com o JSX ...
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
   const [rotaPublica, setRotaPublica] = useState(
     window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro')
@@ -113,26 +92,95 @@ export default function App() {
 
   // Carregar lista de membros para o Chat e Aniversariantes dos Líderes
   useEffect(() => {
-    const carregarMembrosChat = async () => {
-      const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
-      const { data } = await supabase
-        .from('members')
-        .select('id, nome, celular_principal, data_nascimento, tipo_cadastro')
-        .eq('codigo_igreja', igrejaAtual);
+    const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
 
-      if (data) {
-        const formatados = data.map((m, idx) => ({
-          ...m,
-          type: (m.tipo_cadastro || '').toLowerCase().includes('lider') ? 'lider' : 'membro',
-          status: idx % 2 === 0 ? 'online' : 'offline'
+  // 1. Carregar mensagens do Supabase ao iniciar ou trocar de igreja
+  useEffect(() => {
+    const carregarMensagensChat = async () => {
+      const { data, error } = await supabase
+        .from('chat_mensagens')
+        .select('*')
+        .eq('codigo_igreja', igrejaAtual)
+        .order('created_at', { ascending: true });
+
+      if (!error && data) {
+        const formatadas = data.map((m: any) => ({
+          id: m.id,
+          sender: m.sender,
+          text: m.text,
+          time: m.time,
+          isBroadcast: m.is_broadcast,
+          recipientId: m.recipient_id
         }));
-        setMembrosChat(formatados);
+        setChatMessages(formatadas.length > 0 ? formatadas : [
+          { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
+        ]);
       }
     };
+
     if (loggedUser) {
-      carregarMembrosChat();
+      carregarMensagensChat();
     }
-  }, [loggedUser]);
+  }, [igrejaAtual, loggedUser]);
+
+  // 2. Enviar mensagem salvando no Supabase
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) return;
+    
+    const novaMsg = {
+      codigo_igreja: igrejaAtual,
+      sender: loggedUser?.nome_usuario || 'Você',
+      text: selectedRecipient === 'all' ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      is_broadcast: selectedRecipient === 'all',
+      recipient_id: selectedRecipient === 'all' ? null : selectedRecipient
+    };
+
+    const { data, error } = await supabase
+      .from('chat_mensagens')
+      .insert([novaMsg])
+      .select()
+      .single();
+
+    if (error) {
+      alert('Erro ao enviar mensagem: ' + error.message);
+      return;
+    }
+
+    if (data) {
+      setChatMessages(prev => [...prev, {
+        id: data.id,
+        sender: data.sender,
+        text: data.text,
+        time: data.time,
+        isBroadcast: data.is_broadcast,
+        recipientId: data.recipient_id
+      }]);
+      setMessageInput('');
+    }
+  };
+
+  // 3. Excluir mensagem do Supabase
+  const handleExcluirMensagemChat = async (msgId: string, isBroadcastMsg?: boolean) => {
+    if (isBroadcastMsg && !isAdmin) {
+      alert('🔒 Apenas o Administrador pode excluir mensagens da conversa geral (todos os membros).');
+      return;
+    }
+
+    if (!window.confirm('Deseja realmente excluir esta mensagem?')) return;
+
+    const { error } = await supabase
+      .from('chat_mensagens')
+      .delete()
+      .eq('id', msgId);
+
+    if (error) {
+      alert('Erro ao excluir mensagem: ' + error.message);
+      return;
+    }
+
+    setChatMessages(prev => prev.filter(m => m.id !== msgId));
+  };
 
   // Aniversariantes do dia para líderes
   const todayStr = new Date().toISOString().slice(5, 10);

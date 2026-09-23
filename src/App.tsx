@@ -32,9 +32,6 @@ function getOrCreateDeviceToken() {
   return token;
 }
 
-/* ========================================================================== */
-/* 2. COMPONENTE PRINCIPAL (APP)                                              */
-/* ========================================================================== */
 export default function App() {
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
   const [rotaPublica, setRotaPublica] = useState(
@@ -56,14 +53,12 @@ export default function App() {
   const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
-  // Estados de Autenticação e Cadastro
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nomeUsuario, setNomeUsuario] = useState('');
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  // Estados para o Chat Mobile, Status e Aniversários dos Líderes
   const [chatMessages, setChatMessages] = useState<Array<any>>([
     { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
   ]);
@@ -71,21 +66,18 @@ export default function App() {
   const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
   const [membrosChat, setMembrosChat] = useState<any[]>([]);
 
-  // Estados de Segurança 2FA (Dispositivo Novo / 3 Erros)
   const [exigir2FA, setExigir2FA] = useState(false);
   const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
   const [codigoGerado2FA, setCodigoGerado2FA] = useState('');
   const [motivo2FA, setMotivo2FA] = useState('');
   const [usuarioPendente2FA, setUsuarioPendente2FA] = useState<any>(null);
 
-  // Estados para o QR Code Temporário
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
   const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
 
-  // Verificação automática de virada de ano (1º de Janeiro) para limpar o chat geral
   useEffect(() => {
     const hoje = new Date();
     const dia = hoje.getDate();
@@ -106,10 +98,8 @@ export default function App() {
     }
   }, []);
 
-  // 1. Carregar mensagens e membros do Supabase ao iniciar ou trocar de igreja
   useEffect(() => {
     const carregarDadosDoChat = async () => {
-      // Carregar as mensagens do chat
       const { data: msgData, error: msgError } = await supabase
         .from('chat_mensagens')
         .select('*')
@@ -130,7 +120,6 @@ export default function App() {
         ]);
       }
 
-      // Carregar os membros para a barra lateral esquerda
       const { data: membrosData, error: membrosError } = await supabase
         .from('members')
         .select('id, nome, tipo_cadastro, celular_principal, data_nascimento')
@@ -156,7 +145,6 @@ export default function App() {
     }
   }, [igrejaAtual, loggedUser]);
 
-  // 2. Enviar mensagem salvando no Supabase (Privado ou Geral)
   const handleSendMessage = async () => {
     if (!messageInput.trim()) return;
     
@@ -195,7 +183,6 @@ export default function App() {
     }
   };
 
-  // 3. Excluir mensagem do Supabase
   const handleExcluirMensagemChat = async (msgId: string, isBroadcastMsg?: boolean) => {
     if (isBroadcastMsg && !isAdmin) {
       alert('🔒 Apenas o Administrador pode excluir mensagens da conversa geral (todos os membros).');
@@ -217,7 +204,6 @@ export default function App() {
     setChatMessages(prev => prev.filter(m => m.id !== msgId));
   };
 
-  // Aniversariantes do dia para líderes
   const todayStr = new Date().toISOString().slice(5, 10);
   const todaysBirthdays = membrosChat.filter(m => (m.data_nascimento || '').slice(5, 10) === todayStr);
 
@@ -231,9 +217,6 @@ export default function App() {
     alert(`🔒 SEGURANÇA (2º NÍVEL):\nMotivo: ${motivo}\n\nSeu código de verificação é: ${codigoHex}`);
   };
 
-  /* ========================================================================== */
-  /* 3. LÓGICA DE AUTENTICAÇÃO E LOGIN                                          */
-  /* ========================================================================== */
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     const emailLimpo = email.trim().toLowerCase();
@@ -392,9 +375,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  /* ========================================================================== */
-  /* 4. CARREGAMENTO DE USUÁRIO E PERMISSÕES                                    */
-  /* ========================================================================== */
   const carregarUsuarioEPermissoes = useCallback(async () => {
     if (!session?.user?.id) {
       setLoggedUser(null);
@@ -585,9 +565,6 @@ export default function App() {
     setActiveTab(aba);
   };
 
-  /* ========================================================================== */
-  /* 5. RENDERIZAÇÃO DE TELAS DE AUTENTICAÇÃO E BLOQUEIO                        */
-  /* ========================================================================== */
   if (rotaPublica) {
     return <CadastroPublico />;
   }
@@ -790,7 +767,6 @@ export default function App() {
     perfil: 'comum',
   };
 
-  // SUBDOMÍNIO MOBILE
   if (isMobileSubdomain) {
     return (
       <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
@@ -799,9 +775,6 @@ export default function App() {
     );
   }
 
-  /* ========================================================================== */
-  /* 6. LAYOUT PRINCIPAL DO SISTEMA (SIDEBAR E NAVEGAÇÃO)                       */
-  /* ========================================================================== */
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="w-64 bg-blue-900 text-white flex flex-col">
@@ -1129,9 +1102,6 @@ export default function App() {
         </div>
       </aside>
 
-      {/* ========================================================================== */}
-      /* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */
-      /* ========================================================================== */}
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1143,7 +1113,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.1 CHAT MOBILE */}
         {activeTab === 'chat-mobile' && (
           <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
             <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
@@ -1325,7 +1294,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 7.2 DEMAIS MÓDULOS */}
         {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
           <MembrosModule loggedUser={userEfetivo} />
         )}
@@ -1375,9 +1343,6 @@ export default function App() {
         )}
       </main>
 
-      {/* ========================================================================== */}
-      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
-      /* ========================================================================== */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
           <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
@@ -1486,9 +1451,6 @@ export default function App() {
   );
 }
 
-/* ========================================================================== */
-/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)          */
-/* ========================================================================== */
 function DashboardHome({
   loggedUser,
   selecionarAba,

@@ -1143,58 +1143,101 @@ export default function App() {
               </div>
 
               <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-                  {chatMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`max-w-md rounded-lg p-3 ${
-                        msg.isBroadcast
-                          ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
-                          : 'bg-slate-100'
-                      }`}
-                    >
-                      <div className="mb-1 flex justify-between text-xs text-slate-500">
-                        <span className="font-semibold">{msg.sender}</span>
-                        <span>{msg.time}</span>
-                      </div>
+  <div className="mb-3 border-b border-slate-200 pb-3">
+    <h3 className="text-sm font-bold text-slate-800">
+      {selectedRecipient === 'all'
+        ? '📢 Conversa Geral'
+        : `💬 Conversa com ${
+            membrosChat.find((member) => member.id === selectedRecipient)?.nome ||
+            'Membro selecionado'
+          }`}
+    </h3>
 
-                      <p className="text-sm text-slate-800">{msg.text}</p>
-                    </div>
-                  ))}
-                </div>
+    <p className="text-xs text-slate-500">
+      {selectedRecipient === 'all'
+        ? 'Mensagem enviada para todos os membros'
+        : 'Conversa privada com este membro'}
+    </p>
+  </div>
 
-                <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
-                  <input
-                    type="text"
-                    value={messageInput}
-                    onChange={(event) => setMessageInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder={
-                      selectedRecipient === 'all'
-                        ? 'Escrever mensagem para todos os membros...'
-                        : 'Digite sua mensagem...'
-                    }
-                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
+  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+    {chatMessages
+      .filter((msg) => {
+        const mensagem = msg as any;
 
-                  <button
-                    type="button"
-                    onClick={handleSendMessage}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
-                  >
-                    <Send size={16} />
-                    Enviar
-                  </button>
-                </div>
-              </div>
-            </div>
+        if (selectedRecipient === 'all') {
+          return mensagem.isBroadcast || !mensagem.recipientId;
+        }
+
+        return (
+          !mensagem.isBroadcast &&
+          mensagem.recipientId === selectedRecipient
+        );
+      })
+      .map((msg) => (
+        <div
+          key={msg.id}
+          className={`max-w-md rounded-lg p-3 ${
+            msg.isBroadcast
+              ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
+              : 'bg-slate-100'
+          }`}
+        >
+          <div className="mb-1 flex justify-between text-xs text-slate-500">
+            <span className="font-semibold">{msg.sender}</span>
+            <span>{msg.time}</span>
           </div>
-        )}
 
+          <p className="text-sm text-slate-800">{msg.text}</p>
+        </div>
+      ))}
+
+    {chatMessages.filter((msg) => {
+      const mensagem = msg as any;
+
+      if (selectedRecipient === 'all') {
+        return mensagem.isBroadcast || !mensagem.recipientId;
+      }
+
+      return (
+        !mensagem.isBroadcast &&
+        mensagem.recipientId === selectedRecipient
+      );
+    }).length === 0 && (
+      <p className="py-8 text-center text-xs text-slate-400">
+        Nenhuma mensagem nesta conversa.
+      </p>
+    )}
+  </div>
+
+  <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
+    <input
+      type="text"
+      value={messageInput}
+      onChange={(event) => setMessageInput(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          handleSendMessage();
+        }
+      }}
+      placeholder={
+        selectedRecipient === 'all'
+          ? 'Escrever mensagem para todos os membros...'
+          : 'Digite sua mensagem privada...'
+      }
+      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+    />
+
+    <button
+      type="button"
+      onClick={handleSendMessage}
+      className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+    >
+      <Send size={16} />
+      Enviar
+    </button>
+  </div>
+</div>
         {/* ====================================================================== */}
         {/* 7.2 DEMAIS MÓDULOS                                                     */}
         {/* ====================================================================== */}

@@ -143,7 +143,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // Busca membros para o vínculo financeiro
       const resMemb = await supabase
         .from('members')
         .select('id, nome')
@@ -168,14 +167,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailUsuarioLogado,
-        password: senhaExclusao,
-      });
+      // Senha é obrigatória apenas se estiver EDITANDO (Alteração)
+      if (editingLancamento) {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: emailUsuarioLogado,
+          password: senhaExclusao,
+        });
 
-      if (authError) {
-        alert('Senha de administrador incorreta! A operação foi cancelada.');
-        return;
+        if (authError) {
+          alert('Senha de administrador incorreta! A operação foi cancelada.');
+          return;
+        }
       }
 
       const payload = {
@@ -347,14 +349,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return m ? m.nome : null;
   };
 
-  // Balancete agrupado por contas contábeis
   const dadosBalancete = contasContabeis.map((conta) => {
     const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
     const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
     return { ...conta, total };
   }).filter((c) => c.total > 0);
 
-  // DRE Baseada no tipo do lançamento (Receita vs Despesa) para garantir que todos os lançamentos apareçam
   const totalReceitas = lancamentos
     .filter((l) => l.tipo === 'receita')
     .reduce((acc, l) => acc + Number(l.valor || 0), 0);
@@ -365,7 +365,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const resultadoLiquido = totalReceitas - totalDespesas;
 
-  // Cálculo acumulado de saldo parcial para o extrato
   let saldoAcumulado = 0;
   const lancamentosComSaldo = lancamentos.map((l) => {
     const valorNum = Number(l.valor || 0);
@@ -1065,17 +1064,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 )}
               </div>
 
-              <div className="pt-2 border-t">
-                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
-                <input
-                  type="password"
-                  value={senhaExclusao}
-                  onChange={(e) => setSenhaExclusao(e.target.value)}
-                  placeholder="Sua senha atual"
-                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                  required
-                />
-              </div>
+              {/* A SENHA SÓ APARECE SE FOR EDIÇÃO / ALTERAÇÃO */}
+              {editingLancamento && (
+                <div className="pt-2 border-t">
+                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                  <input
+                    type="password"
+                    value={senhaExclusao}
+                    onChange={(e) => setSenhaExclusao(e.target.value)}
+                    placeholder="Sua senha atual"
+                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                    required
+                  />
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button

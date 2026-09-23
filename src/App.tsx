@@ -1041,29 +1041,22 @@ export default function App() {
       </aside>
 
       {/* ========================================================================== */}
-      {/* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */}
-      {/* ========================================================================== */}
-
+      /* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */
+      /* ========================================================================== */}
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
-        {activeTab === 'dashboard' &&
-          temPermissao('dashboard') && (
-            <DashboardHome
-              loggedUser={userEfetivo}
-              selecionarAba={selecionarAba}
-            />
-          )}
+        {activeTab === 'dashboard' && temPermissao('dashboard') && (
+          <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
+        )}
 
-        {activeTab === 'app-mobile' &&
-          temPermissao('app-mobile') && (
-            <div className="mx-auto w-full max-w-4xl">
-              <AppMobileModule loggedUser={userEfetivo} />
-            </div>
-          )}
+        {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
+          <div className="mx-auto w-full max-w-4xl">
+            <AppMobileModule loggedUser={userEfetivo} />
+          </div>
+        )}
 
         {/* ====================================================================== */}
         {/* 7.1 CHAT MOBILE                                                        */}
         {/* ====================================================================== */}
-
         {activeTab === 'chat-mobile' && (
           <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
             <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
@@ -1072,7 +1065,6 @@ export default function App() {
                   <MessageSquare size={20} />
                   Chat e Avisos Mobile
                 </h2>
-
                 <p className="text-xs text-slate-400">
                   Comunicação direta com status online e repasse automático para líderes.
                 </p>
@@ -1103,7 +1095,6 @@ export default function App() {
                   <p className="text-sm font-semibold text-slate-800">
                     📢 Todos os Membros
                   </p>
-
                   <p className="text-xs text-slate-500">
                     Enviar para toda a rede
                   </p>
@@ -1123,7 +1114,6 @@ export default function App() {
                       <p className="truncate text-sm font-semibold text-slate-800">
                         {member.nome || 'Membro sem nome'}
                       </p>
-
                       <p className="text-xs capitalize text-slate-500">
                         Tipo: {member.type}
                         {member.ehLiderOuPastor ? ' ⭐' : ''}
@@ -1143,176 +1133,154 @@ export default function App() {
               </div>
 
               <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
-  <div className="mb-3 border-b border-slate-200 pb-3">
-    <h3 className="text-sm font-bold text-slate-800">
-      {selectedRecipient === 'all'
-        ? '📢 Conversa Geral'
-        : `💬 Conversa com ${
-            membrosChat.find((member) => member.id === selectedRecipient)?.nome ||
-            'Membro selecionado'
-          }`}
-    </h3>
+                <div className="mb-3 border-b border-slate-200 pb-3">
+                  <h3 className="text-sm font-bold text-slate-800">
+                    {selectedRecipient === 'all'
+                      ? '📢 Conversa Geral'
+                      : `💬 Conversa com ${
+                          membrosChat.find((member) => member.id === selectedRecipient)?.nome ||
+                          'Membro selecionado'
+                        }`}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {selectedRecipient === 'all'
+                      ? 'Mensagem enviada para todos os membros'
+                      : 'Conversa privada com este membro'}
+                  </p>
+                </div>
 
-    <p className="text-xs text-slate-500">
-      {selectedRecipient === 'all'
-        ? 'Mensagem enviada para todos os membros'
-        : 'Conversa privada com este membro'}
-    </p>
-  </div>
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {chatMessages
+                    .filter((msg) => {
+                      const mensagem = msg as any;
+                      if (selectedRecipient === 'all') {
+                        return mensagem.isBroadcast || !mensagem.recipientId;
+                      }
+                      return (
+                        !mensagem.isBroadcast &&
+                        mensagem.recipientId === selectedRecipient
+                      );
+                    })
+                    .map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`max-w-md rounded-lg p-3 ${
+                          msg.isBroadcast
+                            ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
+                            : 'bg-slate-100'
+                        }`}
+                      >
+                        <div className="mb-1 flex justify-between text-xs text-slate-500">
+                          <span className="font-semibold">{msg.sender}</span>
+                          <span>{msg.time}</span>
+                        </div>
+                        <p className="text-sm text-slate-800">{msg.text}</p>
+                      </div>
+                    ))}
 
-  <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-    {chatMessages
-      .filter((msg) => {
-        const mensagem = msg as any;
+                  {chatMessages.filter((msg) => {
+                    const mensagem = msg as any;
+                    if (selectedRecipient === 'all') {
+                      return mensagem.isBroadcast || !mensagem.recipientId;
+                    }
+                    return (
+                      !mensagem.isBroadcast &&
+                      mensagem.recipientId === selectedRecipient
+                    );
+                  }).length === 0 && (
+                    <p className="py-8 text-center text-xs text-slate-400">
+                      Nenhuma mensagem nesta conversa.
+                    </p>
+                  )}
+                </div>
 
-        if (selectedRecipient === 'all') {
-          return mensagem.isBroadcast || !mensagem.recipientId;
-        }
+                <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
+                  <input
+                    type="text"
+                    value={messageInput}
+                    onChange={(event) => setMessageInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder={
+                      selectedRecipient === 'all'
+                        ? 'Escrever mensagem para todos os membros...'
+                        : 'Digite sua mensagem privada...'
+                    }
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
 
-        return (
-          !mensagem.isBroadcast &&
-          mensagem.recipientId === selectedRecipient
-        );
-      })
-      .map((msg) => (
-        <div
-          key={msg.id}
-          className={`max-w-md rounded-lg p-3 ${
-            msg.isBroadcast
-              ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
-              : 'bg-slate-100'
-          }`}
-        >
-          <div className="mb-1 flex justify-between text-xs text-slate-500">
-            <span className="font-semibold">{msg.sender}</span>
-            <span>{msg.time}</span>
+                  <button
+                    type="button"
+                    onClick={handleSendMessage}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+                  >
+                    <Send size={16} />
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
+        )}
 
-          <p className="text-sm text-slate-800">{msg.text}</p>
-        </div>
-      ))}
-
-    {chatMessages.filter((msg) => {
-      const mensagem = msg as any;
-
-      if (selectedRecipient === 'all') {
-        return mensagem.isBroadcast || !mensagem.recipientId;
-      }
-
-      return (
-        !mensagem.isBroadcast &&
-        mensagem.recipientId === selectedRecipient
-      );
-    }).length === 0 && (
-      <p className="py-8 text-center text-xs text-slate-400">
-        Nenhuma mensagem nesta conversa.
-      </p>
-    )}
-  </div>
-
-  <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
-    <input
-      type="text"
-      value={messageInput}
-      onChange={(event) => setMessageInput(event.target.value)}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') {
-          handleSendMessage();
-        }
-      }}
-      placeholder={
-        selectedRecipient === 'all'
-          ? 'Escrever mensagem para todos os membros...'
-          : 'Digite sua mensagem privada...'
-      }
-      className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-    />
-
-    <button
-      type="button"
-      onClick={handleSendMessage}
-      className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
-    >
-      <Send size={16} />
-      Enviar
-    </button>
-  </div>
-</div>
         {/* ====================================================================== */}
         {/* 7.2 DEMAIS MÓDULOS                                                     */}
         {/* ====================================================================== */}
+        {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
+          <MembrosModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'cadastros-membros' &&
-          temPermissao('cadastros') && (
-            <MembrosModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && (
+          <FornecedoresModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'cadastros-fornecedores' &&
-          temPermissao('cadastros') && (
-            <FornecedoresModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && (
+          <MinisteriosModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'cadastros-ministerios' &&
-          temPermissao('cadastros') && (
-            <MinisteriosModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
+          <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'acompanhamento-visitantes' &&
-          temPermissao('visitantes') && (
-            <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
+          <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
+        )}
 
-        {activeTab === 'celulas-modulo' &&
-          temPermissao('celulas') && (
-            <CelulasModule
-              loggedUser={userEfetivo}
-              subAbaInicial={subAbaCelulas}
-            />
-          )}
+        {activeTab.startsWith('discipulado') && temPermissao('discipulado') && (
+          <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
+        )}
 
-        {activeTab.startsWith('discipulado') &&
-          temPermissao('discipulado') && (
-            <DiscipuladoDEAModule
-              loggedUser={userEfetivo}
-              activeTab={activeTab}
-            />
-          )}
+        {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
+          <UsuariosModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'configuracoes-usuarios' &&
-          temPermissao('configuracoes') && (
-            <UsuariosModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
+          <CadastroIgrejaModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'configuracoes-igreja' &&
-          temPermissao('configuracoes') && (
-            <CadastroIgrejaModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
+          <ControleRegistroModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'controle_registro' &&
-          temPermissao('configuracoes') && (
-            <ControleRegistroModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'projetos' && temPermissao('projetos') && (
+          <ProjetosModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'projetos' &&
-          temPermissao('projetos') && (
-            <ProjetosModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'agenda' && temPermissao('agenda') && (
+          <AgendaModule loggedUser={userEfetivo} />
+        )}
 
-        {activeTab === 'agenda' &&
-          temPermissao('agenda') && (
-            <AgendaModule loggedUser={userEfetivo} />
-          )}
-
-        {activeTab === 'financeiro' &&
-          temPermissao('financeiro') && (
-            <FinanceiroModule loggedUser={userEfetivo} />
-          )}
+        {activeTab === 'financeiro' && temPermissao('financeiro') && (
+          <FinanceiroModule loggedUser={userEfetivo} />
+        )}
       </main>
 
       {/* ========================================================================== */}
-      {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */}
-      {/* ========================================================================== */}
-
+      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
+      /* ========================================================================== */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
           <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
@@ -1321,7 +1289,6 @@ export default function App() {
                 <h3 className="text-xl font-black text-blue-900">
                   Painel Mobile e Atalhos
                 </h3>
-
                 <p className="text-xs text-slate-500">
                   Opções rápidas para dispositivos móveis
                 </p>
@@ -1346,7 +1313,6 @@ export default function App() {
                 >
                   🔗 1. Abrir Tela de Cadastro Público
                 </a>
-
                 <p className="px-1 text-xs text-slate-500">
                   Abre a interface externa de cadastro de membros e visitantes.
                 </p>
@@ -1363,7 +1329,6 @@ export default function App() {
                 >
                   📅 2. Ver Agenda e Próximos Eventos
                 </button>
-
                 <p className="px-1 text-xs text-slate-500">
                   Acesse cultos, reuniões e programações agendadas.
                 </p>
@@ -1373,7 +1338,6 @@ export default function App() {
                 <h4 className="text-sm font-bold text-blue-900">
                   📱 3. Gerar QR Code para Membros Escanearem
                 </h4>
-
                 <p className="text-xs leading-relaxed text-slate-600">
                   Gere um QR Code temporário, válido por 6 horas, para cadastro pelo celular.
                 </p>
@@ -1396,11 +1360,9 @@ export default function App() {
                           alt="QR Code temporário para cadastro"
                           className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
                         />
-
                         <p className="text-[10px] font-semibold text-slate-500">
                           Mostre esta imagem para o membro escanear.
                         </p>
-
                         <button
                           type="button"
                           onClick={() => setQrCodeUrlDinamico('')}
@@ -1430,7 +1392,6 @@ export default function App() {
 /* ========================================================================== */
 /* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)           */
 /* ========================================================================== */
-
 function DashboardHome({
   loggedUser,
   selecionarAba,
@@ -1906,7 +1867,6 @@ function DashboardHome({
                 >
                   Cancelar
                 </button>
-
                 <button
                   type="submit"
                   className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"

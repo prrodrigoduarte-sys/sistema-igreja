@@ -551,7 +551,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
               setArquivoDocumento(null);
-              setRelacionadoMembro(true); // Deixamos já marcado como padrão para facilitar
+              setRelacionadoMembro(true);
               setSenhaExclusao('');
               setShowModalLancamento(true);
             }}
@@ -691,7 +691,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                                 membro_id: l.membro_id || '',
                               });
                               setArquivoDocumento(null);
-                              setRelacionadoMembro(true); // Garante que a caixa de seleção do membro fica visível e aberta
+                              setRelacionadoMembro(true);
                               setSenhaExclusao('');
                               setShowModalLancamento(true);
                             }}

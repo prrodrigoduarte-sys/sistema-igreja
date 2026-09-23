@@ -1151,39 +1151,46 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* SELEÇÃO DO MEMBRO SEM BLOQUEIOS */}
-              <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
-                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={relacionadoMembro}
-                    onChange={(e) => {
-                      setRelacionadoMembro(e.target.checked);
-                      if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
-                    }}
-                    className="w-4 h-4 rounded text-blue-900 cursor-pointer"
-                  />
-                  <span>Está relacionado a algum membro?</span>
-                </label>
+              {/* VÍNCULO COM MEMBRO */}
+<div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
+  <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
+    <input
+      type="checkbox"
+      checked={relacionadoMembro}
+      onChange={(e) => {
+        setRelacionadoMembro(e.target.checked);
+        if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
+      }}
+      className="w-4 h-4 rounded text-blue-900 cursor-pointer"
+    />
+    <span>Está relacionado a algum membro?</span>
+  </label>
 
-                {relacionadoMembro && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pesquisar / Selecionar Membro *</label>
-                    <select
-                      value={formLancamento.membro_id}
-                      onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
-                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
-                      required={relacionadoMembro}
-                    >
-                      <option value="">Selecione o membro na lista...</option>
-                      {membrosList.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
+  {relacionadoMembro && (
+    <div className="space-y-1">
+      <div className="flex justify-between items-center">
+        <label className="block text-xs font-bold text-slate-700 uppercase">Selecionar Membro *</label>
+        <span className="text-[10px] text-slate-400">({membrosList.length} membros carregados)</span>
+      </div>
+      <select
+        value={formLancamento.membro_id}
+        onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
+        className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
+        required={relacionadoMembro}
+      >
+        <option value="">-- Clique para escolher o membro --</option>
+        {membrosList.map((m) => (
+          <option key={m.id} value={m.id}>{m.nome}</option>
+        ))}
+      </select>
+      {membrosList.length === 0 && (
+        <p className="text-[11px] text-rose-600 font-bold mt-1">
+          Aviso: Nenhum membro encontrado na tabela `members`. Verifique se o cadastro de membros possui registos para esta igreja.
+        </p>
+      )}
+    </div>
+  )}
+</div>
               {/* INSERIR DOCUMENTO / COMPROVANTE */}
               <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
                 <label className="block text-xs font-bold text-blue-900 uppercase">

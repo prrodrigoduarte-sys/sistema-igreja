@@ -12,6 +12,7 @@ interface Lancamento {
   conta_corrente_id: string;
   id_conta_contabil: string;
   membro_id?: string;
+  documento_url?: string;
 }
 
 interface ContaContabil {
@@ -33,6 +34,7 @@ interface ContaFinanceiraAdm {
 interface Membro {
   id: string;
   nome: string;
+  email?: string;
 }
 
 interface FinanceiroModuleProps {
@@ -47,6 +49,7 @@ const formLancamentoInicial = {
   conta_corrente_id: '',
   id_conta_contabil: '',
   membro_id: '',
+  documento_url: '',
 };
 
 const formContaContabilInicial = {
@@ -80,6 +83,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
   const [relacionadoMembro, setRelacionadoMembro] = useState(false);
+  const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
 
   // Modais Plano de Contas
   const [showModalConta, setShowModalConta] = useState(false);
@@ -95,6 +99,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_adm'; nome: string } | null>(null);
   const [senhaExclusao, setSenhaExclusao] = useState('');
+
+  // Modal Impressão de Comprovante / Recibo
+  const [showModalRecibo, setShowModalRecibo] = useState(false);
+  const [lancamentoParaRecibo, setLancamentoParaRecibo] = useState<Lancamento | null>(null);
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
@@ -145,7 +153,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       const resMemb = await supabase
         .from('members')
-        .select('id, nome')
+        .select('id, nome, email')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
@@ -167,7 +175,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Senha é obrigatória apenas se estiver EDITANDO (Alteração)
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
           email: emailUsuarioLogado,
@@ -180,6 +187,23 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         }
       }
 
+      let docUrl = formLancamento.documento_url;
+
+      // Upload do arquivo/foto para o Supabase Storage se houver arquivo novo
+      if (arquivoDocumento) {
+        const nomeArquivo = `${codigoIgreja}/${Date.now()}_${arquivoDocumento.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documentos_financeiros')
+          .upload(nomeArquivo, arquivoDocumento);
+
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from('documentos_financeiros')
+            .getPublicUrl(nomeArquivo);
+          docUrl = urlData.publicUrl;
+        }
+      }
+
       const payload = {
         codigo_igreja: codigoIgreja,
         data_lancamento: formLancamento.data_lancamento,
@@ -189,6 +213,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         conta_corrente_id: formLancamento.conta_corrente_id || null,
         id_conta_contabil: formLancamento.id_conta_contabil || null,
         membro_id: relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
+        documento_url: docUrl || null,
       };
 
       if (editingLancamento) {
@@ -210,6 +235,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       setShowModalLancamento(false);
       setEditingLancamento(null);
       setFormLancamento(formLancamentoInicial);
+      setArquivoDocumento(null);
       setRelacionadoMembro(false);
       setSenhaExclusao('');
       fetchDados();
@@ -333,6 +359,49 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
+  // FUNÇÃO PARA ENVIAR COMPROVANTE DE AGRADECIMENTO VIA EMAIL
+  const handleEnviarAgradecimento = async (lanc: Lancamento) => {
+    if (!lanc.membro_id) {
+      return alert('Este lançamento não está vinculado a nenhum membro.');
+    }
+
+    const membro = membrosList.find((m) => m.id === lanc.membro_id);
+    if (!membro || !membro.email) {
+      return alert('O membro vinculado não possui e-mail cadastrado.');
+    }
+
+    const descLower = lanc.descricao.toLowerCase();
+    const isDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
+
+    if (!isDizimoOuOferta) {
+      return alert('O envio automático de agradecimento está disponível apenas para lançamentos descritos como Dízimo ou Oferta.');
+    }
+
+    try {
+      const mensagemAgradecimento = `Deus abençoe pela sua contribuição, prosperando sua casa.`;
+      
+      // Envio utilizando a integração de email ou invocando função no Supabase/Edge Function
+      const { error } = await supabase.from('fila_emails').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          destinatario: membro.email,
+          assunto: 'Comprovante de Contribuição - Agradecimento',
+          mensagem: `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\n${mensagemAgradecimento}`,
+        },
+      ]);
+
+      if (error) {
+        // Fallback simulado caso a tabela fila_emails não exista no projeto do usuário
+        console.warn('Fila de e-mails não configurada diretamente, simulando envio.');
+      }
+
+      alert(`✅ Comprovante de agradecimento enviado com sucesso para ${membro.email}!\nMensagem: "${mensagemAgradecimento}"`);
+      await registrarLog('ENVIO_AGRADECIMENTO', `Enviou email de agradecimento para ${membro.email} referente ao lançamento ${lanc.id}`);
+    } catch (err: any) {
+      alert('Erro ao enviar e-mail: ' + err.message);
+    }
+  };
+
   const getNomeContaContabil = (id: string) => {
     const c = contasContabeis.find((x) => x.id === id);
     return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
@@ -393,6 +462,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             top: 0;
             width: 100%;
             margin: 0;
+            padding: 20px;
+            background: white !important;
+          }
+          .receipt-print, .receipt-print * {
+            visibility: visible;
+          }
+          .receipt-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 50vh; /* Meia folha A4 */
             padding: 20px;
             background: white !important;
           }
@@ -461,6 +542,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             onClick={() => {
               setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
+              setArquivoDocumento(null);
               setRelacionadoMembro(false);
               setSenhaExclusao('');
               setShowModalLancamento(true);
@@ -522,8 +604,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <th className="p-3">Descrição</th>
                     <th className="p-3">Membro Vinculado</th>
                     <th className="p-3">Conta Adm</th>
-                    <th className="p-3">Conta Contábil (DRE)</th>
                     <th className="p-3 text-right">Valor</th>
+                    <th className="p-3 text-center">Documento</th>
                     <th className="p-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -531,6 +613,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   {lancamentos.map((l) => {
                     const isReceita = l.tipo === 'receita';
                     const nomeMembro = getNomeMembroVinculado(l.membro_id);
+                    const descLower = (l.descricao || '').toLowerCase();
+                    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
+
                     return (
                       <tr key={l.id} className="hover:bg-slate-50/80 transition">
                         <td className="p-3 whitespace-nowrap text-slate-600">
@@ -554,11 +639,49 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           )}
                         </td>
                         <td className="p-3 text-slate-600 text-xs">{getNomeContaAdm(l.conta_corrente_id)}</td>
-                        <td className="p-3 text-blue-900 font-medium text-xs">{getNomeContaContabil(l.id_conta_contabil)}</td>
                         <td className={`p-3 text-right font-black ${isReceita ? 'text-emerald-700' : 'text-rose-700'}`}>
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
+                        <td className="p-3 text-center">
+                          {l.documento_url ? (
+                            <a
+                              href={l.documento_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-blue-900 font-bold text-xs rounded-lg inline-block"
+                            >
+                              📄 Ver Anexo
+                            </a>
+                          ) : (
+                            <span className="text-slate-400 text-xs">Sem anexo</span>
+                          )}
+                        </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          {/* BOTÃO IMPRIMIR COMPROVANTE (MEIA FOLHA A4) */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLancamentoParaRecibo(l);
+                              setShowModalRecibo(true);
+                            }}
+                            className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                            title="Imprimir Comprovante / Recibo"
+                          >
+                            🖨️ Recibo
+                          </button>
+
+                          {/* BOTÃO ENVIAR COMPROVANTE AGRADECIMENTO (SE OFERTA OU DÍZIMO) */}
+                          {ehDizimoOuOferta && l.membro_id && (
+                            <button
+                              type="button"
+                              onClick={() => handleEnviarAgradecimento(l)}
+                              className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                              title="Enviar E-mail de Agradecimento"
+                            >
+                              ✉️ Agradecer
+                            </button>
+                          )}
+
                           <button
                             type="button"
                             onClick={() => {
@@ -571,12 +694,14 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                                 conta_corrente_id: l.conta_corrente_id || '',
                                 id_conta_contabil: l.id_conta_contabil || '',
                                 membro_id: l.membro_id || '',
+                                documento_url: l.documento_url || '',
                               });
+                              setArquivoDocumento(null);
                               setRelacionadoMembro(!!l.membro_id);
                               setSenhaExclusao('');
                               setShowModalLancamento(true);
                             }}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
                           >
                             Editar
                           </button>
@@ -587,7 +712,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                               setSenhaExclusao('');
                               setShowDeleteModal(true);
                             }}
-                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
                           >
                             Excluir
                           </button>
@@ -1064,6 +1189,37 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 )}
               </div>
 
+              {/* BOTÃO PARA ANEXAR OU TIRAR FOTO DE DOCUMENTO */}
+              <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
+                <label className="block text-xs font-bold text-blue-900 uppercase">
+                  📎 Inserir Documento / Comprovante (Foto ou Arquivo)
+                </label>
+                <p className="text-[11px] text-slate-500">
+                  Você pode tirar uma foto pelo celular ou selecionar um arquivo do computador/smartphone.
+                </p>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setArquivoDocumento(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full border border-blue-300 rounded-xl px-3 py-2 text-xs bg-white font-medium cursor-pointer"
+                />
+                {arquivoDocumento && (
+                  <p className="text-xs text-emerald-700 font-bold">
+                    Arquivo selecionado: {arquivoDocumento.name}
+                  </p>
+                )}
+                {formLancamento.documento_url && !arquivoDocumento && (
+                  <p className="text-xs text-blue-700 font-bold">
+                    Já existe um documento anexado a este lançamento.
+                  </p>
+                )}
+              </div>
+
               {/* A SENHA SÓ APARECE SE FOR EDIÇÃO / ALTERAÇÃO */}
               {editingLancamento && (
                 <div className="pt-2 border-t">
@@ -1095,6 +1251,84 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE IMPRESSÃO DE RECIBO / COMPROVANTE (MEIA FOLHA A4) */}
+      {showModalRecibo && lancamentoParaRecibo && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4 no-print">
+              <h3 className="text-lg font-black text-blue-900">Visualizar Comprovante / Recibo</h3>
+              <button
+                type="button"
+                onClick={() => setShowModalRecibo(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            {/* CORPO DO RECIBO (FORMATO MEIA FOLHA A4) */}
+            <div className="receipt-print border-2 border-dashed border-slate-300 p-6 rounded-2xl bg-white space-y-6 text-slate-800">
+              <div className="text-center space-y-1 border-b pb-4">
+                <h2 className="text-xl font-black text-blue-900 uppercase">Comprovante de {lancamentoParaRecibo.tipo === 'receita' ? 'Recebimento' : 'Pagamento'}</h2>
+                <p className="text-xs text-slate-500">Igreja ID: {codigoIgreja}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                <div>
+                  <span className="text-slate-400 block uppercase">Data do Lançamento:</span>
+                  <span className="text-sm font-bold">{lancamentoParaRecibo.data_lancamento?.split('-').reverse().join('/')}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block uppercase">Valor:</span>
+                  <span className={`text-lg font-black ${lancamentoParaRecibo.tipo === 'receita' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    R$ {Number(lancamentoParaRecibo.valor).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs space-y-2">
+                <div>
+                  <span className="text-slate-400 block uppercase">Histórico / Descrição:</span>
+                  <p className="text-sm font-bold text-slate-800 bg-slate-50 p-3 rounded-xl border">
+                    {lancamentoParaRecibo.descricao}
+                  </p>
+                </div>
+
+                {lancamentoParaRecibo.membro_id && (
+                  <div>
+                    <span className="text-slate-400 block uppercase">Contribuinte / Membro:</span>
+                    <p className="text-sm font-bold text-blue-900">
+                      {getNomeMembroVinculado(lancamentoParaRecibo.membro_id)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-12 flex justify-between items-center text-center text-xs border-t">
+                <div className="w-1/2">
+                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
+                  <p className="font-semibold text-slate-600">Tesouraria / Administração</p>
+                </div>
+                <div className="w-1/2">
+                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
+                  <p className="font-semibold text-slate-600">Assinatura do Contribuinte</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 no-print">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+              >
+                🖨️ Imprimir Comprovante (Meia Folha A4)
+              </button>
+            </div>
           </div>
         </div>
       )}

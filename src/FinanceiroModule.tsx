@@ -154,16 +154,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // Busca garantida de membros da igreja
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, telefone, whatsapp')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (resMemb.error) {
-        console.error('Erro ao carregar membros:', resMemb.error.message);
-      } else {
+      if (!resMemb.error) {
         setMembrosList(resMemb.data || []);
       }
 
@@ -366,7 +363,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // Enviar agradecimento direto pelo chat interno do sistema
   const handleEnviarChatInterno = async (lanc: Lancamento) => {
     let membro = membrosList.find((m) => m.id === lanc.membro_id);
 
@@ -555,7 +551,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
               setArquivoDocumento(null);
-              setRelacionadoMembro(false);
+              setRelacionadoMembro(true); // Deixamos já marcado como padrão para facilitar
               setSenhaExclusao('');
               setShowModalLancamento(true);
             }}
@@ -654,7 +650,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                          {/* BOTÃO RECIBO */}
                           <button
                             type="button"
                             onClick={() => {
@@ -667,7 +662,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             🖨️ Recibo
                           </button>
 
-                          {/* BOTÃO CHAT COM INDICADOR VISUAL (VERDE/VERMELHO) */}
                           {ehDizimoOuOferta && (
                             <button
                               type="button"
@@ -697,7 +691,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                                 membro_id: l.membro_id || '',
                               });
                               setArquivoDocumento(null);
-                              setRelacionadoMembro(!!l.membro_id);
+                              setRelacionadoMembro(true); // Garante que a caixa de seleção do membro fica visível e aberta
                               setSenhaExclusao('');
                               setShowModalLancamento(true);
                             }}
@@ -1157,7 +1151,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* VÍNCULO COM MEMBRO */}
+              {/* SELEÇÃO DO MEMBRO SEM BLOQUEIOS */}
               <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
                   <input
@@ -1167,7 +1161,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       setRelacionadoMembro(e.target.checked);
                       if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
                     }}
-                    className="w-4 h-4 rounded text-blue-900"
+                    className="w-4 h-4 rounded text-blue-900 cursor-pointer"
                   />
                   <span>Está relacionado a algum membro?</span>
                 </label>
@@ -1178,10 +1172,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <select
                       value={formLancamento.membro_id}
                       onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
-                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900"
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
                       required={relacionadoMembro}
                     >
-                      <option value="">Selecione o membro...</option>
+                      <option value="">Selecione o membro na lista...</option>
                       {membrosList.map((m) => (
                         <option key={m.id} value={m.id}>{m.nome}</option>
                       ))}

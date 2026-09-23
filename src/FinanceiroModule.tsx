@@ -365,13 +365,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleEnviarChatInterno = async (lanc: Lancamento) => {
     let membro = membrosList.find((m) => m.id === lanc.membro_id);
 
-    // Se não tiver membro_id vinculado diretamente, tenta buscar o primeiro membro ou pede para selecionar/identificar
     if (!membro && membrosList.length > 0) {
-      membro = membrosList[0]; // fallback inteligente ou pega o primeiro da lista
+      membro = membrosList[0];
     }
 
     if (!membro) {
-      return alert('Nenhum membro cadastrado no sistema para vincular e enviar no chat.');
+      return alert('Nenhum membro encontrado para vincular e enviar no chat.');
     }
 
     const descLower = (lanc.descricao || '').toLowerCase();
@@ -384,7 +383,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     try {
       const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(lanc.valor).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
-      // Insere a mensagem diretamente na tabela de chat do Supabase
       const { error: chatError } = await supabase.from('chat_mensagens').insert([
         {
           codigo_igreja: codigoIgreja,
@@ -398,7 +396,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (chatError) throw chatError;
 
-      // Marca o lançamento como agradecido (botão verde)
       await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
@@ -1155,7 +1152,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* VÍNCULO COM MEMBRO */}
+              {/* VÍNCULO COM MEMBRO (CORRIGIDO) */}
               <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
                   <input

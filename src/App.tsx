@@ -1042,7 +1042,7 @@ export default function App() {
 
       {/* ========================================================================== */}
       /* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */
-      /* ========================================================================== */}
+      /* ========================================================================== */
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1054,9 +1054,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ====================================================================== */}
-        {/* 7.1 CHAT MOBILE                                                        */}
-        {/* ====================================================================== */}
+        {/* 7.1 CHAT MOBILE */}
         {activeTab === 'chat-mobile' && (
           <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
             <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
@@ -1226,9 +1224,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ====================================================================== */}
-        {/* 7.2 DEMAIS MÓDULOS                                                     */}
-        {/* ====================================================================== */}
+        {/* 7.2 DEMAIS MÓDULOS */}
         {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
           <MembrosModule loggedUser={userEfetivo} />
         )}

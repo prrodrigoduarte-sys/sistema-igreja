@@ -123,6 +123,66 @@ export default function App() {
     }
   }, [igrejaAtual, loggedUser]);
 
+  // 2. Enviar mensagem salvando no Supabase (Versão única)
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) return;
+    
+    const isGeral = selectedRecipient === 'all';
+
+    const novaMsg = {
+      codigo_igreja: igrejaAtual,
+      sender: loggedUser?.nome_usuario || 'Você',
+      text: isGeral ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      is_broadcast: isGeral,
+      recipient_id: isGeral ? null : selectedRecipient
+    };
+
+    const { data, error } = await supabase
+      .from('chat_mensagens')
+      .insert([novaMsg])
+      .select()
+      .single();
+
+    if (error) {
+      alert('Erro ao enviar mensagem: ' + error.message);
+      return;
+    }
+
+    if (data) {
+      setChatMessages(prev => [...prev, {
+        id: data.id,
+        sender: data.sender,
+        text: data.text,
+        time: data.time,
+        isBroadcast: data.is_broadcast,
+        recipientId: data.recipient_id
+      }]);
+      setMessageInput('');
+    }
+  };
+
+  // 3. Excluir mensagem do Supabase (Versão única)
+  const handleExcluirMensagemChat = async (msgId: string, isBroadcastMsg?: boolean) => {
+    if (isBroadcastMsg && !isAdmin) {
+      alert('🔒 Apenas o Administrador pode excluir mensagens da conversa geral (todos os membros).');
+      return;
+    }
+
+    if (!window.confirm('Deseja realmente excluir esta mensagem?')) return;
+
+    const { error } = await supabase
+      .from('chat_mensagens')
+      .delete()
+      .eq('id', msgId);
+
+    if (error) {
+      alert('Erro ao excluir mensagem: ' + error.message);
+      return;
+    }
+
+    setChatMessages(prev => prev.filter(m => m.id !== msgId));
+  };
   // 2. Enviar mensagem salvando no Supabase (Corrigido para Privado ou Geral)
   const handleSendMessage = async () => {
     if (!messageInput.trim()) return;

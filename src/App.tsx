@@ -36,6 +36,27 @@ function getOrCreateDeviceToken() {
 /* 2. COMPONENTE PRINCIPAL (APP)                                              */
 /* ========================================================================== */
 export default function App() {
+  // ... seus estados (useState) ...
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // ✅ COLOCA ELE AQUI EM CIMA (junto com os outros useEffects do App):
+  useEffect(() => {
+    const hoje = new Date();
+    const dia = hoje.getDate();
+    const mes = hoje.getMonth() + 1; // 1 = Janeiro
+    const anoAtual = hoje.getFullYear();
+
+    const ultimaLimpezaAno = localStorage.getItem('ultimo_ano_limpeza_chat');
+
+    if (dia === 1 && mes === 1 && ultimaLimpezaAno !== anoAtual.toString()) {
+      // Limpa apenas as mensagens de broadcast/geral no dia 1 de janeiro
+      setChatMessages(prev => prev.filter(m => !m.isBroadcast));
+      localStorage.setItem('ultimo_ano_limpeza_chat', anoAtual.toString());
+    }
+  }, []);
+
+  // ... restante do código e o return com o JSX ...
   const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
   const [rotaPublica, setRotaPublica] = useState(
     window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro')

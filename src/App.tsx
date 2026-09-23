@@ -1052,8 +1052,8 @@ export default function App() {
       </aside>
 
       {/* ========================================================================== */}
-      /* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */
-      /* ========================================================================== */}
+      {/* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */}
+      {/* ========================================================================== */}
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1298,8 +1298,8 @@ export default function App() {
       </main>
 
       {/* ========================================================================== */}
-      /* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */
-      /* ========================================================================== */}
+      {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE                             */}
+      {/* ========================================================================== */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
           <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
@@ -1409,7 +1409,7 @@ export default function App() {
 }
 
 /* ========================================================================== */
-/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)           */
+/* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)          */
 /* ========================================================================== */
 function DashboardHome({
   loggedUser,

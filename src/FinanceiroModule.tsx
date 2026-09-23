@@ -1,1505 +1,1518 @@
-// src/ProjetosModule.tsx
-
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+// src/FinanceiroModule.tsx
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 
-interface Membro {
-  id: any;
-  nome: string;
-  celular_principal?: string;
-  email?: string;
-}
-
-interface Projeto {
-  id: any;
+interface Lancamento {
+  id: string;
   codigo_igreja: string;
-  nome_projeto: string;
-  descricao?: string;
-  data_evento?: string;
-  hora_evento?: string;
-  local_evento?: string;
-  valor_estimado: number;
-  status?: string;
-  created_at?: string;
-}
-
-interface Inscricao {
-  id: any;
-  codigo_igreja: string;
-  projeto_id: any;
-  membro_id?: any;
-  nome_participante: string;
-  celular?: string;
-  email?: string;
-  valor_participacao: number;
-  status_pagamento: 'Pendente' | 'Pago' | 'Cancelado';
-  forma_pagamento?: string;
-  data_pagamento?: string;
-  observacoes?: string;
-  created_at?: string;
-}
-
-interface DespesaProjeto {
-  id: any;
-  codigo_igreja: string;
-  projeto_id: any;
+  data_lancamento: string;
+  tipo: 'receita' | 'despesa';
   descricao: string;
-  categoria?: string;
   valor: number;
-  data_despesa: string;
-  created_at?: string;
+  conta_corrente_id: string;
+  id_conta_contabil: string;
+  membro_id?: string;
+  documento_url?: string;
+  agradecimento_enviado?: boolean;
 }
 
-interface Props {
+interface ContaContabil {
+  id: string;
+  codigo_conta: string;
+  nome_conta: string;
+  tipo_natureza: string;
+  conta_pai?: string;
+}
+
+interface ContaFinanceiraAdm {
+  id: string;
+  codigo_conta: string;
+  nome_conta: string;
+  agencia?: string;
+  numero_conta?: string;
+}
+
+interface Membro {
+  id: string;
+  nome: string;
+  email?: string;
+}
+
+interface FinanceiroModuleProps {
   loggedUser: any;
 }
 
-export default function ProjetosModule({ loggedUser }: Props) {
-  // Estados de Dados
-  const [membros, setMembros] = useState<Membro[]>([]);
-  const [projetos, setProjetos] = useState<Projeto[]>([]);
-  const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
-  const [despesas, setDespesas] = useState<DespesaProjeto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [projetoSelecionado, setProjetoSelecionado] = useState<Projeto | null>(null);
+const formLancamentoInicial = {
+  data_lancamento: new Date().toISOString().split('T')[0],
+  tipo: 'receita' as 'receita' | 'despesa',
+  descricao: '',
+  valor: '',
+  conta_corrente_id: '',
+  id_conta_contabil: '',
+  membro_id: '',
+  documento_url: '',
+};
 
-  // Sub-abas do Projeto
-  const [subAbaAtiva, setSubAbaAtiva] = useState<'visao_geral' | 'inscritos' | 'despesas'>('visao_geral');
+const formContaContabilInicial = {
+  codigo_conta: '',
+  nome_conta: '',
+  conta_pai: '',
+  tipo_natureza: 'Despesa',
+};
 
-  // Filtros
-  const [buscaProjeto, setBuscaProjeto] = useState('');
-  const [buscaInscrito, setBuscaInscrito] = useState('');
-  const [filtroStatusPagamento, setFiltroStatusPagamento] = useState<'Todos' | 'Pago' | 'Pendente' | 'Cancelado'>('Todos');
+const formContaAdmInicial = {
+  codigo_conta: '',
+  nome_conta: '',
+  agencia: '',
+  numero_conta: '',
+};
 
-  // Modais
-  const [modalNovoProjeto, setModalNovoProjeto] = useState(false);
-  const [projetoEmEdicao, setProjetoEmEdicao] = useState<Projeto | null>(null);
+export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
+  const [subAba, setSubAba] = useState<'lancamentos' | 'contas_adm' | 'plano_contas' | 'relatorios'>('lancamentos');
+  const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre'>('conta_corrente');
+
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
+  const [contasAdmList, setContasAdmList] = useState<ContaFinanceiraAdm[]>([]);
+  const [membrosList, setMembrosList] = useState<Membro[]>([]);
   
-  const [modalInscricao, setModalInscricao] = useState(false);
-  const [inscricaoEdicao, setInscricaoEdicao] = useState<Inscricao | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [modalDespesa, setModalDespesa] = useState(false);
+  // Modais Lançamentos
+  const [showModalLancamento, setShowModalLancamento] = useState(false);
+  const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
+  const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
+  const [relacionadoMembro, setRelacionadoMembro] = useState(false);
+  const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
 
-  // Estados para o Encerramento e Relatórios do Projeto
-  const [modalEncerramentoOpen, setModalEncerramentoOpen] = useState(false);
-  const [tipoRelatorio, setTipoRelatorio] = useState<'sintetico' | 'analitico'>('sintetico');
+  // Modais Plano de Contas
+  const [showModalConta, setShowModalConta] = useState(false);
+  const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
+  const [formConta, setFormConta] = useState(formContaContabilInicial);
 
-  // Form Projeto
-  const [nomeProjeto, setNomeProjeto] = useState('');
-  const [descricaoProjeto, setDescricaoProjeto] = useState('');
-  const [dataEvento, setDataEvento] = useState('');
-  const [horaEvento, setHoraEvento] = useState('19:30');
-  const [localEvento, setLocalEvento] = useState('');
-  const [valorEstimado, setValorEstimado] = useState<number | ''>('');
-  const [statusProjeto, setStatusProjeto] = useState('Em Andamento');
+  // Modais Conta Adm
+  const [showModalAdm, setShowModalAdm] = useState(false);
+  const [editingAdm, setEditingAdm] = useState<ContaFinanceiraAdm | null>(null);
+  const [formAdm, setFormAdm] = useState(formContaAdmInicial);
 
-  // Form Inscrição
-  const [membroSelecionadoId, setMembroSelecionadoId] = useState('');
-  const [nomeParticipante, setNomeParticipante] = useState('');
-  const [celularParticipante, setCelularParticipante] = useState('');
-  const [emailParticipante, setEmailParticipante] = useState('');
-  const [valorParticipacao, setValorParticipacao] = useState<number | ''>('');
-  const [statusPagamento, setStatusPagamento] = useState<'Pendente' | 'Pago' | 'Cancelado'>('Pendente');
-  const [formaPagamento, setFormaPagamento] = useState('Pix');
-  const [dataPagamento, setDataPagamento] = useState(new Date().toISOString().split('T')[0]);
-  const [obsInscricao, setObsInscricao] = useState('');
+  // Exclusão / Senha
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_adm'; nome: string } | null>(null);
+  const [senhaExclusao, setSenhaExclusao] = useState('');
 
-  // Form Despesa
-  const [descricaoDespesa, setDescricaoDespesa] = useState('');
-  const [categoriaDespesa, setCategoriaDespesa] = useState('Alimentação');
-  const [valorDespesa, setValorDespesa] = useState<number | ''>('');
-  const [dataDespesa, setDataDespesa] = useState(new Date().toISOString().split('T')[0]);
+  // Modal Impressão de Comprovante / Recibo
+  const [showModalRecibo, setShowModalRecibo] = useState(false);
+  const [lancamentoParaRecibo, setLancamentoParaRecibo] = useState<Lancamento | null>(null);
 
-  const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+  const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
 
-  // CARREGAR DADOS (SEM LOOP INFINITO & COM TRATAMENTO DE ERROS)
-  const carregarDados = useCallback(async () => {
-    setLoading(true);
+  const registrarLog = async (acao: string, detalhes: string) => {
     try {
-      // 1. Membros
-      const { data: dataMembros } = await supabase
+      await supabase.from('logs_sistema').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          usuario_email: emailUsuarioLogado,
+          acao,
+          detalhes,
+        },
+      ]);
+    } catch (err) {
+      console.error('Erro ao registrar log:', err);
+    }
+  };
+
+  const fetchDados = useCallback(async () => {
+    if (!codigoIgreja) return;
+    setLoading(true);
+    setError(null);
+
+    try {
+      const resLanc = await supabase
+        .from('lancamentos_financeiros')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('data_lancamento', { ascending: true });
+
+      if (!resLanc.error) setLancamentos(resLanc.data || []);
+
+      const resPlano = await supabase
+        .from('plano_contas_contabil')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('codigo_conta', { ascending: true });
+
+      if (!resPlano.error) setContasContabeis(resPlano.data || []);
+
+      const resAdm = await supabase
+        .from('contas_financeiras')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
+      if (!resAdm.error) setContasAdmList(resAdm.data || []);
+
+      const resMemb = await supabase
         .from('members')
-        .select('id, nome, celular_principal, email')
+        .select('id, nome, email')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (dataMembros) setMembros(dataMembros);
-
-      // 2. Projetos
-      const { data: dataProjetos } = await supabase
-        .from('projetos')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('id', { ascending: false });
-
-      if (dataProjetos) {
-        setProjetos(dataProjetos);
-        
-        setProjetoSelecionado((prev) => {
-          if (!prev && dataProjetos.length > 0) return dataProjetos[0];
-          if (prev) {
-            const atualizado = dataProjetos.find((p) => String(p.id) === String(prev.id));
-            return atualizado || prev;
-          }
-          return null;
-        });
-      }
-
-      // 3. Inscrições
-      const { data: dataInsc } = await supabase
-        .from('inscricoes_projetos')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('id', { ascending: false });
-
-      if (dataInsc) setInscricoes(dataInsc);
-
-      // 4. Despesas
-      try {
-        const { data: dataDesp } = await supabase
-          .from('despesas_projetos')
-          .select('*')
-          .eq('codigo_igreja', codigoIgreja)
-          .order('id', { ascending: false });
-
-        if (dataDesp) setDespesas(dataDesp);
-      } catch (errDesp) {
-        console.warn('Tabela despesas_projetos ainda não configurada.');
-      }
+      if (!resMemb.error) setMembrosList(resMemb.data || []);
 
     } catch (err: any) {
-      console.error('Erro ao carregar módulo de projetos:', err);
+      console.error('Erro ao carregar dados:', err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   }, [codigoIgreja]);
 
   useEffect(() => {
-    carregarDados();
-  }, [carregarDados]);
+    if (!loggedUser) return;
+    fetchDados();
+  }, [loggedUser, fetchDados]);
 
-  // PROJETOS FILTRADOS
-  const projetosFiltrados = useMemo(() => {
-    return projetos.filter((p) =>
-      p.nome_projeto.toLowerCase().includes(buscaProjeto.toLowerCase())
-    );
-  }, [projetos, buscaProjeto]);
-
-  // PARTICIPANTES DO PROJETO ATUAL
-  const inscricoesDoProjeto = useMemo(() => {
-    if (!projetoSelecionado) return [];
-    return inscricoes.filter((i) => String(i.projeto_id) === String(projetoSelecionado.id));
-  }, [inscricoes, projetoSelecionado]);
-
-  const inscricoesFiltradas = useMemo(() => {
-    return inscricoesDoProjeto.filter((i) => {
-      const matchBusca =
-        (i.nome_participante || '').toLowerCase().includes(buscaInscrito.toLowerCase()) ||
-        (i.celular || '').includes(buscaInscrito) ||
-        (i.email || '').toLowerCase().includes(buscaInscrito.toLowerCase());
-      const matchStatus =
-        filtroStatusPagamento === 'Todos' || i.status_pagamento === filtroStatusPagamento;
-      return matchBusca && matchStatus;
-    });
-  }, [inscricoesDoProjeto, buscaInscrito, filtroStatusPagamento]);
-
-  // DESPESAS DO PROJETO SELECIONADO
-  const despesasDoProjeto = useMemo(() => {
-    if (!projetoSelecionado) return [];
-    return despesas.filter((d) => String(d.projeto_id) === String(projetoSelecionado.id));
-  }, [despesas, projetoSelecionado]);
-
-  // CÁLCULOS FINANCIAL METRICS (CONFRONTO DE VALORES)
-  const totalArrecadadoPago = useMemo(() => {
-    return inscricoesDoProjeto
-      .filter((i) => i.status_pagamento === 'Pago')
-      .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
-  }, [inscricoesDoProjeto]);
-
-  const totalPendente = useMemo(() => {
-    return inscricoesDoProjeto
-      .filter((i) => i.status_pagamento === 'Pendente')
-      .reduce((acc, cur) => acc + (Number(cur.valor_participacao) || 0), 0);
-  }, [inscricoesDoProjeto]);
-
-  const totalDespesasExecutadas = useMemo(() => {
-    return despesasDoProjeto.reduce((acc, cur) => acc + (Number(cur.valor) || 0), 0);
-  }, [despesasDoProjeto]);
-
-  const valorCustoEstimado = Number(projetoSelecionado?.valor_estimado) || 0;
-  
-  const balancoComCustoEstimado = totalArrecadadoPago - valorCustoEstimado;
-  const balancoComDespesasReais = totalArrecadadoPago - totalDespesasExecutadas;
-
-  const isSuperavitEstimado = balancoComCustoEstimado >= 0;
-  const isSuperavitReal = balancoComDespesasReais >= 0;
-
-  // FUNÇÃO DE ENCERRAMENTO DO PROJETO
-  const handleEncerrarProjeto = async () => {
-    if (!projetoSelecionado) return;
-    if (!window.confirm(`Deseja realmente encerrar o projeto "${projetoSelecionado.nome_projeto}"? Esta ação mudará o status para Concluído e abrirá o relatório de fechamento.`)) return;
-
-    try {
-      const { error } = await supabase
-        .from('projetos')
-        .update({ status: 'Concluído' })
-        .eq('id', projetoSelecionado.id);
-
-      if (error) throw error;
-
-      alert('🎉 Projeto encerrado com sucesso!');
-      setModalEncerramentoOpen(true);
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao encerrar projeto: ' + err.message);
-    }
-  };
-
-  // 1. SALVAR / EDITAR PROJETO + SINCRONIZAR AGENDA
-  const handleAbrirCriarProjeto = () => {
-    setProjetoEmEdicao(null);
-    setNomeProjeto('');
-    setDescricaoProjeto('');
-    setDataEvento('');
-    setHoraEvento('19:30');
-    setLocalEvento('');
-    setValorEstimado('');
-    setStatusProjeto('Em Andamento');
-    setModalNovoProjeto(true);
-  };
-
-  const handleAbrirEdicaoProjeto = (p: Projeto) => {
-    setProjetoEmEdicao(p);
-    setNomeProjeto(p.nome_projeto);
-    setDescricaoProjeto(p.descricao || '');
-    setDataEvento(p.data_evento || '');
-    setHoraEvento(p.hora_evento || '19:30');
-    setLocalEvento(p.local_evento || '');
-    setValorEstimado(p.valor_estimado || '');
-    setStatusProjeto(p.status || 'Em Andamento');
-    setModalNovoProjeto(true);
-  };
-
-  const handleSalvarProjeto = async (e: React.FormEvent) => {
+  const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nomeProjeto.trim()) return alert('Informe o nome do projeto.');
-
     try {
-      const payloadProjeto = {
-        codigo_igreja: codigoIgreja,
-        nome_projeto: nomeProjeto.trim(),
-        descricao: descricaoProjeto.trim(),
-        data_evento: dataEvento || null,
-        hora_evento: horaEvento || null,
-        local_evento: localEvento.trim() || null,
-        valor_estimado: Number(valorEstimado) || 0,
-        status: statusProjeto,
-      };
+      if (editingLancamento) {
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: emailUsuarioLogado,
+          password: senhaExclusao,
+        });
 
-      let projSalvo: Projeto | null = null;
-
-      if (projetoEmEdicao) {
-        const { data, error } = await supabase
-          .from('projetos')
-          .update(payloadProjeto)
-          .eq('id', projetoEmEdicao.id)
-          .select()
-          .single();
-
-        if (error) throw error;
-        projSalvo = data;
-        alert('✅ Projeto atualizado com sucesso!');
-      } else {
-        const { data, error } = await supabase
-          .from('projetos')
-          .insert([payloadProjeto])
-          .select()
-          .single();
-
-        if (error) throw error;
-        projSalvo = data;
-        alert('🚀 Projeto criado com sucesso!');
-      }
-
-      if (dataEvento) {
-        const tituloAgenda = `🚀 [PROJETO] ${nomeProjeto.trim()}`;
-        const payloadAgenda = {
-          codigo_igreja: codigoIgreja,
-          titulo: tituloAgenda,
-          data_evento: dataEvento,
-          hora_evento: horaEvento || '19:30',
-          local: localEvento.trim() || 'Templo Sede',
-          descricao: `Projeto: ${descricaoProjeto.trim()} | Custo orçado: R$ ${Number(valorEstimado || 0).toFixed(2)}`,
-          tipo: 'Projeto',
-        };
-
-        const { data: eventoExiste } = await supabase
-          .from('agenda')
-          .select('id')
-          .eq('codigo_igreja', codigoIgreja)
-          .eq('titulo', tituloAgenda)
-          .maybeSingle();
-
-        if (eventoExiste) {
-          await supabase.from('agenda').update(payloadAgenda).eq('id', eventoExiste.id);
-        } else {
-          await supabase.from('agenda').insert([payloadAgenda]);
+        if (authError) {
+          alert('Senha de administrador incorreta! A operação foi cancelada.');
+          return;
         }
       }
 
-      setModalNovoProjeto(false);
-      if (projSalvo) setProjetoSelecionado(projSalvo);
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao salvar projeto: ' + err.message);
-    }
-  };
+      let docUrl = formLancamento.documento_url;
 
-  const handleExcluirProjeto = async (id: any, nome: string) => {
-    if (!window.confirm(`Deseja realmente excluir o projeto "${nome}"? Todas as inscrições serão removidas.`)) return;
+      if (arquivoDocumento) {
+        const nomeArquivo = `${codigoIgreja}/${Date.now()}_${arquivoDocumento.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documentos_financeiros')
+          .upload(nomeArquivo, arquivoDocumento);
 
-    try {
-      await supabase.from('projetos').delete().eq('id', id);
-      await supabase.from('agenda').delete().eq('codigo_igreja', codigoIgreja).eq('titulo', `🚀 [PROJETO] ${nome}`);
+        if (!uploadError && uploadData) {
+          const { data: urlData } = supabase.storage
+            .from('documentos_financeiros')
+            .getPublicUrl(nomeArquivo);
+          docUrl = urlData.publicUrl;
+        }
+      }
 
-      alert('Projeto excluído com sucesso.');
-      setProjetoSelecionado(null);
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao excluir projeto: ' + err.message);
-    }
-  };
-
-  // 2. GESTÃO DE INSCRIÇÕES DE PARTICIPANTES
-  const handleAbrirNovaInscricao = () => {
-    setInscricaoEdicao(null);
-    setMembroSelecionadoId('');
-    setNomeParticipante('');
-    setCelularParticipante('');
-    setEmailParticipante('');
-    setValorParticipacao('');
-    setStatusPagamento('Pendente');
-    setFormaPagamento('Pix');
-    setDataPagamento(new Date().toISOString().split('T')[0]);
-    setObsInscricao('');
-    setModalInscricao(true);
-  };
-
-  const handleAbrirEdicaoInscricao = (item: Inscricao) => {
-    setInscricaoEdicao(item);
-    setMembroSelecionadoId(item.membro_id ? String(item.membro_id) : '');
-    setNomeParticipante(item.nome_participante);
-    setCelularParticipante(item.celular || '');
-    setEmailParticipante(item.email || '');
-    setValorParticipacao(item.valor_participacao);
-    setStatusPagamento(item.status_pagamento);
-    setFormaPagamento(item.forma_pagamento || 'Pix');
-    setDataPagamento(item.data_pagamento || new Date().toISOString().split('T')[0]);
-    setObsInscricao(item.observacoes || '');
-    setModalInscricao(true);
-  };
-
-  const handleSelecionarMembro = (membroId: string) => {
-    setMembroSelecionadoId(membroId);
-    const enc = membros.find((m) => String(m.id) === String(membroId));
-    if (enc) {
-      setNomeParticipante(enc.nome);
-      setCelularParticipante(enc.celular_principal || '');
-      setEmailParticipante(enc.email || '');
-    }
-  };
-
-  const handleSalvarInscricao = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projetoSelecionado) return alert('Selecione um projeto.');
-    if (!nomeParticipante.trim()) return alert('Informe o nome do participante.');
-
-    try {
-      const payload: any = {
+      const payload = {
         codigo_igreja: codigoIgreja,
-        projeto_id: projetoSelecionado.id,
-        nome_participante: nomeParticipante.trim(),
-        valor_participacao: Number(valorParticipacao) || 0,
-        status_pagamento: statusPagamento,
+        data_lancamento: formLancamento.data_lancamento,
+        tipo: formLancamento.tipo,
+        descricao: formLancamento.descricao,
+        valor: parseFloat(formLancamento.valor as string),
+        conta_corrente_id: formLancamento.conta_corrente_id || null,
+        id_conta_contabil: formLancamento.id_conta_contabil || null,
+        membro_id: relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
+        documento_url: docUrl || null,
       };
 
-      if (membroSelecionadoId) payload.membro_id = membroSelecionadoId;
-      if (celularParticipante.trim()) payload.celular = celularParticipante.trim();
-      if (emailParticipante.trim()) payload.email = emailParticipante.trim();
-      if (obsInscricao.trim()) payload.observacoes = obsInscricao.trim();
-
-      if (statusPagamento === 'Pago') {
-        payload.forma_pagamento = formaPagamento;
-        payload.data_pagamento = dataPagamento;
-      }
-
-      if (inscricaoEdicao) {
+      if (editingLancamento) {
         const { error } = await supabase
-          .from('inscricoes_projetos')
+          .from('lancamentos_financeiros')
           .update(payload)
-          .eq('id', inscricaoEdicao.id);
+          .eq('id', editingLancamento.id);
 
         if (error) throw error;
-        alert('Inscrição atualizada com sucesso!');
+        await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
+        alert('Lançamento atualizado com sucesso!');
       } else {
-        const { error } = await supabase.from('inscricoes_projetos').insert([payload]);
+        const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
         if (error) throw error;
-        alert('Participante inscrito com sucesso!');
+        await registrarLog('NOVO_LANCAMENTO', `Criou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
+        alert('Lançamento realizado com sucesso!');
       }
 
-      setModalInscricao(false);
-      carregarDados();
+      setShowModalLancamento(false);
+      setEditingLancamento(null);
+      setFormLancamento(formLancamentoInicial);
+      setArquivoDocumento(null);
+      setRelacionadoMembro(false);
+      setSenhaExclusao('');
+      fetchDados();
     } catch (err: any) {
-      alert('Erro ao salvar inscrição: ' + err.message);
+      alert('Erro ao salvar lançamento: ' + err.message);
     }
   };
 
-  const handleExcluirInscricao = async (id: any, nome: string) => {
-    if (!window.confirm(`Deseja realmente remover a inscrição de "${nome}"?`)) return;
+  const handleSubmitConta = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      const { error } = await supabase.from('inscricoes_projetos').delete().eq('id', id);
+      const payload = { ...formConta, codigo_igreja: codigoIgreja };
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha incorreta! A operação foi cancelada.');
+        return;
+      }
+
+      if (editingConta) {
+        const { error } = await supabase
+          .from('plano_contas_contabil')
+          .update(payload)
+          .eq('id', editingConta.id);
+
+        if (error) throw error;
+        await registrarLog('EDITAR_CONTA_CONTABIL', `Atualizou a conta contábil: ${payload.codigo_conta} - ${payload.nome_conta}`);
+        alert('Conta contábil atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
+        if (error) throw error;
+        await registrarLog('NOVA_CONTA_CONTABIL', `Cadastrou a conta contábil: ${payload.codigo_conta} - ${payload.nome_conta}`);
+        alert('Conta cadastrada com sucesso!');
+      }
+
+      setShowModalConta(false);
+      setEditingConta(null);
+      setFormConta(formContaContabilInicial);
+      setSenhaExclusao('');
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao salvar conta: ' + err.message);
+    }
+  };
+
+  const handleSubmitAdm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const payload = { ...formAdm, codigo_igreja: codigoIgreja };
+
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha incorreta! A operação foi cancelada.');
+        return;
+      }
+
+      if (editingAdm) {
+        const { error } = await supabase
+          .from('contas_financeiras')
+          .update(payload)
+          .eq('id', editingAdm.id);
+
+        if (error) throw error;
+        await registrarLog('EDITAR_CONTA_ADM', `Atualizou a conta adm: ${payload.codigo_conta} (${payload.nome_conta})`);
+        alert('Conta administrativa atualizada com sucesso!');
+      } else {
+        const { error } = await supabase.from('contas_financeiras').insert([payload]);
+        if (error) throw error;
+        await registrarLog('NOVA_CONTA_ADM', `Cadastrou a conta adm: ${payload.codigo_conta} (${payload.nome_conta})`);
+        alert('Conta administrativa cadastrada com sucesso!');
+      }
+
+      setShowModalAdm(false);
+      setEditingAdm(null);
+      setFormAdm(formContaAdmInicial);
+      setSenhaExclusao('');
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao salvar conta administrativa: ' + err.message);
+    }
+  };
+
+  const confirmarExclusao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemParaExcluir) return;
+
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha incorreta! Exclusão cancelada.');
+        return;
+      }
+
+      let tabela = 'lancamentos_financeiros';
+      if (itemParaExcluir.tipo === 'conta_contabil') tabela = 'plano_contas_contabil';
+      if (itemParaExcluir.tipo === 'conta_adm') tabela = 'contas_financeiras';
+
+      const { error } = await supabase.from(tabela).delete().eq('id', itemParaExcluir.id);
       if (error) throw error;
 
-      alert('Inscrição removida!');
-      carregarDados();
+      await registrarLog('EXCLUSAO', `Excluiu o item [${itemParaExcluir.tipo}]: ${itemParaExcluir.nome}`);
+      alert('Item excluído com sucesso!');
+      setShowDeleteModal(false);
+      setItemParaExcluir(null);
+      setSenhaExclusao('');
+      fetchDados();
     } catch (err: any) {
       alert('Erro ao excluir: ' + err.message);
     }
   };
 
-  // 3. GESTÃO DE DESPESAS DO PROJETO
-  const handleAbrirNovaDespesa = () => {
-    setDescricaoDespesa('');
-    setCategoriaDespesa('Alimentação');
-    setValorDespesa('');
-    setDataDespesa(new Date().toISOString().split('T')[0]);
-    setModalDespesa(true);
-  };
+  const handleEnviarAgradecimento = async (lanc: Lancamento) => {
+    if (!lanc.membro_id) {
+      return alert('Este lançamento não está vinculado a nenhum membro.');
+    }
 
-  const handleSalvarDespesa = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!projetoSelecionado) return alert('Selecione um projeto.');
-    if (!descricaoDespesa.trim()) return alert('Informe a descrição da despesa.');
+    const membro = membrosList.find((m) => m.id === lanc.membro_id);
+    if (!membro || !membro.email) {
+      return alert('O membro vinculado não possui e-mail cadastrado no sistema.');
+    }
+
+    const descLower = (lanc.descricao || '').toLowerCase();
+    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
+
+    if (!ehDizimoOuOferta) {
+      return alert('O envio automático de agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
+    }
 
     try {
-      const payload = {
-        codigo_igreja: codigoIgreja,
-        projeto_id: projetoSelecionado.id,
-        descricao: descricaoDespesa.trim(),
-        categoria: categoriaDespesa,
-        valor: Number(valorDespesa) || 0,
-        data_despesa: dataDespesa,
-      };
+      const mensagemAgradecimento = `Deus abençoe pela sua contribuição, prosperando sua casa.`;
+      
+      // Inserção real na fila de e-mails do banco de dados (Supabase)
+      const { error: emailError } = await supabase.from('fila_emails').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          destinatario: membro.email,
+          assunto: 'Comprovante de Contribuição - Agradecimento',
+          mensagem: `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\n${mensagemAgradecimento}`,
+          status: 'pendente',
+        },
+      ]);
 
-      const { error } = await supabase.from('despesas_projetos').insert([payload]);
-      if (error) throw error;
+      if (emailError) throw emailError;
 
-      alert('Despesa lançada com sucesso!');
-      setModalDespesa(false);
-      carregarDados();
+      // Atualiza o registro no banco para marcar que o agradecimento foi enviado
+      await supabase
+        .from('lancamentos_financeiros')
+        .update({ agradecimento_enviado: true })
+        .eq('id', lanc.id);
+
+      alert(`✅ E-mail de agradecimento enfileirado e disparado com sucesso para ${membro.email}!`);
+      await registrarLog('ENVIO_AGRADECIMENTO', `Enviou email de agradecimento para ${membro.email}`);
+      fetchDados();
     } catch (err: any) {
-      alert('Erro ao lançar despesa: ' + err.message);
+      alert('Erro ao enviar e-mail: ' + err.message);
     }
   };
 
-  const handleExcluirDespesa = async (id: any) => {
-    if (!window.confirm('Deseja excluir esta despesa lançada?')) return;
-    try {
-      const { error } = await supabase.from('despesas_projetos').delete().eq('id', id);
-      if (error) throw error;
-
-      alert('Despesa excluída!');
-      carregarDados();
-    } catch (err: any) {
-      alert('Erro ao excluir despesa: ' + err.message);
-    }
+  const getNomeContaContabil = (id: string) => {
+    const c = contasContabeis.find((x) => x.id === id);
+    return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
   };
+
+  const getNomeContaAdm = (id: string) => {
+    const adm = contasAdmList.find((x) => x.id === id);
+    return adm ? `${adm.codigo_conta} (${adm.nome_conta})` : 'Caixa Geral';
+  };
+
+  const getNomeMembroVinculado = (membroId?: string) => {
+    if (!membroId) return null;
+    const m = membrosList.find((x) => x.id === membroId);
+    return m ? m.nome : null;
+  };
+
+  const dadosBalancete = contasContabeis.map((conta) => {
+    const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
+    const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    return { ...conta, total };
+  }).filter((c) => c.total > 0);
+
+  const totalReceitas = lancamentos
+    .filter((l) => l.tipo === 'receita')
+    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+  const totalDespesas = lancamentos
+    .filter((l) => l.tipo === 'despesa')
+    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+  const resultadoLiquido = totalReceitas - totalDespesas;
+
+  let saldoAcumulado = 0;
+  const lancamentosComSaldo = lancamentos.map((l) => {
+    const valorNum = Number(l.valor || 0);
+    if (l.tipo === 'receita') {
+      saldoAcumulado += valorNum;
+    } else {
+      saldoAcumulado -= valorNum;
+    }
+    return { ...l, saldoParcial: saldoAcumulado };
+  });
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
-      {/* CABEÇALHO */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4">
+    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
+      
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          .printable-area, .printable-area * {
+            visibility: visible;
+          }
+          .printable-area {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            background: white !important;
+          }
+          .receipt-print, .receipt-print * {
+            visibility: visible;
+          }
+          .receipt-print {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 50vh;
+            padding: 20px;
+            background: white !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+        }
+      `}</style>
+
+      {/* Cabeçalho e Abas */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
         <div>
-          <h2 className="text-3xl font-black text-blue-900 tracking-tight">🚀 Módulo de Projetos & Eventos</h2>
-          <p className="text-sm text-slate-600 mt-1">
-            Gestão Financeira, Inscrições de Participantes e Balanço em Tempo Real
+          <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
+            Gestão Financeira & Contábil
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1">
+            Controle Administrativo e Contábil ({codigoIgreja})
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={handleAbrirCriarProjeto}
-          className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer transition flex items-center gap-1"
-        >
-          ➕ Criar Novo Projeto
-        </button>
+        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
+          <button
+            type="button"
+            onClick={() => { setSubAba('lancamentos'); fetchDados(); }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              subAba === 'lancamentos' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            💸 Lançamentos
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSubAba('contas_adm'); fetchDados(); }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              subAba === 'contas_adm' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            🏦 Contas Adm
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSubAba('plano_contas'); fetchDados(); }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              subAba === 'plano_contas' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            📊 Plano de Contas
+          </button>
+          <button
+            type="button"
+            onClick={() => { setSubAba('relatorios'); fetchDados(); }}
+            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
+              subAba === 'relatorios' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            📈 Relatórios
+          </button>
+        </div>
       </div>
 
-      {loading ? (
-        <p className="text-center py-8 text-slate-500 text-xs">Carregando informações do módulo...</p>
-      ) : projetos.length === 0 ? (
-        <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed text-slate-500 text-xs space-y-2">
-          <p className="font-bold text-slate-700 text-sm">Nenhum projeto cadastrado na sua igreja.</p>
-          <p>Clique no botão acima para criar o primeiro projeto e gerenciar as inscrições e o orçamento!</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* BARRA LATERAL: SELETOR DE PROJETOS */}
-          <div className="space-y-3 lg:col-span-1 border-r pr-0 lg:pr-4">
-            <div className="flex justify-between items-center">
-              <h3 className="font-black text-xs text-slate-400 uppercase tracking-wider">Seus Projetos</h3>
-              <span className="text-[10px] bg-blue-100 text-blue-900 font-bold px-2 py-0.5 rounded-full">
-                {projetos.length}
-              </span>
+      {/* BOTÕES DE AÇÃO SUPERIOR */}
+      <div className="flex justify-end no-print">
+        {subAba === 'lancamentos' && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingLancamento(null);
+              setFormLancamento(formLancamentoInicial);
+              setArquivoDocumento(null);
+              setRelacionadoMembro(false);
+              setSenhaExclusao('');
+              setShowModalLancamento(true);
+            }}
+            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+          >
+            + Novo Lançamento
+          </button>
+        )}
+
+        {subAba === 'contas_adm' && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingAdm(null);
+              setFormAdm(formContaAdmInicial);
+              setSenhaExclusao('');
+              setShowModalAdm(true);
+            }}
+            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+          >
+            + Nova Conta Adm
+          </button>
+        )}
+
+        {subAba === 'plano_contas' && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingConta(null);
+              setFormConta(formContaContabilInicial);
+              setSenhaExclusao('');
+              setShowModalConta(true);
+            }}
+            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+          >
+            + Nova Conta Contábil
+          </button>
+        )}
+      </div>
+
+      {loading && <p className="text-center py-6 text-slate-500">Carregando dados financeiros...</p>}
+      {error && <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">{error}</div>}
+
+      {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
+      {!loading && subAba === 'lancamentos' && (
+        <>
+          {lancamentos.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <p className="text-slate-500 text-sm">Nenhum lançamento financeiro registrado.</p>
             </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                    <th className="p-3">Data</th>
+                    <th className="p-3">Tipo</th>
+                    <th className="p-3">Descrição</th>
+                    <th className="p-3">Membro Vinculado</th>
+                    <th className="p-3">Conta Adm</th>
+                    <th className="p-3 text-right">Valor</th>
+                    <th className="p-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm">
+                  {lancamentos.map((l) => {
+                    const isReceita = l.tipo === 'receita';
+                    const nomeMembro = getNomeMembroVinculado(l.membro_id);
+                    const descLower = (l.descricao || '').toLowerCase();
+                    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
 
-            <input
-              type="text"
-              placeholder="🔎 Buscar projeto..."
-              value={buscaProjeto}
-              onChange={(e) => setBuscaProjeto(e.target.value)}
-              className="w-full border rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50"
-            />
+                    return (
+                      <tr key={l.id} className="hover:bg-slate-50/80 transition">
+                        <td className="p-3 whitespace-nowrap text-slate-600">
+                          {l.data_lancamento ? l.data_lancamento.split('-').reverse().join('/') : '-'}
+                        </td>
+                        <td className="p-3 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                            isReceita ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                          }`}>
+                            {isReceita ? '🟢 Receita' : '🔴 Despesa'}
+                          </span>
+                        </td>
+                        <td className="p-3 font-semibold text-slate-800">{l.descricao}</td>
+                        <td className="p-3">
+                          {nomeMembro ? (
+                            <span className="px-2 py-1 bg-blue-50 text-blue-800 font-bold text-xs rounded-lg border border-blue-100">
+                              👤 {nomeMembro}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400">-</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-600 text-xs">{getNomeContaAdm(l.conta_corrente_id)}</td>
+                        <td className={`p-3 text-right font-black ${isReceita ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          R$ {Number(l.valor || 0).toFixed(2)}
+                        </td>
+                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          {/* BOTÃO RECIBO */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLancamentoParaRecibo(l);
+                              setShowModalRecibo(true);
+                            }}
+                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                            title="Imprimir Recibo"
+                          >
+                            🖨️ Recibo
+                          </button>
 
-            <div className="space-y-2 max-h-[600px] overflow-y-auto pr-1">
-              {projetosFiltrados.map((p) => {
-                const isSelected = String(p.id) === String(projetoSelecionado?.id);
-                return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setProjetoSelecionado(p)}
-                    className={`w-full text-left p-3.5 rounded-2xl border transition cursor-pointer space-y-1 ${
-                      isSelected
-                        ? 'bg-blue-900 text-white border-blue-900 font-bold shadow-md'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200 font-medium'
-                    }`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm truncate max-w-[130px]">{p.nome_projeto}</p>
-                      <span
-                        className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                          isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        {p.status || 'Ativo'}
-                      </span>
-                    </div>
+                          {/* BOTÃO AGRADECER COM INDICADOR VISUAL (VERDE/VERMELHO) */}
+                          {ehDizimoOuOferta && l.membro_id && (
+                            <button
+                              type="button"
+                              onClick={() => handleEnviarAgradecimento(l)}
+                              className={`px-2.5 py-1 font-bold text-xs rounded-lg transition cursor-pointer border ${
+                                l.agradecimento_enviado 
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                              }`}
+                              title={l.agradecimento_enviado ? "Agradecimento já enviado" : "Enviar e-mail de agradecimento"}
+                            >
+                              {l.agradecimento_enviado ? '🟢 Agradecido' : '🔴 Agradecer'}
+                            </button>
+                          )}
 
-                    <div className="flex justify-between items-center text-[10px] pt-1">
-                      <span className={isSelected ? 'text-blue-200' : 'text-slate-500'}>
-                        Custo: R$ {Number(p.valor_estimado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                      {p.data_evento && (
-                        <span className={isSelected ? 'text-blue-100 font-bold' : 'text-blue-900 font-bold'}>
-                          📅 {p.data_evento.split('-').reverse().join('/')}
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingLancamento(l);
+                              setFormLancamento({
+                                data_lancamento: l.data_lancamento || '',
+                                tipo: l.tipo || 'receita',
+                                descricao: l.descricao || '',
+                                valor: l.valor?.toString() || '',
+                                conta_corrente_id: l.conta_corrente_id || '',
+                                id_conta_contabil: l.id_conta_contabil || '',
+                                membro_id: l.membro_id || '',
+                              });
+                              setArquivoDocumento(null);
+                              setRelacionadoMembro(!!l.membro_id);
+                              setSenhaExclusao('');
+                              setShowModalLancamento(true);
+                            }}
+                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Editar
+                          </button>
 
-          {/* PAINEL DE DETALHES DO PROJETO SELECIONADO */}
-          {projetoSelecionado && (
-            <div className="lg:col-span-3 space-y-6">
-              {/* CABEÇALHO DO PROJETO SELECIONADO */}
-              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-2xl font-black text-blue-900">{projetoSelecionado.nome_projeto}</h3>
-                      <span className="bg-blue-100 text-blue-900 font-bold text-xs px-2.5 py-0.5 rounded-lg border border-blue-200">
-                        {projetoSelecionado.status || 'Em Andamento'}
-                      </span>
-                    </div>
-
-                    {projetoSelecionado.data_evento && (
-                      <p className="text-xs font-bold text-blue-800 mt-1">
-                        📅 Data: {projetoSelecionado.data_evento.split('-').reverse().join('/')} às {projetoSelecionado.hora_evento || '19:30'}
-                        {projetoSelecionado.local_evento && ` • 📍 Local: ${projetoSelecionado.local_evento}`}
-                      </p>
-                    )}
-
-                    {projetoSelecionado.descricao && (
-                      <p className="text-xs text-slate-600 mt-1">{projetoSelecionado.descricao}</p>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={handleEncerrarProjeto}
-                      className="px-3.5 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-1 transition"
-                    >
-                      🔒 Encerrar Projeto / Relatórios
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleAbrirNovaInscricao}
-                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-1"
-                    >
-                      👤 Adicionar Inscrito
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleAbrirEdicaoProjeto(projetoSelecionado)}
-                      className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl cursor-pointer"
-                    >
-                      ✏️ Editar Projeto
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleExcluirProjeto(projetoSelecionado.id, projetoSelecionado.nome_projeto)}
-                      className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl cursor-pointer"
-                    >
-                      🗑️ Excluir
-                    </button>
-                  </div>
-                </div>
-
-                {/* SUB-ABAS NAVEGÁVEIS */}
-                <div className="flex border-b border-slate-200 gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setSubAbaAtiva('visao_geral')}
-                    className={`px-4 py-2 font-bold text-xs rounded-t-xl transition cursor-pointer border-b-2 ${
-                      subAbaAtiva === 'visao_geral'
-                        ? 'border-blue-900 text-blue-900 bg-white'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    📊 Visão Geral & Balanço
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSubAbaAtiva('inscritos')}
-                    className={`px-4 py-2 font-bold text-xs rounded-t-xl transition cursor-pointer border-b-2 ${
-                      subAbaAtiva === 'inscritos'
-                        ? 'border-blue-900 text-blue-900 bg-white'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    👥 Participantes Inscritos ({inscricoesDoProjeto.length})
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setSubAbaAtiva('despesas')}
-                    className={`px-4 py-2 font-bold text-xs rounded-t-xl transition cursor-pointer border-b-2 ${
-                      subAbaAtiva === 'despesas'
-                        ? 'border-blue-900 text-blue-900 bg-white'
-                        : 'border-transparent text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    💸 Despesas Executadas ({despesasDoProjeto.length})
-                  </button>
-                </div>
-              </div>
-
-              {/* SUB-ABA 1: BALANÇO FINANCEIRO COMPLETO */}
-              {subAbaAtiva === 'visao_geral' && (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                    <div className="bg-slate-100 p-4 rounded-2xl border border-slate-200">
-                      <p className="text-[10px] font-bold uppercase text-slate-500">Valor Orçado (Custo Estimado)</p>
-                      <p className="text-xl font-black text-slate-800 mt-1">
-                        R$ {valorCustoEstimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                    </div>
-
-                    <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200">
-                      <p className="text-[10px] font-bold uppercase text-emerald-700">Total Arrecadado (Pagos)</p>
-                      <p className="text-xl font-black text-emerald-800 mt-1">
-                        R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-[10px] text-emerald-600 font-semibold mt-1">
-                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pago').length} quitado(s)
-                      </p>
-                    </div>
-
-                    <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200">
-                      <p className="text-[10px] font-bold uppercase text-amber-700">Valores a Receber (Pendentes)</p>
-                      <p className="text-xl font-black text-amber-800 mt-1">
-                        R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-[10px] text-amber-600 font-semibold mt-1">
-                        {inscricoesDoProjeto.filter((i) => i.status_pagamento === 'Pendente').length} aguardando
-                      </p>
-                    </div>
-
-                    <div
-                      className={`p-4 rounded-2xl border ${
-                        isSuperavitEstimado
-                          ? 'bg-blue-900 text-white border-blue-900'
-                          : 'bg-rose-900 text-white border-rose-900'
-                      }`}
-                    >
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-blue-200">
-                        Balanço (Arrecadado vs Custo)
-                      </p>
-                      <p className="text-xl font-black mt-1">
-                        {isSuperavitEstimado ? '🟢 +' : '🔴 -'} R${' '}
-                        {Math.abs(balancoComCustoEstimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-[10px] mt-1 font-semibold opacity-90">
-                        {isSuperavitEstimado ? 'Superávit (Lucro para o Projeto)' : 'Déficit (Prejuízo no Orçamento)'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 border p-5 rounded-2xl space-y-3">
-                    <div className="flex justify-between items-center border-b pb-2">
-                      <h4 className="font-bold text-xs text-blue-900 uppercase">
-                        ⚖️ Balanço Real Executado (Arrecadação Pago vs Despesas Lançadas)
-                      </h4>
-                      <button
-                        type="button"
-                        onClick={handleAbrirNovaDespesa}
-                        className="px-3 py-1 bg-blue-900 text-white text-xs font-bold rounded-lg cursor-pointer"
-                      >
-                        ➕ Lançar Despesa Real
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                      <div className="bg-white p-3 rounded-xl border">
-                        <span className="text-slate-500 font-bold block">Entradas Confirmadas</span>
-                        <span className="font-black text-emerald-700 text-base">
-                          R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-
-                      <div className="bg-white p-3 rounded-xl border">
-                        <span className="text-slate-500 font-bold block">Despesas Executadas</span>
-                        <span className="font-black text-rose-700 text-base">
-                          R$ {totalDespesasExecutadas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-
-                      <div className={`p-3 rounded-xl border ${isSuperavitReal ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-rose-50 text-rose-900 border-rose-200'}`}>
-                        <span className="font-bold block">Saldo Final Real</span>
-                        <span className="font-black text-base">
-                          {isSuperavitReal ? '🟢 +' : '🔴 -'} R$ {Math.abs(balancoComDespesasReais).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* SUB-ABA 2: INSCRITOS / PARTICIPANTES */}
-              {subAbaAtiva === 'inscritos' && (
-                <div className="space-y-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
-                      Participantes Cadastrados ({inscricoesDoProjeto.length})
-                    </h4>
-
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <input
-                        type="text"
-                        placeholder="🔎 Buscar participante..."
-                        value={buscaInscrito}
-                        onChange={(e) => setBuscaInscrito(e.target.value)}
-                        className="border rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-2 focus:ring-blue-600 w-full sm:w-48"
-                      />
-
-                      <select
-                        value={filtroStatusPagamento}
-                        onChange={(e) => setFiltroStatusPagamento(e.target.value as any)}
-                        className="border rounded-xl px-2.5 py-1.5 text-xs bg-white font-bold"
-                      >
-                        <option value="Todos">Todos os Status</option>
-                        <option value="Pago">✅ Pago</option>
-                        <option value="Pendente">⏳ Pendente</option>
-                        <option value="Cancelado">❌ Cancelado</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {inscricoesFiltradas.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
-                      Nenhum participante encontrado com os filtros selecionados.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto border rounded-2xl shadow-sm">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
-                            <th className="p-3">Participante</th>
-                            <th className="p-3">Contato</th>
-                            <th className="p-3">Valor (R$)</th>
-                            <th className="p-3">Status / Pagamento</th>
-                            <th className="p-3">Observação</th>
-                            <th className="p-3 text-right">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {inscricoesFiltradas.map((item) => (
-                            <tr key={item.id} className="hover:bg-slate-50">
-                              <td className="p-3 font-bold text-slate-800">{item.nome_participante}</td>
-                              <td className="p-3 text-slate-600">
-                                <div>📞 {item.celular || '-'}</div>
-                                {item.email && <div className="text-[10px] text-slate-400">{item.email}</div>}
-                              </td>
-                              <td className="p-3 font-bold text-slate-800">
-                                R$ {Number(item.valor_participacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="p-3">
-                                <span
-                                  className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                                    item.status_pagamento === 'Pago'
-                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                      : item.status_pagamento === 'Pendente'
-                                      ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                      : 'bg-rose-100 text-rose-800 border border-rose-200'
-                                  }`}
-                                >
-                                  {item.status_pagamento}
-                                </span>
-                                {item.status_pagamento === 'Pago' && item.forma_pagamento && (
-                                  <span className="block text-[10px] text-slate-500 font-semibold mt-0.5">
-                                    {item.forma_pagamento} {item.data_pagamento && `(${item.data_pagamento.split('-').reverse().join('/')})`}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="p-3 text-slate-500 italic max-w-[150px] truncate">
-                                {item.observacoes || '-'}
-                              </td>
-                              <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                                <button
-                                  type="button"
-                                  onClick={() => handleAbrirEdicaoInscricao(item)}
-                                  className="px-2.5 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
-                                >
-                                  ✏️ Editar
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleExcluirInscricao(item.id, item.nome_participante)}
-                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
-                                >
-                                  🗑️ Excluir
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* SUB-ABA 3: DESPESAS EXECUTADAS */}
-              {subAbaAtiva === 'despesas' && (
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-bold text-slate-700 text-xs uppercase tracking-wider">
-                      Despesas do Projeto ({despesasDoProjeto.length})
-                    </h4>
-
-                    <button
-                      type="button"
-                      onClick={handleAbrirNovaDespesa}
-                      className="px-3.5 py-1.5 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-                    >
-                      ➕ Lançar Nova Despesa
-                    </button>
-                  </div>
-
-                  {despesasDoProjeto.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-50 border border-dashed rounded-2xl text-xs text-slate-500">
-                      Nenhuma despesa executada foi lançada neste projeto ainda.
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto border rounded-2xl shadow-sm">
-                      <table className="w-full text-left border-collapse text-xs">
-                        <thead>
-                          <tr className="bg-slate-100 text-slate-700 uppercase font-bold border-b">
-                            <th className="p-3">Data</th>
-                            <th className="p-3">Descrição da Despesa</th>
-                            <th className="p-3">Categoria</th>
-                            <th className="p-3">Valor (R$)</th>
-                            <th className="p-3 text-right">Ações</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {despesasDoProjeto.map((d) => (
-                            <tr key={d.id} className="hover:bg-slate-50">
-                              <td className="p-3 font-bold text-slate-800 whitespace-nowrap">
-                                📅 {d.data_despesa?.split('-').reverse().join('/')}
-                              </td>
-                              <td className="p-3 font-semibold text-slate-800">{d.descricao}</td>
-                              <td className="p-3">
-                                <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
-                                  {d.categoria || 'Geral'}
-                                </span>
-                              </td>
-                              <td className="p-3 font-bold text-rose-700">
-                                R$ {Number(d.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                              <td className="p-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() => handleExcluirDespesa(d.id)}
-                                  className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
-                                >
-                                  🗑️ Excluir
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
+                              setSenhaExclusao('');
+                              setShowDeleteModal(true);
+                            }}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Excluir
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
-        </div>
+        </>
       )}
 
-      {/* MODAL DE RELATÓRIO DE ENCERRAMENTO (SINTÉTICO E ANALÍTICO) */}
-      {modalEncerramentoOpen && projetoSelecionado && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
-            <div className="flex justify-between items-center border-b pb-4 shrink-0">
+      {/* CONTEÚDO DA ABA: CONTAS ADM */}
+      {!loading && subAba === 'contas_adm' && (
+        <>
+          {contasAdmList.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <p className="text-slate-500 text-sm">Nenhuma conta administrativa cadastrada.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                    <th className="p-3">Tipo / Descrição (Código Conta)</th>
+                    <th className="p-3">Nome / Banco</th>
+                    <th className="p-3">Agência</th>
+                    <th className="p-3">Número da Conta</th>
+                    <th className="p-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm">
+                  {contasAdmList.map((adm) => (
+                    <tr key={adm.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 font-bold text-blue-900">{adm.codigo_conta}</td>
+                      <td className="p-3 font-semibold text-slate-800">{adm.nome_conta}</td>
+                      <td className="p-3 text-slate-600">{adm.agencia || '-'}</td>
+                      <td className="p-3 text-slate-600">{adm.numero_conta || '-'}</td>
+                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingAdm(adm);
+                            setFormAdm({
+                              codigo_conta: adm.codigo_conta,
+                              nome_conta: adm.nome_conta,
+                              agencia: adm.agencia || '',
+                              numero_conta: adm.numero_conta || '',
+                            });
+                            setSenhaExclusao('');
+                            setShowModalAdm(true);
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setItemParaExcluir({ id: adm.id, tipo: 'conta_adm', nome: `${adm.codigo_conta} - ${adm.nome_conta}` });
+                            setSenhaExclusao('');
+                            setShowDeleteModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Excluir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
+      {!loading && subAba === 'plano_contas' && (
+        <>
+          {contasContabeis.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <p className="text-slate-500 text-sm">Nenhuma conta cadastrada no plano de contas.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                    <th className="p-3">Código</th>
+                    <th className="p-3">Nome da Conta</th>
+                    <th className="p-3">Natureza</th>
+                    <th className="p-3 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-sm">
+                  {contasContabeis.map((c) => (
+                    <tr key={c.id} className="hover:bg-slate-50/80 transition">
+                      <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
+                      <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
+                      <td className="p-3">
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border">
+                          {c.tipo_natureza}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingConta(c);
+                            setFormConta({
+                              codigo_conta: c.codigo_conta,
+                              nome_conta: c.nome_conta,
+                              conta_pai: c.conta_pai || '',
+                              tipo_natureza: c.tipo_natureza,
+                            });
+                            setSenhaExclusao('');
+                            setShowModalConta(true);
+                          }}
+                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
+                            setSenhaExclusao('');
+                            setShowDeleteModal(true);
+                          }}
+                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                        >
+                          Excluir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* CONTEÚDO DA ABA: RELATÓRIOS */}
+      {!loading && subAba === 'relatorios' && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('conta_corrente')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'conta_corrente' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              1) Conta Corrente
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('diario')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'diario' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              2) Diário
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('balancete')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'balancete' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              3) Balancete
+            </button>
+            <button
+              type="button"
+              onClick={() => setTipoRelatorio('dre')}
+              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
+                tipoRelatorio === 'dre' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              4) DRE
+            </button>
+          </div>
+
+          <div className="printable-area bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
+            
+            <div className="flex justify-between items-center border-b pb-4">
               <div>
-                <h3 className="text-xl font-black text-blue-900">
-                  📊 Relatório de Fechamento de Caixa — {projetoSelecionado.nome_projeto}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Demonstrativo financeiro analítico e sintético oficial do projeto.
-                </p>
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Igreja ID: {codigoIgreja}</span>
+                <p className="text-xs text-slate-500">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setModalEncerramentoOpen(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-
-            {/* SELETOR DE ABAS (SINTÉTICO / ANALÍTICO) */}
-            <div className="flex gap-2 border-b pb-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setTipoRelatorio('sintetico')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  tipoRelatorio === 'sintetico'
-                    ? 'bg-blue-900 text-white shadow'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                📋 Caixa Sintético (Resumo)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setTipoRelatorio('analitico')}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                  tipoRelatorio === 'analitico'
-                    ? 'bg-blue-900 text-white shadow'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                🔍 Caixa Analítico (Lançamentos Detalhados)
-              </button>
-            </div>
-
-            <div className="overflow-y-auto flex-1 pr-1 space-y-4 text-xs">
-              {tipoRelatorio === 'sintetico' ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
-                      <p className="text-emerald-700 font-bold">Total Arrecadado (Pago)</p>
-                      <h4 className="text-xl font-black text-emerald-900 mt-1">
-                        R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                    </div>
-                    <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl">
-                      <p className="text-rose-700 font-bold">Total Despesas Executadas</p>
-                      <h4 className="text-xl font-black text-rose-900 mt-1">
-                        R$ {totalDespesasExecutadas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                    </div>
-                    <div className={`p-4 rounded-2xl border ${isSuperavitReal ? 'bg-blue-50 border-blue-200' : 'bg-rose-50 border-rose-200'}`}>
-                      <p className={`font-bold ${isSuperavitReal ? 'text-blue-700' : 'text-rose-700'}`}>Saldo Final em Caixa</p>
-                      <h4 className={`text-xl font-black mt-1 ${isSuperavitReal ? 'text-blue-900' : 'text-rose-900'}`}>
-                        {isSuperavitReal ? 'R$ ' : '-R$ '}
-                        {Math.abs(balancoComDespesasReais).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </h4>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 p-4 rounded-2xl border space-y-2">
-                    <h4 className="font-bold text-slate-700">Resumo Consolidado</h4>
-                    <div className="flex justify-between py-1 border-b">
-                      <span>Total de Participantes Inscritos:</span>
-                      <span className="font-bold text-slate-800">{inscricoesDoProjeto.length} participante(s)</span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span>Inscrições Quitadas:</span>
-                      <span className="font-bold text-emerald-700">
-                        {inscricoesDoProjeto.filter(i => i.status_pagamento === 'Pago').length} quitada(s)
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1 border-b">
-                      <span>Valores Pendentes:</span>
-                      <span className="font-bold text-amber-700">
-                        R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex justify-between py-1">
-                      <span>Total de Despesas Lançadas:</span>
-                      <span className="font-bold text-rose-700">{despesasDoProjeto.length} despesa(s)</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="font-bold text-slate-700 mb-2">Entradas (Inscrições e Participações)</h4>
-                    {inscricoesDoProjeto.length === 0 ? (
-                      <p className="text-slate-400 italic">Nenhuma inscrição registrada.</p>
-                    ) : (
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b bg-slate-50 text-slate-600 font-bold">
-                            <th className="p-2">Participante</th>
-                            <th className="p-2">Status</th>
-                            <th className="p-2 text-right">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {inscricoesDoProjeto.map((i) => (
-                            <tr key={i.id}>
-                              <td className="p-2">
-                                <p className="font-bold text-slate-800">{i.nome_participante}</p>
-                                <p className="text-[10px] text-slate-500">Forma: {i.forma_pagamento || 'N/A'}</p>
-                              </td>
-                              <td className="p-2">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${i.status_pagamento === 'Pago' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
-                                  {i.status_pagamento}
-                                </span>
-                              </td>
-                              <td className="p-2 text-right font-bold text-emerald-700">
-                                R$ {Number(i.valor_participacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-
-                  <div className="pt-2 border-t">
-                    <h4 className="font-bold text-slate-700 mb-2">Saídas (Despesas Executadas)</h4>
-                    {despesasDoProjeto.length === 0 ? (
-                      <p className="text-slate-400 italic">Nenhuma despesa lançada.</p>
-                    ) : (
-                      <table className="w-full text-left border-collapse">
-                        <thead>
-                          <tr className="border-b bg-slate-50 text-slate-600 font-bold">
-                            <th className="p-2">Descrição</th>
-                            <th className="p-2">Categoria</th>
-                            <th className="p-2 text-right">Valor</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {despesasDoProjeto.map((d) => (
-                            <tr key={d.id}>
-                              <td className="p-2">
-                                <p className="font-bold text-slate-800">{d.descricao}</p>
-                                <p className="text-[10px] text-slate-500">Data: {d.data_despesa?.split('-').reverse().join('/')}</p>
-                              </td>
-                              <td className="p-2 font-semibold text-slate-600">{d.categoria}</td>
-                              <td className="p-2 text-right font-bold text-rose-700">
-                                R$ {Number(d.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="border-t pt-4 flex justify-between shrink-0">
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow cursor-pointer"
+                className="no-print px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-2"
               >
                 🖨️ Imprimir / Salvar PDF
               </button>
-              <button
-                type="button"
-                onClick={() => setModalEncerramentoOpen(false)}
-                className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
-              >
-                Concluir
-              </button>
             </div>
+
+            {/* RELATÓRIO 1: CONTA CORRENTE */}
+            {tipoRelatorio === 'conta_corrente' && (
+              <div>
+                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
+                <p className="text-xs text-slate-500 mb-4">Movimentação financeira com saldo parcial acumulado por linha.</p>
+                
+                <div className="overflow-x-auto bg-white rounded-xl border">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Conta Adm</th>
+                        <th className="p-3">Histórico</th>
+                        <th className="p-3 text-right">Entrada</th>
+                        <th className="p-3 text-right">Saída</th>
+                        <th className="p-3 text-right">Saldo Parcial</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {lancamentosComSaldo.map((l) => {
+                        const isReceita = l.tipo === 'receita';
+                        const saldoPositivo = l.saldoParcial >= 0;
+                        return (
+                          <tr key={l.id}>
+                            <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                            <td className="p-3 font-semibold text-slate-800">{getNomeContaAdm(l.conta_corrente_id)}</td>
+                            <td className="p-3 text-slate-600">{l.descricao}</td>
+                            <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
+                            <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
+                            <td className={`p-3 text-right font-black ${saldoPositivo ? 'text-blue-900' : 'text-rose-700'}`}>
+                              R$ {l.saldoParcial.toFixed(2)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RELATÓRIO 2: DIÁRIO */}
+            {tipoRelatorio === 'diario' && (
+              <div>
+                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
+                <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
+                
+                <div className="overflow-x-auto bg-white rounded-xl border">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                        <th className="p-3">Data</th>
+                        <th className="p-3">Descrição da Operação</th>
+                        <th className="p-3">Conta Contábil Vinculada</th>
+                        <th className="p-3 text-right">Valor (R$)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {lancamentos.map((l) => (
+                        <tr key={l.id}>
+                          <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                          <td className="p-3 font-medium text-slate-800">{l.descricao}</td>
+                          <td className="p-3 text-blue-900 font-semibold">{getNomeContaContabil(l.id_conta_contabil)}</td>
+                          <td className="p-3 text-right font-black">R$ {Number(l.valor).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RELATÓRIO 3: BALANCETE */}
+            {tipoRelatorio === 'balancete' && (
+              <div>
+                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
+                <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
+                
+                <div className="overflow-x-auto bg-white rounded-xl border">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                        <th className="p-3">Código</th>
+                        <th className="p-3">Nome da Conta</th>
+                        <th className="p-3">Natureza</th>
+                        <th className="p-3 text-right">Saldo Movimentado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {dadosBalancete.map((c) => (
+                        <tr key={c.id}>
+                          <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
+                          <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
+                          <td className="p-3">{c.tipo_natureza}</td>
+                          <td className="p-3 text-right font-black text-slate-800">R$ {c.total.toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* RELATÓRIO 4: DRE */}
+            {tipoRelatorio === 'dre' && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-black text-blue-900 text-lg">Demonstração do Resultado do Exercício (DRE)</h3>
+                  <p className="text-xs text-slate-500">Resumo oficial de receitas, despesas e superávit/déficit do período.</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border p-6 space-y-4 shadow-sm">
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-bold text-emerald-800 text-sm">🟢 Total de Receitas</span>
+                    <span className="font-black text-emerald-700 text-base">R$ {totalReceitas.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center border-b pb-3">
+                    <span className="font-bold text-rose-800 text-sm">🔴 Total de Despesas</span>
+                    <span className="font-black text-rose-700 text-base">R$ {totalDespesas.toFixed(2)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="font-black text-blue-900 text-base"> Resultado Líquido (Superávit / Déficit):</span>
+                    <span className={`font-black text-lg ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      R$ {resultadoLiquido.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       )}
 
-      {/* MODAL 1: CRIAR / EDITAR PROJETO */}
-      {modalNovoProjeto && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-black text-blue-900">
-                {projetoEmEdicao ? 'Editar Projeto' : 'Novo Projeto'}
+      {/* MODAL DE NOVO / EDITAR LANÇAMENTO */}
+      {showModalLancamento && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
+              <h3 className="text-xl font-black text-blue-900">
+                {editingLancamento ? 'Editar Lançamento Financeiro' : 'Novo Lançamento Financeiro'}
               </h3>
               <button
                 type="button"
-                onClick={() => setModalNovoProjeto(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
+                onClick={() => setShowModalLancamento(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
               >
                 ✕ Fechar
               </button>
             </div>
 
-            <form onSubmit={handleSalvarProjeto} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nome do Projeto *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Acampamento de Verão 2026"
-                  value={nomeProjeto}
-                  onChange={(e) => setNomeProjeto(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
+            <form onSubmit={handleSubmitLancamento} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Data do Evento</label>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo *</label>
+                  <select
+                    value={formLancamento.tipo}
+                    onChange={(e) => setFormLancamento({ ...formLancamento, tipo: e.target.value as any })}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                    required
+                  >
+                    <option value="receita">🟢 Receita (Entrada)</option>
+                    <option value="despesa">🔴 Despesa (Saída)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data *</label>
                   <input
                     type="date"
-                    value={dataEvento}
-                    onChange={(e) => setDataEvento(e.target.value)}
-                    className="w-full border rounded-xl p-2.5 bg-white font-semibold"
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Hora</label>
-                  <input
-                    type="time"
-                    value={horaEvento}
-                    onChange={(e) => setHoraEvento(e.target.value)}
-                    className="w-full border rounded-xl p-2.5 bg-white font-semibold"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Local do Evento</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Templo Sede, Sitio Recanto..."
-                  value={localEvento}
-                  onChange={(e) => setLocalEvento(e.target.value)}
-                  className="w-full border rounded-xl p-2.5"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Custo Estimado / Orçado (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={valorEstimado}
-                  onChange={(e) => setValorEstimado(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Status do Projeto</label>
-                <select
-                  value={statusProjeto}
-                  onChange={(e) => setStatusProjeto(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
-                >
-                  <option value="Em Andamento">Em Andamento</option>
-                  <option value="Concluído">Concluído</option>
-                  <option value="Cancelado">Cancelado</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Descrição / Observações</label>
-                <textarea
-                  placeholder="Detalhes adicionais..."
-                  value={descricaoProjeto}
-                  onChange={(e) => setDescricaoProjeto(e.target.value)}
-                  className="w-full border rounded-xl p-2.5"
-                  rows={2}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-blue-900 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
-              >
-                ⚡ {projetoEmEdicao ? 'Salvar Alterações' : 'Criar & Sincronizar com Agenda'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: INSCRIÇÃO DE PARTICIPANTE */}
-      {modalInscricao && projetoSelecionado && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-lg font-black text-blue-900">
-                  {inscricaoEdicao ? 'Editar Inscrição' : 'Adicionar Inscrição'}
-                </h3>
-                <p className="text-xs text-slate-500">Projeto: {projetoSelecionado.nome_projeto}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalInscricao(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleSalvarInscricao} className="space-y-3 text-xs">
-              {!inscricaoEdicao && (
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Membro Cadastrado (Opcional)</label>
-                  <select
-                    value={membroSelecionadoId}
-                    onChange={(e) => handleSelecionarMembro(e.target.value)}
-                    className="w-full border rounded-xl p-2.5 bg-white font-medium"
-                  >
-                    <option value="">Selecione da lista ou digite abaixo...</option>
-                    {membros.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        👤 {m.nome}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Nome do Participante *</label>
-                <input
-                  type="text"
-                  placeholder="Nome do inscrito"
-                  value={nomeParticipante}
-                  onChange={(e) => setNomeParticipante(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Telefone / WhatsApp</label>
-                  <input
-                    type="text"
-                    placeholder="(00) 00000-0000"
-                    value={celularParticipante}
-                    onChange={(e) => setCelularParticipante(e.target.value)}
-                    className="w-full border rounded-xl p-2.5"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">E-mail</label>
-                  <input
-                    type="email"
-                    placeholder="email@exemplo.com"
-                    value={emailParticipante}
-                    onChange={(e) => setEmailParticipante(e.target.value)}
-                    className="w-full border rounded-xl p-2.5"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Valor da Participação (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="0,00"
-                  value={valorParticipacao}
-                  onChange={(e) => setValorParticipacao(e.target.value ? Number(e.target.value) : '')}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                />
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Status do Pagamento</label>
-                <select
-                  value={statusPagamento}
-                  onChange={(e) => setStatusPagamento(e.target.value as any)}
-                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
-                >
-                  <option value="Pendente">⏳ Pendente</option>
-                  <option value="Pago">✅ Pago</option>
-                  <option value="Cancelado">❌ Cancelado</option>
-                </select>
-              </div>
-
-              {statusPagamento === 'Pago' && (
-                <div className="grid grid-cols-2 gap-2 bg-emerald-50 p-3 rounded-xl border border-emerald-200">
-                  <div>
-                    <label className="block font-bold text-emerald-900 mb-1">Forma de Pagamento</label>
-                    <select
-                      value={formaPagamento}
-                      onChange={(e) => setFormaPagamento(e.target.value)}
-                      className="w-full border rounded-xl p-2 bg-white font-bold"
-                    >
-                      <option value="Pix">Pix</option>
-                      <option value="Dinheiro">Dinheiro</option>
-                      <option value="Cartão de Crédito">Cartão de Crédito</option>
-                      <option value="Cartão de Débito">Cartão de Débito</option>
-                      <option value="Transferência">Transferência</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block font-bold text-emerald-900 mb-1">Data do Pagamento</label>
-                    <input
-                      type="date"
-                      value={dataPagamento}
-                      onChange={(e) => setDataPagamento(e.target.value)}
-                      className="w-full border rounded-xl p-2 bg-white font-bold"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Observações</label>
-                <textarea
-                  placeholder="Observações do inscrito..."
-                  value={obsInscricao}
-                  onChange={(e) => setObsInscricao(e.target.value)}
-                  className="w-full border rounded-xl p-2.5"
-                  rows={2}
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
-              >
-                💾 {inscricaoEdicao ? 'Salvar Alterações' : 'Confirmar Inscrição'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: LANÇAR DESPESA REAL */}
-      {modalDespesa && projetoSelecionado && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 space-y-4">
-            <div className="flex justify-between items-center border-b pb-3">
-              <div>
-                <h3 className="text-lg font-black text-blue-900">Lançar Despesa no Projeto</h3>
-                <p className="text-xs text-slate-500">Projeto: {projetoSelecionado.nome_projeto}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setModalDespesa(false)}
-                className="text-xs font-bold text-slate-500 hover:text-rose-600 cursor-pointer"
-              >
-                ✕ Fechar
-              </button>
-            </div>
-
-            <form onSubmit={handleSalvarDespesa} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">Descrição da Despesa *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Compra de materiais, aluguel..."
-                  value={descricaoDespesa}
-                  onChange={(e) => setDescricaoDespesa(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Categoria</label>
-                  <select
-                    value={categoriaDespesa}
-                    onChange={(e) => setCategoriaDespesa(e.target.value)}
-                    className="w-full border rounded-xl p-2.5 bg-white font-bold"
-                  >
-                    <option value="Alimentação">Alimentação</option>
-                    <option value="Transporte">Transporte</option>
-                    <option value="Locação de Espaço">Locação de Espaço</option>
-                    <option value="Som e Iluminação">Som e Iluminação</option>
-                    <option value="Material Grafico">Material Gráfico</option>
-                    <option value="Decoração">Decoração</option>
-                    <option value="Outros">Outros</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">Valor (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="0,00"
-                    value={valorDespesa}
-                    onChange={(e) => setValorDespesa(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                    value={formLancamento.data_lancamento}
+                    onChange={(e) => setFormLancamento({ ...formLancamento, data_lancamento: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Data</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição *</label>
                 <input
-                  type="date"
-                  value={dataDespesa}
-                  onChange={(e) => setDataDespesa(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 bg-white font-bold"
+                  type="text"
+                  value={formLancamento.descricao}
+                  onChange={(e) => setFormLancamento({ ...formLancamento, descricao: e.target.value })}
+                  placeholder="Ex: Dízimos do Culto, Conta de Luz"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  required
                 />
               </div>
 
-              <button
-                type="submit"
-                className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer mt-2"
-              >
-                💾 Lançar Despesa
-              </button>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Valor (R$) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formLancamento.valor}
+                  onChange={(e) => setFormLancamento({ ...formLancamento, valor: e.target.value })}
+                  placeholder="0.00"
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none font-bold text-blue-900"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  🏦 Conta Adm (Caixa / Banco) *
+                </label>
+                <select
+                  value={formLancamento.conta_corrente_id}
+                  onChange={(e) => setFormLancamento({ ...formLancamento, conta_corrente_id: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                  required
+                >
+                  <option value="">Selecione a conta administrativa...</option>
+                  {contasAdmList.map((adm) => (
+                    <option key={adm.id} value={adm.id}>{adm.codigo_conta} ({adm.nome_conta})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
+                  📊 Conta do Plano de Contas (Contábil / DRE) *
+                </label>
+                <select
+                  value={formLancamento.id_conta_contabil}
+                  onChange={(e) => setFormLancamento({ ...formLancamento, id_conta_contabil: e.target.value })}
+                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                  required
+                >
+                  <option value="">Selecione a conta do plano contábil...</option>
+                  {contasContabeis.map((c) => (
+                    <option key={c.id} value={c.id}>{c.codigo_conta} - {c.nome_conta} ({c.tipo_natureza})</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* VÍNCULO COM MEMBRO */}
+              <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
+                  <input
+                    type="checkbox"
+                    checked={relacionadoMembro}
+                    onChange={(e) => {
+                      setRelacionadoMembro(e.target.checked);
+                      if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
+                    }}
+                    className="w-4 h-4 rounded text-blue-900"
+                  />
+                  <span>Está relacionado a algum membro?</span>
+                </label>
+
+                {relacionadoMembro && (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pesquisar / Selecionar Membro *</label>
+                    <select
+                      value={formLancamento.membro_id}
+                      onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900"
+                      required={relacionadoMembro}
+                    >
+                      <option value="">Selecione o membro...</option>
+                      {membrosList.map((m) => (
+                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* INSERIR DOCUMENTO / COMPROVANTE */}
+              <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
+                <label className="block text-xs font-bold text-blue-900 uppercase">
+                  📎 Inserir Documento / Comprovante (Foto ou Arquivo)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  capture="environment"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setArquivoDocumento(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full border border-blue-300 rounded-xl px-3 py-2 text-xs bg-white font-medium cursor-pointer"
+                />
+                {arquivoDocumento && (
+                  <p className="text-xs text-emerald-700 font-bold">
+                    Selecionado: {arquivoDocumento.name}
+                  </p>
+                )}
+              </div>
+
+              {/* SENHA APENAS NA EDIÇÃO */}
+              {editingLancamento && (
+                <div className="pt-2 border-t">
+                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                  <input
+                    type="password"
+                    value={senhaExclusao}
+                    onChange={(e) => setSenhaExclusao(e.target.value)}
+                    placeholder="Sua senha atual"
+                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowModalLancamento(false)}
+                  className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
+                >
+                  {editingLancamento ? 'Salvar Alterações' : 'Salvar Lançamento'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* MODAL DE RECIBO */}
+      {showModalRecibo && lancamentoParaRecibo && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4 no-print">
+              <h3 className="text-lg font-black text-blue-900">Visualizar Comprovante / Recibo</h3>
+              <button
+                type="button"
+                onClick={() => setShowModalRecibo(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="receipt-print border-2 border-dashed border-slate-300 p-6 rounded-2xl bg-white space-y-6 text-slate-800">
+              <div className="text-center space-y-1 border-b pb-4">
+                <h2 className="text-xl font-black text-blue-900 uppercase">
+                  Comprovante de {lancamentoParaRecibo.tipo === 'receita' ? 'Recebimento' : 'Pagamento'}
+                </h2>
+                <p className="text-xs text-slate-500">Igreja ID: {codigoIgreja}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
+                <div>
+                  <span className="text-slate-400 block uppercase">Data do Lançamento:</span>
+                  <span className="text-sm font-bold">{lancamentoParaRecibo.data_lancamento?.split('-').reverse().join('/')}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block uppercase">Valor:</span>
+                  <span className={`text-lg font-black ${lancamentoParaRecibo.tipo === 'receita' ? 'text-emerald-700' : 'text-rose-700'}`}>
+                    R$ {Number(lancamentoParaRecibo.valor).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="text-xs space-y-2">
+                <div>
+                  <span className="text-slate-400 block uppercase">Histórico / Descrição:</span>
+                  <p className="text-sm font-bold text-slate-800 bg-slate-50 p-3 rounded-xl border">
+                    {lancamentoParaRecibo.descricao}
+                  </p>
+                </div>
+
+                {lancamentoParaRecibo.membro_id && (
+                  <div>
+                    <span className="text-slate-400 block uppercase">Contribuinte / Membro:</span>
+                    <p className="text-sm font-bold text-blue-900">
+                      {getNomeMembroVinculado(lancamentoParaRecibo.membro_id)}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-12 flex justify-between items-center text-center text-xs border-t">
+                <div className="w-1/2">
+                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
+                  <p className="font-semibold text-slate-600">Tesouraria / Administração</p>
+                </div>
+                <div className="w-1/2">
+                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
+                  <p className="font-semibold text-slate-600">Assinatura do Contribuinte</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2 no-print">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
+              >
+                🖨️ Imprimir Comprovante (Meia Folha A4)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONTA ADM */}
+      {showModalAdm && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
+            <h3 className="text-xl font-black text-blue-900">
+              {editingAdm ? 'Editar Conta Adm' : 'Nova Conta Adm'}
+            </h3>
+            
+            <form onSubmit={handleSubmitAdm} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Tipo / Descrição (Código da Conta) *</label>
+                <input
+                  type="text"
+                  value={formAdm.codigo_conta}
+                  onChange={(e) => setFormAdm({ ...formAdm, codigo_conta: e.target.value })}
+                  placeholder="Ex: Caixa Geral, Conta Bancária"
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nome / Banco *</label>
+                <input
+                  type="text"
+                  value={formAdm.nome_conta}
+                  onChange={(e) => setFormAdm({ ...formAdm, nome_conta: e.target.value })}
+                  placeholder="Ex: CAIXA, BANCO SICOOB CREDIVALE"
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Agência</label>
+                  <input
+                    type="text"
+                    value={formAdm.agencia}
+                    onChange={(e) => setFormAdm({ ...formAdm, agencia: e.target.value })}
+                    placeholder="0000"
+                    className="w-full border rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Número da Conta</label>
+                  <input
+                    type="text"
+                    value={formAdm.numero_conta}
+                    onChange={(e) => setFormAdm({ ...formAdm, numero_conta: e.target.value })}
+                    placeholder="00000-0"
+                    className="w-full border rounded-xl px-3 py-2 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 border-t">
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  placeholder="Sua senha atual"
+                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowModalAdm(false); setEditingAdm(null); }}
+                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
+                >
+                  {editingAdm ? 'Salvar Alterações' : 'Cadastrar Conta Adm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE PLANO DE CONTAS */}
+      {showModalConta && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
+            <h3 className="text-xl font-black text-blue-900">
+              {editingConta ? 'Editar Conta Contábil' : 'Nova Conta Contábil'}
+            </h3>
+            
+            <form onSubmit={handleSubmitConta} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
+                <input
+                  type="text"
+                  value={formConta.codigo_conta}
+                  onChange={(e) => setFormConta({ ...formConta, codigo_conta: e.target.value })}
+                  placeholder="Ex: 3.1.01.01"
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta *</label>
+                <input
+                  type="text"
+                  value={formConta.nome_conta}
+                  onChange={(e) => setFormConta({ ...formConta, nome_conta: e.target.value })}
+                  placeholder="Ex: Dízimos Recebidos"
+                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">Natureza *</label>
+                <select
+                  value={formConta.tipo_natureza}
+                  onChange={(e) => setFormConta({ ...formConta, tipo_natureza: e.target.value })}
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white"
+                  required
+                >
+                  <option value="Receita">Receita</option>
+                  <option value="Despesa">Despesa</option>
+                  <option value="Ativo">Ativo</option>
+                  <option value="Passivo">Passivo</option>
+                </select>
+              </div>
+
+              <div className="pt-2 border-t">
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  placeholder="Sua senha atual"
+                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setShowModalConta(false); setEditingConta(null); }}
+                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
+                >
+                  {editingConta ? 'Salvar Alterações' : 'Cadastrar Conta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE EXCLUSÃO */}
+      {showDeleteModal && itemParaExcluir && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
+            <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>
+            <p className="text-sm text-slate-600">
+              Você vai excluir <strong className="text-slate-800">{itemParaExcluir.nome}</strong>. Digite sua senha para confirmar:
+            </p>
+            <form onSubmit={confirmarExclusao} className="space-y-4">
+              <input
+                type="password"
+                value={senhaExclusao}
+                onChange={(e) => setSenhaExclusao(e.target.value)}
+                placeholder="Sua senha atual"
+                className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowDeleteModal(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-rose-600 text-white text-sm font-bold rounded-xl cursor-pointer">Confirmar Exclusão</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -36,6 +36,8 @@ interface Membro {
   id: string;
   nome: string;
   email?: string;
+  telefone?: string;
+  whatsapp?: string;
 }
 
 interface FinanceiroModuleProps {
@@ -107,7 +109,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
-  const remetenteFixo = 'vepchurchteo@gmail.com';
 
   const registrarLog = async (acao: string, detalhes: string) => {
     try {
@@ -153,9 +154,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
+      // Busca membros trazendo telemóvel/whatsapp se houver nas colunas
       const resMemb = await supabase
         .from('members')
-        .select('id, nome, email')
+        .select('id, nome, email, telefone, whatsapp')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
@@ -360,52 +362,49 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  const handleEnviarAgradecimento = async (lanc: Lancamento) => {
+  // Função para abrir o WhatsApp do membro com a mensagem de agradecimento
+  const handleEnviarWhatsapp = async (lanc: Lancamento) => {
     if (!lanc.membro_id) {
       return alert('Este lançamento não está vinculado a nenhum membro.');
     }
 
     const membro = membrosList.find((m) => m.id === lanc.membro_id);
-    if (!membro || !membro.email) {
-      return alert('O membro vinculado não possui e-mail cadastrado no sistema.');
+    if (!membro) {
+      return alert('Membro não encontrado.');
+    }
+
+    // Pega o telefone ou whatsapp cadastrado
+    const telBruto = membro.whatsapp || membro.telefone || '';
+    const telefoneLimpo = telBruto.replace(/\D/g, '');
+
+    if (!telefoneLimpo) {
+      return alert(`O membro ${membro.nome} não possui número de telemóvel/WhatsApp cadastrado.`);
     }
 
     const descLower = (lanc.descricao || '').toLowerCase();
     const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
 
     if (!ehDizimoOuOferta) {
-      return alert('O envio automático de agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
+      return alert('O agradecimento via WhatsApp é exclusivo para lançamentos de Dízimo ou Oferta.');
     }
 
     try {
-      const assunto = 'Comprovante de Contribuição - Agradecimento';
-      const mensagem = `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\nDeus abençoe pela sua contribuição, prosperando sua casa.`;
+      const mensagem = `Olá, ${membro.nome}! Passando para agradecer a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(lanc.valor).toFixed(2)}. Deus abençoe pela sua contribuição, prosperando sua casa! 🙏✨`;
       
-      // Grava na fila de e-mails para processamento automatizado pelo backend do Supabase
-      const { error: emailError } = await supabase.from('fila_emails').insert([
-        {
-          codigo_igreja: codigoIgreja,
-          destinatario: membro.email,
-          remetente: remetenteFixo,
-          assunto: assunto,
-          mensagem: mensagem,
-          status: 'pendente',
-        },
-      ]);
+      // Abre o WhatsApp (Web ou App) com o número e a mensagem prontos
+      const urlWhatsapp = `https://api.whatsapp.com/send?phone=55${telefoneLimpo}&text=${encodeURIComponent(mensagem)}`;
+      window.open(urlWhatsapp, '_blank');
 
-      if (emailError) throw emailError;
-
-      // Atualiza o lançamento para refletir o status visual verde (agradecido)
+      // Atualiza no banco para marcar como agradecido (botão verde)
       await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
         .eq('id', lanc.id);
 
-      alert(`✅ E-mail de agradecimento enviado com sucesso via ${remetenteFixo} para ${membro.email}!`);
-      await registrarLog('ENVIO_AGRADECIMENTO', `Disparou agradecimento de ${remetenteFixo} para ${membro.email}`);
+      await registrarLog('ENVIO_WHATSAPP', `Abriu WhatsApp para ${membro.nome} (${telefoneLimpo})`);
       fetchDados();
     } catch (err: any) {
-      alert('Erro ao enfileirar/enviar e-mail: ' + err.message);
+      alert('Erro ao abrir o WhatsApp: ' + err.message);
     }
   };
 
@@ -662,19 +661,19 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             🖨️ Recibo
                           </button>
 
-                          {/* BOTÃO AGRADECER COM INDICADOR VISUAL (VERDE/VERMELHO) */}
+                          {/* BOTÃO WHATSAPP COM INDICADOR VISUAL (VERDE/VERMELHO) */}
                           {ehDizimoOuOferta && l.membro_id && (
                             <button
                               type="button"
-                              onClick={() => handleEnviarAgradecimento(l)}
+                              onClick={() => handleEnviarWhatsapp(l)}
                               className={`px-2.5 py-1 font-bold text-xs rounded-lg transition cursor-pointer border ${
                                 l.agradecimento_enviado 
                                   ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
                                   : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                               }`}
-                              title={l.agradecimento_enviado ? "Agradecimento já enviado" : "Enviar e-mail de agradecimento"}
+                              title={l.agradecimento_enviado ? "Agradecimento já enviado via WhatsApp" : "Enviar agradecimento via WhatsApp"}
                             >
-                              {l.agradecimento_enviado ? '🟢 Agradecido' : '🔴 Agradecer'}
+                              {l.agradecimento_enviado ? '🟢 Agradecido' : '💬 Agradecer'}
                             </button>
                           )}
 

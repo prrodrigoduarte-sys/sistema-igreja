@@ -1,1210 +1,1936 @@
-// src/FinanceiroModule.tsx
+/* ========================================================================== */
+/* 1. IMPORTAÇÕES E CONFIGURAÇÕES INICIAIS                                    */
+/* ========================================================================== */
+if (typeof window !== 'undefined') {
+  (window as any).setSubAbaAtiva = (window as any).setSubAbaAtiva || function () {};
+}
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+import ProjetosModule from './ProjetosModule';
+import MembrosModule from './MembrosModule';
+import FornecedoresModule from './FornecedoresModule';
+import MinisteriosModule from './MinisteriosModule';
+import UsuariosModule from './UsuariosModule';
+import CadastroPublico from './CadastroPublico';
+import AgendaModule from './AgendaModule';
+import FinanceiroModule from './FinanceiroModule';
+import ControleRegistroModule from './ControleRegistroModule';
+import CelulasModule from './CelulasModule';
+import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
+import DiscipuladoDEAModule from './DiscipuladoDEAModule';
+import AppMobileModule from './AppMobileModule';
+import CadastroIgrejaModule from './CadastroIgrejaModule';
+import { MessageSquare, Send, Bell, Trash2 } from 'lucide-react';
 
-interface Lancamento {
-  id: string;
-  codigo_igreja: string;
-  data_lancamento: string;
-  tipo: 'receita' | 'despesa';
-  descricao: string;
-  valor: number;
-  conta_corrente_id: string;
-  id_conta_contabil: string;
-  membro_id?: string;
+function getOrCreateDeviceToken() {
+  let token = localStorage.getItem('app_device_token');
+  if (!token) {
+    token = 'DEV-' + Math.random().toString(36).substring(2) + Date.now().toString(36);
+    localStorage.setItem('app_device_token', token);
+  }
+  return token;
 }
 
-interface ContaContabil {
-  id: string;
-  codigo_conta: string;
-  nome_conta: string;
-  tipo_natureza: string;
-  conta_pai?: string;
-}
+export default function App() {
+  const [isMobileSubdomain, setIsMobileSubdomain] = useState(false);
+  const [rotaPublica, setRotaPublica] = useState(
+    window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro')
+  );
 
-interface ContaFinanceiraAdm {
-  id: string;
-  codigo_conta: string;
-  nome_conta: string;
-  agencia?: string;
-  numero_conta?: string;
-}
+  const [loading, setLoading] = useState(true);
+  const [session, setSession] = useState<any>(null);
+  const [loggedUser, setLoggedUser] = useState<any>(null);
+  const [precisaCompletarPerfil, setPrecisaCompletarPerfil] = useState(false);
+  const [precisaCompletarCadastro, setPrecisaCompletarCadastro] = useState(false);
+  const [permissoesAtivas, setPermissoesAtivas] = useState<string[]>([]);
 
-interface Membro {
-  id: string;
-  nome: string;
-  email?: string;
-}
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [isCadastrosOpen, setIsCadastrosOpen] = useState(false);
+  const [isCelulasOpen, setIsCelulasOpen] = useState(false);
+  const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
+  const [isDiscipuladoOpen, setIsDiscipuladoOpen] = useState(true);
+  const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
+  const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
 
-interface FinanceiroModuleProps {
-  loggedUser: any;
-}
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [nomeUsuario, setNomeUsuario] = useState('');
+  const [codigoIgreja, setCodigoIgreja] = useState('');
+  const [isLogin, setIsLogin] = useState(true);
 
-const formLancamentoInicial = {
-  data_lancamento: new Date().toISOString().split('T')[0],
-  tipo: 'receita' as 'receita' | 'despesa',
-  descricao: '',
-  valor: '',
-  conta_corrente_id: '',
-  id_conta_contabil: '',
-  membro_id: '',
-};
+  const [chatMessages, setChatMessages] = useState<Array<any>>([
+    { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
+  ]);
+  const [messageInput, setMessageInput] = useState('');
+  const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
+  const [membrosChat, setMembrosChat] = useState<any[]>([]);
 
-const formContaContabilInicial = {
-  codigo_conta: '',
-  nome_conta: '',
-  conta_pai: '',
-  tipo_natureza: 'Despesa',
-};
+  const [exigir2FA, setExigir2FA] = useState(false);
+  const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
+  const [codigoGerado2FA, setCodigoGerado2FA] = useState('');
+  const [motivo2FA, setMotivo2FA] = useState('');
+  const [usuarioPendente2FA, setUsuarioPendente2FA] = useState<any>(null);
 
-const formContaAdmInicial = {
-  codigo_conta: '',
-  nome_conta: '',
-  agencia: '',
-  numero_conta: '',
-};
+  const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
+  const [gerandoQr, setGerandoQr] = useState(false);
 
-export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
-  const [subAba, setSubAba] = useState<'lancamentos' | 'contas_adm' | 'plano_contas' | 'relatorios'>('lancamentos');
-  const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre'>('conta_corrente');
-
-  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
-  const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
-  const [contasAdmList, setContasAdmList] = useState<ContaFinanceiraAdm[]>([]);
-  const [membrosList, setMembrosList] = useState<Membro[]>([]);
-  
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Modais Lançamentos
-  const [showModalLancamento, setShowModalLancamento] = useState(false);
-  const [editingLancamento, setEditingLancamento] = useState<Lancamento | null>(null);
-  const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
-  const [relacionadoMembro, setRelacionadoMembro] = useState(false);
-  const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
-
-  // Modais Plano de Contas
-  const [showModalConta, setShowModalConta] = useState(false);
-  const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
-  const [formConta, setFormConta] = useState(formContaContabilInicial);
-
-  // Modais Conta Adm
-  const [showModalAdm, setShowModalAdm] = useState(false);
-  const [editingAdm, setEditingAdm] = useState<ContaFinanceiraAdm | null>(null);
-  const [formAdm, setFormAdm] = useState(formContaAdmInicial);
-
-  // Exclusão / Senha
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_adm'; nome: string } | null>(null);
-  const [senhaExclusao, setSenhaExclusao] = useState('');
-
-  // Modal Impressão de Comprovante / Recibo
-  const [showModalRecibo, setShowModalRecibo] = useState(false);
-  const [lancamentoParaRecibo, setLancamentoParaRecibo] = useState<Lancamento | null>(null);
-
-  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
-  const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
-
-  const registrarLog = async (acao: string, detalhes: string) => {
-    try {
-      await supabase.from('logs_sistema').insert([
-        {
-          codigo_igreja: codigoIgreja,
-          usuario_email: emailUsuarioLogado,
-          acao,
-          detalhes,
-        },
-      ]);
-    } catch (err) {
-      console.error('Erro ao registrar log:', err);
-    }
-  };
-
-  const fetchDados = useCallback(async () => {
-    if (!codigoIgreja) return;
-    setLoading(true);
-    setError(null);
-
-    try {
-      const resLanc = await supabase
-        .from('lancamentos_financeiros')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('data_lancamento', { ascending: true });
-
-      if (!resLanc.error) setLancamentos(resLanc.data || []);
-
-      const resPlano = await supabase
-        .from('plano_contas_contabil')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('codigo_conta', { ascending: true });
-
-      if (!resPlano.error) setContasContabeis(resPlano.data || []);
-
-      const resAdm = await supabase
-        .from('contas_financeiras')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja);
-
-      if (!resAdm.error) setContasAdmList(resAdm.data || []);
-
-      const resMemb = await supabase
-        .from('members')
-        .select('id, nome, email')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome', { ascending: true });
-
-      if (!resMemb.error) setMembrosList(resMemb.data || []);
-
-    } catch (err: any) {
-      console.error('Erro ao carregar dados:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [codigoIgreja]);
+  const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+  const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
 
   useEffect(() => {
+    const hoje = new Date();
+    const dia = hoje.getDate();
+    const mes = hoje.getMonth() + 1;
+    const anoAtual = hoje.getFullYear();
+
+    const ultimaLimpezaAno = localStorage.getItem('ultimo_ano_limpeza_chat');
+
+    if (dia === 1 && mes === 1 && ultimaLimpezaAno !== anoAtual.toString()) {
+      setChatMessages(prev => prev.filter(m => !m.isBroadcast));
+      localStorage.setItem('ultimo_ano_limpeza_chat', anoAtual.toString());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (window.location.hostname.startsWith('app.')) {
+      setIsMobileSubdomain(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    const carregarDadosDoChat = async () => {
+      const { data: msgData, error: msgError } = await supabase
+        .from('chat_mensagens')
+        .select('*')
+        .eq('codigo_igreja', igrejaAtual)
+        .order('created_at', { ascending: true });
+
+      if (!msgError && msgData) {
+        const formatadas = msgData.map((m: any) => ({
+          id: m.id,
+          sender: m.sender,
+          text: m.text,
+          time: m.time,
+          isBroadcast: m.is_broadcast,
+          recipientId: m.recipient_id
+        }));
+        setChatMessages(formatadas.length > 0 ? formatadas : [
+          { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
+        ]);
+      }
+
+      const { data: membrosData, error: membrosError } = await supabase
+        .from('members')
+        .select('id, nome, tipo_cadastro, celular_principal, data_nascimento')
+        .eq('codigo_igreja', igrejaAtual)
+        .order('nome', { ascending: true });
+
+      if (!membrosError && membrosData) {
+        const membrosFormatados = membrosData.map((m: any) => ({
+          id: m.id.toString(),
+          nome: m.nome,
+          type: m.tipo_cadastro || 'Membro',
+          status: 'online',
+          celular_principal: m.celular_principal,
+          data_nascimento: m.data_nascimento,
+          ehLiderOuPastor: m.tipo_cadastro?.toLowerCase().includes('lider') || m.tipo_cadastro?.toLowerCase().includes('pastor')
+        }));
+        setMembrosChat(membrosFormatados);
+      }
+    };
+
+    if (loggedUser) {
+      carregarDadosDoChat();
+    }
+  }, [igrejaAtual, loggedUser]);
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim()) return;
+    
+    const isGeral = selectedRecipient === 'all';
+
+    const novaMsg = {
+      codigo_igreja: igrejaAtual,
+      sender: loggedUser?.nome_usuario || 'Você',
+      text: isGeral ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      is_broadcast: isGeral,
+      recipient_id: isGeral ? null : selectedRecipient
+    };
+
+    const { data, error } = await supabase
+      .from('chat_mensagens')
+      .insert([novaMsg])
+      .select()
+      .single();
+
+    if (error) {
+      alert('Erro ao enviar mensagem: ' + error.message);
+      return;
+    }
+
+    if (data) {
+      setChatMessages(prev => [...prev, {
+        id: data.id,
+        sender: data.sender,
+        text: data.text,
+        time: data.time,
+        isBroadcast: data.is_broadcast,
+        recipientId: data.recipient_id
+      }]);
+      setMessageInput('');
+    }
+  };
+
+  const handleExcluirMensagemChat = async (msgId: string, isBroadcastMsg?: boolean) => {
+    if (isBroadcastMsg && !isAdmin) {
+      alert('🔒 Apenas o Administrador pode excluir mensagens da conversa geral (todos os membros).');
+      return;
+    }
+
+    if (!window.confirm('Deseja realmente excluir esta mensagem?')) return;
+
+    const { error } = await supabase
+      .from('chat_mensagens')
+      .delete()
+      .eq('id', msgId);
+
+    if (error) {
+      alert('Erro ao excluir mensagem: ' + error.message);
+      return;
+    }
+
+    setChatMessages(prev => prev.filter(m => m.id !== msgId));
+  };
+
+  const todayStr = new Date().toISOString().slice(5, 10);
+  const todaysBirthdays = membrosChat.filter(m => (m.data_nascimento || '').slice(5, 10) === todayStr);
+
+  const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
+    const codigoHex = Math.floor(100000 + Math.random() * 900000).toString();
+    setCodigoGerado2FA(codigoHex);
+    setUsuarioPendente2FA(userTemp);
+    setMotivo2FA(motivo);
+    setExigir2FA(true);
+
+    alert(`🔒 SEGURANÇA (2º NÍVEL):\nMotivo: ${motivo}\n\nSeu código de verificação é: ${codigoHex}`);
+  };
+
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const emailLimpo = email.trim().toLowerCase();
+
+    const { data: authData, error } = await supabase.auth.signInWithPassword({
+      email: emailLimpo,
+      password,
+    });
+
+    if (error) {
+      const { data: regTentativa } = await supabase
+        .from('tentativas_login')
+        .select('*')
+        .eq('email', emailLimpo)
+        .maybeSingle();
+
+      const numTentativas = (regTentativa?.tentativas || 0) + 1;
+
+      await supabase.from('tentativas_login').upsert(
+        [
+          {
+            email: emailLimpo,
+            tentativas: numTentativas,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'email' }
+      );
+
+      if (numTentativas >= 3) {
+        alert('⚠️ Senha incorreta pela 3ª vez! Por segurança, o 2º nível de verificação será exigido no próximo login correto.');
+      } else {
+        alert(`Senha incorreta! Tentativa ${numTentativas} de 3.`);
+      }
+      return;
+    }
+
+    const { data: regTentativa } = await supabase
+      .from('tentativas_login')
+      .select('*')
+      .eq('email', emailLimpo)
+      .maybeSingle();
+
+    const teveTresErros = (regTentativa?.tentativas || 0) >= 3;
+
+    if (teveTresErros) {
+      dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
+    } else {
+      setSession(authData.session);
+    }
+  };
+
+  const handleConfirmar2FA = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (codigoDigitado2FA.trim() !== codigoGerado2FA) {
+      alert('❌ Código incorreto! Verifique e tente novamente.');
+      return;
+    }
+
+    const emailLimpo = email.trim().toLowerCase();
+    const deviceToken = getOrCreateDeviceToken();
+
+    await supabase.from('tentativas_login').upsert(
+      [{ email: emailLimpo, tentativas: 0, updated_at: new Date().toISOString() }],
+      { onConflict: 'email' }
+    );
+
+    if (usuarioPendente2FA?.user?.id) {
+      await supabase.from('dispositivos_autorizados').upsert(
+        [
+          {
+            usuario_id: usuarioPendente2FA.user.id,
+            email: emailLimpo,
+            device_token: deviceToken,
+            nome_dispositivo: navigator.userAgent.substring(0, 50),
+            ultimo_acesso: new Date().toISOString(),
+          },
+        ],
+        { onConflict: 'usuario_id,device_token' }
+      );
+    }
+
+    alert('✅ Dispositivo verificado e autorizado com sucesso!');
+    setExigir2FA(false);
+    setCodigoDigitado2FA('');
+    setSession(usuarioPendente2FA);
+  };
+
+  const gerarNovoQrCodeTemporario = async () => {
+    if (!isAdmin) {
+      alert('Apenas administradores podem gerar o QR Code temporário.');
+      return;
+    }
     if (!loggedUser) return;
-    fetchDados();
-  }, [loggedUser, fetchDados]);
-
-  const handleSubmitLancamento = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      if (editingLancamento) {
-        const { error: authError } = await supabase.auth.signInWithPassword({
-          email: emailUsuarioLogado,
-          password: senhaExclusao,
-        });
-
-        if (authError) {
-          alert('Senha de administrador incorreta! A operação foi cancelada.');
-          return;
-        }
-      }
-
-      const payload: any = {
-        codigo_igreja: codigoIgreja,
-        data_lancamento: formLancamento.data_lancamento,
-        tipo: formLancamento.tipo,
-        descricao: formLancamento.descricao,
-        valor: parseFloat(formLancamento.valor as string),
-        conta_corrente_id: formLancamento.conta_corrente_id || null,
-        id_conta_contabil: formLancamento.id_conta_contabil || null,
-        membro_id: relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
-      };
-
-      if (editingLancamento) {
-        const { error } = await supabase
-          .from('lancamentos_financeiros')
-          .update(payload)
-          .eq('id', editingLancamento.id);
-
-        if (error) throw error;
-        await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
-        alert('Lançamento atualizado com sucesso!');
-      } else {
-        const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-        if (error) throw error;
-        await registrarLog('NOVO_LANCAMENTO', `Criou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
-        alert('Lançamento realizado com sucesso!');
-      }
-
-      setShowModalLancamento(false);
-      setEditingLancamento(null);
-      setFormLancamento(formLancamentoInicial);
-      setArquivoDocumento(null);
-      setRelacionadoMembro(false);
-      setSenhaExclusao('');
-      fetchDados();
-    } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
-    }
-  };
-
-  const handleSubmitConta = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload = { ...formConta, codigo_igreja: codigoIgreja };
-
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailUsuarioLogado,
-        password: senhaExclusao,
-      });
-
-      if (authError) {
-        alert('Senha incorreta! A operação foi cancelada.');
-        return;
-      }
-
-      if (editingConta) {
-        const { error } = await supabase
-          .from('plano_contas_contabil')
-          .update(payload)
-          .eq('id', editingConta.id);
-
-        if (error) throw error;
-        await registrarLog('EDITAR_CONTA_CONTABIL', `Atualizou a conta contábil: ${payload.codigo_conta} - ${payload.nome_conta}`);
-        alert('Conta contábil atualizada com sucesso!');
-      } else {
-        const { error } = await supabase.from('plano_contas_contabil').insert([payload]);
-        if (error) throw error;
-        await registrarLog('NOVA_CONTA_CONTABIL', `Cadastrou a conta contábil: ${payload.codigo_conta} - ${payload.nome_conta}`);
-        alert('Conta cadastrada com sucesso!');
-      }
-
-      setShowModalConta(false);
-      setEditingConta(null);
-      setFormConta(formContaContabilInicial);
-      setSenhaExclusao('');
-      fetchDados();
-    } catch (err: any) {
-      alert('Erro ao salvar conta: ' + err.message);
-    }
-  };
-
-  const handleSubmitAdm = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload = { ...formAdm, codigo_igreja: codigoIgreja };
-
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailUsuarioLogado,
-        password: senhaExclusao,
-      });
-
-      if (authError) {
-        alert('Senha incorreta! A operação foi cancelada.');
-        return;
-      }
-
-      if (editingAdm) {
-        const { error } = await supabase
-          .from('contas_financeiras')
-          .update(payload)
-          .eq('id', editingAdm.id);
-
-        if (error) throw error;
-        await registrarLog('EDITAR_CONTA_ADM', `Atualizou a conta adm: ${payload.codigo_conta} (${payload.nome_conta})`);
-        alert('Conta administrativa atualizada com sucesso!');
-      } else {
-        const { error } = await supabase.from('contas_financeiras').insert([payload]);
-        if (error) throw error;
-        await registrarLog('NOVA_CONTA_ADM', `Cadastrou a conta adm: ${payload.codigo_conta} (${payload.nome_conta})`);
-        alert('Conta administrativa cadastrada com sucesso!');
-      }
-
-      setShowModalAdm(false);
-      setEditingAdm(null);
-      setFormAdm(formContaAdmInicial);
-      setSenhaExclusao('');
-      fetchDados();
-    } catch (err: any) {
-      alert('Erro ao salvar conta administrativa: ' + err.message);
-    }
-  };
-
-  const confirmarExclusao = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!itemParaExcluir) return;
+    setGerandoQr(true);
 
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: emailUsuarioLogado,
-        password: senhaExclusao,
-      });
+      const tokenUnico = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const dataExpiracao = new Date(new Date().getTime() + 6 * 60 * 60 * 1000).toISOString();
 
-      if (authError) {
-        alert('Senha incorreta! Exclusão cancelada.');
-        return;
-      }
-
-      let tabela = 'lancamentos_financeiros';
-      if (itemParaExcluir.tipo === 'conta_contabil') tabela = 'plano_contas_contabil';
-      if (itemParaExcluir.tipo === 'conta_adm') tabela = 'contas_financeiras';
-
-      const { error } = await supabase.from(tabela).delete().eq('id', itemParaExcluir.id);
-      if (error) throw error;
-
-      await registrarLog('EXCLUSAO', `Excluiu o item [${itemParaExcluir.tipo}]: ${itemParaExcluir.nome}`);
-      alert('Item excluído com sucesso!');
-      setShowDeleteModal(false);
-      setItemParaExcluir(null);
-      setSenhaExclusao('');
-      fetchDados();
-    } catch (err: any) {
-      alert('Erro ao excluir: ' + err.message);
-    }
-  };
-
-  const handleEnviarAgradecimento = async (lanc: Lancamento) => {
-    if (!lanc.membro_id) {
-      return alert('Este lançamento não está vinculado a nenhum membro.');
-    }
-
-    const membro = membrosList.find((m) => m.id === lanc.membro_id);
-    if (!membro || !membro.email) {
-      return alert('O membro vinculado não possui e-mail cadastrado.');
-    }
-
-    const descLower = (lanc.descricao || '').toLowerCase();
-    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
-
-    if (!ehDizimoOuOferta) {
-      return alert('O envio automático de agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
-    }
-
-    try {
-      const mensagemAgradecimento = `Deus abençoe pela sua contribuição, prosperando sua casa.`;
-      
-      const { error } = await supabase.from('fila_emails').insert([
+      const { error } = await supabase.from('tokens_cadastro_temporario').insert([
         {
-          codigo_igreja: codigoIgreja,
-          destinatario: membro.email,
-          assunto: 'Comprovante de Contribuição - Agradecimento',
-          mensagem: `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\n${mensagemAgradecimento}`,
+          codigo_igreja: igrejaAtual,
+          token: tokenUnico,
+          expira_em: dataExpiracao,
         },
       ]);
 
-      if (error) {
-        console.warn('Fila de e-mails customizada não configurada, simulando sucesso.');
-      }
+      if (error) throw error;
 
-      alert(`✅ Comprovante de agradecimento enviado com sucesso para ${membro.email}!\nMensagem: "${mensagemAgradecimento}"`);
-      await registrarLog('ENVIO_AGRADECIMENTO', `Enviou email de agradecimento para ${membro.email}`);
+      const linkCompleto = `${window.location.origin}${window.location.pathname}#cadastro?token=${tokenUnico}`;
+      const novaUrlQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkCompleto)}`;
+      
+      setQrCodeUrlDinamico(novaUrlQr);
     } catch (err: any) {
-      alert('Erro ao enviar e-mail: ' + err.message);
+      console.error('Erro ao gerar QR Code:', err);
+      alert('Erro ao gerar QR Code temporário.');
+    } finally {
+      setGerandoQr(false);
     }
   };
 
-  const getNomeContaContabil = (id: string) => {
-    const c = contasContabeis.find((x) => x.id === id);
-    return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
-  };
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setQrCodeUrlDinamico('');
+        setIsMobileModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
-  const getNomeContaAdm = (id: string) => {
-    const adm = contasAdmList.find((x) => x.id === id);
-    return adm ? `${adm.codigo_conta} (${adm.nome_conta})` : 'Caixa Geral';
-  };
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRotaPublica(window.location.hash.includes('cadastro') || window.location.pathname.includes('cadastro'));
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
-  const getNomeMembroVinculado = (membroId?: string) => {
-    if (!membroId) return null;
-    const m = membrosList.find((x) => x.id === membroId);
-    return m ? m.nome : null;
-  };
+  useEffect(() => {
+    const carregarSessao = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+      setLoading(false);
+    };
 
-  const dadosBalancete = contasContabeis.map((conta) => {
-    const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
-    const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
-    return { ...conta, total };
-  }).filter((c) => c.total > 0);
+    carregarSessao();
 
-  const totalReceitas = lancamentos
-    .filter((l) => l.tipo === 'receita')
-    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, novaSessao) => {
+      setSession(novaSessao);
+    });
 
-  const totalDespesas = lancamentos
-    .filter((l) => l.tipo === 'despesa')
-    .reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    return () => subscription.unsubscribe();
+  }, []);
 
-  const resultadoLiquido = totalReceitas - totalDespesas;
+  const carregarUsuarioEPermissoes = useCallback(async () => {
+    if (!session?.user?.id) {
+      setLoggedUser(null);
+      setPrecisaCompletarPerfil(false);
+      setPrecisaCompletarCadastro(false);
+      setPermissoesAtivas([]);
+      return;
+    }
 
-  let saldoAcumulado = 0;
-  const lancamentosComSaldo = lancamentos.map((l) => {
-    const valorNum = Number(l.valor || 0);
-    if (l.tipo === 'receita') {
-      saldoAcumulado += valorNum;
+    const authUserId = session.user.id;
+    const emailUsuario = session.user.email?.trim().toLowerCase();
+
+    let { data } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('auth_user_id', authUserId)
+      .maybeSingle();
+
+    if (!data && emailUsuario) {
+      const resEmail = await supabase
+        .from('usuarios')
+        .select('*')
+        .ilike('email', emailUsuario)
+        .maybeSingle();
+      data = resEmail.data;
+
+      if (data && !data.auth_user_id) {
+        await supabase.from('usuarios').update({ auth_user_id: authUserId }).eq('id', data.id);
+      }
+    }
+
+    if (!data) {
+      setPrecisaCompletarPerfil(true);
+      setLoggedUser(null);
+      return;
+    }
+
+    setPrecisaCompletarPerfil(false);
+    setLoggedUser(data);
+
+    if (data.perfil === 'admin' || data.perfil === 'administrador' || data.perfil === 'lider') {
+      setPermissoesAtivas(['dashboard', 'app-mobile', 'chat-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
+      setPrecisaCompletarCadastro(false);
     } else {
-      saldoAcumulado -= valorNum;
+      const { data: permData } = await supabase
+        .from('permissoes_usuario')
+        .select('modulo')
+        .eq('usuario_id', data.id)
+        .eq('permitido', true);
+
+      const mods = permData ? permData.map((p) => p.modulo) : [];
+      setPermissoesAtivas(mods);
+
+      const { data: membroInfo } = await supabase
+        .from('members')
+        .select('id, cadastro_concluido')
+        .eq('email', emailUsuario)
+        .maybeSingle();
+
+      if (!membroInfo || !membroInfo.cadastro_concluido) {
+        setPrecisaCompletarCadastro(true);
+      } else {
+        setPrecisaCompletarCadastro(false);
+      }
     }
-    return { ...l, saldoParcial: saldoAcumulado };
-  });
+  }, [session]);
+
+  useEffect(() => {
+    carregarUsuarioEPermissoes();
+  }, [carregarUsuarioEPermissoes]);
+
+  const handleSignUp = async (event: React.FormEvent) => {
+    event.preventDefault();
+
+    if (!nomeUsuario || !codigoIgreja) {
+      alert('Preencha o Nome de Usuário e o Código da Igreja.');
+      return;
+    }
+
+    const { count, error: countError } = await supabase
+      .from('usuarios')
+      .select('*', { count: 'exact', head: true })
+      .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
+
+    const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
+
+    if (authError) {
+      alert('Erro no cadastro (Auth): ' + authError.message);
+      return;
+    }
+
+    const authUserId = authData.user?.id || authData.session?.user?.id;
+
+    const { error: profileError } = await supabase.from('usuarios').insert([
+      {
+        auth_user_id: authUserId || null,
+        email: email.trim().toLowerCase(),
+        nome_usuario: nomeUsuario,
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
+        perfil: perfilInicial,
+        ativo: true,
+      },
+    ]);
+
+    if (profileError) {
+      alert('Erro ao criar perfil do usuário: ' + profileError.message);
+      return;
+    }
+
+    alert(perfilInicial === 'administrador' 
+      ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+      : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
+    setIsLogin(true);
+  };
+
+  const handleCompletarPerfil = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nomeUsuario || !codigoIgreja) {
+      alert('Preencha todos os campos.');
+      return;
+    }
+
+    const emailLimpo = session.user.email.trim().toLowerCase();
+    const authUserId = session.user.id;
+
+    const { data: registroExistente } = await supabase
+      .from('usuarios')
+      .select('id')
+      .or(`auth_user_id.eq.${authUserId},email.ilike.${emailLimpo}`)
+      .maybeSingle();
+
+    let error;
+
+    if (registroExistente) {
+      const res = await supabase
+        .from('usuarios')
+        .update({
+          auth_user_id: authUserId,
+          email: emailLimpo,
+          nome_usuario: nomeUsuario,
+          codigo_igreja: codigoIgreja.toUpperCase().trim(),
+          perfil: 'comum',
+          ativo: true,
+        })
+        .eq('id', registroExistente.id);
+      error = res.error;
+    } else {
+      const res = await supabase.from('usuarios').insert([
+        {
+          auth_user_id: authUserId,
+          email: emailLimpo,
+          nome_usuario: nomeUsuario,
+          codigo_igreja: codigoIgreja.toUpperCase().trim(),
+          perfil: 'comum',
+          ativo: true,
+        },
+      ]);
+      error = res.error;
+    }
+
+    if (error) {
+      alert('Erro ao salvar perfil: ' + error.message);
+      return;
+    }
+
+    await carregarUsuarioEPermissoes();
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setLoggedUser(null);
+    setPrecisaCompletarPerfil(false);
+    setPrecisaCompletarCadastro(false);
+    setActiveTab('dashboard');
+  };
+
+  const temPermissao = (moduloKey: string) => {
+    if (isAdmin || loggedUser?.perfil === 'lider') return true;
+    return permissoesAtivas.includes(moduloKey);
+  };
+
+  const selecionarAba = (aba: string) => {
+    setActiveTab(aba);
+  };
+
+  if (rotaPublica) {
+    return <CadastroPublico />;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
+        Carregando sistema...
+      </div>
+    );
+  }
+
+  if (exigir2FA) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-950 p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full space-y-5 text-center">
+          <div className="w-16 h-16 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mx-auto text-3xl font-black">
+            🔒
+          </div>
+          <h2 className="text-2xl font-black text-blue-900">VERIFICAÇÃO DE SEGURANÇA</h2>
+          <p className="text-xs text-slate-600 font-medium">{motivo2FA}</p>
+
+          <form onSubmit={handleConfirmar2FA} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-2">DIGITE O CÓDIGO DE 6 DÍGITOS</label>
+              <input
+                type="text"
+                maxLength={6}
+                value={codigoDigitado2FA}
+                onChange={(e) => setCodigoDigitado2FA(e.target.value)}
+                placeholder="000000"
+                required
+                className="w-full text-center text-3xl tracking-widest font-mono py-3 border-2 border-blue-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3.5 rounded-2xl transition cursor-pointer shadow-lg"
+            >
+              VERIFICAR E LIBERAR ACESSO
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => setExigir2FA(false)}
+            className="text-xs text-slate-500 font-bold hover:underline cursor-pointer pt-2 block mx-auto"
+          >
+            Cancelar e Voltar ao Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full">
+          <h2 className="text-3xl font-black text-blue-900 text-center">
+            {isLogin ? 'BEM-VINDO DE VOLTA!' : 'CRIE SUA CONTA'}
+          </h2>
+
+          <p className="text-center text-slate-600 mt-2 mb-6">
+            {isLogin ? 'Faça login para continuar.' : 'Cadastre sua igreja e seu usuário.'}
+          </p>
+
+          <form onSubmit={isLogin ? handleLogin : handleSignUp} className="space-y-4">
+            {!isLogin && (
+              <>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">NOME DO USUÁRIO</label>
+                  <input
+                    type="text"
+                    value={nomeUsuario}
+                    onChange={(e) => setNomeUsuario(e.target.value)}
+                    placeholder="Seu nome"
+                    required
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">CÓDIGO DA IGREJA (Ex: IGR-001)</label>
+                  <input
+                    type="text"
+                    value={codigoIgreja}
+                    onChange={(e) => setCodigoIgreja(e.target.value)}
+                    placeholder="IGR-001"
+                    required
+                    className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 uppercase"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">E-MAIL</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="seu@email.com"
+                required
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">SENHA</label>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Digite sua senha"
+                required
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl transition cursor-pointer"
+            >
+              {isLogin ? 'ENTRAR' : 'CADASTRAR CONTA'}
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={() => setIsLogin(!isLogin)}
+            className="w-full mt-5 text-blue-700 font-semibold text-sm hover:underline cursor-pointer"
+          >
+            {isLogin ? 'Não tem uma conta? Cadastre-se' : 'Já tem uma conta? Fazer login'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (precisaCompletarPerfil) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-900 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full space-y-4">
+          <h2 className="text-2xl font-black text-blue-900 text-center">COMPLETE SEU CADASTRO</h2>
+          <p className="text-xs text-slate-600 text-center">
+            Sua conta de e-mail <span className="font-bold">{session.user.email}</span> foi autenticada, mas precisamos vincular seu nome e o código da sua igreja.
+          </p>
+
+          <form onSubmit={handleCompletarPerfil} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">NOME DO USUÁRIO</label>
+              <input
+                type="text"
+                value={nomeUsuario}
+                onChange={(e) => setNomeUsuario(e.target.value)}
+                placeholder="Seu nome"
+                required
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">CÓDIGO DA IGREJA (Ex: IGR-001)</label>
+              <input
+                type="text"
+                value={codigoIgreja}
+                onChange={(e) => setCodigoIgreja(e.target.value)}
+                placeholder="IGR-001"
+                required
+                className="w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 uppercase"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3 rounded-xl transition cursor-pointer"
+            >
+              SALVAR E ENTRAR
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full text-center text-rose-600 font-semibold text-xs hover:underline cursor-pointer pt-2"
+          >
+            Sair e tentar com outra conta
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const userEfetivo = loggedUser || {
+    email: session?.user?.email,
+    nome_usuario: session?.user?.email?.split('@')[0] || 'Usuário',
+    codigo_igreja: 'IGR-001',
+    perfil: 'comum',
+  };
+
+  if (isMobileSubdomain) {
+    return (
+      <div className="min-h-screen bg-slate-100 p-2 sm:p-4 w-full">
+        <AppMobileModule loggedUser={userEfetivo} />
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
-      
-      <style>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          .printable-area, .printable-area * {
-            visibility: visible;
-          }
-          .printable-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 20px;
-            background: white !important;
-          }
-          .receipt-print, .receipt-print * {
-            visibility: visible;
-          }
-          .receipt-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 50vh;
-            padding: 20px;
-            background: white !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
-
-      {/* Cabeçalho e Abas */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
-        <div>
-          <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
-            Gestão Financeira & Contábil
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Controle Administrativo e Contábil ({codigoIgreja})
+    <div className="flex min-h-screen bg-slate-50">
+      <aside className="w-64 bg-blue-900 text-white flex flex-col">
+        <div className="p-6 border-b border-blue-800">
+          <h1 className="text-2xl font-black">SISTEMA IGREJA</h1>
+          <p className="text-xs text-blue-200 mt-2 truncate">
+            {userEfetivo.nome_usuario} ({userEfetivo.codigo_igreja})
           </p>
         </div>
 
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
-          <button
-            type="button"
-            onClick={() => { setSubAba('lancamentos'); fetchDados(); }}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              subAba === 'lancamentos' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            💸 Lançamentos
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSubAba('contas_adm'); fetchDados(); }}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              subAba === 'contas_adm' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            🏦 Contas Adm
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSubAba('plano_contas'); fetchDados(); }}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              subAba === 'plano_contas' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            📊 Plano de Contas
-          </button>
-          <button
-            type="button"
-            onClick={() => { setSubAba('relatorios'); fetchDados(); }}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition cursor-pointer whitespace-nowrap ${
-              subAba === 'relatorios' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            📈 Relatórios
-          </button>
-        </div>
-      </div>
-
-      {/* BOTÕES DE AÇÃO SUPERIOR */}
-      <div className="flex justify-end no-print">
-        {subAba === 'lancamentos' && (
-          <button
-            type="button"
-            onClick={() => {
-              setEditingLancamento(null);
-              setFormLancamento(formLancamentoInicial);
-              setArquivoDocumento(null);
-              setRelacionadoMembro(false);
-              setSenhaExclusao('');
-              setShowModalLancamento(true);
-            }}
-            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
-          >
-            + Novo Lançamento
-          </button>
-        )}
-
-        {subAba === 'contas_adm' && (
-          <button
-            type="button"
-            onClick={() => {
-              setEditingAdm(null);
-              setFormAdm(formContaAdmInicial);
-              setSenhaExclusao('');
-              setShowModalAdm(true);
-            }}
-            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
-          >
-            + Nova Conta Adm
-          </button>
-        )}
-
-        {subAba === 'plano_contas' && (
-          <button
-            type="button"
-            onClick={() => {
-              setEditingConta(null);
-              setFormConta(formContaContabilInicial);
-              setSenhaExclusao('');
-              setShowModalConta(true);
-            }}
-            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
-          >
-            + Nova Conta Contábil
-          </button>
-        )}
-      </div>
-
-      {loading && <p className="text-center py-6 text-slate-500">Carregando dados financeiros...</p>}
-      {error && <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">{error}</div>}
-
-      {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
-      {!loading && subAba === 'lancamentos' && (
-        <>
-          {lancamentos.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              <p className="text-slate-500 text-sm">Nenhum lançamento financeiro registrado.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                    <th className="p-3">Data</th>
-                    <th className="p-3">Tipo</th>
-                    <th className="p-3">Descrição</th>
-                    <th className="p-3">Membro Vinculado</th>
-                    <th className="p-3">Conta Adm</th>
-                    <th className="p-3 text-right">Valor</th>
-                    <th className="p-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-sm">
-                  {lancamentos.map((l) => {
-                    const isReceita = l.tipo === 'receita';
-                    const nomeMembro = getNomeMembroVinculado(l.membro_id);
-                    const descLower = (l.descricao || '').toLowerCase();
-                    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
-
-                    return (
-                      <tr key={l.id} className="hover:bg-slate-50/80 transition">
-                        <td className="p-3 whitespace-nowrap text-slate-600">
-                          {l.data_lancamento ? l.data_lancamento.split('-').reverse().join('/') : '-'}
-                        </td>
-                        <td className="p-3 whitespace-nowrap">
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isReceita ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-                          }`}>
-                            {isReceita ? '🟢 Receita' : '🔴 Despesa'}
-                          </span>
-                        </td>
-                        <td className="p-3 font-semibold text-slate-800">{l.descricao}</td>
-                        <td className="p-3">
-                          {nomeMembro ? (
-                            <span className="px-2 py-1 bg-blue-50 text-blue-800 font-bold text-xs rounded-lg border border-blue-100">
-                              👤 {nomeMembro}
-                            </span>
-                          ) : (
-                            <span className="text-slate-400">-</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-slate-600 text-xs">{getNomeContaAdm(l.conta_corrente_id)}</td>
-                        <td className={`p-3 text-right font-black ${isReceita ? 'text-emerald-700' : 'text-rose-700'}`}>
-                          R$ {Number(l.valor || 0).toFixed(2)}
-                        </td>
-                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                          {/* BOTÃO IMPRIMIR COMPROVANTE (MEIA FOLHA A4) */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setLancamentoParaRecibo(l);
-                              setShowModalRecibo(true);
-                            }}
-                            className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                            title="Imprimir Comprovante / Recibo"
-                          >
-                            🖨️ Recibo
-                          </button>
-
-                          {/* BOTÃO ENVIAR AGRADECIMENTO SE DÍZIMO OU OFERTA */}
-                          {ehDizimoOuOferta && l.membro_id && (
-                            <button
-                              type="button"
-                              onClick={() => handleEnviarAgradecimento(l)}
-                              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                              title="Enviar E-mail de Agradecimento"
-                            >
-                              ✉️ Agradecer
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingLancamento(l);
-                              setFormLancamento({
-                                data_lancamento: l.data_lancamento || '',
-                                tipo: l.tipo || 'receita',
-                                descricao: l.descricao || '',
-                                valor: l.valor?.toString() || '',
-                                conta_corrente_id: l.conta_corrente_id || '',
-                                id_conta_contabil: l.id_conta_contabil || '',
-                                membro_id: l.membro_id || '',
-                              });
-                              setArquivoDocumento(null);
-                              setRelacionadoMembro(!!l.membro_id);
-                              setSenhaExclusao('');
-                              setShowModalLancamento(true);
-                            }}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                          >
-                            Editar
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
-                              setSenhaExclusao('');
-                              setShowDeleteModal(true);
-                            }}
-                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                          >
-                            Excluir
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {temPermissao('dashboard') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('dashboard')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'dashboard' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🏠 Dashboard
+            </button>
           )}
-        </>
-      )}
 
-      {/* CONTEÚDO DA ABA: CONTAS ADM */}
-      {!loading && subAba === 'contas_adm' && (
-        <>
-          {contasAdmList.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              <p className="text-slate-500 text-sm">Nenhuma conta administrativa cadastrada.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                    <th className="p-3">Tipo / Descrição (Código Conta)</th>
-                    <th className="p-3">Nome / Banco</th>
-                    <th className="p-3">Agência</th>
-                    <th className="p-3">Número da Conta</th>
-                    <th className="p-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-sm">
-                  {contasAdmList.map((adm) => (
-                    <tr key={adm.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3 font-bold text-blue-900">{adm.codigo_conta}</td>
-                      <td className="p-3 font-semibold text-slate-800">{adm.nome_conta}</td>
-                      <td className="p-3 text-slate-600">{adm.agencia || '-'}</td>
-                      <td className="p-3 text-slate-600">{adm.numero_conta || '-'}</td>
-                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingAdm(adm);
-                            setFormAdm({
-                              codigo_conta: adm.codigo_conta,
-                              nome_conta: adm.nome_conta,
-                              agencia: adm.agencia || '',
-                              numero_conta: adm.numero_conta || '',
-                            });
-                            setSenhaExclusao('');
-                            setShowModalAdm(true);
-                          }}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setItemParaExcluir({ id: adm.id, tipo: 'conta_adm', nome: `${adm.codigo_conta} - ${adm.nome_conta}` });
-                            setSenhaExclusao('');
-                            setShowDeleteModal(true);
-                          }}
-                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Excluir
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {temPermissao('app-mobile') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('app-mobile')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
+                activeTab === 'app-mobile' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
+              }`}
+            >
+              <span className="flex items-center gap-2">📱 Aplicativo Mobile</span>
+              <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">APP</span>
+            </button>
           )}
-        </>
-      )}
 
-      {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
-      {!loading && subAba === 'plano_contas' && (
-        <>
-          {contasContabeis.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
-              <p className="text-slate-500 text-sm">Nenhuma conta cadastrada no plano de contas.</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                    <th className="p-3">Código</th>
-                    <th className="p-3">Nome da Conta</th>
-                    <th className="p-3">Natureza</th>
-                    <th className="p-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-sm">
-                  {contasContabeis.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
-                      <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
-                      <td className="p-3">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border">
-                          {c.tipo_natureza}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setEditingConta(c);
-                            setFormConta({
-                              codigo_conta: c.codigo_conta,
-                              nome_conta: c.nome_conta,
-                              conta_pai: c.conta_pai || '',
-                              tipo_natureza: c.tipo_natureza,
-                            });
-                            setSenhaExclusao('');
-                            setShowModalConta(true);
-                          }}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
-                            setSenhaExclusao('');
-                            setShowDeleteModal(true);
-                          }}
-                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Excluir
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      )}
+          <button
+            type="button"
+            onClick={() => selecionarAba('chat-mobile')}
+            className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
+              activeTab === 'chat-mobile' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
+            }`}
+          >
+            <span className="flex items-center gap-2">💬 Chat & Aniversários</span>
+            {todaysBirthdays.length > 0 && (
+              <span className="text-[10px] bg-amber-500 text-slate-900 font-black px-1.5 py-0.5 rounded-full animate-bounce">
+                🎂 {todaysBirthdays.length}
+              </span>
+            )}
+          </button>
 
-      {/* CONTEÚDO DA ABA: RELATÓRIOS */}
-      {!loading && subAba === 'relatorios' && (
-        <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('conta_corrente')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'conta_corrente' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              1) Conta Corrente
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('diario')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'diario' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              2) Diário
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('balancete')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'balancete' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              3) Balancete
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('dre')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'dre' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              4) DRE
-            </button>
-          </div>
-
-          <div className="printable-area bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
-            
-            <div className="flex justify-between items-center border-b pb-4">
-              <div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Igreja ID: {codigoIgreja}</span>
-                <p className="text-xs text-slate-500">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
-              </div>
+          {temPermissao('cadastros') && (
+            <div>
               <button
                 type="button"
-                onClick={() => window.print()}
-                className="no-print px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-2"
+                onClick={() => setIsCadastrosOpen(!isCadastrosOpen)}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab.startsWith('cadastros') && activeTab !== 'cadastros-usuario' ? 'bg-blue-700' : 'hover:bg-blue-800'
+                }`}
               >
-                🖨️ Imprimir / Salvar PDF
+                <span>👥 Cadastros</span>
+                <span>{isCadastrosOpen ? '▲' : '▼'}</span>
               </button>
+
+              {isCadastrosOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('cadastros-membros')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'cadastros-membros' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Membros
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('cadastros-fornecedores')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'cadastros-fornecedores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Fornecedores
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('cadastros-ministerios')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'cadastros-ministerios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Ministérios
+                  </button>
+                </div>
+              )}
             </div>
+          )}
 
-            {/* RELATÓRIO 1: CONTA CORRENTE */}
-            {tipoRelatorio === 'conta_corrente' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira com saldo parcial acumulado por linha.</p>
-                
-                <div className="overflow-x-auto bg-white rounded-xl border">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
-                        <th className="p-3">Data</th>
-                        <th className="p-3">Conta Adm</th>
-                        <th className="p-3">Histórico</th>
-                        <th className="p-3 text-right">Entrada</th>
-                        <th className="p-3 text-right">Saída</th>
-                        <th className="p-3 text-right">Saldo Parcial</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {lancamentosComSaldo.map((l) => {
-                        const isReceita = l.tipo === 'receita';
-                        const saldoPositivo = l.saldoParcial >= 0;
-                        return (
-                          <tr key={l.id}>
-                            <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
-                            <td className="p-3 font-semibold text-slate-800">{getNomeContaAdm(l.conta_corrente_id)}</td>
-                            <td className="p-3 text-slate-600">{l.descricao}</td>
-                            <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
-                            <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
-                            <td className={`p-3 text-right font-black ${saldoPositivo ? 'text-blue-900' : 'text-rose-700'}`}>
-                              R$ {l.saldoParcial.toFixed(2)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+          {temPermissao('visitantes') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('acompanhamento-visitantes')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'acompanhamento-visitantes' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🤝 Acompanhamento Visitantes
+            </button>
+          )}
 
-            {/* RELATÓRIO 2: DIÁRIO */}
-            {tipoRelatorio === 'diario' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
-                <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
-                
-                <div className="overflow-x-auto bg-white rounded-xl border">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
-                        <th className="p-3">Data</th>
-                        <th className="p-3">Descrição da Operação</th>
-                        <th className="p-3">Conta Contábil Vinculada</th>
-                        <th className="p-3 text-right">Valor (R$)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {lancamentos.map((l) => (
-                        <tr key={l.id}>
-                          <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
-                          <td className="p-3 font-medium text-slate-800">{l.descricao}</td>
-                          <td className="p-3 text-blue-900 font-semibold">{getNomeContaContabil(l.id_conta_contabil)}</td>
-                          <td className="p-3 text-right font-black">R$ {Number(l.valor).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* RELATÓRIO 3: BALANCETE */}
-            {tipoRelatorio === 'balancete' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
-                <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
-                
-                <div className="overflow-x-auto bg-white rounded-xl border">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
-                        <th className="p-3">Código</th>
-                        <th className="p-3">Nome da Conta</th>
-                        <th className="p-3">Natureza</th>
-                        <th className="p-3 text-right">Saldo Movimentado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {dadosBalancete.map((c) => (
-                        <tr key={c.id}>
-                          <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
-                          <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
-                          <td className="p-3">{c.tipo_natureza}</td>
-                          <td className="p-3 text-right font-black text-slate-800">R$ {c.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* RELATÓRIO 4: DRE */}
-            {tipoRelatorio === 'dre' && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-black text-blue-900 text-lg">Demonstração do Resultado do Exercício (DRE)</h3>
-                  <p className="text-xs text-slate-500">Resumo oficial de receitas, despesas e superávit/déficit do período.</p>
-                </div>
-
-                <div className="bg-white rounded-2xl border p-6 space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-bold text-emerald-800 text-sm">🟢 Total de Receitas</span>
-                    <span className="font-black text-emerald-700 text-base">R$ {totalReceitas.toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-bold text-rose-800 text-sm">🔴 Total de Despesas</span>
-                    <span className="font-black text-rose-700 text-base">R$ {totalDespesas.toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="font-black text-blue-900 text-base"> Resultado Líquido (Superávit / Déficit):</span>
-                    <span className={`font-black text-lg ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      R$ {resultadoLiquido.toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE NOVO / EDITAR LANÇAMENTO */}
-      {showModalLancamento && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
-              <h3 className="text-xl font-black text-blue-900">
-                {editingLancamento ? 'Editar Lançamento Financeiro' : 'Novo Lançamento Financeiro'}
-              </h3>
+          {temPermissao('celulas') && (
+            <div>
               <button
                 type="button"
-                onClick={() => setShowModalLancamento(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
+                onClick={() => {
+                  setIsCelulasOpen(!isCelulasOpen);
+                  setSubAbaCelulas('celulas');
+                  selecionarAba('celulas-modulo');
+                }}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab === 'celulas-modulo' ? 'bg-blue-700' : 'hover:bg-blue-800'
+                }`}
+              >
+                <span>🏡 Células</span>
+                <span>{isCelulasOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {isCelulasOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubAbaCelulas('celulas');
+                      selecionarAba('celulas-modulo');
+                    }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'celulas-modulo' && subAbaCelulas === 'celulas' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Células
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubAbaCelulas('setores');
+                      selecionarAba('celulas-modulo');
+                    }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'celulas-modulo' && subAbaCelulas === 'setores' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Setores
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubAbaCelulas('redes');
+                      selecionarAba('celulas-modulo');
+                    }}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'celulas-modulo' && subAbaCelulas === 'redes' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Redes
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {temPermissao('discipulado') && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setIsDiscipuladoOpen(!isDiscipuladoOpen)}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab.startsWith('discipulado') ? 'bg-blue-700' : 'hover:bg-blue-800'
+                }`}
+              >
+                <span>🌱 Discipulado</span>
+                <span>{isDiscipuladoOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {isDiscipuladoOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('discipulado-dea')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'discipulado-dea' || activeTab === 'discipulado' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    D.E.A. / G.U.I.
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('discipulado-agenda-discipulador')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'discipulado-agenda-discipulador' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Lista do Agendamento: Por Discipulador
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('discipulado-agenda-geral')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'discipulado-agenda-geral' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Lista do Agendamento: Geral
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {temPermissao('agenda') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('agenda')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'agenda' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              📅 Agenda
+            </button>
+          )}
+
+          {temPermissao('financeiro') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('financeiro')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'financeiro' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              💰 Financeiro
+            </button>
+          )}
+
+          {temPermissao('projetos') && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('projetos')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer ${
+                activeTab === 'projetos' ? 'bg-blue-700' : 'hover:bg-blue-800'
+              }`}
+            >
+              🚀 Projetos
+            </button>
+          )}
+
+          {temPermissao('configuracoes') && (
+            <div>
+              <button
+                type="button"
+                onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
+                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
+                  activeTab.startsWith('configuracoes') || activeTab === 'controle_registro' ? 'bg-blue-700' : 'hover:bg-blue-800'
+                }`}
+              >
+                <span>⚙️ Configurações</span>
+                <span>{isConfiguracoesOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {isConfiguracoesOpen && (
+                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('configuracoes-usuarios')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    Controle de Usuários
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('configuracoes-igreja')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'configuracoes-igreja' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    🏛️ Cadastro da Igreja / Congregações
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('controle_registro')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'controle_registro' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    🔒 Controle de Registro
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </nav>
+
+        <div className="space-y-2 border-t border-blue-800 p-4">
+          <button
+            type="button"
+            onClick={() => setIsMobileModalOpen(true)}
+            className="block w-full cursor-pointer rounded-xl bg-blue-800 px-4 py-2.5 text-center text-xs font-bold text-white shadow transition hover:bg-blue-700"
+          >
+            📱 Abrir Tela Mobile / Opções
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="w-full cursor-pointer rounded-lg px-4 py-2 text-left text-sm font-medium text-red-300 transition hover:bg-blue-800"
+          >
+            Sair
+          </button>
+        </div>
+      </aside>
+
+      <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
+        {activeTab === 'dashboard' && temPermissao('dashboard') && (
+          <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
+        )}
+
+        {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
+          <div className="mx-auto w-full max-w-4xl">
+            <AppMobileModule loggedUser={userEfetivo} />
+          </div>
+        )}
+
+        {activeTab === 'chat-mobile' && (
+          <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
+            <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-bold">
+                  <MessageSquare size={20} />
+                  Chat e Avisos Mobile
+                </h2>
+                <p className="text-xs text-slate-400">
+                  Comunicação direta com status online e repasse automático para líderes.
+                </p>
+              </div>
+
+              {todaysBirthdays.length > 0 && (
+                <div className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900">
+                  <Bell size={14} />
+                  🎂 {todaysBirthdays.length} aniversariante(s) hoje
+                </div>
+              )}
+            </div>
+
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="w-1/3 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
+                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Membros e Status
+                </h3>
+
+                <div
+                  onClick={() => setSelectedRecipient('all')}
+                  className={`mb-2 cursor-pointer rounded-lg p-3 transition ${
+                    selectedRecipient === 'all'
+                      ? 'border border-blue-300 bg-blue-100'
+                      : 'bg-white hover:bg-slate-100'
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-slate-800">
+                    📢 Todos os Membros
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Enviar para toda a rede
+                  </p>
+                </div>
+
+                {membrosChat.map((member) => (
+                  <div
+                    key={member.id}
+                    onClick={() => setSelectedRecipient(member.id)}
+                    className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg p-3 transition ${
+                      selectedRecipient === member.id
+                        ? 'border border-blue-300 bg-blue-100'
+                        : 'bg-white hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-slate-800">
+                        {member.nome || 'Membro sem nome'}
+                      </p>
+                      <p className="text-xs capitalize text-slate-500">
+                        Tipo: {member.type}
+                        {member.ehLiderOuPastor ? ' ⭐' : ''}
+                      </p>
+                    </div>
+
+                    <span
+                      className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${
+                        member.status === 'online'
+                          ? 'bg-emerald-500'
+                          : 'bg-slate-300'
+                      }`}
+                      title={member.status === 'online' ? 'Online' : 'Offline'}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
+                <div className="mb-3 border-b border-slate-200 pb-3">
+                  <h3 className="text-sm font-bold text-slate-800">
+                    {selectedRecipient === 'all'
+                      ? '📢 Conversa Geral'
+                      : `💬 Conversa com ${
+                          membrosChat.find((member) => member.id === selectedRecipient)?.nome ||
+                          'Membro selecionado'
+                        }`}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {selectedRecipient === 'all'
+                      ? 'Mensagem enviada para todos os membros'
+                      : 'Conversa privada com este membro'}
+                  </p>
+                </div>
+
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
+                  {chatMessages
+                    .filter((msg) => {
+                      const mensagem = msg as any;
+                      if (selectedRecipient === 'all') {
+                        return mensagem.isBroadcast || !mensagem.recipientId;
+                      }
+                      return (
+                        !mensagem.isBroadcast &&
+                        mensagem.recipientId === selectedRecipient
+                      );
+                    })
+                    .map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`relative group rounded-lg p-3 ${
+                          msg.isBroadcast
+                            ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
+                            : 'bg-slate-100'
+                        }`}
+                      >
+                        <div className="mb-1 flex justify-between text-xs text-slate-500">
+                          <span className="font-semibold">{msg.sender}</span>
+                          <div className="flex items-center gap-2">
+                            <span>{msg.time}</span>
+                            {(!msg.isBroadcast || isAdmin) && (
+                              <button
+                                type="button"
+                                onClick={() => handleExcluirMensagemChat(msg.id, msg.isBroadcast)}
+                                className="text-rose-500 hover:text-rose-700 p-0.5 rounded cursor-pointer"
+                                title={msg.isBroadcast ? "Excluir transmissão geral (Admin)" : "Excluir mensagem"}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <p className="text-sm text-slate-800">{msg.text}</p>
+                      </div>
+                    ))}
+
+                  {chatMessages.filter((msg) => {
+                    const mensagem = msg as any;
+                    if (selectedRecipient === 'all') {
+                      return mensagem.isBroadcast || !mensagem.recipientId;
+                    }
+                    return (
+                      !mensagem.isBroadcast &&
+                      mensagem.recipientId === selectedRecipient
+                    );
+                  }).length === 0 && (
+                    <p className="py-8 text-center text-xs text-slate-400">
+                      Nenhuma mensagem nesta conversa.
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
+                  <input
+                    type="text"
+                    value={messageInput}
+                    onChange={(event) => setMessageInput(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder={
+                      selectedRecipient === 'all'
+                        ? 'Escrever mensagem para todos os membros...'
+                        : 'Digite sua mensagem privada...'
+                    }
+                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={handleSendMessage}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
+                  >
+                    <Send size={16} />
+                    Enviar
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
+          <MembrosModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'cadastros-fornecedores' && temPermissao('cadastros') && (
+          <FornecedoresModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'cadastros-ministerios' && temPermissao('cadastros') && (
+          <MinisteriosModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'acompanhamento-visitantes' && temPermissao('visitantes') && (
+          <AcompanhamentoVisitantesModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'celulas-modulo' && temPermissao('celulas') && (
+          <CelulasModule loggedUser={userEfetivo} subAbaInicial={subAbaCelulas} />
+        )}
+
+        {activeTab.startsWith('discipulado') && temPermissao('discipulado') && (
+          <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
+        )}
+
+        {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
+          <UsuariosModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
+          <CadastroIgrejaModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
+          <ControleRegistroModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'projetos' && temPermissao('projetos') && (
+          <ProjetosModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'agenda' && temPermissao('agenda') && (
+          <AgendaModule loggedUser={userEfetivo} />
+        )}
+
+        {activeTab === 'financeiro' && temPermissao('financeiro') && (
+          <FinanceiroModule loggedUser={userEfetivo} />
+        )}
+      </main>
+
+      {isMobileModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
+          <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
+            <div className="mb-6 flex items-center justify-between border-b pb-4">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">
+                  Painel Mobile e Atalhos
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Opções rápidas para dispositivos móveis
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsMobileModalOpen(false)}
+                className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600"
               >
                 ✕ Fechar
               </button>
             </div>
 
-            <form onSubmit={handleSubmitLancamento} className="space-y-4">
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <a
+                  href="#cadastro"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full rounded-xl bg-blue-900 px-4 py-3 text-center text-sm font-bold text-white shadow transition hover:bg-blue-800"
+                >
+                  🔗 1. Abrir Tela de Cadastro Público
+                </a>
+                <p className="px-1 text-xs text-slate-500">
+                  Abre a interface externa de cadastro de membros e visitantes.
+                </p>
+              </div>
+
+              <div className="space-y-2 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileModalOpen(false);
+                    selecionarAba('agenda');
+                  }}
+                  className="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center text-sm font-bold text-indigo-900 transition hover:bg-indigo-100"
+                >
+                  📅 2. Ver Agenda e Próximos Eventos
+                </button>
+                <p className="px-1 text-xs text-slate-500">
+                  Acesse cultos, reuniões e programações agendadas.
+                </p>
+              </div>
+
+              <div className="space-y-3 border-t pt-4">
+                <h4 className="text-sm font-bold text-blue-900">
+                  📱 3. Gerar QR Code para Membros Escanearem
+                </h4>
+                <p className="text-xs leading-relaxed text-slate-600">
+                  Gere um QR Code temporário, válido por 6 horas, para cadastro pelo celular.
+                </p>
+
+                {isAdmin && (
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={gerarNovoQrCodeTemporario}
+                      disabled={gerandoQr}
+                      className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50"
+                    >
+                      {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
+                    </button>
+
+                    {qrCodeUrlDinamico && (
+                      <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
+                        <img
+                          src={qrCodeUrlDinamico}
+                          alt="QR Code temporário para cadastro"
+                          className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
+                        />
+                        <p className="text-[10px] font-semibold text-slate-500">
+                          Mostre esta imagem para o membro escanear.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setQrCodeUrlDinamico('')}
+                          className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                        >
+                          ✕ Fechar QR Code
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!isAdmin && (
+                  <p className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center text-xs font-semibold text-rose-600">
+                    🔒 Recurso restrito: apenas administradores podem gerar o QR Code de cadastro.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DashboardHome({
+  loggedUser,
+  selecionarAba,
+}: {
+  loggedUser: any;
+  selecionarAba: (aba: string) => void;
+}) {
+  const [modoAniversariantes, setModoAniversariantes] = useState<'dia' | 'mes'>('dia');
+  const [aniversariantes, setAniversariantes] = useState<any[]>([]);
+  const [loadingAniversariantes, setLoadingAniversariantes] = useState(false);
+
+  const [qtdMembros, setQtdMembros] = useState(0);
+  const [qtdVisitantes, setQtdVisitantes] = useState(0);
+  
+  const [modalListaOpen, setModalListaOpen] = useState(false);
+  const [tipoListaModal, setTipoListaModal] = useState<'Membros' | 'Visitantes'>('Membros');
+  const [listaPessoas, setListaPessoas] = useState<any[]>([]);
+  const [buscaModal, setBuscaModal] = useState('');
+  const [loadingLista, setLoadingLista] = useState(false);
+
+  const [itemEditando, setItemEditando] = useState<any | null>(null);
+  const [itemDetalhes, setItemDetalhes] = useState<any | null>(null);
+
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+
+  const carregarTotais = useCallback(async () => {
+    try {
+      const { count: countMembros } = await supabase
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('codigo_igreja', codigoIgreja)
+        .neq('tipo_cadastro', 'Visitante');
+
+      const { count: countVisitantes } = await supabase
+        .from('members')
+        .select('*', { count: 'exact', head: true })
+        .eq('codigo_igreja', codigoIgreja)
+        .eq('tipo_cadastro', 'Visitante');
+
+      setQtdMembros(countMembros || 0);
+      setQtdVisitantes(countVisitantes || 0);
+    } catch (err) {
+      console.error('Erro ao buscar totais:', err);
+    }
+  }, [codigoIgreja]);
+
+  useEffect(() => {
+    carregarTotais();
+  }, [carregarTotais]);
+
+  useEffect(() => {
+    if (!codigoIgreja) return;
+
+    const fetchAniversariantes = async () => {
+      setLoadingAniversariantes(true);
+      try {
+        const { data, error } = await supabase
+          .from('members')
+          .select('id, nome, data_nascimento, celular_principal, tipo_cadastro')
+          .eq('codigo_igreja', codigoIgreja);
+
+        if (error) throw error;
+
+        if (data) {
+          const hoje = new Date();
+          const mesAtual = hoje.getMonth() + 1;
+          const diaAtual = hoje.getDate();
+
+          const filtrados = data.filter((membro) => {
+            if (!membro.data_nascimento) return false;
+            const partes = membro.data_nascimento.split('-');
+            if (partes.length < 3) return false;
+
+            const mesNasc = parseInt(partes[1], 10);
+            const diaNasc = parseInt(partes[2], 10);
+
+            if (modoAniversariantes === 'dia') {
+              return mesNasc === mesAtual && diaNasc === diaAtual;
+            } else {
+              return mesNasc === mesAtual;
+            }
+          });
+
+          if (modoAniversariantes === 'mes') {
+            filtrados.sort((a, b) => {
+              const diaA = parseInt(a.data_nascimento.split('-')[2], 10);
+              const diaB = parseInt(b.data_nascimento.split('-')[2], 10);
+              return diaA - diaB;
+            });
+          }
+
+          setAniversariantes(filtrados);
+        }
+      } catch (err) {
+        console.error('Erro ao buscar aniversariantes:', err);
+      } finally {
+        setLoadingAniversariantes(false);
+      }
+    };
+
+    fetchAniversariantes();
+  }, [codigoIgreja, modoAniversariantes]);
+
+  const abrirModalLista = async (tipo: 'Membros' | 'Visitantes') => {
+    setTipoListaModal(tipo);
+    setModalListaOpen(true);
+    setLoadingLista(true);
+
+    try {
+      let query = supabase
+        .from('members')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja);
+
+      if (tipo === 'Visitantes') {
+        query = query.eq('tipo_cadastro', 'Visitante');
+      } else {
+        query = query.neq('tipo_cadastro', 'Visitante');
+      }
+
+      const { data, error } = await query.order('nome', { ascending: true });
+
+      if (error) throw error;
+      setListaPessoas(data || []);
+    } catch (err) {
+      console.error('Erro ao buscar lista:', err);
+      alert('Erro ao carregar lista de ' + tipo);
+    } finally {
+      setLoadingLista(false);
+    }
+  };
+
+  const handleSalvarEdicao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!itemEditando) return;
+
+    try {
+      const payload = {
+        ...itemEditando,
+        data_nascimento: itemEditando.data_nascimento && itemEditando.data_nascimento.trim() !== '' 
+          ? itemEditando.data_nascimento 
+          : null,
+      };
+
+      const { error } = await supabase
+        .from('members')
+        .update(payload)
+        .eq('id', itemEditando.id);
+
+      if (error) throw error;
+
+      alert('Cadastro atualizado com sucesso!');
+      setItemEditando(null);
+      abrirModalLista(tipoListaModal);
+      carregarTotais();
+    } catch (err: any) {
+      alert('Erro ao atualizar: ' + err.message);
+    }
+  };
+
+  const handleExcluirRegistro = async (id: any, nome: string) => {
+    if (!window.confirm(`Deseja realmente excluir "${nome}"?`)) return;
+
+    try {
+      const { error } = await supabase.from('members').delete().eq('id', id);
+      if (error) throw error;
+
+      alert('Excluído com sucesso!');
+      abrirModalLista(tipoListaModal);
+      carregarTotais();
+    } catch (err: any) {
+      alert('Erro ao excluir: ' + err.message);
+    }
+  };
+
+  const filtradosModal = listaPessoas.filter((p) =>
+    (p.nome || '').toLowerCase().includes(buscaModal.toLowerCase()) ||
+    (p.celular_principal || '').includes(buscaModal)
+  );
+
+  return (
+    <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-5xl mx-auto shadow-sm space-y-6">
+      <div>
+        <h2 className="text-3xl font-black text-blue-900">Dashboard</h2>
+        <p className="text-slate-600 mt-1">
+          Seja bem-vindo ao sistema! Igreja: <span className="font-bold text-blue-900">{loggedUser.codigo_igreja}</span> | Usuário: <span className="font-bold text-blue-900">{loggedUser.nome_usuario}</span>
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div
+          onClick={() => abrirModalLista('Membros')}
+          className="bg-gradient-to-br from-blue-900 to-indigo-900 p-6 rounded-2xl text-white shadow-md hover:shadow-xl transition cursor-pointer transform hover:-translate-y-0.5 flex justify-between items-center"
+        >
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-blue-200">Total de Membros Oficial</p>
+            <h3 className="text-4xl font-black mt-1">{qtdMembros}</h3>
+            <p className="text-[11px] text-blue-300 mt-2">Clique para ver lista e editar 🔍</p>
+          </div>
+          <div className="text-4xl bg-white/10 p-3 rounded-2xl">👥</div>
+        </div>
+
+        <div
+          onClick={() => abrirModalLista('Visitantes')}
+          className="bg-gradient-to-br from-amber-600 to-amber-700 p-6 rounded-2xl text-white shadow-md hover:shadow-xl transition cursor-pointer transform hover:-translate-y-0.5 flex justify-between items-center"
+        >
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-amber-100">Total de Visitantes</p>
+            <h3 className="text-4xl font-black mt-1">{qtdVisitantes}</h3>
+            <p className="text-[11px] text-amber-200 mt-2">Clique para ver lista e acompanhar 🤝</p>
+          </div>
+          <div className="text-4xl bg-white/10 p-3 rounded-2xl">🤝</div>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-indigo-900 to-blue-900 rounded-2xl p-6 text-white shadow-md space-y-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-blue-700/60 pb-4">
+          <div>
+            <h3 className="text-lg font-black tracking-wide flex items-center gap-2">
+              🎂 Aniversariantes {modoAniversariantes === 'dia' ? 'de Hoje' : 'do Mês'}
+            </h3>
+            <p className="text-xs text-blue-200">
+              {modoAniversariantes === 'dia' ? 'Membros que sopram as velinhas hoje (Enviado automaticamente aos líderes).' : 'Todos os aniversariantes deste mês.'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setModoAniversariantes(modoAniversariantes === 'dia' ? 'mes' : 'dia')}
+            className="px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs rounded-xl transition shadow cursor-pointer border border-blue-500/50"
+          >
+            {modoAniversariantes === 'dia' ? '📅 Ver Aniversariantes do Mês' : '⭐ Ver Aniversariantes de Hoje'}
+          </button>
+        </div>
+
+        {loadingAniversariantes ? (
+          <p className="text-xs text-blue-200 py-4 text-center">Buscando aniversariantes...</p>
+        ) : aniversariantes.length === 0 ? (
+          <div className="bg-blue-950/40 p-4 rounded-xl border border-blue-800/50 text-center">
+            <p className="text-sm text-blue-200">
+              Nenhum aniversariante encontrado {modoAniversariantes === 'dia' ? 'para hoje' : 'neste mês'}.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {aniversariantes.map((m) => {
+              const partes = m.data_nascimento.split('-');
+              const dataFormatada = `${partes[2]}/${partes[1]}`;
+              return (
+                <div key={m.id} className="bg-white/10 backdrop-blur-sm border border-white/10 rounded-xl p-3 flex justify-between items-center">
+                  <div>
+                    <p className="font-bold text-sm text-white truncate max-w-[180px]">{m.nome}</p>
+                    <p className="text-xs text-blue-200">📞 {m.celular_principal || 'Sem telefone'} {m.tipo_cadastro?.toLowerCase().includes('lider') && '⭐'}</p>
+                  </div>
+                  <span className="bg-blue-500/30 text-blue-100 font-black text-xs px-2.5 py-1 rounded-lg border border-blue-400/30">
+                    {dataFormatada}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {modalListaOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-4xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b pb-4 shrink-0">
+              <div>
+                <h3 className="text-2xl font-black text-blue-900">
+                  Lista de {tipoListaModal} ({filtradosModal.length})
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Cadastros oficiais registrados para a igreja {codigoIgreja}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setModalListaOpen(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="shrink-0">
+              <input
+                type="text"
+                placeholder={`🔎 Pesquisar ${tipoListaModal.toLowerCase()} por nome ou celular...`}
+                value={buscaModal}
+                onChange={(e) => setBuscaModal(e.target.value)}
+                className="w-full border rounded-xl px-4 py-2.5 text-xs focus:ring-2 focus:ring-blue-600 outline-none"
+              />
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-2">
+              {loadingLista ? (
+                <p className="text-center py-6 text-slate-500 text-xs">Carregando lista...</p>
+              ) : filtradosModal.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed text-slate-500 text-xs">
+                  Nenhum registro encontrado.
+                </div>
+              ) : (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold sticky top-0">
+                      <th className="p-3">Nome</th>
+                      <th className="p-3">Tipo</th>
+                      <th className="p-3">Telefone</th>
+                      <th className="p-3">Bairro / Cidade</th>
+                      <th className="p-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-xs">
+                    {filtradosModal.map((p) => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold text-slate-800">{p.nome || 'Sem nome'}</td>
+                        <td className="p-3">
+                          <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                            {p.tipo_cadastro || 'Membro'}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600">{p.celular_principal || '-'}</td>
+                        <td className="p-3 text-slate-500">{[p.bairro, p.cidade].filter(Boolean).join(' - ') || '-'}</td>
+                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setItemDetalhes(p)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
+                          >
+                            👁️ Ver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setItemEditando(p)}
+                            className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleExcluirRegistro(p.id, p.nome)}
+                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {itemEditando && (
+        <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">Editar Cadastro</h3>
+                <p className="text-xs text-slate-500">{itemEditando.nome}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setItemEditando(null)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                ✕ Cancelar
+              </button>
+            </div>
+
+            <form onSubmit={handleSalvarEdicao} className="space-y-4 text-xs">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo *</label>
+                  <label className="block font-bold text-slate-700 mb-1">TIPO DE CADASTRO</label>
                   <select
-                    value={formLancamento.tipo}
-                    onChange={(e) => setFormLancamento({ ...formLancamento, tipo: e.target.value as any })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
-                    required
+                    value={itemEditando.tipo_cadastro || 'Membro'}
+                    onChange={(e) => setItemEditando({ ...itemEditando, tipo_cadastro: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white font-medium"
                   >
-                    <option value="receita">🟢 Receita (Entrada)</option>
-                    <option value="despesa">🔴 Despesa (Saída)</option>
+                    <option value="Membro">Membro</option>
+                    <option value="Congregado">Congregado</option>
+                    <option value="Visitante">Visitante</option>
+                    <option value="Lider">Líder</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data *</label>
+                  <label className="block font-bold text-slate-700 mb-1">NOME COMPLETO *</label>
+                  <input
+                    type="text"
+                    value={itemEditando.nome || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, nome: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">CELULAR / WHATSAPP</label>
+                  <input
+                    type="text"
+                    value={itemEditando.celular_principal || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, celular_principal: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">E-MAIL</label>
+                  <input
+                    type="email"
+                    value={itemEditando.email || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, email: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">DATA DE NASCIMENTO</label>
                   <input
                     type="date"
-                    value={formLancamento.data_lancamento}
-                    onChange={(e) => setFormLancamento({ ...formLancamento, data_lancamento: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
-                    required
+                    value={itemEditando.data_nascimento || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, data_nascimento: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ESTADO CIVIL</label>
+                  <select
+                    value={itemEditando.estado_civil || 'Solteiro(a)'}
+                    onChange={(e) => setItemEditando({ ...itemEditando, estado_civil: e.target.value })}
+                    className="w-full border rounded-xl p-2.5 bg-white"
+                  >
+                    <option value="Solteiro(a)">Solteiro(a)</option>
+                    <option value="Casado(a)">Casado(a)</option>
+                    <option value="Divorciado(a)">Divorciado(a)</option>
+                    <option value="Viúvo(a)">Viúvo(a)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">BAIRRO</label>
+                  <input
+                    type="text"
+                    value={itemEditando.bairro || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, bairro: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">CIDADE</label>
+                  <input
+                    type="text"
+                    value={itemEditando.cidade || ''}
+                    onChange={(e) => setItemEditando({ ...itemEditando, cidade: e.target.value })}
+                    className="w-full border rounded-xl p-2.5"
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição *</label>
-                <input
-                  type="text"
-                  value={formLancamento.descricao}
-                  onChange={(e) => setFormLancamento({ ...formLancamento, descricao: e.target.value })}
-                  placeholder="Ex: Dízimos do Culto, Conta de Luz"
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Valor (R$) *</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formLancamento.valor}
-                  onChange={(e) => setFormLancamento({ ...formLancamento, valor: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none font-bold text-blue-900"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  🏦 Conta Adm (Caixa / Banco) *
-                </label>
-                <select
-                  value={formLancamento.conta_corrente_id}
-                  onChange={(e) => setFormLancamento({ ...formLancamento, conta_corrente_id: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
-                  required
-                >
-                  <option value="">Selecione a conta administrativa...</option>
-                  {contasAdmList.map((adm) => (
-                    <option key={adm.id} value={adm.id}>{adm.codigo_conta} ({adm.nome_conta})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  📊 Conta do Plano de Contas (Contábil / DRE) *
-                </label>
-                <select
-                  value={formLancamento.id_conta_contabil}
-                  onChange={(e) => setFormLancamento({ ...formLancamento, id_conta_contabil: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
-                  required
-                >
-                  <option value="">Selecione a conta do plano contábil...</option>
-                  {contasContabeis.map((c) => (
-                    <option key={c.id} value={c.id}>{c.codigo_conta} - {c.nome_conta} ({c.tipo_natureza})</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* VÍNCULO COM MEMBRO */}
-              <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
-                <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
-                  <input
-                    type="checkbox"
-                    checked={relacionadoMembro}
-                    onChange={(e) => {
-                      setRelacionadoMembro(e.target.checked);
-                      if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
-                    }}
-                    className="w-4 h-4 rounded text-blue-900"
-                  />
-                  <span>Está relacionado a algum membro?</span>
-                </label>
-
-                {relacionadoMembro && (
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Pesquisar / Selecionar Membro *</label>
-                    <select
-                      value={formLancamento.membro_id}
-                      onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
-                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900"
-                      required={relacionadoMembro}
-                    >
-                      <option value="">Selecione o membro...</option>
-                      {membrosList.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-
-              {/* INSERIR DOCUMENTO / COMPROVANTE (FOTO OU ARQUIVO) LOGO APÓS OS CAMPOS */}
-              <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
-                <label className="block text-xs font-bold text-blue-900 uppercase">
-                  📎 Inserir Documento / Comprovante (Foto ou Arquivo)
-                </label>
-                <p className="text-[11px] text-slate-500">
-                  Tire uma foto direto pelo celular ou escolha um arquivo do dispositivo.
-                </p>
-                <input
-                  type="file"
-                  accept="image/*,application/pdf"
-                  capture="environment"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setArquivoDocumento(e.target.files[0]);
-                    }
-                  }}
-                  className="w-full border border-blue-300 rounded-xl px-3 py-2 text-xs bg-white font-medium cursor-pointer"
-                />
-                {arquivoDocumento && (
-                  <p className="text-xs text-emerald-700 font-bold">
-                    Selecionado: {arquivoDocumento.name}
-                  </p>
-                )}
-              </div>
-
-              {/* A SENHA SÓ APARECE NA EDIÇÃO / ALTERAÇÃO */}
-              {editingLancamento && (
-                <div className="pt-2 border-t">
-                  <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
-                  <input
-                    type="password"
-                    value={senhaExclusao}
-                    onChange={(e) => setSenhaExclusao(e.target.value)}
-                    placeholder="Sua senha atual"
-                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                    required
-                  />
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t">
+              <div className="border-t pt-4 flex gap-2 justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowModalLancamento(false)}
-                  className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
+                  onClick={() => setItemEditando(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl cursor-pointer"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
+                  className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
                 >
-                  {editingLancamento ? 'Salvar Alterações' : 'Salvar Lançamento'}
+                  💾 Salvar Alterações
                 </button>
               </div>
             </form>
@@ -1212,280 +1938,31 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE IMPRESSÃO DE RECIBO / COMPROVANTE (MEIA FOLHA A4) */}
-      {showModalRecibo && lancamentoParaRecibo && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b pb-4 no-print">
-              <h3 className="text-lg font-black text-blue-900">Visualizar Comprovante / Recibo</h3>
+      {itemDetalhes && (
+        <div className="fixed inset-0 bg-slate-900/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 my-8">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-lg font-black text-blue-900">Ficha do Cadastro</h3>
               <button
                 type="button"
-                onClick={() => setShowModalRecibo(false)}
+                onClick={() => setItemDetalhes(null)}
                 className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
               >
                 ✕ Fechar
               </button>
             </div>
 
-            {/* CORPO DO RECIBO (FORMATO MEIA FOLHA A4) */}
-            <div className="receipt-print border-2 border-dashed border-slate-300 p-6 rounded-2xl bg-white space-y-6 text-slate-800">
-              <div className="text-center space-y-1 border-b pb-4">
-                <h2 className="text-xl font-black text-blue-900 uppercase">
-                  Comprovante de {lancamentoParaRecibo.tipo === 'receita' ? 'Recebimento' : 'Pagamento'}
-                </h2>
-                <p className="text-xs text-slate-500">Igreja ID: {codigoIgreja}</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
-                <div>
-                  <span className="text-slate-400 block uppercase">Data do Lançamento:</span>
-                  <span className="text-sm font-bold">{lancamentoParaRecibo.data_lancamento?.split('-').reverse().join('/')}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block uppercase">Valor:</span>
-                  <span className={`text-lg font-black ${lancamentoParaRecibo.tipo === 'receita' ? 'text-emerald-700' : 'text-rose-700'}`}>
-                    R$ {Number(lancamentoParaRecibo.valor).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-xs space-y-2">
-                <div>
-                  <span className="text-slate-400 block uppercase">Histórico / Descrição:</span>
-                  <p className="text-sm font-bold text-slate-800 bg-slate-50 p-3 rounded-xl border">
-                    {lancamentoParaRecibo.descricao}
-                  </p>
-                </div>
-
-                {lancamentoParaRecibo.membro_id && (
-                  <div>
-                    <span className="text-slate-400 block uppercase">Contribuinte / Membro:</span>
-                    <p className="text-sm font-bold text-blue-900">
-                      {getNomeMembroVinculado(lancamentoParaRecibo.membro_id)}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-12 flex justify-between items-center text-center text-xs border-t">
-                <div className="w-1/2">
-                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
-                  <p className="font-semibold text-slate-600">Tesouraria / Administração</p>
-                </div>
-                <div className="w-1/2">
-                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
-                  <p className="font-semibold text-slate-600">Assinatura do Contribuinte</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2 no-print">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-              >
-                🖨️ Imprimir Comprovante (Meia Folha A4)
-              </button>
+            <div className="space-y-2 text-xs">
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">NOME</strong>{itemDetalhes.nome}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">TIPO</strong>{itemDetalhes.tipo_cadastro}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">TELEFONE</strong>{itemDetalhes.celular_principal || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">E-MAIL</strong>{itemDetalhes.email || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">CPF / RG</strong>{itemDetalhes.cpf || '-'} / {itemDetalhes.rg || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><strong className="block text-slate-400">ENDEREÇO</strong>{[itemDetalhes.rua, itemDetalhes.numero, itemDetalhes.bairro, itemDetalhes.cidade].filter(Boolean).join(', ') || '-'}</div>
             </div>
           </div>
         </div>
       )}
-
-      {/* MODAL DE CONTA ADM */}
-      {showModalAdm && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-xl font-black text-blue-900">
-              {editingAdm ? 'Editar Conta Adm' : 'Nova Conta Adm'}
-            </h3>
-            
-            <form onSubmit={handleSubmitAdm} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tipo / Descrição (Código da Conta) *</label>
-                <input
-                  type="text"
-                  value={formAdm.codigo_conta}
-                  onChange={(e) => setFormAdm({ ...formAdm, codigo_conta: e.target.value })}
-                  placeholder="Ex: Caixa Geral, Conta Bancária"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nome / Banco *</label>
-                <input
-                  type="text"
-                  value={formAdm.nome_conta}
-                  onChange={(e) => setFormAdm({ ...formAdm, nome_conta: e.target.value })}
-                  placeholder="Ex: CAIXA, BANCO SICOOB CREDIVALE"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Agência</label>
-                  <input
-                    type="text"
-                    value={formAdm.agencia}
-                    onChange={(e) => setFormAdm({ ...formAdm, agencia: e.target.value })}
-                    placeholder="0000"
-                    className="w-full border rounded-xl px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Número da Conta</label>
-                  <input
-                    type="text"
-                    value={formAdm.numero_conta}
-                    onChange={(e) => setFormAdm({ ...formAdm, numero_conta: e.target.value })}
-                    placeholder="00000-0"
-                    className="w-full border rounded-xl px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-2 border-t">
-                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
-                <input
-                  type="password"
-                  value={senhaExclusao}
-                  onChange={(e) => setSenhaExclusao(e.target.value)}
-                  placeholder="Sua senha atual"
-                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModalAdm(false); setEditingAdm(null); }}
-                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
-                >
-                  {editingAdm ? 'Salvar Alterações' : 'Cadastrar Conta Adm'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE PLANO DE CONTAS */}
-      {showModalConta && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-xl font-black text-blue-900">
-              {editingConta ? 'Editar Conta Contábil' : 'Nova Conta Contábil'}
-            </h3>
-            
-            <form onSubmit={handleSubmitConta} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
-                <input
-                  type="text"
-                  value={formConta.codigo_conta}
-                  onChange={(e) => setFormConta({ ...formConta, codigo_conta: e.target.value })}
-                  placeholder="Ex: 3.1.01.01"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta *</label>
-                <input
-                  type="text"
-                  value={formConta.nome_conta}
-                  onChange={(e) => setFormConta({ ...formConta, nome_conta: e.target.value })}
-                  placeholder="Ex: Dízimos Recebidos"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Natureza *</label>
-                <select
-                  value={formConta.tipo_natureza}
-                  onChange={(e) => setFormConta({ ...formConta, tipo_natureza: e.target.value })}
-                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white"
-                  required
-                >
-                  <option value="Receita">Receita</option>
-                  <option value="Despesa">Despesa</option>
-                  <option value="Ativo">Ativo</option>
-                  <option value="Passivo">Passivo</option>
-                </select>
-              </div>
-
-              <div className="pt-2 border-t">
-                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
-                <input
-                  type="password"
-                  value={senhaExclusao}
-                  onChange={(e) => setSenhaExclusao(e.target.value)}
-                  placeholder="Sua senha atual"
-                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModalConta(false); setEditingConta(null); }}
-                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
-                >
-                  {editingConta ? 'Salvar Alterações' : 'Cadastrar Conta'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL DE EXCLUSÃO COM SENHA */}
-      {showDeleteModal && itemParaExcluir && (
-        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>
-            <p className="text-sm text-slate-600">
-              Você vai excluir <strong className="text-slate-800">{itemParaExcluir.nome}</strong>. Digite sua senha para confirmar:
-            </p>
-            <form onSubmit={confirmarExclusao} className="space-y-4">
-              <input
-                type="password"
-                value={senhaExclusao}
-                onChange={(e) => setSenhaExclusao(e.target.value)}
-                placeholder="Sua senha atual"
-                className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                required
-              />
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowDeleteModal(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">Cancelar</button>
-                <button type="submit" className="px-4 py-2 bg-rose-600 text-white text-sm font-bold rounded-xl cursor-pointer">Confirmar Exclusão</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

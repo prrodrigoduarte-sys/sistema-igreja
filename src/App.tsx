@@ -1267,10 +1267,11 @@ export default function App() {
     )}
 </main> 
      {/* 8. MODAL INTUITIVO MOBILE E GERADOR DE QR CODE */}
-     {isMobileModalOpen && (
+
+{isMobileModalOpen && (
   <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
-    <div className="my-8 w-full max-w-lg space-y-6 rounded-3xl bg-white p-8 shadow-2xl">
-      <div className="flex items-center justify-between border-b pb-4">
+    <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
+      <div className="mb-6 flex items-center justify-between border-b pb-4">
         <div>
           <h3 className="text-xl font-black text-blue-900">
             Painel Mobile e Atalhos
@@ -1284,7 +1285,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setIsMobileModalOpen(false)}
-          className="cursor-pointer rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600"
+          className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600"
         >
           ✕ Fechar
         </button>
@@ -1298,8 +1299,104 @@ export default function App() {
             rel="noopener noreferrer"
             className="block w-full rounded-xl bg-blue-900 px-4 py-3 text-center text-sm font-bold text-white shadow transition hover:bg-blue-800"
           >
-            🔗 1. Abrir Tela de Cadastro Público (Nova Guia)
+            🔗 1. Abrir Tela de Cadastro Público
           </a>
+
+          <p className="px-1 text-xs text-slate-500">
+            Abre a interface externa de cadastro de membros e visitantes.
+          </p>
+        </div>
+
+        <div className="space-y-2 border-t pt-4">
+          <button
+            type="button"
+            onClick={() => {
+              setIsMobileModalOpen(false);
+              selecionarAba('agenda');
+            }}
+            className="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center text-sm font-bold text-indigo-900 hover:bg-indigo-100"
+          >
+            📅 2. Ver Agenda e Próximos Eventos
+          </button>
+
+          <p className="px-1 text-xs text-slate-500">
+            Acesse cultos, reuniões e programações agendadas.
+          </p>
+        </div>
+
+        <div className="space-y-3 border-t pt-4">
+          <h4 className="text-sm font-bold text-blue-900">
+            📱 3. Gerar QR Code para Membros Escanearem
+          </h4>
+
+          <p className="text-xs leading-relaxed text-slate-600">
+            Gere um QR Code temporário, válido por 6 horas, para cadastro pelo
+            celular.
+          </p>
+
+          {isAdmin && (
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={gerarNovoQrCodeTemporario}
+                disabled={gerandoQr}
+                className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white hover:bg-indigo-800 disabled:opacity-50"
+              >
+                {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
+              </button>
+
+              {qrCodeUrlDinamico && (
+                <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
+                  <img
+                    src={qrCodeUrlDinamico}
+                    alt="QR Code temporário para cadastro"
+                    className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2"
+                  />
+
+                  <p className="text-[10px] font-semibold text-slate-500">
+                    Mostre esta imagem para o membro escanear.
+                  </p>
+
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const query = qrCodeUrlDinamico.split('?')[1] || '';
+                        const linkReal = new URLSearchParams(query).get('data');
+
+                        if (linkReal) {
+                          navigator.clipboard
+                            .writeText(linkReal)
+                            .then(() => alert('Link copiado!'))
+                            .catch(() => alert('Não foi possível copiar o link.'));
+                        } else {
+                          alert('Link não encontrado.');
+                        }
+                      }}
+                      className="rounded-lg bg-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-300"
+                    >
+                      📋 Copiar Link
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setQrCodeUrlDinamico('')}
+                      className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 hover:bg-rose-100"
+                    >
+                      ✕ Fechar QR Code
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!isAdmin && (
+            <p className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center text-xs font-semibold text-rose-600">
+              🔒 Recurso restrito: apenas administradores podem gerar o QR Code
+              de cadastro.
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -1528,20 +1625,17 @@ export default function App() {
                       </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-xs font-semibold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-100 text-center">
-                    🔒 Recurso restrito: Apenas administradores podem gerar o QR Code de cadastro.
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
+                                                          ) : (
+                                                            <p className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center text-xs font-semibold text-rose-600">
+                                                              🔒 Recurso restrito: apenas administradores podem gerar o QR
+                                                              Code de cadastro.
+                                                            </p>
+                                                                                                    )}
+                                                                                                    </div>
+                                                                                                  </div>
+                                                                                                </div>
+                                                                                              </div>
+                                                                                        )}
 /* ========================================================================== */
 /* 9. SUBCOMPONENTE: DASHBOARD HOME (ESTATÍSTICAS E ANIVERSARIANTES)           */
 /* ========================================================================== */

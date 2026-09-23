@@ -23,7 +23,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     agenda: false,
     financeiro: false,
     projetos: false,
-    app_mobile: true, // App mobile padrão liberado
+    app_mobile: true,
   });
 
   // Senha Mestre
@@ -65,7 +65,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     const isPrimeiro = usuarios.length === 0;
     setPerfilUsuario(isPrimeiro ? 'administrador' : 'comum');
     
-    // Se for admin, libera tudo. Se for comum, vem tudo zerado (false)
     setPermissoesUsuario({
       dashboard: isPrimeiro,
       cadastros: isPrimeiro,
@@ -87,7 +86,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setEmailUsuario(usuario.email || '');
     setPerfilUsuario(usuario.perfil || 'comum');
 
-    // Carregar permissões da tabela 'permissoes_usuario'
     let permsIniciais: { [key: string]: boolean } = {
       dashboard: false,
       cadastros: false,
@@ -129,7 +127,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (senhaAdminInput !== senhaMestreAtual && loggedUser?.perfil !== 'administrador') {
+    if (senhaAdminInput !== senhaMestreAtual && loggedUser?.perfil !== 'administrador' && loggedUser?.perfil !== 'admin') {
       alert('🔒 Senha mestre de segurança incorreta.');
       return;
     }
@@ -140,6 +138,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         nome_usuario: nomeUsuario.trim(),
         email: emailUsuario.trim(),
         perfil: perfilUsuario,
+        ativo: true,
       };
 
       let usuarioId = editingUsuario?.id;
@@ -162,7 +161,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         usuarioId = novoUsuario.id;
       }
 
-      // Salva ou atualiza as permissões na tabela 'permissoes_usuario' usando upsert seguro
       if (usuarioId) {
         const novasPermissoesRows = Object.entries(permissoesUsuario).map(([modulo, permitido]) => ({
           usuario_id: usuarioId,
@@ -198,7 +196,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     }
 
     try {
-      // Exclui permissões vinculadas primeiro
       await supabase.from('permissoes_usuario').delete().eq('usuario_id', id);
 
       const { error } = await supabase.from('usuarios').delete().eq('id', id);
@@ -230,7 +227,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setSenhaAntigaInput('');
   };
 
-  // Estatísticas do Gráfico
   const totalUsuarios = usuarios.length;
   const qtdAdmin = usuarios.filter((u) => u.perfil === 'administrador' || u.perfil === 'admin').length;
   const qtdLider = usuarios.filter((u) => u.perfil === 'lider').length;
@@ -265,7 +261,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       </div>
 
-      {/* GRÁFICO DE PERFIS */}
       {!loading && totalUsuarios > 0 && (
         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
           <div className="flex justify-between items-center text-xs font-bold text-slate-700">
@@ -338,7 +333,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
-      {/* MODAL DE EDIÇÃO E LIBERAÇÃO DE MÓDULOS */}
       {showModal && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4 text-xs max-h-[90vh] overflow-y-auto">
@@ -382,7 +376,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                 </select>
               </div>
 
-              {/* PAINEL DE LIBERAÇÃO DE MÓDULOS (CHECKBOXES) */}
               <div className="border-t pt-3 space-y-2">
                 <label className="block font-black text-blue-900 text-sm">🔓 Liberação de Módulos (Zerar ou Conceder)</label>
                 <p className="text-[11px] text-slate-500">Marque apenas os módulos que este usuário poderá visualizar e acessar:</p>
@@ -462,7 +455,6 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         </div>
       )}
 
-      {/* MODAL SENHA MESTRE */}
       {showModalSenhaMestre && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 space-y-4 text-xs">

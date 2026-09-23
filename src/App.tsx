@@ -123,17 +123,19 @@ export default function App() {
     }
   }, [igrejaAtual, loggedUser]);
 
-  // 2. Enviar mensagem salvando no Supabase
+  // 2. Enviar mensagem salvando no Supabase (Corrigido para Privado ou Geral)
   const handleSendMessage = async () => {
     if (!messageInput.trim()) return;
     
+    const isGeral = selectedRecipient === 'all';
+
     const novaMsg = {
       codigo_igreja: igrejaAtual,
       sender: loggedUser?.nome_usuario || 'Você',
-      text: selectedRecipient === 'all' ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
+      text: isGeral ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      is_broadcast: selectedRecipient === 'all',
-      recipient_id: selectedRecipient === 'all' ? null : selectedRecipient
+      is_broadcast: isGeral,
+      recipient_id: isGeral ? null : selectedRecipient
     };
 
     const { data, error } = await supabase

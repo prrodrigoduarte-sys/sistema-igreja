@@ -21,7 +21,7 @@ import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
-import { MessageSquare, Send, Bell } from 'lucide-react';
+import { MessageSquare, Send, Bell, Trash2 } from 'lucide-react';
 
 function getOrCreateDeviceToken() {
   let token = localStorage.getItem('app_device_token');
@@ -65,7 +65,7 @@ export default function App() {
 
   // Estados para o Chat Mobile, Status e Aniversários dos Líderes
   const [chatMessages, setChatMessages] = useState<Array<{ id: string; sender: string; text: string; time: string; isBroadcast?: boolean }>>([
-    { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00' }
+    { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
   ]);
   const [messageInput, setMessageInput] = useState('');
   const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
@@ -128,6 +128,17 @@ export default function App() {
     };
     setChatMessages(prev => [...prev, newMessage]);
     setMessageInput('');
+  };
+
+  const handleExcluirMensagemChat = (msgId: string, isBroadcastMsg?: boolean) => {
+    if (isBroadcastMsg && !isAdmin) {
+      alert('🔒 Apenas o Administrador pode excluir mensagens da conversa geral (todos os membros).');
+      return;
+    }
+
+    if (!window.confirm('Deseja realmente excluir esta mensagem?')) return;
+
+    setChatMessages(prev => prev.filter(m => m.id !== msgId));
   };
 
   const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
@@ -1042,7 +1053,7 @@ export default function App() {
 
       {/* ========================================================================== */}
       /* 7. ÁREA DE CONTEÚDO PRINCIPAL — RENDERIZAÇÃO DOS MÓDULOS                   */
-      /* ========================================================================== */
+      /* ========================================================================== */}
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1162,7 +1173,7 @@ export default function App() {
                     .map((msg) => (
                       <div
                         key={msg.id}
-                        className={`max-w-md rounded-lg p-3 ${
+                        className={`relative group rounded-lg p-3 ${
                           msg.isBroadcast
                             ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
                             : 'bg-slate-100'
@@ -1170,7 +1181,20 @@ export default function App() {
                       >
                         <div className="mb-1 flex justify-between text-xs text-slate-500">
                           <span className="font-semibold">{msg.sender}</span>
-                          <span>{msg.time}</span>
+                          <div className="flex items-center gap-2">
+                            <span>{msg.time}</span>
+                            {/* Botão de Excluir: visível nas mensagens gerais apenas para admin, ou visível em mensagens individuais */}
+                            {(!msg.isBroadcast || isAdmin) && (
+                              <button
+                                type="button"
+                                onClick={() => handleExcluirMensagemChat(msg.id, msg.isBroadcast)}
+                                className="text-rose-500 hover:text-rose-700 p-0.5 rounded cursor-pointer"
+                                title={msg.isBroadcast ? "Excluir transmissão geral (Admin)" : "Excluir mensagem"}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
+                          </div>
                         </div>
                         <p className="text-sm text-slate-800">{msg.text}</p>
                       </div>

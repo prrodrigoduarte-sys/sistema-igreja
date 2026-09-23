@@ -155,14 +155,25 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
       const resMemb = await supabase
-        .from('members')
+        // Tenta buscar da tabela 'members' (se falhar, pode alterar para 'membros')
+      let resMemb = await supabase
+      .from('members')
+      .select('id, nome, email, telefone, whatsapp')
+      .eq('codigo_igreja', codigoIgreja)
+      .order('nome', { ascending: true });
+
+    // Se a tabela 'members' não existir, tenta na tabela 'membros' automaticamente
+    if (resMemb.error) {
+      resMemb = await supabase
+        .from('membros')
         .select('id, nome, email, telefone, whatsapp')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
+    }
 
-      if (!resMemb.error) {
-        setMembrosList(resMemb.data || []);
-      }
+    if (!resMemb.error) {
+      setMembrosList(resMemb.data || []);
+    }
 
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);

@@ -1122,7 +1122,7 @@ export default function App() {
             >
               <div>
                 <p className="text-sm font-semibold text-slate-800">
-                  {member.name}
+                {member.nome || 'Membro sem nome'}
                 </p>
 
                 <p className="text-xs capitalize text-slate-500">

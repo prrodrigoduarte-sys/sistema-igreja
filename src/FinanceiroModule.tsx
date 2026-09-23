@@ -13,6 +13,7 @@ interface Lancamento {
   id_conta_contabil: string;
   membro_id?: string;
   documento_url?: string;
+  agradecimento_enviado?: boolean;
 }
 
 interface ContaContabil {
@@ -175,7 +176,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Senha solicitada APENAS se estiver editando/alterando
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
           email: emailUsuarioLogado,
@@ -366,7 +366,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
     const membro = membrosList.find((m) => m.id === lanc.membro_id);
     if (!membro || !membro.email) {
-      return alert('O membro vinculado não possui e-mail cadastrado.');
+      return alert('O membro vinculado não possui e-mail cadastrado no sistema.');
     }
 
     const descLower = (lanc.descricao || '').toLowerCase();
@@ -379,17 +379,28 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     try {
       const mensagemAgradecimento = `Deus abençoe pela sua contribuição, prosperando sua casa.`;
       
-      await supabase.from('fila_emails').insert([
+      // Inserção real na fila de e-mails do banco de dados (Supabase)
+      const { error: emailError } = await supabase.from('fila_emails').insert([
         {
           codigo_igreja: codigoIgreja,
           destinatario: membro.email,
           assunto: 'Comprovante de Contribuição - Agradecimento',
           mensagem: `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\n${mensagemAgradecimento}`,
+          status: 'pendente',
         },
       ]);
 
-      alert(`✅ E-mail de agradecimento enviado com sucesso para ${membro.email}!\nMensagem: "${mensagemAgradecimento}"`);
+      if (emailError) throw emailError;
+
+      // Atualiza o registro no banco para marcar que o agradecimento foi enviado
+      await supabase
+        .from('lancamentos_financeiros')
+        .update({ agradecimento_enviado: true })
+        .eq('id', lanc.id);
+
+      alert(`✅ E-mail de agradecimento enfileirado e disparado com sucesso para ${membro.email}!`);
       await registrarLog('ENVIO_AGRADECIMENTO', `Enviou email de agradecimento para ${membro.email}`);
+      fetchDados();
     } catch (err: any) {
       alert('Erro ao enviar e-mail: ' + err.message);
     }
@@ -635,7 +646,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                          {/* BOTÃO IMPRIMIR RECIBO */}
+                          {/* BOTÃO RECIBO */}
                           <button
                             type="button"
                             onClick={() => {
@@ -648,15 +659,19 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             🖨️ Recibo
                           </button>
 
-                          {/* BOTÃO ENVIAR AGRADECIMENTO */}
+                          {/* BOTÃO AGRADECER COM INDICADOR VISUAL (VERDE/VERMELHO) */}
                           {ehDizimoOuOferta && l.membro_id && (
                             <button
                               type="button"
                               onClick={() => handleEnviarAgradecimento(l)}
-                              className="px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                              title="Enviar Agradecimento"
+                              className={`px-2.5 py-1 font-bold text-xs rounded-lg transition cursor-pointer border ${
+                                l.agradecimento_enviado 
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                                  : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                              }`}
+                              title={l.agradecimento_enviado ? "Agradecimento já enviado" : "Enviar e-mail de agradecimento"}
                             >
-                              ✉️ Agradecer
+                              {l.agradecimento_enviado ? '🟢 Agradecido' : '🔴 Agradecer'}
                             </button>
                           )}
 
@@ -1167,14 +1182,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 )}
               </div>
 
-              {/* INSERIR DOCUMENTO / COMPROVANTE LOGO APÓS OS CAMPOS */}
+              {/* INSERIR DOCUMENTO / COMPROVANTE */}
               <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
                 <label className="block text-xs font-bold text-blue-900 uppercase">
                   📎 Inserir Documento / Comprovante (Foto ou Arquivo)
                 </label>
-                <p className="text-[11px] text-slate-500">
-                  Tire uma foto direto pelo celular ou escolha um arquivo do dispositivo.
-                </p>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -1193,7 +1205,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 )}
               </div>
 
-              {/* SENHA DO ADMINISTRADOR (EXIGIDA APENAS NA ALTERAÇÃO/EDIÇÃO) */}
+              {/* SENHA APENAS NA EDIÇÃO */}
               {editingLancamento && (
                 <div className="pt-2 border-t">
                   <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
@@ -1228,7 +1240,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE IMPRESSÃO DE RECIBO / COMPROVANTE (MEIA FOLHA A4) */}
+      {/* MODAL DE RECIBO */}
       {showModalRecibo && lancamentoParaRecibo && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
@@ -1243,7 +1255,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </button>
             </div>
 
-            {/* CORPO DO RECIBO (MEIA FOLHA A4) */}
             <div className="receipt-print border-2 border-dashed border-slate-300 p-6 rounded-2xl bg-white space-y-6 text-slate-800">
               <div className="text-center space-y-1 border-b pb-4">
                 <h2 className="text-xl font-black text-blue-900 uppercase">
@@ -1476,7 +1487,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </div>
       )}
 
-      {/* MODAL DE EXCLUSÃO COM SENHA */}
+      {/* MODAL DE EXCLUSÃO */}
       {showDeleteModal && itemParaExcluir && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">

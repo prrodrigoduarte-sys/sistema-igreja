@@ -80,6 +80,10 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   const [modalDespesa, setModalDespesa] = useState(false);
 
+  // Estados para o Encerramento e Relatórios do Projeto
+  const [modalEncerramentoOpen, setModalEncerramentoOpen] = useState(false);
+  const [tipoRelatorio, setTipoRelatorio] = useState<'sintetico' | 'analitico'>('sintetico');
+
   // Form Projeto
   const [nomeProjeto, setNomeProjeto] = useState('');
   const [descricaoProjeto, setDescricaoProjeto] = useState('');
@@ -150,7 +154,7 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
       if (dataInsc) setInscricoes(dataInsc);
 
-      // 4. Despesas (Tratado caso a tabela não exista ainda)
+      // 4. Despesas
       try {
         const { data: dataDesp } = await supabase
           .from('despesas_projetos')
@@ -224,14 +228,32 @@ export default function ProjetosModule({ loggedUser }: Props) {
 
   const valorCustoEstimado = Number(projetoSelecionado?.valor_estimado) || 0;
   
-  // Confronto: Total Pago vs Custo Estimado
   const balancoComCustoEstimado = totalArrecadadoPago - valorCustoEstimado;
-  
-  // Confronto: Total Pago vs Despesas Lançadas
   const balancoComDespesasReais = totalArrecadadoPago - totalDespesasExecutadas;
 
   const isSuperavitEstimado = balancoComCustoEstimado >= 0;
   const isSuperavitReal = balancoComDespesasReais >= 0;
+
+  // FUNÇÃO DE ENCERRAMENTO DO PROJETO
+  const handleEncerrarProjeto = async () => {
+    if (!projetoSelecionado) return;
+    if (!window.confirm(`Deseja realmente encerrar o projeto "${projetoSelecionado.nome_projeto}"? Esta ação mudará o status para Concluído e abrirá o relatório de fechamento.`)) return;
+
+    try {
+      const { error } = await supabase
+        .from('projetos')
+        .update({ status: 'Concluído' })
+        .eq('id', projetoSelecionado.id);
+
+      if (error) throw error;
+
+      alert('🎉 Projeto encerrado com sucesso!');
+      setModalEncerramentoOpen(true);
+      carregarDados();
+    } catch (err: any) {
+      alert('Erro ao encerrar projeto: ' + err.message);
+    }
+  };
 
   // 1. SALVAR / EDITAR PROJETO + SINCRONIZAR AGENDA
   const handleAbrirCriarProjeto = () => {
@@ -299,7 +321,6 @@ export default function ProjetosModule({ loggedUser }: Props) {
         alert('🚀 Projeto criado com sucesso!');
       }
 
-      // SINCRONIZAÇÃO COM A AGENDA
       if (dataEvento) {
         const tituloAgenda = `🚀 [PROJETO] ${nomeProjeto.trim()}`;
         const payloadAgenda = {
@@ -608,6 +629,14 @@ export default function ProjetosModule({ loggedUser }: Props) {
                   </div>
 
                   <div className="flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={handleEncerrarProjeto}
+                      className="px-3.5 py-2 bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-1 transition"
+                    >
+                      🔒 Encerrar Projeto / Relatórios
+                    </button>
+
                     <button
                       type="button"
                       onClick={handleAbrirNovaInscricao}
@@ -936,6 +965,195 @@ export default function ProjetosModule({ loggedUser }: Props) {
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* MODAL DE RELATÓRIO DE ENCERRAMENTO (SINTÉTICO E ANALÍTICO) */}
+      {modalEncerramentoOpen && projetoSelecionado && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b pb-4 shrink-0">
+              <div>
+                <h3 className="text-xl font-black text-blue-900">
+                  📊 Relatório de Fechamento de Caixa — {projetoSelecionado.nome_projeto}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Demonstrativo financeiro analítico e sintético oficial do projeto.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalEncerramentoOpen(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            {/* SELETOR DE ABAS (SINTÉTICO / ANALÍTICO) */}
+            <div className="flex gap-2 border-b pb-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setTipoRelatorio('sintetico')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  tipoRelatorio === 'sintetico'
+                    ? 'bg-blue-900 text-white shadow'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                📋 Caixa Sintético (Resumo)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setTipoRelatorio('analitico')}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                  tipoRelatorio === 'analitico'
+                    ? 'bg-blue-900 text-white shadow'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                🔍 Caixa Analítico (Lançamentos Detalhados)
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1 space-y-4 text-xs">
+              {tipoRelatorio === 'sintetico' ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl">
+                      <p className="text-emerald-700 font-bold">Total Arrecadado (Pago)</p>
+                      <h4 className="text-xl font-black text-emerald-900 mt-1">
+                        R$ {totalArrecadadoPago.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </h4>
+                    </div>
+                    <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl">
+                      <p className="text-rose-700 font-bold">Total Despesas Executadas</p>
+                      <h4 className="text-xl font-black text-rose-900 mt-1">
+                        R$ {totalDespesasExecutadas.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </h4>
+                    </div>
+                    <div className={`p-4 rounded-2xl border ${isSuperavitReal ? 'bg-blue-50 border-blue-200' : 'bg-rose-50 border-rose-200'}`}>
+                      <p className={`font-bold ${isSuperavitReal ? 'text-blue-700' : 'text-rose-700'}`}>Saldo Final em Caixa</p>
+                      <h4 className={`text-xl font-black mt-1 ${isSuperavitReal ? 'text-blue-900' : 'text-rose-900'}`}>
+                        {isSuperavitReal ? 'R$ ' : '-R$ '}
+                        {Math.abs(balancoComDespesasReais).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-50 p-4 rounded-2xl border space-y-2">
+                    <h4 className="font-bold text-slate-700">Resumo Consolidado</h4>
+                    <div className="flex justify-between py-1 border-b">
+                      <span>Total de Participantes Inscritos:</span>
+                      <span className="font-bold text-slate-800">{inscricoesDoProjeto.length} participante(s)</span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b">
+                      <span>Inscrições Quitadas:</span>
+                      <span className="font-bold text-emerald-700">
+                        {inscricoesDoProjeto.filter(i => i.status_pagamento === 'Pago').length} quitada(s)
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1 border-b">
+                      <span>Valores Pendentes:</span>
+                      <span className="font-bold text-amber-700">
+                        R$ {totalPendente.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex justify-between py-1">
+                      <span>Total de Despesas Lançadas:</span>
+                      <span className="font-bold text-rose-700">{despesasDoProjeto.length} despesa(s)</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-bold text-slate-700 mb-2">Entradas (Inscrições e Participações)</h4>
+                    {inscricoesDoProjeto.length === 0 ? (
+                      <p className="text-slate-400 italic">Nenhuma inscrição registrada.</p>
+                    ) : (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-600 font-bold">
+                            <th className="p-2">Participante</th>
+                            <th className="p-2">Status</th>
+                            <th className="p-2 text-right">Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {inscricoesDoProjeto.map((i) => (
+                            <tr key={i.id}>
+                              <td className="p-2">
+                                <p className="font-bold text-slate-800">{i.nome_participante}</p>
+                                <p className="text-[10px] text-slate-500">Forma: {i.forma_pagamento || 'N/A'}</p>
+                              </td>
+                              <td className="p-2">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${i.status_pagamento === 'Pago' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>
+                                  {i.status_pagamento}
+                                </span>
+                              </td>
+                              <td className="p-2 text-right font-bold text-emerald-700">
+                                R$ {Number(i.valor_participacao || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+
+                  <div className="pt-2 border-t">
+                    <h4 className="font-bold text-slate-700 mb-2">Saídas (Despesas Executadas)</h4>
+                    {despesasDoProjeto.length === 0 ? (
+                      <p className="text-slate-400 italic">Nenhuma despesa lançada.</p>
+                    ) : (
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="border-b bg-slate-50 text-slate-600 font-bold">
+                            <th className="p-2">Descrição</th>
+                            <th className="p-2">Categoria</th>
+                            <th className="p-2 text-right">Valor</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {despesasDoProjeto.map((d) => (
+                            <tr key={d.id}>
+                              <td className="p-2">
+                                <p className="font-bold text-slate-800">{d.descricao}</p>
+                                <p className="text-[10px] text-slate-500">Data: {d.data_despesa?.split('-').reverse().join('/')}</p>
+                              </td>
+                              <td className="p-2 font-semibold text-slate-600">{d.categoria}</td>
+                              <td className="p-2 text-right font-bold text-rose-700">
+                                R$ {Number(d.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="border-t pt-4 flex justify-between shrink-0">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl shadow cursor-pointer"
+              >
+                🖨️ Imprimir / Salvar PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalEncerramentoOpen(false)}
+                className="px-5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
+              >
+                Concluir
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

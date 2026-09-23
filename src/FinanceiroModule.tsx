@@ -107,6 +107,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
+  const remetenteFixo = 'vepchurchteo@gmail.com';
 
   const registrarLog = async (acao: string, detalhes: string) => {
     try {
@@ -378,19 +379,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
     try {
       const assunto = 'Comprovante de Contribuição - Agradecimento';
-      const mensagem = `Olá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\nDeus abençoe pela sua contribuição, prosperando sua casa.`;
+      const mensagem = `De: ${remetenteFixo}\n\nOlá, ${membro.nome}.\n\nRegistramos sua contribuição no valor de R$ ${Number(lanc.valor).toFixed(2)} referente a "${lanc.descricao}".\n\nDeus abençoe pela sua contribuição, prosperando sua casa.`;
       
-      // Abre instantaneamente o aplicativo de e-mail com os dados preenchidos
-      const mailtoLink = `mailto:${membro.email}?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
+      const mailtoLink = `mailto:${membro.email}?from=${encodeURIComponent(remetenteFixo)}&subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(mensagem)}`;
       window.location.href = mailtoLink;
 
-      // Atualiza o registro no banco para marcar visualmente como agradecido (verde)
       await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
         .eq('id', lanc.id);
 
-      await registrarLog('ENVIO_AGRADECIMENTO', `Abriu cliente de e-mail para agradecimento a ${membro.email}`);
+      await registrarLog('ENVIO_AGRADECIMENTO', `Abriu cliente de e-mail com remetente ${remetenteFixo} para ${membro.email}`);
       fetchDados();
     } catch (err: any) {
       alert('Erro ao preparar e-mail: ' + err.message);

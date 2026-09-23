@@ -162,22 +162,22 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         usuarioId = novoUsuario.id;
       }
 
-      // Salva ou atualiza as permissões na tabela 'permissoes_usuario' para que o login reconheça
+      // Salva ou atualiza as permissões na tabela 'permissoes_usuario' usando upsert seguro
       if (usuarioId) {
-        await supabase.from('permissoes_usuario').delete().eq('usuario_id', usuarioId);
-
         const novasPermissoesRows = Object.entries(permissoesUsuario).map(([modulo, permitido]) => ({
           usuario_id: usuarioId,
           modulo: modulo,
           permitido: permitido,
+          updated_at: new Date().toISOString(),
         }));
 
         const { error: permError } = await supabase
           .from('permissoes_usuario')
-          .insert(novasPermissoesRows);
+          .upsert(novasPermissoesRows, { onConflict: 'usuario_id,modulo' });
 
         if (permError) {
           console.error('Erro ao salvar permissões granulares:', permError);
+          throw permError;
         }
       }
 

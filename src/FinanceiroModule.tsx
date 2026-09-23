@@ -173,7 +173,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // Senha exigida APENAS na edição/alteração
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
           email: emailUsuarioLogado,
@@ -340,7 +339,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
-  // ENVIAR COMPROVANTE DE AGRADECIMENTO VIA EMAIL
   const handleEnviarAgradecimento = async (lanc: Lancamento) => {
     if (!lanc.membro_id) {
       return alert('Este lançamento não está vinculado a nenhum membro.');

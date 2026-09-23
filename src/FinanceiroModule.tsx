@@ -1152,7 +1152,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* VÍNCULO COM MEMBRO (CORRIGIDO) */}
+              {/* VÍNCULO COM MEMBRO */}
               <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
                   <input

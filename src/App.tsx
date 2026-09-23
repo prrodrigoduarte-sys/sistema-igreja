@@ -1039,21 +1039,24 @@ export default function App() {
             Sair
           </button>
           </div>
-      </aside>
+          </aside>
 
-      {/* ========================================================================== */}
-      {/* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                   */}
-      {/* ========================================================================== */}
-      <main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
-        {activeTab === 'dashboard' && temPermissao('dashboard') && (
-          <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
-        )}
+{/* ========================================================================== */}
+{/* 7. ÁREA DE CONTEÚDO PRINCIPAL (RENDERIZAÇÃO DOS MÓDULOS)                   */}
+{/* ========================================================================== */}
+<main className="flex-1 p-4 sm:p-8 overflow-y-auto w-full max-w-full">
+  {activeTab === 'dashboard' && temPermissao('dashboard') && (
+    <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
+  )}
 
-        {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
-          <div className="w-full max-w-4xl mx-auto">
-            <AppMobileModule loggedUser={userEfetivo} />
-          </div>
-        )}
+  {activeTab === 'app-mobile' && temPermissao('app-mobile') && (
+    <div className="w-full max-w-4xl mx-auto">
+      <AppMobileModule loggedUser={userEfetivo} />
+    </div>
+  )}
+  
+  {/* Outras abas... */}
+</main>
 
         {/* NOVA ABA DE CHAT MOBILE COM STATUS E ANIVERSARIANTES PARA LÍDERES */}
         {activeTab === 'chat-mobile' && (

@@ -154,14 +154,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // Busca direta na tabela members sem restrição rígida de código para garantir os membros
+      // BUSCA DE MEMBROS FILTRADA EXATAMENTE PELO CÓDIGO DA IGREJA LOGADA
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, telefone, whatsapp')
+        .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (!resMemb.error && resMemb.data) {
-        setMembrosList(resMemb.data);
+      if (!resMemb.error) {
+        setMembrosList(resMemb.data || []);
+      } else {
+        setMembrosList([]);
       }
 
     } catch (err: any) {
@@ -1170,7 +1173,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label className="block text-xs font-bold text-slate-700 uppercase">Selecionar Membro *</label>
-                      <span className="text-[10px] text-slate-400">({membrosList.length} membros carregados)</span>
+                      <span className="text-[10px] text-slate-400">({membrosList.length} membros carregados para {codigoIgreja})</span>
                     </div>
                     <select
                       value={formLancamento.membro_id}
@@ -1185,7 +1188,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     </select>
                     {membrosList.length === 0 && (
                       <p className="text-[11px] text-rose-600 font-bold mt-1">
-                        Aviso: Nenhum membro encontrado na tabela `members`. Verifique se há registos cadastrados.
+                        Aviso: Nenhum membro encontrado com o código de igreja `{codigoIgreja}` na tabela `members`.
                       </p>
                     )}
                   </div>

@@ -401,15 +401,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         lanc.valor
       ).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
-      // Se a sua tabela chat_mensagens usar outro nome de coluna para o membro (ex: membro_id), ajuste abaixo:
       const { error: chatError } = await supabase
         .from('chat_mensagens')
         .insert([
           {
             codigo_igreja: codigoIgreja,
             remetente: emailUsuarioLogado,
-            membro_id: membro.id, // Alterado de destinatario_id para membro_id (ou use destinatario_id se preferir alterar na base de dados)
-            destinatario_nome: membro.nome,
+            membro_id: membro.id,
             mensagem: textoMensagem,
             lida: false,
           },

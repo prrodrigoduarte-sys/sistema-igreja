@@ -33,10 +33,10 @@ interface ContaFinanceiraAdm {
 }
 
 interface Membro {
-  id: string;
+  id: number | string;
   nome: string;
   email?: string;
-  telefone?: string;
+  celular_principal?: string;
   whatsapp?: string;
 }
 
@@ -154,23 +154,24 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // BUSCA DE MEMBROS FILTRADA CORRETAMENTE POR CÓDIGO DA IGREJA
-      const resMemb = await supabase
+      // BUSCA DE MEMBROS (Busca filtrada por código da igreja, com fallback seguro para trazer todos caso haja inconsistência de cadastro)
+      let resMemb = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, whatsapp')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (!resMemb.error && resMemb.data) {
-        setMembrosList(resMemb.data);
-      } else {
-        // Fallback de segurança caso algum membro não tenha o codigo_igreja preenchido
-        const resMembFallback = await supabase
+      if (resMemb.error || !resMemb.data || resMemb.data.length === 0) {
+        resMemb = await supabase
           .from('members')
           .select('id, nome, email, celular_principal, whatsapp')
           .order('nome', { ascending: true });
+      }
 
-        setMembrosList(resMembFallback.data || []);
+      if (!resMemb.error && resMemb.data) {
+        setMembrosList(resMemb.data);
+      } else {
+        setMembrosList([]);
       }
 
     } catch (err: any) {
@@ -373,7 +374,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   };
 
   const handleEnviarChatInterno = async (lanc: Lancamento) => {
-    let membro = membrosList.find((m) => m.id === lanc.membro_id);
+    let membro = membrosList.find((m) => String(m.id) === String(lanc.membro_id));
 
     if (!membro && membrosList.length > 0) {
       membro = membrosList[0];
@@ -397,7 +398,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         {
           codigo_igreja: codigoIgreja,
           remetente: emailUsuarioLogado,
-          destinatario_id: membro.id,
+          destinatario_id: String(membro.id),
           destinatario_nome: membro.nome,
           mensagem: textoMensagem,
           lida: false,
@@ -429,9 +430,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return adm ? `${adm.codigo_conta} (${adm.nome_conta})` : 'Caixa Geral';
   };
 
-  const getNomeMembroVinculado = (membroId?: string) => {
+  const getNomeMembroVinculado = (membroId?: string | number) => {
     if (!membroId) return null;
-    const m = membrosList.find((x) => x.id === membroId);
+    const m = membrosList.find((x) => String(x.id) === String(membroId));
     return m ? m.nome : null;
   };
 
@@ -1179,7 +1180,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label className="block text-xs font-bold text-slate-700 uppercase">Selecionar Membro *</label>
-                      <span className="text-[10px] text-slate-400">({membrosList.length} membros carregados para {codigoIgreja})</span>
+                      <span className="text-[10px] text-slate-400">({membrosList.length} membros carregados)</span>
                     </div>
                     <select
                       value={formLancamento.membro_id}
@@ -1194,7 +1195,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     </select>
                     {membrosList.length === 0 && (
                       <p className="text-[11px] text-rose-600 font-bold mt-1">
-                        Aviso: Nenhum membro encontrado com o código de igreja `{codigoIgreja}` na tabela `members`.
+                        Aviso: Nenhum membro encontrado na tabela `members`. Verifique se há registos cadastrados no sistema.
                       </p>
                     )}
                   </div>

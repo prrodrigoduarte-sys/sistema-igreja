@@ -154,25 +154,16 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // BUSCA DE MEMBROS FILTRADA EXATAMENTE PELO CÓDIGO DA IGREJA
+      // BUSCA AMPLIADA DE MEMBROS (Busca todos os membros da tabela sem travar no código da igreja)
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, telefone, whatsapp')
-        .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
       if (!resMemb.error && resMemb.data) {
         setMembrosList(resMemb.data);
       } else {
-        // Fallback caso a coluna exata mude ou não encontre com filtro estrito
-        const resMembFallback = await supabase
-          .from('members')
-          .select('id, nome, email, telefone, whatsapp')
-          .order('nome', { ascending: true });
-        
-        if (!resMembFallback.error) {
-          setMembrosList(resMembFallback.data || []);
-        }
+        setMembrosList([]);
       }
 
     } catch (err: any) {

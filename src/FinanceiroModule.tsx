@@ -367,47 +367,72 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   };
 
   const handleEnviarChatInterno = async (lanc: Lancamento) => {
-    let membro = membrosList.find((m) => String(m.id) === String(lanc.membro_id));
-
-    if (!membro && membrosList.length > 0) {
-      membro = membrosList[0];
+    if (!lanc.membro_id) {
+      alert(
+        'Este lançamento não possui um membro vinculado. Clique em Editar e selecione o membro antes de enviar o agradecimento.'
+      );
+      return;
     }
+
+    const membro = membrosList.find(
+      (membroAtual) => String(membroAtual.id) === String(lanc.membro_id)
+    );
 
     if (!membro) {
-      return alert('Nenhum membro encontrado para vincular e enviar no chat.');
+      alert(
+        'O membro vinculado não foi encontrado na igreja atual. Atualize a lista ou edite o lançamento.'
+      );
+      return;
     }
 
-    const descLower = (lanc.descricao || '').toLowerCase();
-    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
+    const descricao = (lanc.descricao || '').toLowerCase();
+    const ehDizimoOuOferta =
+      descricao.includes('dizimo') ||
+      descricao.includes('dízimo') ||
+      descricao.includes('oferta');
 
     if (!ehDizimoOuOferta) {
-      return alert('O agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
+      alert('O agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
+      return;
     }
 
     try {
-      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(lanc.valor).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
+      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(
+        lanc.valor
+      ).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
-      const { error: chatError } = await supabase.from('chat_mensagens').insert([
-        {
-          codigo_igreja: codigoIgreja,
-          remetente: emailUsuarioLogado,
-          destinatario_id: String(membro.id),
-          destinatario_nome: membro.nome,
-          mensagem: textoMensagem,
-          lida: false,
-        },
-      ]);
+      // Se a sua tabela chat_mensagens usar outro nome de coluna para o membro (ex: membro_id), ajuste abaixo:
+      const { error: chatError } = await supabase
+        .from('chat_mensagens')
+        .insert([
+          {
+            codigo_igreja: codigoIgreja,
+            remetente: emailUsuarioLogado,
+            membro_id: membro.id, // Alterado de destinatario_id para membro_id (ou use destinatario_id se preferir alterar na base de dados)
+            destinatario_nome: membro.nome,
+            mensagem: textoMensagem,
+            lida: false,
+          },
+        ]);
 
       if (chatError) throw chatError;
 
-      await supabase
+      const { error: lancamentoError } = await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
-        .eq('id', lanc.id);
+        .eq('id', lanc.id)
+        .eq('codigo_igreja', codigoIgreja);
 
-      alert(`✅ Mensagem de agradecimento enviada com sucesso no chat interno para ${membro.nome}!`);
-      await registrarLog('ENVIO_CHAT', `Enviou mensagem de agradecimento no chat para ${membro.nome}`);
-      fetchDados();
+      if (lancamentoError) throw lancamentoError;
+
+      alert(`Mensagem enviada com sucesso para ${membro.nome}!`);
+
+      await registrarLog(
+        'ENVIO_CHAT',
+        `Enviou mensagem de agradecimento para ${membro.nome}`
+      );
+
+      await fetchDados();
     } catch (err: any) {
       alert('Erro ao enviar mensagem no chat: ' + err.message);
     }

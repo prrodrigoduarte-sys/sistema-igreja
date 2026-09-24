@@ -35,9 +35,7 @@ interface ContaFinanceiraAdm {
 interface Membro {
   id: number | string;
   nome: string;
-  email?: string;
-  celular_principal?: string;
-  whatsapp?: string;
+  codigo_igreja?: string;
 }
 
 interface FinanceiroModuleProps {
@@ -154,22 +152,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // BUSCA DE MEMBROS (Busca filtrada por código da igreja, com fallback seguro para trazer todos caso haja inconsistência de cadastro)
-      let resMemb = await supabase
+      // BUSCA DE MEMBROS SEGURA (Seleciona apenas as colunas essenciais id, nome e codigo_igreja)
+      const resMemb = await supabase
         .from('members')
-        .select('id, nome, email, celular_principal, whatsapp')
-        .eq('codigo_igreja', codigoIgreja)
+        .select('id, nome, codigo_igreja')
         .order('nome', { ascending: true });
 
-      if (resMemb.error || !resMemb.data || resMemb.data.length === 0) {
-        resMemb = await supabase
-          .from('members')
-          .select('id, nome, email, celular_principal, whatsapp')
-          .order('nome', { ascending: true });
-      }
-
       if (!resMemb.error && resMemb.data) {
-        setMembrosList(resMemb.data);
+        const membrosFiltrados = resMemb.data.filter(
+          (m: any) => !m.codigo_igreja || m.codigo_igreja === codigoIgreja
+        );
+        setMembrosList(membrosFiltrados.length > 0 ? membrosFiltrados : resMemb.data);
       } else {
         setMembrosList([]);
       }

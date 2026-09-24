@@ -154,21 +154,14 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      let resMemb = await supabase
+      // Busca direta na tabela members sem restrição rígida de código para garantir os membros
+      const resMemb = await supabase
         .from('members')
         .select('id, nome, email, telefone, whatsapp')
-        .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (resMemb.error || !resMemb.data || resMemb.data.length === 0) {
-        resMemb = await supabase
-          .from('members')
-          .select('id, nome, email, telefone, whatsapp')
-          .order('nome', { ascending: true });
-      }
-
-      if (!resMemb.error) {
-        setMembrosList(resMemb.data || []);
+      if (!resMemb.error && resMemb.data) {
+        setMembrosList(resMemb.data);
       }
 
     } catch (err: any) {
@@ -1192,7 +1185,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     </select>
                     {membrosList.length === 0 && (
                       <p className="text-[11px] text-rose-600 font-bold mt-1">
-                        Aviso: Nenhum membro encontrado na tabela `members`. Verifique se o cadastro de membros possui registos.
+                        Aviso: Nenhum membro encontrado na tabela `members`. Verifique se há registos cadastrados.
                       </p>
                     )}
                   </div>

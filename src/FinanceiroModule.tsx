@@ -33,9 +33,11 @@ interface ContaFinanceiraAdm {
 }
 
 interface Membro {
-  id: number | string;
+  id: string;
   nome: string;
-  codigo_igreja?: string;
+  email?: string;
+  celular_principal?: string;
+  whatsapp?: string;
 }
 
 interface FinanceiroModuleProps {
@@ -152,20 +154,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // BUSCA DE MEMBROS SEGURA (Seleciona apenas as colunas essenciais id, nome e codigo_igreja)
+      // BUSCA DE MEMBROS RESTRITA EXATAMENTE À IGREJA ATUAL
       const resMemb = await supabase
         .from('members')
-        .select('id, nome, codigo_igreja')
+        .select('id, nome, email, celular_principal, whatsapp')
+        .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (!resMemb.error && resMemb.data) {
-        const membrosFiltrados = resMemb.data.filter(
-          (m: any) => !m.codigo_igreja || m.codigo_igreja === codigoIgreja
-        );
-        setMembrosList(membrosFiltrados.length > 0 ? membrosFiltrados : resMemb.data);
-      } else {
-        setMembrosList([]);
+      if (resMemb.error) {
+        throw resMemb.error;
       }
+
+      setMembrosList(resMemb.data || []);
 
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
@@ -409,7 +409,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             remetente: emailUsuarioLogado,
             membro_id: membro.id,
             mensagem: textoMensagem,
-            lida: false,
           },
         ]);
 
@@ -577,7 +576,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               setEditingLancamento(null);
               setFormLancamento(formLancamentoInicial);
               setArquivoDocumento(null);
-              setRelacionadoMembro(true);
+              setRelacionadoMembro(false);
               setSenhaExclusao('');
               setShowModalLancamento(true);
             }}
@@ -715,9 +714,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                                 conta_corrente_id: l.conta_corrente_id || '',
                                 id_conta_contabil: l.id_conta_contabil || '',
                                 membro_id: l.membro_id || '',
+                                documento_url: l.documento_url || '',
                               });
                               setArquivoDocumento(null);
-                              setRelacionadoMembro(true);
+                              setRelacionadoMembro(Boolean(l.membro_id));
                               setSenhaExclusao('');
                               setShowModalLancamento(true);
                             }}
@@ -1196,24 +1196,26 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <div className="space-y-1">
                     <div className="flex justify-between items-center">
                       <label className="block text-xs font-bold text-slate-700 uppercase">Selecionar Membro *</label>
-                      <span className="text-[10px] text-slate-400">({membrosList.length} membros carregados)</span>
                     </div>
                     <select
-                      value={formLancamento.membro_id}
-                      onChange={(e) => setFormLancamento({ ...formLancamento, membro_id: e.target.value })}
+                      value={formLancamento.membro_id || ''}
+                      onChange={(e) =>
+                        setFormLancamento((prev) => ({
+                          ...prev,
+                          membro_id: e.target.value,
+                        }))
+                      }
                       className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
                       required={relacionadoMembro}
                     >
-                      <option value="">-- Clique para escolher o membro --</option>
-                      {membrosList.map((m) => (
-                        <option key={m.id} value={m.id}>{m.nome}</option>
+                      <option value="">-- Selecione o membro --</option>
+
+                      {membrosList.map((membro) => (
+                        <option key={membro.id} value={membro.id}>
+                          {membro.nome}
+                        </option>
                       ))}
                     </select>
-                    {membrosList.length === 0 && (
-                      <p className="text-[11px] text-rose-600 font-bold mt-1">
-                        Aviso: Nenhum membro encontrado na tabela `members`. Verifique se há registos cadastrados no sistema.
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

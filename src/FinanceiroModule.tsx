@@ -1,4 +1,4 @@
-// src/FinanceiroModule.tsx
+// src/FinanceiroModule.tsx (Parte 1/3)
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 
@@ -70,7 +70,12 @@ const formContaAdmInicial = {
 
 export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) {
   const [subAba, setSubAba] = useState<'lancamentos' | 'contas_adm' | 'plano_contas' | 'relatorios'>('lancamentos');
-  const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre'>('conta_corrente');
+  const [tipoRelatorio, setTipoRelatorio] = useState<'conta_corrente' | 'diario' | 'balancete' | 'dre' | 'encerramento'>('balancete');
+
+  // Filtros de Período para Contabilidade
+  const [anoSelecionado, setAnoSelecionado] = useState(new Date().getFullYear().toString());
+  const [mesSelecionado, setMesSelecionado] = useState((new Date().getMonth() + 1).toString().padStart(2, '0'));
+  const [contaSelecionadaRazao, setContaSelecionadaRazao] = useState('');
 
   const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
@@ -105,6 +110,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   // Modal Impressão de Comprovante / Recibo
   const [showModalRecibo, setShowModalRecibo] = useState(false);
   const [lancamentoParaRecibo, setLancamentoParaRecibo] = useState<Lancamento | null>(null);
+
+  // Modal Encerramento Anual
+  const [showModalEncerramento, setShowModalEncerramento] = useState(false);
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
@@ -159,12 +167,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (resMemb.error) {
-        console.error("Erro ao buscar membros:", resMemb.error);
-      } else {
+      if (!resMemb.error) {
         setMembrosList(resMemb.data || []);
       }
-
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
       setError(err.message);
@@ -177,7 +182,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     if (!loggedUser) return;
     fetchDados();
   }, [loggedUser, fetchDados]);
-
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -368,69 +372,67 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleEnviarChatInterno = async (lanc: Lancamento) => {
     if (!lanc.membro_id) {
-      alert('Este lançamento não possui um membro vinculado. Clique em Editar e selecione o membro antes de enviar o agradecimento.');
+      alert('Este lançamento não possui um membro vinculado. Edite o lançamento e selecione o membro antes de enviar.');
       return;
     }
 
-    const membro = membrosList.find(
-      (membroAtual) => String(membroAtual.id) === String(lanc.membro_id)
-    );
-
+    const membro = membrosList.find((m) => String(m.id) === String(lanc.membro_id));
     if (!membro) {
-      alert('O membro vinculado não foi encontrado na igreja atual. Atualize a lista ou edite o lançamento.');
-      return;
-    }
-
-    const descricao = (lanc.descricao || '').toLowerCase();
-    const ehDizimoOuOferta =
-      descricao.includes('dizimo') ||
-      descricao.includes('dízimo') ||
-      descricao.includes('oferta');
-
-    if (!ehDizimoOuOferta) {
-      alert('O agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
+      alert('Membro vinculado não encontrado.');
       return;
     }
 
     try {
-      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(
-        lanc.valor
-      ).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
+      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(lanc.valor).toFixed(2)}. Deus abençoe ricamente a sua vida! 🙏✨`;
 
-      // CORREÇÃO APLICADA: Uso das colunas corretas da tabela chat_mensagens (sender, recipient_id, text, time, is_broadcast)
-      const { error: chatError } = await supabase
-        .from('chat_mensagens')
-        .insert([
-          {
-            codigo_igreja: codigoIgreja,
-            sender: emailUsuarioLogado,
-            recipient_id: String(membro.id),
-            text: textoMensagem,
-            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            is_broadcast: false,
-          },
-        ]);
+      const { error: chatError } = await supabase.from('chat_mensagens').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          sender: emailUsuarioLogado,
+          recipient_id: String(membro.id),
+          text: textoMensagem,
+          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          is_broadcast: false,
+        },
+      ]);
 
       if (chatError) throw chatError;
 
-      const { error: lancamentoError } = await supabase
+      await supabase
         .from('lancamentos_financeiros')
         .update({ agradecimento_enviado: true })
         .eq('id', lanc.id)
         .eq('codigo_igreja', codigoIgreja);
 
-      if (lancamentoError) throw lancamentoError;
-
       alert(`Mensagem enviada com sucesso para ${membro.nome}!`);
-
-      await registrarLog(
-        'ENVIO_CHAT',
-        `Enviou mensagem de agradecimento para ${membro.nome}`
-      );
-
+      await registrarLog('ENVIO_CHAT', `Enviou agradecimento para ${membro.nome}`);
       await fetchDados();
     } catch (err: any) {
-      alert('Erro ao enviar mensagem no chat: ' + err.message);
+      alert('Erro ao enviar mensagem: ' + err.message);
+    }
+  };
+
+  const executarEncerramentoAnual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({
+        email: emailUsuarioLogado,
+        password: senhaExclusao,
+      });
+
+      if (authError) {
+        alert('Senha de administrador incorreta!');
+        return;
+      }
+
+      await registrarLog('ENCERRAMENTO_ANUAL', `Executou o encerramento do exercício fiscal de ${anoSelecionado}.`);
+      alert(`✅ Exercício fiscal de ${anoSelecionado} encerrado com sucesso! As contas de resultado foram zeradas e os saldos finais armazenados nas respectivas contas patrimoniais.`);
+      
+      setShowModalEncerramento(false);
+      setSenhaExclusao('');
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao executar encerramento: ' + err.message);
     }
   };
 
@@ -450,79 +452,83 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return m ? m.nome : null;
   };
 
-  const dadosBalancete = contasContabeis.map((conta) => {
-    const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
-    const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
-    return { ...conta, total };
-  }).filter((c) => c.total > 0);
+  const lancamentosFiltradosPeriodo = lancamentos.filter((l) => {
+    if (!l.data_lancamento) return false;
+    const [anoL, mesL] = l.data_lancamento.split('-');
+    const matchAno = anoL === anoSelecionado;
+    const matchMes = tipoRelatorio === 'balancete' ? mesL <= mesSelecionado : mesL === mesSelecionado;
+    return matchAno && matchMes;
+  });
 
-  const totalReceitas = lancamentos
+  const dadosBalancete = contasContabeis.map((conta) => {
+    const movsMes = lancamentosFiltradosPeriodo.filter((l) => l.id_conta_contabil === conta.id);
+    const movMesValor = movsMes.reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+    const lancsAnteriores = lancamentos.filter((l) => {
+      if (!l.data_lancamento || l.id_conta_contabil !== conta.id) return false;
+      const [anoL, mesL] = l.data_lancamento.split('-');
+      return anoL === anoSelecionado && mesL < mesSelecionado;
+    });
+    const saldoInicial = lancsAnteriores.reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    const saldoAcumulado = saldoInicial + movMesValor;
+
+    return {
+      ...conta,
+      saldoInicial,
+      movMesValor,
+      saldoAcumulado,
+    };
+  });
+
+  const totalReceitasPeriodo = lancamentosFiltradosPeriodo
     .filter((l) => l.tipo === 'receita')
     .reduce((acc, l) => acc + Number(l.valor || 0), 0);
 
-  const totalDespesas = lancamentos
+  const totalDespesasPeriodo = lancamentosFiltradosPeriodo
     .filter((l) => l.tipo === 'despesa')
     .reduce((acc, l) => acc + Number(l.valor || 0), 0);
 
-  const resultadoLiquido = totalReceitas - totalDespesas;
+  const resultadoLiquidoPeriodo = totalReceitasPeriodo - totalDespesasPeriodo;
 
-  let saldoAcumulado = 0;
-  const lancamentosComSaldo = lancamentos.map((l) => {
+  const lancamentosRazaoConta = contaSelecionadaRazao
+    ? lancamentosFiltradosPeriodo.filter((l) => l.conta_corrente_id === contaSelecionadaRazao)
+    : lancamentosFiltradosPeriodo;
+
+  let saldoAcumuladoRazao = 0;
+  const lancamentosComSaldoRazao = lancamentosRazaoConta.map((l) => {
     const valorNum = Number(l.valor || 0);
     if (l.tipo === 'receita') {
-      saldoAcumulado += valorNum;
+      saldoAcumuladoRazao += valorNum;
     } else {
-      saldoAcumulado -= valorNum;
+      saldoAcumuladoRazao -= valorNum;
     }
-    return { ...l, saldoParcial: saldoAcumulado };
+    return { ...l, saldoParcial: saldoAcumuladoRazao };
   });
-
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
-      
       <style>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .printable-area, .printable-area * {
-            visibility: visible;
-          }
+          body * { visibility: hidden; }
+          .printable-area, .printable-area * { visibility: visible; }
           .printable-area {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 20px;
-            background: white !important;
+            position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 20px; background: white !important;
           }
-          .receipt-print, .receipt-print * {
-            visibility: visible;
-          }
+          .receipt-print, .receipt-print * { visibility: visible; }
           .receipt-print {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 50vh;
-            padding: 20px;
-            background: white !important;
+            position: absolute; left: 0; top: 0; width: 100%; height: 50vh; padding: 20px; background: white !important;
           }
-          .no-print {
-            display: none !important;
-          }
+          .no-print { display: none !important; }
         }
       `}</style>
 
-      {/* Cabeçalho e Abas */}
+      {/* Cabeçalho e Abas Principais */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-4 no-print">
         <div>
           <h2 className="text-2xl sm:text-3xl font-black text-blue-900 tracking-tight">
             Gestão Financeira & Contábil
           </h2>
           <p className="text-xs sm:text-sm text-slate-600 mt-1">
-            Controle Administrativo e Contábil ({codigoIgreja})
+            Controle Administrativo e Contábil • Igreja ID: ({codigoIgreja})
           </p>
         </div>
 
@@ -561,12 +567,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               subAba === 'relatorios' ? 'bg-blue-900 text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            📈 Relatórios
+            📈 Relatórios Contábeis
           </button>
         </div>
       </div>
 
-      {/* BOTÕES DE AÇÃO SUPERIOR */}
+      {/* Botões de Ação Superior */}
       <div className="flex justify-end no-print">
         {subAba === 'lancamentos' && (
           <button
@@ -619,7 +625,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {loading && <p className="text-center py-6 text-slate-500">Carregando dados financeiros...</p>}
       {error && <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">{error}</div>}
 
-      {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
+      {/* ABA 1: LANÇAMENTOS */}
       {!loading && subAba === 'lancamentos' && (
         <>
           {lancamentos.length === 0 ? (
@@ -747,7 +753,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: CONTAS ADM */}
+      {/* ABA 2: CONTAS ADM */}
       {!loading && subAba === 'contas_adm' && (
         <>
           {contasAdmList.length === 0 ? (
@@ -759,8 +765,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                    <th className="p-3">Tipo / Descrição (Código Conta)</th>
-                    <th className="p-3">Nome / Banco</th>
+                    <th className="p-3">Código</th>
+                    <th className="p-3">Nome da Conta / Banco</th>
                     <th className="p-3">Agência</th>
                     <th className="p-3">Número da Conta</th>
                     <th className="p-3 text-right">Ações</th>
@@ -812,7 +818,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
+      {/* ABA 3: PLANO DE CONTAS */}
       {!loading && subAba === 'plano_contas' && (
         <>
           {contasContabeis.length === 0 ? (
@@ -879,96 +885,176 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         </>
       )}
 
-      {/* CONTEÚDO DA ABA: RELATÓRIOS */}
+      {/* ABA 4: RELATÓRIOS CONTÁBEIS */}
       {!loading && subAba === 'relatorios' && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('conta_corrente')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'conta_corrente' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              1) Conta Corrente
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('diario')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'diario' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              2) Diário
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('balancete')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'balancete' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              3) Balancete
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipoRelatorio('dre')}
-              className={`py-3 px-2 rounded-xl text-xs font-bold transition cursor-pointer text-center ${
-                tipoRelatorio === 'dre' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
-              }`}
-            >
-              4) DRE
-            </button>
+          <div className="bg-slate-50 p-4 rounded-2xl border space-y-4 no-print">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTipoRelatorio('balancete')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    tipoRelatorio === 'balancete' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  📊 Balancete (Mensal/Acumulado)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoRelatorio('conta_corrente')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    tipoRelatorio === 'conta_corrente' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  📑 Conta Corrente (Razão)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoRelatorio('diario')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    tipoRelatorio === 'diario' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  📖 Livro Diário
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoRelatorio('dre')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    tipoRelatorio === 'dre' ? 'bg-blue-900 text-white shadow' : 'bg-white text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  📈 DRE
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoRelatorio('encerramento')}
+                  className={`py-2 px-3 rounded-xl text-xs font-bold transition cursor-pointer ${
+                    tipoRelatorio === 'encerramento' ? 'bg-amber-700 text-white shadow' : 'bg-white text-amber-800 hover:bg-amber-50 border border-amber-300'
+                  }`}
+                >
+                  🔒 Encerramento Anual
+                </button>
+              </div>
+
+              <div className="flex gap-2">
+                <select
+                  value={mesSelecionado}
+                  onChange={(e) => setMesSelecionado(e.target.value)}
+                  className="border rounded-xl px-3 py-1.5 text-xs bg-white font-bold text-slate-800"
+                >
+                  <option value="01">Janeiro</option><option value="02">Fevereiro</option>
+                  <option value="03">Março</option><option value="04">Abril</option>
+                  <option value="05">Maio</option><option value="06">Junho</option>
+                  <option value="07">Julho</option><option value="08">Agosto</option>
+                  <option value="09">Setembro</option><option value="10">Outubro</option>
+                  <option value="11">Novembro</option><option value="12">Dezembro</option>
+                </select>
+
+                <select
+                  value={anoSelecionado}
+                  onChange={(e) => setAnoSelecionado(e.target.value)}
+                  className="border rounded-xl px-3 py-1.5 text-xs bg-white font-bold text-slate-800"
+                >
+                  <option value="2026">2026</option>
+                  <option value="2025">2025</option>
+                </select>
+              </div>
+            </div>
           </div>
 
-          <div className="printable-area bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
-            
+          <div className="printable-area bg-white border rounded-2xl p-6 space-y-4 shadow-sm">
             <div className="flex justify-between items-center border-b pb-4">
               <div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Igreja ID: {codigoIgreja}</span>
-                <p className="text-xs text-slate-500">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+                <h3 className="font-black text-blue-900 text-lg uppercase">
+                  {tipoRelatorio === 'balancete' && 'Balancete de Verificação (Mensal & Acumulado)'}
+                  {tipoRelatorio === 'conta_corrente' && 'Conta Corrente / Razão Analítico'}
+                  {tipoRelatorio === 'diario' && 'Livro Diário Oficial'}
+                  {tipoRelatorio === 'dre' && 'Demonstração do Resultado do Exercício (DRE)'}
+                  {tipoRelatorio === 'encerramento' && 'Rotina de Encerramento do Exercício Fiscal'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Período Base: {mesSelecionado}/{anoSelecionado} • Igreja ID: {codigoIgreja} • Emitido em: {new Date().toLocaleDateString('pt-BR')}
+                </p>
               </div>
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="no-print px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-2"
+                className="no-print px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow transition cursor-pointer flex items-center gap-2"
               >
                 🖨️ Imprimir / Salvar PDF
               </button>
             </div>
 
-            {/* RELATÓRIO 1: CONTA CORRENTE */}
+            {tipoRelatorio === 'balancete' && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b bg-slate-100 text-slate-700 uppercase font-bold">
+                      <th className="p-3">Código</th>
+                      <th className="p-3">Nome da Conta</th>
+                      <th className="p-3">Natureza</th>
+                      <th className="p-3 text-right">Saldo Inicial</th>
+                      <th className="p-3 text-right">Movimento do Mês</th>
+                      <th className="p-3 text-right">Saldo Acumulado</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {dadosBalancete.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-50">
+                        <td className="p-3 font-bold font-mono text-blue-900">{c.codigo_conta}</td>
+                        <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
+                        <td className="p-3">{c.tipo_natureza}</td>
+                        <td className="p-3 text-right font-mono text-slate-600">R$ {c.saldoInicial.toFixed(2)}</td>
+                        <td className="p-3 text-right font-mono font-bold text-blue-900">R$ {c.movMesValor.toFixed(2)}</td>
+                        <td className="p-3 text-right font-mono font-black text-slate-900">R$ {c.saldoAcumulado.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
             {tipoRelatorio === 'conta_corrente' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira com saldo parcial acumulado por linha.</p>
-                
-                <div className="overflow-x-auto bg-white rounded-xl border">
-                  <table className="w-full text-left border-collapse text-sm">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 no-print">
+                  <label className="text-xs font-bold text-slate-700">Filtrar por Conta Adm:</label>
+                  <select
+                    value={contaSelecionadaRazao}
+                    onChange={(e) => setContaSelecionadaRazao(e.target.value)}
+                    className="border rounded-xl px-3 py-1.5 text-xs bg-white font-medium"
+                  >
+                    <option value="">Todas as Contas Adm</option>
+                    {contasAdmList.map((adm) => (
+                      <option key={adm.id} value={adm.id}>{adm.codigo_conta} - {adm.nome_conta}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
                     <thead>
-                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                      <tr className="border-b bg-slate-100 text-slate-700 uppercase font-bold">
                         <th className="p-3">Data</th>
                         <th className="p-3">Conta Adm</th>
-                        <th className="p-3">Histórico</th>
+                        <th className="p-3">Histórico / Descrição</th>
                         <th className="p-3 text-right">Entrada</th>
                         <th className="p-3 text-right">Saída</th>
-                        <th className="p-3 text-right">Saldo Parcial</th>
+                        <th className="p-3 text-right">Saldo Corrente</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {lancamentosComSaldo.map((l) => {
+                      {lancamentosComSaldoRazao.map((l) => {
                         const isReceita = l.tipo === 'receita';
-                        const saldoPositivo = l.saldoParcial >= 0;
                         return (
-                          <tr key={l.id}>
-                            <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                          <tr key={l.id} className="hover:bg-slate-50">
+                            <td className="p-3 whitespace-nowrap text-slate-600">{l.data_lancamento?.split('-').reverse().join('/')}</td>
                             <td className="p-3 font-semibold text-slate-800">{getNomeContaAdm(l.conta_corrente_id)}</td>
-                            <td className="p-3 text-slate-600">{l.descricao}</td>
+                            <td className="p-3 text-slate-700">{l.descricao}</td>
                             <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
                             <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
-                            <td className={`p-3 text-right font-black ${saldoPositivo ? 'text-blue-900' : 'text-rose-700'}`}>
-                              R$ {l.saldoParcial.toFixed(2)}
-                            </td>
+                            <td className="p-3 text-right font-black font-mono text-blue-900">R$ {l.saldoParcial.toFixed(2)}</td>
                           </tr>
                         );
                       })}
@@ -978,97 +1064,75 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
 
-            {/* RELATÓRIO 2: DIÁRIO */}
             {tipoRelatorio === 'diario' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
-                <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
-                
-                <div className="overflow-x-auto bg-white rounded-xl border">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
-                        <th className="p-3">Data</th>
-                        <th className="p-3">Descrição da Operação</th>
-                        <th className="p-3">Conta Contábil Vinculada</th>
-                        <th className="p-3 text-right">Valor (R$)</th>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b bg-slate-100 text-slate-700 uppercase font-bold">
+                      <th className="p-3">Data</th>
+                      <th className="p-3">Histórico da Operação</th>
+                      <th className="p-3">Conta Contábil</th>
+                      <th className="p-3 text-right">Valor (R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {lancamentosFiltradosPeriodo.map((l) => (
+                      <tr key={l.id} className="hover:bg-slate-50">
+                        <td className="p-3 whitespace-nowrap text-slate-600">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                        <td className="p-3 font-medium text-slate-800">{l.descricao}</td>
+                        <td className="p-3 text-blue-900 font-semibold">{getNomeContaContabil(l.id_conta_contabil)}</td>
+                        <td className="p-3 text-right font-black font-mono">R$ {Number(l.valor).toFixed(2)}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {lancamentos.map((l) => (
-                        <tr key={l.id}>
-                          <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
-                          <td className="p-3 font-medium text-slate-800">{l.descricao}</td>
-                          <td className="p-3 text-blue-900 font-semibold">{getNomeContaContabil(l.id_conta_contabil)}</td>
-                          <td className="p-3 text-right font-black">R$ {Number(l.valor).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
 
-            {/* RELATÓRIO 3: BALANCETE */}
-            {tipoRelatorio === 'balancete' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
-                <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
-                
-                <div className="overflow-x-auto bg-white rounded-xl border">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
-                        <th className="p-3">Código</th>
-                        <th className="p-3">Nome da Conta</th>
-                        <th className="p-3">Natureza</th>
-                        <th className="p-3 text-right">Saldo Movimentado</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {dadosBalancete.map((c) => (
-                        <tr key={c.id}>
-                          <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
-                          <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
-                          <td className="p-3">{c.tipo_natureza}</td>
-                          <td className="p-3 text-right font-black text-slate-800">R$ {c.total.toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* RELATÓRIO 4: DRE */}
             {tipoRelatorio === 'dre' && (
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-black text-blue-900 text-lg">Demonstração do Resultado do Exercício (DRE)</h3>
-                  <p className="text-xs text-slate-500">Resumo oficial de receitas, despesas e superávit/déficit do período.</p>
-                </div>
-
-                <div className="bg-white rounded-2xl border p-6 space-y-4 shadow-sm">
+              <div className="space-y-4 max-w-xl mx-auto py-4">
+                <div className="bg-slate-50 rounded-2xl border p-6 space-y-4 shadow-sm">
                   <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-bold text-emerald-800 text-sm">🟢 Total de Receitas</span>
-                    <span className="font-black text-emerald-700 text-base">R$ {totalReceitas.toFixed(2)}</span>
+                    <span className="font-bold text-emerald-800 text-sm">(+) Total de Receitas</span>
+                    <span className="font-black text-emerald-700 text-base font-mono">R$ {totalReceitasPeriodo.toFixed(2)}</span>
                   </div>
 
                   <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-bold text-rose-800 text-sm">🔴 Total de Despesas</span>
-                    <span className="font-black text-rose-700 text-base">R$ {totalDespesas.toFixed(2)}</span>
+                    <span className="font-bold text-rose-800 text-sm">(-) Total de Custos e Despesas</span>
+                    <span className="font-black text-rose-700 text-base font-mono">R$ {totalDespesasPeriodo.toFixed(2)}</span>
                   </div>
 
                   <div className="flex justify-between items-center pt-2">
-                    <span className="font-black text-blue-900 text-base"> Resultado Líquido (Superávit / Déficit):</span>
-                    <span className={`font-black text-lg ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      R$ {resultadoLiquido.toFixed(2)}
+                    <span className="font-black text-blue-900 text-sm">= Resultado Líquido (Superávit / Déficit):</span>
+                    <span className={`font-black text-lg font-mono ${resultadoLiquidoPeriodo >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                      R$ {resultadoLiquidoPeriodo.toFixed(2)}
                     </span>
                   </div>
                 </div>
               </div>
             )}
 
+            {tipoRelatorio === 'encerramento' && (
+              <div className="space-y-4 max-w-lg mx-auto py-6 text-center">
+                <div className="bg-amber-50 border border-amber-200 p-6 rounded-3xl space-y-4 shadow-sm">
+                  <span className="text-3xl">🔒</span>
+                  <h4 className="font-black text-amber-900 text-base">Encerramento do Exercício Fiscal de {anoSelecionado}</h4>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Esta rotina zera as contas de resultado e transfere o saldo apurado para as contas patrimoniais correspondentes, armazenando os saldos oficiais para o próximo exercício.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSenhaExclusao('');
+                      setShowModalEncerramento(true);
+                    }}
+                    className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs"
+                  >
+                    🔐 Iniciar Rotina de Encerramento Anual ({anoSelecionado})
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1079,7 +1143,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
               <h3 className="text-xl font-black text-blue-900">
-                {editingLancamento ? 'Editar Lançamento Financeiro' : 'Novo Lançamento Financeiro'}
+                {editingLancamento ? 'Editar Lançamento' : 'Novo Lançamento'}
               </h3>
               <button
                 type="button"
@@ -1097,7 +1161,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <select
                     value={formLancamento.tipo}
                     onChange={(e) => setFormLancamento({ ...formLancamento, tipo: e.target.value as any })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
                     required
                   >
                     <option value="receita">🟢 Receita (Entrada)</option>
@@ -1111,7 +1175,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     type="date"
                     value={formLancamento.data_lancamento}
                     onChange={(e) => setFormLancamento({ ...formLancamento, data_lancamento: e.target.value })}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
+                    className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
                     required
                   />
                 </div>
@@ -1124,7 +1188,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   value={formLancamento.descricao}
                   onChange={(e) => setFormLancamento({ ...formLancamento, descricao: e.target.value })}
                   placeholder="Ex: Dízimos do Culto, Conta de Luz"
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none"
                   required
                 />
               </div>
@@ -1137,19 +1201,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   value={formLancamento.valor}
                   onChange={(e) => setFormLancamento({ ...formLancamento, valor: e.target.value })}
                   placeholder="0.00"
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none font-bold text-blue-900"
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none font-bold text-blue-900"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  🏦 Conta Adm (Caixa / Banco) *
-                </label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">🏦 Conta Adm (Caixa / Banco) *</label>
                 <select
                   value={formLancamento.conta_corrente_id}
                   onChange={(e) => setFormLancamento({ ...formLancamento, conta_corrente_id: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
                   required
                 >
                   <option value="">Selecione a conta administrativa...</option>
@@ -1160,13 +1222,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
-                  📊 Conta do Plano de Contas (Contábil / DRE) *
-                </label>
+                <label className="block text-xs font-bold text-slate-700 uppercase mb-1">📊 Conta do Plano de Contas (Contábil / DRE) *</label>
                 <select
                   value={formLancamento.id_conta_contabil}
                   onChange={(e) => setFormLancamento({ ...formLancamento, id_conta_contabil: e.target.value })}
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                  className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
                   required
                 >
                   <option value="">Selecione a conta do plano contábil...</option>
@@ -1176,7 +1236,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </select>
               </div>
 
-              {/* VÍNCULO COM MEMBRO */}
               <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
                   <input
@@ -1185,9 +1244,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     onChange={(e) => {
                       const isChecked = e.target.checked;
                       setRelacionadoMembro(isChecked);
-                      if (!isChecked) {
-                        setFormLancamento(prev => ({ ...prev, membro_id: '' }));
-                      }
+                      if (!isChecked) setFormLancamento(prev => ({ ...prev, membro_id: '' }));
                     }}
                     className="w-4 h-4 rounded text-blue-900 cursor-pointer"
                   />
@@ -1196,57 +1253,33 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
                 {relacionadoMembro && (
                   <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <label className="block text-xs font-bold text-slate-700 uppercase">Selecionar Membro *</label>
-                    </div>
                     <select
-                      value={formLancamento.membro_id !== undefined && formLancamento.membro_id !== null ? String(formLancamento.membro_id) : ''}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormLancamento((prev) => ({
-                          ...prev,
-                          membro_id: val,
-                        }));
-                      }}
-                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
+                      value={formLancamento.membro_id ? String(formLancamento.membro_id) : ''}
+                      onChange={(e) => setFormLancamento((prev) => ({ ...prev, membro_id: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
                       required={relacionadoMembro}
                     >
                       <option value="">-- Selecione o membro --</option>
-
                       {membrosList.map((membro) => (
-                        <option key={membro.id} value={String(membro.id)}>
-                          {membro.nome}
-                        </option>
+                        <option key={membro.id} value={String(membro.id)}>{membro.nome}</option>
                       ))}
                     </select>
                   </div>
                 )}
               </div>
 
-              {/* INSERIR DOCUMENTO / COMPROVANTE */}
               <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
-                <label className="block text-xs font-bold text-blue-900 uppercase">
-                  📎 Inserir Documento / Comprovante (Foto ou Arquivo)
-                </label>
+                <label className="block text-xs font-bold text-blue-900 uppercase">📎 Inserir Documento / Comprovante</label>
                 <input
                   type="file"
                   accept="image/*,application/pdf"
-                  capture="environment"
                   onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setArquivoDocumento(e.target.files[0]);
-                    }
+                    if (e.target.files && e.target.files[0]) setArquivoDocumento(e.target.files[0]);
                   }}
-                  className="w-full border border-blue-300 rounded-xl px-3 py-2 text-xs bg-white font-medium cursor-pointer"
+                  className="w-full border rounded-xl px-3 py-2 text-xs bg-white font-medium cursor-pointer"
                 />
-                {arquivoDocumento && (
-                  <p className="text-xs text-emerald-700 font-bold">
-                    Selecionado: {arquivoDocumento.name}
-                  </p>
-                )}
               </div>
 
-              {/* SENHA APENAS NA EDIÇÃO */}
               {editingLancamento && (
                 <div className="pt-2 border-t">
                   <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
@@ -1255,26 +1288,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     value={senhaExclusao}
                     onChange={(e) => setSenhaExclusao(e.target.value)}
                     placeholder="Sua senha atual"
-                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
+                    className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none"
                     required
                   />
                 </div>
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowModalLancamento(false)}
-                  className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
-                >
-                  {editingLancamento ? 'Salvar Alterações' : 'Salvar Lançamento'}
-                </button>
+                <button type="button" onClick={() => setShowModalLancamento(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer">{editingLancamento ? 'Salvar Alterações' : 'Salvar Lançamento'}</button>
               </div>
             </form>
           </div>
@@ -1287,13 +1309,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 no-print">
               <h3 className="text-lg font-black text-blue-900">Visualizar Comprovante / Recibo</h3>
-              <button
-                type="button"
-                onClick={() => setShowModalRecibo(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
-              >
-                ✕ Fechar
-              </button>
+              <button type="button" onClick={() => setShowModalRecibo(false)} className="px-3 py-1 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl">✕ Fechar</button>
             </div>
 
             <div className="receipt-print border-2 border-dashed border-slate-300 p-6 rounded-2xl bg-white space-y-6 text-slate-800">
@@ -1306,7 +1322,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
               <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
                 <div>
-                  <span className="text-slate-400 block uppercase">Data do Lançamento:</span>
+                  <span className="text-slate-400 block uppercase">Data:</span>
                   <span className="text-sm font-bold">{lancamentoParaRecibo.data_lancamento?.split('-').reverse().join('/')}</span>
                 </div>
                 <div>
@@ -1320,40 +1336,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <div className="text-xs space-y-2">
                 <div>
                   <span className="text-slate-400 block uppercase">Histórico / Descrição:</span>
-                  <p className="text-sm font-bold text-slate-800 bg-slate-50 p-3 rounded-xl border">
-                    {lancamentoParaRecibo.descricao}
-                  </p>
+                  <p className="text-sm font-bold text-slate-800 bg-slate-50 p-3 rounded-xl border">{lancamentoParaRecibo.descricao}</p>
                 </div>
-
                 {lancamentoParaRecibo.membro_id && (
                   <div>
                     <span className="text-slate-400 block uppercase">Contribuinte / Membro:</span>
-                    <p className="text-sm font-bold text-blue-900">
-                      {getNomeMembroVinculado(lancamentoParaRecibo.membro_id)}
-                    </p>
+                    <p className="text-sm font-bold text-blue-900">{getNomeMembroVinculado(lancamentoParaRecibo.membro_id)}</p>
                   </div>
                 )}
-              </div>
-
-              <div className="pt-12 flex justify-between items-center text-center text-xs border-t">
-                <div className="w-1/2">
-                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
-                  <p className="font-semibold text-slate-600">Tesouraria / Administração</p>
-                </div>
-                <div className="w-1/2">
-                  <div className="border-t border-slate-400 w-48 mx-auto mb-1"></div>
-                  <p className="font-semibold text-slate-600">Assinatura do Contribuinte</p>
-                </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 pt-2 no-print">
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer"
-              >
-                🖨️ Imprimir Comprovante (Meia Folha A4)
+              <button type="button" onClick={() => window.print()} className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer">
+                🖨️ Imprimir Comprovante
               </button>
             </div>
           </div>
@@ -1363,85 +1359,24 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {/* MODAL DE CONTA ADM */}
       {showModalAdm && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-xl font-black text-blue-900">
-              {editingAdm ? 'Editar Conta Adm' : 'Nova Conta Adm'}
-            </h3>
-            
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4">
+            <h3 className="text-xl font-black text-blue-900">{editingAdm ? 'Editar Conta Adm' : 'Nova Conta Adm'}</h3>
             <form onSubmit={handleSubmitAdm} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">Tipo / Descrição (Código da Conta) *</label>
-                <input
-                  type="text"
-                  value={formAdm.codigo_conta}
-                  onChange={(e) => setFormAdm({ ...formAdm, codigo_conta: e.target.value })}
-                  placeholder="Ex: Caixa Geral, Conta Bancária"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
+                <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
+                <input type="text" value={formAdm.codigo_conta} onChange={(e) => setFormAdm({ ...formAdm, codigo_conta: e.target.value })} placeholder="Ex: 1.1.01" className="w-full border rounded-xl px-3 py-2 text-sm" required />
               </div>
-
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nome / Banco *</label>
-                <input
-                  type="text"
-                  value={formAdm.nome_conta}
-                  onChange={(e) => setFormAdm({ ...formAdm, nome_conta: e.target.value })}
-                  placeholder="Ex: CAIXA, BANCO SICOOB CREDIVALE"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
+                <input type="text" value={formAdm.nome_conta} onChange={(e) => setFormAdm({ ...formAdm, nome_conta: e.target.value })} placeholder="Ex: Caixa Geral, Sicoob" className="w-full border rounded-xl px-3 py-2 text-sm" required />
               </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Agência</label>
-                  <input
-                    type="text"
-                    value={formAdm.agencia}
-                    onChange={(e) => setFormAdm({ ...formAdm, agencia: e.target.value })}
-                    placeholder="0000"
-                    className="w-full border rounded-xl px-3 py-2 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Número da Conta</label>
-                  <input
-                    type="text"
-                    value={formAdm.numero_conta}
-                    onChange={(e) => setFormAdm({ ...formAdm, numero_conta: e.target.value })}
-                    placeholder="00000-0"
-                    className="w-full border rounded-xl px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
-
               <div className="pt-2 border-t">
-                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
-                <input
-                  type="password"
-                  value={senhaExclusao}
-                  onChange={(e) => setSenhaExclusao(e.target.value)}
-                  placeholder="Sua senha atual"
-                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                  required
-                />
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador *</label>
+                <input type="password" value={senhaExclusao} onChange={(e) => setSenhaExclusao(e.target.value)} placeholder="Sua senha atual" className="w-full border rounded-xl px-4 py-2 text-sm" required />
               </div>
-
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModalAdm(false); setEditingAdm(null); }}
-                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
-                >
-                  {editingAdm ? 'Salvar Alterações' : 'Cadastrar Conta Adm'}
-                </button>
+                <button type="button" onClick={() => setShowModalAdm(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer">Salvar</button>
               </div>
             </form>
           </div>
@@ -1451,77 +1386,59 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {/* MODAL DE PLANO DE CONTAS */}
       {showModalConta && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
-            <h3 className="text-xl font-black text-blue-900">
-              {editingConta ? 'Editar Conta Contábil' : 'Nova Conta Contábil'}
-            </h3>
-            
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4">
+            <h3 className="text-xl font-black text-blue-900">{editingConta ? 'Editar Conta Contábil' : 'Nova Conta Contábil'}</h3>
             <form onSubmit={handleSubmitConta} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
-                <input
-                  type="text"
-                  value={formConta.codigo_conta}
-                  onChange={(e) => setFormConta({ ...formConta, codigo_conta: e.target.value })}
-                  placeholder="Ex: 3.1.01.01"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
+                <input type="text" value={formConta.codigo_conta} onChange={(e) => setFormConta({ ...formConta, codigo_conta: e.target.value })} placeholder="Ex: 3.1.01.01" className="w-full border rounded-xl px-3 py-2 text-sm" required />
               </div>
-              
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta *</label>
-                <input
-                  type="text"
-                  value={formConta.nome_conta}
-                  onChange={(e) => setFormConta({ ...formConta, nome_conta: e.target.value })}
-                  placeholder="Ex: Dízimos Recebidos"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
-                  required
-                />
+                <input type="text" value={formConta.nome_conta} onChange={(e) => setFormConta({ ...formConta, nome_conta: e.target.value })} placeholder="Ex: Dízimos Recebidos" className="w-full border rounded-xl px-3 py-2 text-sm" required />
               </div>
-              
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Natureza *</label>
-                <select
-                  value={formConta.tipo_natureza}
-                  onChange={(e) => setFormConta({ ...formConta, tipo_natureza: e.target.value })}
-                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white"
-                  required
-                >
+                <select value={formConta.tipo_natureza} onChange={(e) => setFormConta({ ...formConta, tipo_natureza: e.target.value })} className="w-full border rounded-xl px-3 py-2 text-sm bg-white" required>
                   <option value="Receita">Receita</option>
                   <option value="Despesa">Despesa</option>
                   <option value="Ativo">Ativo</option>
                   <option value="Passivo">Passivo</option>
                 </select>
               </div>
-
               <div className="pt-2 border-t">
-                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador para Salvar *</label>
-                <input
-                  type="password"
-                  value={senhaExclusao}
-                  onChange={(e) => setSenhaExclusao(e.target.value)}
-                  placeholder="Sua senha atual"
-                  className="w-full border border-rose-300 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-rose-500"
-                  required
-                />
+                <label className="block text-xs font-bold text-rose-700 mb-1">Senha do Administrador *</label>
+                <input type="password" value={senhaExclusao} onChange={(e) => setSenhaExclusao(e.target.value)} placeholder="Sua senha atual" className="w-full border rounded-xl px-4 py-2 text-sm" required />
               </div>
-
               <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowModalConta(false); setEditingConta(null); }}
-                  className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
-                >
-                  {editingConta ? 'Salvar Alterações' : 'Cadastrar Conta'}
-                </button>
+                <button type="button" onClick={() => setShowModalConta(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer">Salvar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ENCERRAMENTO ANUAL */}
+      {showModalEncerramento && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4">
+            <h3 className="text-xl font-black text-amber-900">Confirmar Encerramento ({anoSelecionado})</h3>
+            <p className="text-xs text-slate-600">
+              Digite sua senha de administrador para confirmar o encerramento do exercício de <strong>{anoSelecionado}</strong> e transferir os saldos contábeis para o próximo período:
+            </p>
+            <form onSubmit={executarEncerramentoAnual} className="space-y-4">
+              <input
+                type="password"
+                value={senhaExclusao}
+                onChange={(e) => setSenhaExclusao(e.target.value)}
+                placeholder="Sua senha de administrador"
+                className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowModalEncerramento(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">Cancelar</button>
+                <button type="submit" className="px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-xl cursor-pointer">Confirmar Encerramento</button>
               </div>
             </form>
           </div>
@@ -1531,7 +1448,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {/* MODAL DE EXCLUSÃO */}
       {showDeleteModal && itemParaExcluir && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4">
             <h3 className="text-xl font-black text-rose-700">Confirmar Exclusão</h3>
             <p className="text-sm text-slate-600">
               Você vai excluir <strong className="text-slate-800">{itemParaExcluir.nome}</strong>. Digite sua senha para confirmar:
@@ -1553,7 +1470,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </div>
         </div>
       )}
-
     </div>
   );
 }

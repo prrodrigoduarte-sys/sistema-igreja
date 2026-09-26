@@ -11,7 +11,7 @@ interface Lancamento {
   valor: number;
   conta_corrente_id: string;
   id_conta_contabil: string;
-  membro_id?: string;
+  membro_id?: string | number;
   documento_url?: string;
   agradecimento_enviado?: boolean;
 }
@@ -33,7 +33,7 @@ interface ContaFinanceiraAdm {
 }
 
 interface Membro {
-  id: string;
+  id: string | number;
   nome: string;
   email?: string;
   celular_principal?: string;
@@ -160,9 +160,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (resMemb.error) {
-        throw resMemb.error;
-      }
+      if (resMemb.error) throw resMemb.error;
 
       setMembrosList(resMemb.data || []);
 
@@ -210,6 +208,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         }
       }
 
+      // GARANTIA ABSOLUTA DO VÍNCULO DO MEMBRO
+      const membroIdFinal = relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null;
+
       const payload = {
         codigo_igreja: codigoIgreja,
         data_lancamento: formLancamento.data_lancamento,
@@ -218,7 +219,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         valor: parseFloat(formLancamento.valor as string),
         conta_corrente_id: formLancamento.conta_corrente_id || null,
         id_conta_contabil: formLancamento.id_conta_contabil || null,
-        membro_id: relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
+        membro_id: membroIdFinal,
         documento_url: docUrl || null,
       };
 
@@ -228,12 +229,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           .update(payload)
           .eq('id', editingLancamento.id);
 
-        if (error) throw error;
+        if (error) {
+          console.error("Erro Supabase Update:", error);
+          throw error;
+        }
         await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
         alert('Lançamento atualizado com sucesso!');
       } else {
         const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-        if (error) throw error;
+        if (error) {
+          console.error("Erro Supabase Insert:", error);
+          throw error;
+        }
         await registrarLog('NOVO_LANCAMENTO', `Criou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
         alert('Lançamento realizado com sucesso!');
       }
@@ -246,7 +253,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
+      alert('Erro ao salvar lançamento: ' + (err.message || JSON.stringify(err)));
     }
   };
 
@@ -708,7 +715,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                                 valor: l.valor?.toString() || '',
                                 conta_corrente_id: l.conta_corrente_id || '',
                                 id_conta_contabil: l.id_conta_contabil || '',
-                                membro_id: l.membro_id || '',
+                                membro_id: l.membro_id !== null && l.membro_id !== undefined ? String(l.membro_id) : '',
                                 documento_url: l.documento_url || '',
                               });
                               setArquivoDocumento(null);
@@ -1179,8 +1186,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     type="checkbox"
                     checked={relacionadoMembro}
                     onChange={(e) => {
-                      setRelacionadoMembro(e.target.checked);
-                      if (!e.target.checked) setFormLancamento({ ...formLancamento, membro_id: '' });
+                      const isChecked = e.target.checked;
+                      setRelacionadoMembro(isChecked);
+                      if (!isChecked) {
+                        setFormLancamento(prev => ({ ...prev, membro_id: '' }));
+                      }
                     }}
                     className="w-4 h-4 rounded text-blue-900 cursor-pointer"
                   />
@@ -1193,20 +1203,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       <label className="block text-xs font-bold text-slate-700 uppercase">Selecionar Membro *</label>
                     </div>
                     <select
-                      value={formLancamento.membro_id || ''}
-                      onChange={(e) =>
+                      value={formLancamento.membro_id !== undefined && formLancamento.membro_id !== null ? String(formLancamento.membro_id) : ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
                         setFormLancamento((prev) => ({
                           ...prev,
-                          membro_id: e.target.value,
-                        }))
-                      }
+                          membro_id: val,
+                        }));
+                      }}
                       className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-semibold text-blue-900 cursor-pointer shadow-sm"
                       required={relacionadoMembro}
                     >
                       <option value="">-- Selecione o membro --</option>
 
                       {membrosList.map((membro) => (
-                        <option key={membro.id} value={membro.id}>
+                        <option key={membro.id} value={String(membro.id)}>
                           {membro.nome}
                         </option>
                       ))}

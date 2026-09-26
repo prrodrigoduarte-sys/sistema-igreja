@@ -604,7 +604,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* 🚀 BOTÕES LARGOS E MODERNOS UM ABAIXO DO OUTRO */}
+        {/* 🚀 BOTÕES LARGOS E MODERNOS EM FORMATO DE CARDS EMPARELHADOS */}
         <div className="space-y-2 pt-1">
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -750,120 +750,92 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT IDÊNTICO AO MÓDULO ORIGINAL */}
+            {/* 0. CHAT RESPONSIVO PARA DISPOSITIVOS MÓVEIS (SEM EXPANDIR TELA) */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[70vh] text-xs">
-                <div className="bg-slate-900 text-white p-3 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-bold text-sm">💬 Central de Comunicação</h3>
-                    <p className="text-[10px] text-slate-300">
-                      {membroSelecionadoChat ? `Conversa com ${membroSelecionadoChat.nome}` : 'Avisos para Todos os Membros'}
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[65vh] text-xs">
+                {/* Cabeçalho do Chat */}
+                <div className="bg-slate-900 text-white p-3 flex justify-between items-center shrink-0">
+                  <div className="truncate pr-2">
+                    <h3 className="font-bold text-sm truncate">💬 Chat & Comunicação</h3>
+                    <p className="text-[10px] text-slate-300 truncate">
+                      {membroSelecionadoChat ? `Conversa: ${membroSelecionadoChat.nome}` : 'Avisos para Todos (Broadcast)'}
                     </p>
                   </div>
                   {membroSelecionadoChat && (
                     <button
                       type="button"
                       onClick={() => setMembroSelecionadoChat(null)}
-                      className="text-[10px] bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer"
+                      className="text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 shrink-0 cursor-pointer"
                     >
-                      ⬅️ Voltar ao Geral
+                      ⬅️ Voltar Geral
                     </button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden">
-                  {/* Lista de Contatos/Membros (Esquerda) */}
-                  <div className="bg-slate-50 border-r overflow-y-auto p-2 space-y-1.5 hidden md:block">
-                    <button
-                      type="button"
-                      onClick={() => setMembroSelecionadoChat(null)}
-                      className={`w-full text-left p-2.5 rounded-xl transition cursor-pointer ${
-                        !membroSelecionadoChat ? 'bg-blue-900 text-white font-bold' : 'bg-white hover:bg-slate-100 text-slate-700 border'
-                      }`}
-                    >
-                      📢 Todos os Membros (Broadcast)
-                    </button>
+                {/* Seletor Rápido de Contato otimizado para Mobile */}
+                <div className="bg-slate-50 border-b p-2 shrink-0">
+                  <select
+                    className="w-full border rounded-xl p-2 text-xs bg-white font-bold text-slate-800 outline-none"
+                    value={membroSelecionadoChat?.id || 'broadcast'}
+                    onChange={(e) => {
+                      if (e.target.value === 'broadcast') {
+                        setMembroSelecionadoChat(null);
+                      } else {
+                        const encontrado = listaMembrosChat.find((m) => m.id === e.target.value);
+                        setMembroSelecionadoChat(encontrado || null);
+                      }
+                    }}
+                  >
+                    <option value="broadcast">📢 Todos os Membros (Broadcast Geral)</option>
                     {listaMembrosChat.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setMembroSelecionadoChat(m)}
-                        className={`w-full text-left p-2.5 rounded-xl transition cursor-pointer flex justify-between items-center ${
-                          membroSelecionadoChat?.id === m.id ? 'bg-blue-900 text-white font-bold' : 'bg-white hover:bg-slate-100 text-slate-700 border'
-                        }`}
-                      >
-                        <div>
-                          <p className="font-bold truncate">{m.nome}</p>
-                          <span className="text-[9px] opacity-75">{m.tipo_cadastro || 'Membro'}</span>
-                        </div>
-                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                      </button>
+                      <option key={m.id} value={m.id}>👤 {m.nome} ({m.tipo_cadastro || 'Membro'})</option>
                     ))}
-                  </div>
-
-                  {/* Seletor rápido para celular */}
-                  <div className="bg-slate-50 border-b p-2 md:hidden">
-                    <select
-                      className="w-full border rounded-xl p-2 text-xs bg-white font-bold"
-                      value={membroSelecionadoChat?.id || 'broadcast'}
-                      onChange={(e) => {
-                        if (e.target.value === 'broadcast') {
-                          setMembroSelecionadoChat(null);
-                        } else {
-                          const encontrado = listaMembrosChat.find((m) => m.id === e.target.value);
-                          setMembroSelecionadoChat(encontrado || null);
-                        }
-                      }}
-                    >
-                      <option value="broadcast">📢 Todos os Membros (Broadcast)</option>
-                      {listaMembrosChat.map((m) => (
-                        <option key={m.id} value={m.id}>👤 {m.nome}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Histórico de Mensagens e Envio (Direita) */}
-                  <div className="col-span-2 flex flex-col h-full bg-white overflow-hidden">
-                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50">
-                      {mensagensChat.length === 0 ? (
-                        <p className="text-center text-slate-400 py-12">Nenhuma mensagem nesta conversa ainda.</p>
-                      ) : (
-                        mensagensChat.map((m) => {
-                          const meuMsg = m.sender === emailUsuario;
-                          return (
-                            <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
-                              <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
-                              <div className={`p-3 rounded-2xl max-w-[85%] text-xs shadow-sm ${
-                                meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
-                              }`}>
-                                {m.text}
-                                <span className={`block text-[9px] text-right mt-1 ${meuMsg ? 'text-blue-200' : 'text-slate-400'}`}>
-                                  {m.time || ''}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    <form onSubmit={handleEnviarMensagemChat} className="p-3 border-t bg-white flex gap-2">
-                      <input
-                        type="text"
-                        value={novaMensagemChat}
-                        onChange={(e) => setNovaMensagemChat(e.target.value)}
-                        placeholder={membroSelecionadoChat ? `Mensagem privada para ${membroSelecionadoChat.nome}...` : 'Escreva um aviso geral...'}
-                        className="flex-1 border rounded-xl px-3 py-2.5 text-xs outline-none"
-                      />
-                      <button
-                        type="submit"
-                        className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
-                      >
-                        Enviar
-                      </button>
-                    </form>
-                  </div>
+                  </select>
                 </div>
+
+                {/* Área de Mensagens (Rolagem interna isolada que não deforma a tela) */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50 min-h-0">
+                  {mensagensChat.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 py-6">
+                      <p className="text-xs">Nenhuma mensagem nesta conversa.</p>
+                      <p className="text-[10px]">Envie uma mensagem abaixo para iniciar!</p>
+                    </div>
+                  ) : (
+                    mensagensChat.map((m) => {
+                      const meuMsg = m.sender === emailUsuario;
+                      return (
+                        <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
+                          <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
+                          <div className={`p-3 rounded-2xl max-w-[85%] text-xs shadow-sm break-words ${
+                            meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
+                          }`}>
+                            {m.text}
+                            <span className={`block text-[9px] text-right mt-1 ${meuMsg ? 'text-blue-200' : 'text-slate-400'}`}>
+                              {m.time || ''}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Caixa de Input Fixa na Base do Chat (Sem estourar a tela) */}
+                <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-white flex gap-2 shrink-0">
+                  <input
+                    type="text"
+                    value={novaMensagemChat}
+                    onChange={(e) => setNovaMensagemChat(e.target.value)}
+                    placeholder={membroSelecionadoChat ? `Mensagem privada...` : 'Escreva um aviso geral...'}
+                    className="flex-1 border rounded-xl px-3 py-2 text-xs outline-none bg-slate-50 focus:bg-white transition"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs shrink-0"
+                  >
+                    Enviar
+                  </button>
+                </form>
               </div>
             )}
 

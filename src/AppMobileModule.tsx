@@ -31,8 +31,8 @@ interface Devocional {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Controle de Abas (Perfil, Agenda, Célula, Igreja, Cadastro, Contribua, Devocional)
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional'>('minha_agenda');
+  // Controle de Abas (Perfil, Agenda, Célula, Igreja, Cadastro, Contribua, Devocional, Chat)
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat'>('minha_agenda');
   const [loading, setLoading] = useState(false);
 
   // 1. Dados do Perfil Pessoal
@@ -98,8 +98,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [temaEstudo, setTemaEstudo] = useState('');
   const [comentariosCelula, setComentariosCelula] = useState('');
 
-  const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
-  const emailUsuario = loggedUser?.email?.trim().toLowerCase();
+  // 5. Chat & Avisos Mobile
+  const [mensagensChat, setMensagensChat] = useState<any[]>([]);
+  const [novaMensagemChat, setNovaMensagemChat] = useState('');
+
+  const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+  const emailUsuario = loggedUser?.email?.trim().toLowerCase() || loggedUser?.usuario || 'admin@sistema.com';
   const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider';
 
   // Solicitar permissão de Notificação do Navegador ao carregar
@@ -142,6 +146,20 @@ export default function AppMobileModule({ loggedUser }: Props) {
       setCarregandoCadastro(false);
     }
   };
+
+  const carregarChat = useCallback(async () => {
+    try {
+      const { data } = await supabase
+        .from('chat_mensagens')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('created_at', { ascending: true });
+
+      if (data) setMensagensChat(data);
+    } catch (err) {
+      console.error('Erro ao carregar chat:', err);
+    }
+  }, [codigoIgreja]);
 
   // Carregar todos os dados das abas (incluindo o Devocional do Supabase)
   const carregarDadosApp = useCallback(async () => {
@@ -234,12 +252,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataReunioes) setReunioesCelula(dataReunioes);
 
+      await carregarChat();
+
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
     } finally {
       setLoading(false);
     }
-  }, [codigoIgreja, emailUsuario]);
+  }, [codigoIgreja, emailUsuario, carregarChat]);
 
   useEffect(() => {
     carregarDadosApp();
@@ -279,6 +299,29 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
     return () => clearInterval(interval);
   }, [minhaAgenda]);
+
+  const handleEnviarMensagemChat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!novaMensagemChat.trim()) return;
+
+    try {
+      const { error } = await supabase.from('chat_mensagens').insert([
+        {
+          codigo_igreja: codigoIgreja,
+          sender: emailUsuario,
+          text: novaMensagemChat.trim(),
+          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          is_broadcast: true,
+        },
+      ]);
+
+      if (error) throw error;
+      setNovaMensagemChat('');
+      carregarChat();
+    } catch (err: any) {
+      alert('Erro ao enviar mensagem: ' + err.message);
+    }
+  };
 
   // AÇÃO 1: SALVAR / ATUALIZAR PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
@@ -531,6 +574,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="flex gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar scroll-smooth">
           <button
             type="button"
+            onClick={() => setSubAbaApp('chat')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'chat' 
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold shadow-emerald-500/30 shadow-lg scale-105' 
+                : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
+            }`}
+          >
+            <span className="text-sm">💬</span>
+            <span className="text-xs font-bold">Chat Geral</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setSubAbaApp('minha_agenda')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
               subAbaApp === 'minha_agenda' 
@@ -628,6 +684,57 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
+            {/* 0. CHAT MOBILE */}
+            {subAbaApp === 'chat' && (
+              <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs flex flex-col h-[65vh]">
+                <div className="border-b pb-2 flex justify-between items-center">
+                  <h3 className="font-black text-blue-900 text-sm">💬 Chat & Avisos da Comunidade</h3>
+                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                    Tempo Real
+                  </span>
+                </div>
+
+                <div className="flex-1 overflow-y-auto space-y-2.5 p-2 bg-slate-50 rounded-xl border">
+                  {mensagensChat.length === 0 ? (
+                    <p className="text-center text-slate-400 py-6">Nenhuma mensagem no chat ainda.</p>
+                  ) : (
+                    mensagensChat.map((m) => {
+                      const meuMsg = m.sender === emailUsuario;
+                      return (
+                        <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
+                          <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
+                          <div className={`p-3 rounded-2xl max-w-[85%] text-xs shadow-sm ${
+                            meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
+                          }`}>
+                            {m.text}
+                            <span className={`block text-[9px] text-right mt-1 ${meuMsg ? 'text-blue-200' : 'text-slate-400'}`}>
+                              {m.time || ''}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <form onSubmit={handleEnviarMensagemChat} className="flex gap-2 pt-2 border-t">
+                  <input
+                    type="text"
+                    value={novaMensagemChat}
+                    onChange={(e) => setNovaMensagemChat(e.target.value)}
+                    placeholder="Escreva sua mensagem..."
+                    className="flex-1 border rounded-xl px-3 py-2 text-xs outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
+                  >
+                    Enviar
+                  </button>
+                </form>
+              </div>
+            )}
+
             {/* 1. ABA PERFIL */}
             {subAbaApp === 'perfil' && (
               <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">

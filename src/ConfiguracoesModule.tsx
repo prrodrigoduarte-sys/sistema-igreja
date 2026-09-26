@@ -40,6 +40,10 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
     setLoadingBackup(true);
     try {
       const resMembers = await supabase.from('members').select('*');
+      if (resMembers.error) {
+        console.error('Erro específico ao buscar members:', resMembers.error.message);
+      }
+
       const resUsuarios = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
       const resPermissoes = await supabase.from('permissoes_usuario').select('*');
       const resMinisterios = await supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja);

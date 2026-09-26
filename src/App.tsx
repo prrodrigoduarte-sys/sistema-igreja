@@ -22,6 +22,7 @@ import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
 import { MessageSquare, Send, Bell, Trash2 } from 'lucide-react';
+import ConfiguracoesModule from './ConfiguracoesModule';
 
 function getOrCreateDeviceToken() {
   let token = localStorage.getItem('app_device_token');
@@ -1034,7 +1035,7 @@ export default function App() {
             </button>
           )}
 
-          {temPermissao('configuracoes') && (
+{temPermissao('configuracoes') && (
             <div>
               <button
                 type="button"
@@ -1076,6 +1077,16 @@ export default function App() {
                     }`}
                   >
                     🔒 Controle de Registro
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => selecionarAba('configuracoes-backup')}
+                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
+                      activeTab === 'configuracoes-backup' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
+                    }`}
+                  >
+                    📦 Backup e Restauração
                   </button>
                 </div>
               )}
@@ -1328,6 +1339,9 @@ export default function App() {
 
         {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
           <ControleRegistroModule loggedUser={userEfetivo} />
+        )}
+        {activeTab === 'configuracoes-backup' && (
+         <ConfiguracoesModule loggedUser={loggedUser} />
         )}
 
         {activeTab === 'projetos' && temPermissao('projetos') && (

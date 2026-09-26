@@ -591,55 +591,55 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   return (
-    // CONTANTO FIXO E ESTÁVEL NO CELULAR (SEM FLUTUAR OU EXPANDIR A PÁGINA)
-    <div className="max-w-md mx-auto w-full bg-slate-100 h-[88vh] max-h-[780px] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative">
+    // CONTAINER TOTALMENTE TRAVADO E ESTÁVEL (SEM FLUTUAR)
+    <div className="max-w-md mx-auto w-full bg-slate-100 h-[85vh] max-h-[720px] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
       
       {/* CABEÇALHO */}
-      <div className="bg-blue-900 text-white p-4 space-y-3 shrink-0">
+      <div className="bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-lg font-black">📱 App {dadosIgreja.nome_igreja}</h2>
-            <p className="text-[11px] text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'Membro'}</p>
+            <h2 className="text-base font-black">📱 App {dadosIgreja.nome_igreja}</h2>
+            <p className="text-[10px] text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'Membro'}</p>
           </div>
           {fotoUrl ? (
-            <img src={fotoUrl} alt="Foto" className="w-9 h-9 rounded-full border-2 border-white object-cover" />
+            <img src={fotoUrl} alt="Foto" className="w-8 h-8 rounded-full border-2 border-white object-cover" />
           ) : (
-            <div className="w-9 h-9 bg-blue-800 rounded-full flex items-center justify-center font-bold border-2 border-white text-xs">👤</div>
+            <div className="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center font-bold border-2 border-white text-xs">👤</div>
           )}
         </div>
 
         {/* BOTÕES LARGOS E MODERNOS EM FORMATO DE CARDS EMPARELHADOS */}
-        <div className="space-y-2 pt-1">
+        <div className="space-y-1.5 pt-0.5">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setSubAbaApp('chat')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'chat' 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
               }`}
             >
-              <span className="text-xl">💬</span>
-              <div className="text-left">
-                <p className="font-black">Chat Geral</p>
-                <p className="text-[10px] opacity-80 font-normal">Mensagens e avisos</p>
+              <span className="text-lg">💬</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Chat Geral</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Mensagens e avisos</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('minha_agenda')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'minha_agenda' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">📅</span>
-              <div className="text-left">
-                <p className="font-black">Minha Agenda</p>
-                <p className="text-[10px] opacity-80 font-normal">Compromissos e alarmes</p>
+              <span className="text-lg">📅</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Minha Agenda</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Compromissos e alarmes</p>
               </div>
             </button>
           </div>
@@ -648,32 +648,32 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('perfil')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'perfil' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">👤</span>
-              <div className="text-left">
-                <p className="font-black">Meu Perfil</p>
-                <p className="text-[10px] opacity-80 font-normal">Dados e endereço</p>
+              <span className="text-lg">👤</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Meu Perfil</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Dados e endereço</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('celula')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'celula' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">🏡</span>
-              <div className="text-left">
-                <p className="font-black">Minha Célula</p>
-                <p className="text-[10px] opacity-80 font-normal">Encontros e grupo</p>
+              <span className="text-lg">🏡</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Minha Célula</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Encontros e grupo</p>
               </div>
             </button>
           </div>
@@ -682,32 +682,32 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('igreja')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'igreja' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">⛪</span>
-              <div className="text-left">
-                <p className="font-black">A Igreja</p>
-                <p className="text-[10px] opacity-80 font-normal">Endereço e redes sociais</p>
+              <span className="text-lg">⛪</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">A Igreja</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Endereço e redes sociais</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('cadastro')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'cadastro' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">📝</span>
-              <div className="text-left">
-                <p className="font-black">Ficha Cadastro</p>
-                <p className="text-[10px] opacity-80 font-normal">Formulário oficial</p>
+              <span className="text-lg">📝</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Ficha Cadastro</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Formulário oficial</p>
               </div>
             </button>
           </div>
@@ -716,52 +716,52 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('contribua')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'contribua' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">💖</span>
-              <div className="text-left">
-                <p className="font-black">Contribua</p>
-                <p className="text-[10px] opacity-80 font-normal">Dízimos e PIX</p>
+              <span className="text-lg">💖</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Contribua</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Dízimos e PIX</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('devocional')}
-              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'devocional' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-xl">📖</span>
-              <div className="text-left">
-                <p className="font-black">Devocional</p>
-                <p className="text-[10px] opacity-80 font-normal">Palavra diária</p>
+              <span className="text-lg">📖</span>
+              <div className="text-left truncate">
+                <p className="font-black truncate">Devocional</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Palavra diária</p>
               </div>
             </button>
           </div>
         </div>
       </div>
 
-      {/* ÁREA DE CONTEÚDO ROLÁVEL INTERNAMENTE (NÃO MOVIMENTA A PÁGINA INTEIRA) */}
-      <div className="p-4 flex-1 overflow-y-auto space-y-4 min-h-0">
+      {/* ÁREA DE CONTEÚDO COM SCROLL INTERNO EXCLUSIVO */}
+      <div className="p-3.5 flex-1 overflow-y-auto space-y-3 min-h-0 bg-slate-100">
         {loading ? (
-          <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
+          <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
             {/* 0. CHAT RESPONSIVO ESTÁVEL */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[52vh] text-xs">
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[46vh] text-xs">
                 {/* Cabeçalho do Chat */}
-                <div className="bg-slate-900 text-white p-3 flex justify-between items-center shrink-0">
+                <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
                   <div className="truncate pr-2">
-                    <h3 className="font-bold text-sm truncate">💬 Chat & Comunicação</h3>
-                    <p className="text-[10px] text-slate-300 truncate">
+                    <h3 className="font-bold text-xs truncate">💬 Chat & Comunicação</h3>
+                    <p className="text-[9px] text-slate-300 truncate">
                       {membroSelecionadoChat ? `Conversa com: ${membroSelecionadoChat.nome}` : 'Avisos para Todos (Broadcast)'}
                     </p>
                   </div>
@@ -769,7 +769,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     <button
                       type="button"
                       onClick={() => setMembroSelecionadoChat(null)}
-                      className="text-[10px] bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 shrink-0 cursor-pointer"
+                      className="text-[9px] bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 shrink-0 cursor-pointer"
                     >
                       ⬅️ Voltar Geral
                     </button>
@@ -801,11 +801,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
 
                 {/* Área de Mensagens com scroll próprio */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50 min-h-0">
+                <div className="flex-1 overflow-y-auto p-2.5 space-y-2 bg-slate-50/50 min-h-0">
                   {mensagensChat.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 py-6">
+                    <div className="flex flex-col items-center justify-center h-full text-slate-400 py-4">
                       <p className="text-xs">Nenhuma mensagem nesta conversa.</p>
-                      <p className="text-[10px]">Envie uma mensagem abaixo para iniciar!</p>
+                      <p className="text-[9px]">Envie uma mensagem abaixo para iniciar!</p>
                     </div>
                   ) : (
                     mensagensChat.map((m) => {
@@ -813,7 +813,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       return (
                         <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
                           <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
-                          <div className={`p-3 rounded-2xl max-w-[85%] text-xs shadow-sm break-words ${
+                          <div className={`p-2.5 rounded-2xl max-w-[85%] text-xs shadow-sm break-words ${
                             meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
                           }`}>
                             {m.text}
@@ -828,17 +828,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
 
                 {/* Caixa de Input Fixa */}
-                <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-white flex gap-2 shrink-0">
+                <form onSubmit={handleEnviarMensagemChat} className="p-2 border-t bg-white flex gap-2 shrink-0">
                   <input
                     type="text"
                     value={novaMensagemChat}
                     onChange={(e) => setNovaMensagemChat(e.target.value)}
-                    placeholder={membroSelecionadoChat ? `Mensagem privada para ${membroSelecionadoChat.nome}...` : 'Escreva um aviso geral...'}
-                    className="flex-1 border rounded-xl px-3 py-2 text-xs outline-none bg-slate-50 focus:bg-white transition"
+                    placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}...` : 'Escreva um aviso geral...'}
+                    className="flex-1 border rounded-xl px-2.5 py-1.5 text-xs outline-none bg-slate-50 focus:bg-white transition"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs shrink-0"
+                    className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs shrink-0"
                   >
                     Enviar
                   </button>
@@ -848,13 +848,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 1. ABA PERFIL */}
             {subAbaApp === 'perfil' && (
-              <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-2">✏️ Editar Meu Cadastro</h3>
-                <p className="text-[11px] text-slate-500">
+              <div className="bg-white p-3.5 rounded-2xl shadow-sm border space-y-3 text-xs">
+                <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">✏️ Editar Meu Cadastro</h3>
+                <p className="text-[10px] text-slate-500">
                   Você pode atualizar sua foto de perfil e seu endereço residencial.
                 </p>
 
-                <form onSubmit={handleSalvarPerfil} className="space-y-3">
+                <form onSubmit={handleSalvarPerfil} className="space-y-2.5">
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">URL da Foto de Perfil</label>
                     <input
@@ -862,7 +862,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       placeholder="Cole a URL ou base64 da imagem"
                       value={fotoUrl}
                       onChange={(e) => setFotoUrl(e.target.value)}
-                      className="w-full border rounded-xl p-2.5 font-mono text-[10px]"
+                      className="w-full border rounded-xl p-2 font-mono text-[10px]"
                     />
                   </div>
 
@@ -905,7 +905,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                   <button
                     type="submit"
-                    className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2"
+                    className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-1"
                   >
                     💾 Atualizar Meu Cadastro
                   </button>
@@ -915,43 +915,43 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 2. ABA AGENDA & ALARMES */}
             {subAbaApp === 'minha_agenda' && (
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center bg-white p-3.5 rounded-2xl border shadow-sm">
+              <div className="space-y-2.5 text-xs">
+                <div className="flex justify-between items-center bg-white p-3 rounded-2xl border shadow-sm">
                   <div>
-                    <h3 className="font-black text-blue-900 text-sm flex items-center gap-1.5">
+                    <h3 className="font-black text-blue-900 text-xs flex items-center gap-1.5">
                       📅 Minha Agenda & Alarmes
                     </h3>
-                    <p className="text-[10px] text-slate-500">Seus compromissos com alerta sonoro</p>
+                    <p className="text-[9px] text-slate-500">Seus compromissos com alerta sonoro</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleAbrirCriarAgenda}
-                    className="px-3.5 py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1"
+                    className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1"
                   >
                     ➕ Criar
                   </button>
                 </div>
 
                 {minhaAgenda.length === 0 ? (
-                  <div className="p-8 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-2">
+                  <div className="p-6 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-1.5">
                     <p className="font-bold text-slate-700 text-xs">Sua agenda está vazia.</p>
-                    <p className="text-[11px] text-slate-500">Clique em "+ Criar" para agendar um compromisso!</p>
+                    <p className="text-[10px] text-slate-500">Clique em "+ Criar" para agendar um compromisso!</p>
                   </div>
                 ) : (
                   minhaAgenda.map((item) => (
-                    <div key={item.id} className="bg-white p-4 rounded-2xl border space-y-1 shadow-sm flex justify-between items-center">
+                    <div key={item.id} className="bg-white p-3 rounded-2xl border space-y-1 shadow-sm flex justify-between items-center">
                       <div>
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-blue-900 text-xs">
                             📅 {item.data} às {item.hora}
                           </span>
                           {item.lembrete_minutos !== undefined && (
-                            <span className="text-[10px] bg-amber-50 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
+                            <span className="text-[9px] bg-amber-50 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
                               🔔 {item.lembrete_minutos}m antes
                             </span>
                           )}
                         </div>
-                        <p className="font-bold text-slate-800 text-sm mt-0.5">{item.descricao}</p>
+                        <p className="font-bold text-slate-800 text-xs mt-0.5">{item.descricao}</p>
                       </div>
 
                       <div className="flex items-center gap-1.5">
@@ -959,7 +959,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           type="button"
                           onClick={() => handleAbrirEditarAgenda(item)}
                           title="Editar compromisso"
-                          className="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
+                          className="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
                         >
                           ✏️
                         </button>
@@ -967,7 +967,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           type="button"
                           onClick={() => handleExcluirCompromisso(item.id)}
                           title="Excluir compromisso"
-                          className="w-8 h-8 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
+                          className="w-7 h-7 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
                         >
                           🗑️
                         </button>
@@ -980,26 +980,26 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 3. ABA CÉLULA */}
             {subAbaApp === 'celula' && (
-              <div className="space-y-4 text-xs">
-                <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
-                  <div className="flex justify-between items-center border-b pb-2">
-                    <h3 className="font-black text-blue-900 text-sm">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
+              <div className="space-y-3 text-xs">
+                <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
+                  <div className="flex justify-between items-center border-b pb-1.5">
+                    <h3 className="font-black text-blue-900 text-xs">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
                     <button
                       type="button"
                       onClick={handleAbrirCriarReuniao}
-                      className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer"
+                      className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer text-[10px]"
                     >
                       ➕ Registrar Encontro
                     </button>
                   </div>
 
-                  <p className="text-slate-500">
+                  <p className="text-slate-500 text-[10px]">
                     Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
                   </p>
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
-                  <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
+                <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
+                  <h4 className="font-bold text-slate-700 uppercase text-[9px] tracking-wider">
                     👥 Integrantes da Célula ({participantesCelula.length})
                   </h4>
                   <div className="space-y-1.5">
@@ -1010,7 +1010,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           href={`https://wa.me/55${p.celular_principal?.replace(/\D/g, '')}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200"
+                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200"
                         >
                           💬 WhatsApp
                         </a>
@@ -1019,28 +1019,28 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </div>
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border space-y-2 shadow-sm">
-                  <h4 className="font-bold text-slate-700 uppercase text-[10px] tracking-wider">
+                <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
+                  <h4 className="font-bold text-slate-700 uppercase text-[9px] tracking-wider">
                     📋 Histórico de Encontros & Notas
                   </h4>
                   {reunioesCelula.length === 0 ? (
-                    <p className="text-slate-400 italic text-center py-2">Nenhum evento registrado.</p>
+                    <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registrado.</p>
                   ) : (
                     reunioesCelula.map((r) => (
-                      <div key={r.id} className="p-3 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
+                      <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
                         <div>
-                          <span className="font-bold text-blue-900 block">
+                          <span className="font-bold text-blue-900 block text-[10px]">
                             📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
                           </span>
-                          {r.estudo_tema && <p className="font-medium text-slate-800">📘 Estudo: {r.estudo_tema}</p>}
-                          {r.comentarios && <p className="text-slate-500 italic">💬 Nota: {r.comentarios}</p>}
+                          {r.estudo_tema && <p className="font-medium text-slate-800 text-[10px]">📘 Estudo: {r.estudo_tema}</p>}
+                          {r.comentarios && <p className="text-slate-500 italic text-[9px]">💬 Nota: {r.comentarios}</p>}
                         </div>
 
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex items-center gap-1 shrink-0">
                           <button
                             type="button"
                             onClick={() => handleAbrirEditarReuniao(r)}
-                            className="w-7 h-7 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer"
+                            className="w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
                             title="Editar Reunião"
                           >
                             ✏️
@@ -1049,7 +1049,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           <button
                             type="button"
                             onClick={() => handleExcluirReuniao(r.id)}
-                            className="w-7 h-7 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg flex items-center justify-center cursor-pointer"
+                            className="w-6 h-6 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
                             title="Excluir Reunião"
                           >
                             🗑️
@@ -1064,30 +1064,30 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 4. ABA IGREJA */}
             {subAbaApp === 'igreja' && (
-              <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-2">⛪ Informações da Igreja</h3>
+              <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
+                <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">⛪ Informações da Igreja</h3>
 
-                <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
+                <div className="bg-slate-50 p-3.5 rounded-xl border space-y-2">
                   <strong className="block text-slate-700">📍 Endereço Oficial</strong>
-                  <p className="text-slate-600 font-medium">{dadosIgreja.endereco_completo}</p>
+                  <p className="text-slate-600 font-medium text-[11px]">{dadosIgreja.endereco_completo}</p>
 
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dadosIgreja.endereco_completo)}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="block w-full text-center py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer mt-2"
+                    className="block w-full text-center py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer mt-1 text-[11px]"
                   >
                     🗺️ Como Chegar na Igreja (GPS)
                   </a>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-xl border space-y-2">
+                <div className="bg-slate-50 p-3.5 rounded-xl border space-y-2">
                   <strong className="block text-slate-700">📸 Redes Sociais</strong>
                   <a
                     href={dadosIgreja.link_instagram}
                     target="_blank"
                     rel="noreferrer"
-                    className="block w-full text-center py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer"
+                    className="block w-full text-center py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer text-[11px]"
                   >
                     📷 Acessar Instagram Oficial
                   </a>
@@ -1097,69 +1097,69 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 5. ABA CADASTRO EM ETAPAS (SEQUENCIAL) */}
             {subAbaApp === 'cadastro' && (
-              <div className="bg-white p-4 rounded-2xl border shadow-sm space-y-4 text-xs">
-                <div className="border-b pb-2 flex justify-between items-center">
+              <div className="bg-white p-3.5 rounded-2xl border shadow-sm space-y-3 text-xs">
+                <div className="border-b pb-1.5 flex justify-between items-center">
                   <div>
-                    <h3 className="font-black text-blue-900 text-sm">📝 Ficha de Cadastro Oficial</h3>
-                    <p className="text-[10px] text-slate-500">Etapa {etapaCadastro} de 3</p>
+                    <h3 className="font-black text-blue-900 text-xs">📝 Ficha de Cadastro Oficial</h3>
+                    <p className="text-[9px] text-slate-500">Etapa {etapaCadastro} de 3</p>
                   </div>
                   <div className="flex gap-1">
-                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 1 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 2 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                    <span className={`w-3 h-3 rounded-full ${etapaCadastro >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 1 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 2 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
                   </div>
                 </div>
 
                 {carregandoCadastro ? (
-                  <p className="text-center text-xs text-slate-500 py-6">Carregando informações...</p>
+                  <p className="text-center text-xs text-slate-500 py-4">Carregando informações...</p>
                 ) : jaCadastrado && !isAdminOuLider ? (
-                  <div className="p-4 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-2">
+                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-1">
                     <p>🔒 Dados já confirmados e salvos.</p>
-                    <p className="text-[10px] text-amber-700">Caso precise alterar algum dado, por favor procure a secretaria da igreja.</p>
+                    <p className="text-[9px] text-amber-700">Caso precise alterar algum dado, procure a secretaria da igreja.</p>
                   </div>
                 ) : (
-                  <form onSubmit={handleFinalizarCadastroUnico} className="space-y-3">
+                  <form onSubmit={handleFinalizarCadastroUnico} className="space-y-2.5">
                     {/* ETAPA 1: DADOS BÁSICOS */}
                     {etapaCadastro === 1 && (
-                      <div className="space-y-3">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">1️⃣ Dados Pessoais Básicos</h4>
+                      <div className="space-y-2.5">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">1️⃣ Dados Pessoais Básicos</h4>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Nome Completo *</label>
+                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Nome Completo *</label>
                           <input
                             type="text"
                             value={nomeMembro}
                             onChange={(e) => setNomeMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2.5 font-bold text-slate-800"
+                            className="w-full border rounded-xl p-2 font-bold text-slate-800 text-xs"
                             required
                           />
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Celular / WhatsApp *</label>
+                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Celular / WhatsApp *</label>
                           <input
                             type="text"
                             value={celularMembro}
                             onChange={(e) => setCelularMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2.5"
+                            className="w-full border rounded-xl p-2 text-xs"
                             placeholder="(00) 00000-0000"
                             required
                           />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block font-bold text-slate-700 mb-1">Nascimento</label>
+                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Nascimento</label>
                             <input
                               type="date"
                               value={dataNascMembro}
                               onChange={(e) => setDataNascMembro(e.target.value)}
-                              className="w-full border rounded-xl p-2.5 bg-white"
+                              className="w-full border rounded-xl p-2 bg-white text-xs"
                             />
                           </div>
                           <div>
-                            <label className="block font-bold text-slate-700 mb-1">Estado Civil</label>
+                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Estado Civil</label>
                             <select
                               value={estadoCivil}
                               onChange={(e) => setEstadoCivil(e.target.value)}
-                              className="w-full border rounded-xl p-2.5 bg-white"
+                              className="w-full border rounded-xl p-2 bg-white text-xs"
                             >
                               <option value="Solteiro(a)">Solteiro(a)</option>
                               <option value="Casado(a)">Casado(a)</option>
@@ -1174,7 +1174,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
                             setEtapaCadastro(2);
                           }}
-                          className="w-full py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-3"
+                          className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2 text-xs"
                         >
                           Próxima ➡️
                         </button>
@@ -1183,22 +1183,22 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                     {/* ETAPA 2: ENDEREÇO */}
                     {etapaCadastro === 2 && (
-                      <div className="space-y-3">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">2️⃣ Endereço Residencial</h4>
+                      <div className="space-y-2.5">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">2️⃣ Endereço Residencial</h4>
                         <div className="grid grid-cols-3 gap-2">
                           <input
                             type="text"
                             placeholder="CEP"
                             value={cepMembro}
                             onChange={(e) => setCepMembro(e.target.value)}
-                            className="border rounded-xl p-2.5"
+                            className="border rounded-xl p-2 text-xs"
                           />
                           <input
                             type="text"
                             placeholder="Bairro"
                             value={bairroMembro}
                             onChange={(e) => setBairroMembro(e.target.value)}
-                            className="col-span-2 border rounded-xl p-2.5"
+                            className="col-span-2 border rounded-xl p-2 text-xs"
                           />
                         </div>
                         <div className="grid grid-cols-3 gap-2">
@@ -1207,28 +1207,28 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             placeholder="Rua / Avenida"
                             value={ruaMembro}
                             onChange={(e) => setRuaMembro(e.target.value)}
-                            className="col-span-2 border rounded-xl p-2.5"
+                            className="col-span-2 border rounded-xl p-2 text-xs"
                           />
                           <input
                             type="text"
                             placeholder="Nº"
                             value={numeroMembro}
                             onChange={(e) => setNumeroMembro(e.target.value)}
-                            className="border rounded-xl p-2.5"
+                            className="border rounded-xl p-2 text-xs"
                           />
                         </div>
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex gap-2 pt-1">
                           <button
                             type="button"
                             onClick={() => setEtapaCadastro(1)}
-                            className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer"
+                            className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs"
                           >
                             ⬅️ Voltar
                           </button>
                           <button
                             type="button"
                             onClick={() => setEtapaCadastro(3)}
-                            className="w-1/2 py-3 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer"
+                            className="w-1/2 py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
                           >
                             Próxima ➡️
                           </button>
@@ -1238,40 +1238,40 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                     {/* ETAPA 3: DADOS ECLESIÁSTICOS & FINALIZAÇÃO */}
                     {etapaCadastro === 3 && (
-                      <div className="space-y-3">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-2 rounded-lg">3️⃣ Dados Eclesiásticos & Finalização</h4>
+                      <div className="space-y-2.5">
+                        <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">3️⃣ Dados Eclesiásticos & Finalização</h4>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">É batizado(a) nas águas?</label>
+                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">É batizado(a) nas águas?</label>
                           <select
                             value={batizado}
                             onChange={(e) => setBatizado(e.target.value)}
-                            className="w-full border rounded-xl p-2.5 bg-white"
+                            className="w-full border rounded-xl p-2 bg-white text-xs"
                           >
                             <option value="Sim">Sim</option>
                             <option value="Não">Não</option>
                           </select>
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-1">Observações ou Pedido de Oração</label>
+                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Observações ou Pedido de Oração</label>
                           <textarea
                             value={observacoesMembro}
                             onChange={(e) => setObservacoesMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2.5"
-                            rows={3}
+                            className="w-full border rounded-xl p-2 text-xs"
+                            rows={2}
                             placeholder="Alguma observação importante..."
                           />
                         </div>
-                        <div className="flex gap-2 pt-2">
+                        <div className="flex gap-2 pt-1">
                           <button
                             type="button"
                             onClick={() => setEtapaCadastro(2)}
-                            className="w-1/2 py-3 bg-slate-200 font-bold rounded-xl cursor-pointer"
+                            className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs"
                           >
                             ⬅️ Voltar
                           </button>
                           <button
                             type="submit"
-                            className="w-1/2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer"
+                            className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
                           >
                             💾 Salvar Cadastro
                           </button>
@@ -1285,16 +1285,16 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 6. ABA CONTRIBUA */}
             {subAbaApp === 'contribua' && (
-              <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-2">💖 Contribua com a Obra</h3>
-                <p className="text-[11px] text-slate-600 leading-relaxed">
+              <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
+                <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">💖 Contribua com a Obra</h3>
+                <p className="text-[10px] text-slate-600 leading-relaxed">
                   "Cada um contribua segundo propôs no seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria." (2 Coríntios 9:7)
                 </p>
 
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2 text-center">
-                  <span className="text-2xl">💠</span>
-                  <strong className="block text-amber-900 font-bold">Chave PIX (CNPJ da Igreja)</strong>
-                  <p className="font-mono text-xs bg-white p-2.5 rounded-lg border text-slate-700 select-all font-bold">
+                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2 text-center">
+                  <span className="text-xl">💠</span>
+                  <strong className="block text-amber-900 font-bold text-[11px]">Chave PIX (CNPJ da Igreja)</strong>
+                  <p className="font-mono text-xs bg-white p-2 rounded-lg border text-slate-700 select-all font-bold">
                     {dadosIgreja.chave_pix || dadosIgreja.cnpj || 'CNPJ não configurado'}
                   </p>
                   <button
@@ -1305,13 +1305,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       navigator.clipboard.writeText(pixChave);
                       alert('CNPJ / Chave PIX copiado com sucesso!');
                     }}
-                    className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs"
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-[11px]"
                   >
                     📋 Copiar Chave PIX (CNPJ)
                   </button>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-xl border text-[11px] text-slate-500 text-center">
+                <div className="p-2.5 bg-slate-50 rounded-xl border text-[10px] text-slate-500 text-center">
                   Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!
                 </div>
               </div>
@@ -1319,28 +1319,28 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             {/* 7. ABA DEVOCIONAL (DINÂMICO DO SUPABASE) */}
             {subAbaApp === 'devocional' && (
-              <div className="bg-white p-5 rounded-2xl border space-y-4 text-xs shadow-sm">
-                <div className="border-b pb-2 flex justify-between items-center">
+              <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
+                <div className="border-b pb-1.5 flex justify-between items-center">
                   <h3 className="font-black text-blue-900 text-sm">📖 Devocional Diário</h3>
-                  <span className="text-[10px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                  <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
                     {devocionalDoDia.data}
                   </span>
                 </div>
 
-                <div className="space-y-3 bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-4 rounded-2xl shadow">
-                  <span className="text-xs uppercase font-bold tracking-wider text-blue-300">Palavra do Dia</span>
-                  <h4 className="font-black text-base text-yellow-300">"{devocionalDoDia.versiculo}"</h4>
-                  <p className="text-[11px] text-blue-100 italic">{devocionalDoDia.referencia}</p>
+                <div className="space-y-2 bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-3.5 rounded-2xl shadow">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300">Palavra do Dia</span>
+                  <h4 className="font-black text-sm text-yellow-300">"{devocionalDoDia.versiculo}"</h4>
+                  <p className="text-[10px] text-blue-100 italic">{devocionalDoDia.referencia}</p>
                 </div>
 
-                <div className="space-y-2 text-slate-700 leading-relaxed">
-                  <strong className="block text-blue-900 font-bold">Reflexão:</strong>
-                  <p className="text-xs whitespace-pre-wrap">
+                <div className="space-y-1.5 text-slate-700 leading-relaxed">
+                  <strong className="block text-blue-900 font-bold text-[11px]">Reflexão:</strong>
+                  <p className="text-[11px] whitespace-pre-wrap">
                     {devocionalDoDia.reflexao}
                   </p>
                 </div>
 
-                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-center font-medium text-[11px]">
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-center font-medium text-[10px]">
                   ✨ Compartilhe esta palavra com alguém hoje e leve esperança!
                 </div>
               </div>
@@ -1352,51 +1352,51 @@ export default function AppMobileModule({ loggedUser }: Props) {
       {/* MODAL AGENDA MOBILE COM ALARME */}
       {modalNovaAgenda && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-3xl p-5 space-y-3 text-xs shadow-2xl">
-            <h3 className="font-black text-blue-900 text-sm border-b pb-2">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
+            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
               {itemEditandoAgenda ? '✏️ Editar Compromisso' : '➕ Novo Compromisso'}
             </h3>
-            <form onSubmit={handleSalvarMinhaAgenda} className="space-y-3">
+            <form onSubmit={handleSalvarMinhaAgenda} className="space-y-2.5">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">Descrição *</label>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Descrição *</label>
                 <input
                   type="text"
                   placeholder="Ex: Reunião, Culto..."
                   value={novoTitulo}
                   onChange={(e) => setNovoTitulo(e.target.value)}
-                  className="w-full border rounded-xl p-2.5 font-semibold text-slate-800"
+                  className="w-full border rounded-xl p-2 font-semibold text-slate-800 text-xs"
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Data</label>
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Data</label>
                   <input
                     type="date"
                     value={novaData}
                     onChange={(e) => setNovaData(e.target.value)}
-                    className="w-full border rounded-xl p-2 font-semibold"
+                    className="w-full border rounded-xl p-1.5 font-semibold text-xs"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">Hora</label>
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Hora</label>
                   <input
                     type="time"
                     value={novaHora}
                     onChange={(e) => setNovaHora(e.target.value)}
-                    className="w-full border rounded-xl p-2 font-semibold"
+                    className="w-full border rounded-xl p-1.5 font-semibold text-xs"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">🔔 Alarme Sonoro</label>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">🔔 Alarme Sonoro</label>
                 <select
                   value={lembreteMinutos}
                   onChange={(e) => setLembreteMinutos(Number(e.target.value))}
-                  className="w-full border rounded-xl p-2.5 bg-white outline-none"
+                  className="w-full border rounded-xl p-2 bg-white outline-none text-xs"
                 >
                   <option value={0}>Na hora exata</option>
                   <option value={5}>5 minutos antes</option>
@@ -1406,17 +1406,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </select>
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setModalNovaAgenda(false)}
-                  className="w-full py-2.5 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200"
+                  className="w-full py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer"
+                  className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
                 >
                   {itemEditandoAgenda ? 'Salvar Alterações' : 'Salvar'}
                 </button>
@@ -1429,44 +1429,44 @@ export default function AppMobileModule({ loggedUser }: Props) {
       {/* MODAL CÉLULA */}
       {modalNovaReuniao && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-xs rounded-3xl p-5 space-y-3 text-xs shadow-2xl">
-            <h3 className="font-black text-blue-900 text-sm border-b pb-2">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
+            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
               {itemEditandoReuniao ? '✏️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
             </h3>
-            <form onSubmit={handleSalvarReuniaoCelula} className="space-y-3">
+            <form onSubmit={handleSalvarReuniaoCelula} className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block font-bold mb-1">Data</label>
-                  <input type="date" value={dataReuniao} onChange={(e) => setDataReuniao(e.target.value)} className="w-full border rounded-xl p-2" />
+                  <label className="block font-bold mb-0.5 text-[10px]">Data</label>
+                  <input type="date" value={dataReuniao} onChange={(e) => setDataReuniao(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs" />
                 </div>
                 <div>
-                  <label className="block font-bold mb-1">Hora</label>
-                  <input type="time" value={horaReuniao} onChange={(e) => setHoraReuniao(e.target.value)} className="w-full border rounded-xl p-2" />
+                  <label className="block font-bold mb-0.5 text-[10px]">Hora</label>
+                  <input type="time" value={horaReuniao} onChange={(e) => setHoraReuniao(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs" />
                 </div>
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Tema / Estudo</label>
-                <input type="text" placeholder="Ex: Lição 4..." value={temaEstudo} onChange={(e) => setTemaEstudo(e.target.value)} className="w-full border rounded-xl p-2" />
+                <label className="block font-bold mb-0.5 text-[10px]">Tema / Estudo</label>
+                <input type="text" placeholder="Ex: Lição 4..." value={temaEstudo} onChange={(e) => setTemaEstudo(e.target.value)} className="w-full border rounded-xl p-2 text-xs" />
               </div>
 
               <div>
-                <label className="block font-bold mb-1">Comentários e Notas</label>
-                <textarea placeholder="Observações..." value={comentariosCelula} onChange={(e) => setComentariosCelula(e.target.value)} className="w-full border rounded-xl p-2" rows={2} />
+                <label className="block font-bold mb-0.5 text-[10px]">Comentários e Notas</label>
+                <textarea placeholder="Observações..." value={comentariosCelula} onChange={(e) => setComentariosCelula(e.target.value)} className="w-full border rounded-xl p-2 text-xs" rows={2} />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setItemEditandoReuniao(null);
                     setModalNovaReuniao(false);
                   }}
-                  className="w-full py-2.5 bg-slate-100 font-bold rounded-xl cursor-pointer"
+                  className="w-full py-2 bg-slate-100 font-bold rounded-xl cursor-pointer text-xs"
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="w-full py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer">
+                <button type="submit" className="w-full py-2 bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs">
                   {itemEditandoReuniao ? 'Salvar Alterações' : 'Salvar'}
                 </button>
               </div>

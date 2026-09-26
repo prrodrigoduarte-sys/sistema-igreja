@@ -54,7 +54,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
         { data: contasFinanceiras },
         { data: logs }
       ] = await Promise.all([
-        supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('members').select('*'),
         supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja),
         supabase.from('permissoes_usuario').select('*'),
         supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja),

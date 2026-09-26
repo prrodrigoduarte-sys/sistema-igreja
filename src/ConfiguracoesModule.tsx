@@ -35,11 +35,11 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
     }
   };
 
-  // Rotina de Backup Completo de Todas as Tabelas (Com consultas separadas e seguras)
+  // Rotina de Backup Completo de Todas as Tabelas
   const realizarBackup = async () => {
     setLoadingBackup(true);
     try {
-      const resMembers = await supabase.from('members').select('*');
+      const resMembers = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
       const resUsuarios = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
       const resPermissoes = await supabase.from('permissoes_usuario').select('*');
       const resMinisterios = await supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja);

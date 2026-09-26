@@ -98,7 +98,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [temaEstudo, setTemaEstudo] = useState('');
   const [comentariosCelula, setComentariosCelula] = useState('');
 
-  // 5. Chat & Avisos Mobile
+  // 5. Estados do Chat (Contatos + Mensagens Privadas/Broadcast)
+  const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
+  const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
   const [novaMensagemChat, setNovaMensagemChat] = useState('');
 
@@ -147,19 +149,49 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  const carregarChat = useCallback(async () => {
+  // Carregar lista de membros para o Chat
+  const carregarMembrosChat = useCallback(async () => {
     try {
       const { data } = await supabase
+        .from('members')
+        .select('id, nome, email, celular_principal, tipo_cadastro')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome', { ascending: true });
+
+      if (data) setListaMembrosChat(data);
+    } catch (err) {
+      console.error('Erro ao carregar membros para o chat:', err);
+    }
+  }, [codigoIgreja]);
+
+  // Carregar mensagens do chat
+  const carregarMensagensChat = useCallback(async () => {
+    try {
+      let query = supabase
         .from('chat_mensagens')
         .select('*')
         .eq('codigo_igreja', codigoIgreja)
         .order('created_at', { ascending: true });
 
+      if (membroSelecionadoChat) {
+        query = query.or(`sender.eq.${membroSelecionadoChat.email},recipient_id.eq.${membroSelecionadoChat.id}`);
+      } else {
+        query = query.eq('is_broadcast', true);
+      }
+
+      const { data } = await query;
       if (data) setMensagensChat(data);
     } catch (err) {
-      console.error('Erro ao carregar chat:', err);
+      console.error('Erro ao carregar mensagens:', err);
     }
-  }, [codigoIgreja]);
+  }, [codigoIgreja, membroSelecionadoChat]);
+
+  useEffect(() => {
+    if (subAbaApp === 'chat') {
+      carregarMembrosChat();
+      carregarMensagensChat();
+    }
+  }, [subAbaApp, carregarMembrosChat, carregarMensagensChat]);
 
   // Carregar todos os dados das abas (incluindo o Devocional do Supabase)
   const carregarDadosApp = useCallback(async () => {
@@ -252,14 +284,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataReunioes) setReunioesCelula(dataReunioes);
 
-      await carregarChat();
-
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
     } finally {
       setLoading(false);
     }
-  }, [codigoIgreja, emailUsuario, carregarChat]);
+  }, [codigoIgreja, emailUsuario]);
 
   useEffect(() => {
     carregarDadosApp();
@@ -305,19 +335,23 @@ export default function AppMobileModule({ loggedUser }: Props) {
     if (!novaMensagemChat.trim()) return;
 
     try {
-      const { error } = await supabase.from('chat_mensagens').insert([
-        {
-          codigo_igreja: codigoIgreja,
-          sender: emailUsuario,
-          text: novaMensagemChat.trim(),
-          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          is_broadcast: true,
-        },
-      ]);
+      const payload: any = {
+        codigo_igreja: codigoIgreja,
+        sender: emailUsuario,
+        text: novaMensagemChat.trim(),
+        time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        is_broadcast: !membroSelecionadoChat,
+      };
 
+      if (membroSelecionadoChat) {
+        payload.recipient_id = membroSelecionadoChat.id;
+      }
+
+      const { error } = await supabase.from('chat_mensagens').insert([payload]);
       if (error) throw error;
+
       setNovaMensagemChat('');
-      carregarChat();
+      carregarMensagensChat();
     } catch (err: any) {
       alert('Erro ao enviar mensagem: ' + err.message);
     }
@@ -570,111 +604,143 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO HORIZONTAL SOFISTICADA E MODAL COM SCROLL */}
-        <div className="flex gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar scroll-smooth">
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('chat')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'chat' 
-                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold shadow-emerald-500/30 shadow-lg scale-105' 
-                : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
-            }`}
-          >
-            <span className="text-sm">💬</span>
-            <span className="text-xs font-bold">Chat Geral</span>
-          </button>
+        {/* 🚀 BOTÕES LARGOS E MODERNOS UM ABAIXO DO OUTRO */}
+        <div className="space-y-2 pt-1">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('chat')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'chat' 
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
+              }`}
+            >
+              <span className="text-xl">💬</span>
+              <div className="text-left">
+                <p className="font-black">Chat Geral</p>
+                <p className="text-[10px] opacity-80 font-normal">Mensagens e avisos</p>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('minha_agenda')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'minha_agenda' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">📅</span>
-            <span className="text-xs font-bold">Agenda</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('minha_agenda')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'minha_agenda' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">📅</span>
+              <div className="text-left">
+                <p className="font-black">Minha Agenda</p>
+                <p className="text-[10px] opacity-80 font-normal">Compromissos e alarmes</p>
+              </div>
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('perfil')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'perfil' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">👤</span>
-            <span className="text-xs font-bold">Perfil</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('perfil')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'perfil' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">👤</span>
+              <div className="text-left">
+                <p className="font-black">Meu Perfil</p>
+                <p className="text-[10px] opacity-80 font-normal">Dados e endereço</p>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('celula')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'celula' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">🏡</span>
-            <span className="text-xs font-bold">Célula</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('celula')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'celula' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">🏡</span>
+              <div className="text-left">
+                <p className="font-black">Minha Célula</p>
+                <p className="text-[10px] opacity-80 font-normal">Encontros e grupo</p>
+              </div>
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('igreja')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'igreja' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">⛪</span>
-            <span className="text-xs font-bold">Igreja</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('igreja')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'igreja' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">⛪</span>
+              <div className="text-left">
+                <p className="font-black">A Igreja</p>
+                <p className="text-[10px] opacity-80 font-normal">Endereço e redes sociais</p>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('cadastro')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'cadastro' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">📝</span>
-            <span className="text-xs font-bold">Cadastro</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('cadastro')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'cadastro' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">📝</span>
+              <div className="text-left">
+                <p className="font-black">Ficha Cadastro</p>
+                <p className="text-[10px] opacity-80 font-normal">Formulário oficial</p>
+              </div>
+            </button>
+          </div>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('contribua')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'contribua' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">💖</span>
-            <span className="text-xs font-bold">Contribua</span>
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('contribua')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'contribua' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">💖</span>
+              <div className="text-left">
+                <p className="font-black">Contribua</p>
+                <p className="text-[10px] opacity-80 font-normal">Dízimos e PIX</p>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setSubAbaApp('devocional')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
-              subAbaApp === 'devocional' 
-                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
-                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-            }`}
-          >
-            <span className="text-sm">📖</span>
-            <span className="text-xs font-bold">Devocional</span>
-          </button>
+            <button
+              type="button"
+              onClick={() => setSubAbaApp('devocional')}
+              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+                subAbaApp === 'devocional' 
+                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
+                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
+              }`}
+            >
+              <span className="text-xl">📖</span>
+              <div className="text-left">
+                <p className="font-black">Devocional</p>
+                <p className="text-[10px] opacity-80 font-normal">Palavra diária</p>
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -684,54 +750,120 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT MOBILE */}
+            {/* 0. CHAT IDÊNTICO AO MÓDULO ORIGINAL */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white p-4 rounded-2xl shadow-sm border space-y-4 text-xs flex flex-col h-[65vh]">
-                <div className="border-b pb-2 flex justify-between items-center">
-                  <h3 className="font-black text-blue-900 text-sm">💬 Chat & Avisos da Comunidade</h3>
-                  <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
-                    Tempo Real
-                  </span>
-                </div>
-
-                <div className="flex-1 overflow-y-auto space-y-2.5 p-2 bg-slate-50 rounded-xl border">
-                  {mensagensChat.length === 0 ? (
-                    <p className="text-center text-slate-400 py-6">Nenhuma mensagem no chat ainda.</p>
-                  ) : (
-                    mensagensChat.map((m) => {
-                      const meuMsg = m.sender === emailUsuario;
-                      return (
-                        <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
-                          <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
-                          <div className={`p-3 rounded-2xl max-w-[85%] text-xs shadow-sm ${
-                            meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
-                          }`}>
-                            {m.text}
-                            <span className={`block text-[9px] text-right mt-1 ${meuMsg ? 'text-blue-200' : 'text-slate-400'}`}>
-                              {m.time || ''}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[70vh] text-xs">
+                <div className="bg-slate-900 text-white p-3 flex justify-between items-center">
+                  <div>
+                    <h3 className="font-bold text-sm">💬 Central de Comunicação</h3>
+                    <p className="text-[10px] text-slate-300">
+                      {membroSelecionadoChat ? `Conversa com ${membroSelecionadoChat.nome}` : 'Avisos para Todos os Membros'}
+                    </p>
+                  </div>
+                  {membroSelecionadoChat && (
+                    <button
+                      type="button"
+                      onClick={() => setMembroSelecionadoChat(null)}
+                      className="text-[10px] bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer"
+                    >
+                      ⬅️ Voltar ao Geral
+                    </button>
                   )}
                 </div>
 
-                <form onSubmit={handleEnviarMensagemChat} className="flex gap-2 pt-2 border-t">
-                  <input
-                    type="text"
-                    value={novaMensagemChat}
-                    onChange={(e) => setNovaMensagemChat(e.target.value)}
-                    placeholder="Escreva sua mensagem..."
-                    className="flex-1 border rounded-xl px-3 py-2 text-xs outline-none"
-                  />
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
-                  >
-                    Enviar
-                  </button>
-                </form>
+                <div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden">
+                  {/* Lista de Contatos/Membros (Esquerda) */}
+                  <div className="bg-slate-50 border-r overflow-y-auto p-2 space-y-1.5 hidden md:block">
+                    <button
+                      type="button"
+                      onClick={() => setMembroSelecionadoChat(null)}
+                      className={`w-full text-left p-2.5 rounded-xl transition cursor-pointer ${
+                        !membroSelecionadoChat ? 'bg-blue-900 text-white font-bold' : 'bg-white hover:bg-slate-100 text-slate-700 border'
+                      }`}
+                    >
+                      📢 Todos os Membros (Broadcast)
+                    </button>
+                    {listaMembrosChat.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setMembroSelecionadoChat(m)}
+                        className={`w-full text-left p-2.5 rounded-xl transition cursor-pointer flex justify-between items-center ${
+                          membroSelecionadoChat?.id === m.id ? 'bg-blue-900 text-white font-bold' : 'bg-white hover:bg-slate-100 text-slate-700 border'
+                        }`}
+                      >
+                        <div>
+                          <p className="font-bold truncate">{m.nome}</p>
+                          <span className="text-[9px] opacity-75">{m.tipo_cadastro || 'Membro'}</span>
+                        </div>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Seletor rápido para celular */}
+                  <div className="bg-slate-50 border-b p-2 md:hidden">
+                    <select
+                      className="w-full border rounded-xl p-2 text-xs bg-white font-bold"
+                      value={membroSelecionadoChat?.id || 'broadcast'}
+                      onChange={(e) => {
+                        if (e.target.value === 'broadcast') {
+                          setMembroSelecionadoChat(null);
+                        } else {
+                          const encontrado = listaMembrosChat.find((m) => m.id === e.target.value);
+                          setMembroSelecionadoChat(encontrado || null);
+                        }
+                      }}
+                    >
+                      <option value="broadcast">📢 Todos os Membros (Broadcast)</option>
+                      {listaMembrosChat.map((m) => (
+                        <option key={m.id} value={m.id}>👤 {m.nome}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Histórico de Mensagens e Envio (Direita) */}
+                  <div className="col-span-2 flex flex-col h-full bg-white overflow-hidden">
+                    <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50">
+                      {mensagensChat.length === 0 ? (
+                        <p className="text-center text-slate-400 py-12">Nenhuma mensagem nesta conversa ainda.</p>
+                      ) : (
+                        mensagensChat.map((m) => {
+                          const meuMsg = m.sender === emailUsuario;
+                          return (
+                            <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
+                              <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
+                              <div className={`p-3 rounded-2xl max-w-[85%] text-xs shadow-sm ${
+                                meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
+                              }`}>
+                                {m.text}
+                                <span className={`block text-[9px] text-right mt-1 ${meuMsg ? 'text-blue-200' : 'text-slate-400'}`}>
+                                  {m.time || ''}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+
+                    <form onSubmit={handleEnviarMensagemChat} className="p-3 border-t bg-white flex gap-2">
+                      <input
+                        type="text"
+                        value={novaMensagemChat}
+                        onChange={(e) => setNovaMensagemChat(e.target.value)}
+                        placeholder={membroSelecionadoChat ? `Mensagem privada para ${membroSelecionadoChat.nome}...` : 'Escreva um aviso geral...'}
+                        className="flex-1 border rounded-xl px-3 py-2.5 text-xs outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
+                      >
+                        Enviar
+                      </button>
+                    </form>
+                  </div>
+                </div>
               </div>
             )}
 

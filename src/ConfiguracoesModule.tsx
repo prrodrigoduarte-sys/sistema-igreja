@@ -31,7 +31,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
         },
       ]);
     } catch (err) {
-      console.error('Erro ao registrar log:', err);
+      console.error('Erro ao registar log:', err);
     }
   };
 
@@ -39,8 +39,9 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
   const realizarBackup = async () => {
     setLoadingBackup(true);
     try {
-      // Usando ilike para ignorar diferenças de maiúsculas/minúsculas no código da igreja
-      const resMembers = await supabase.from('members').select('*').ilike('codigo_igreja', codigoIgreja);
+      // Puxa todos os membros da tabela sem filtros restritivos para garantir que nenhum fique de fora
+      const resMembers = await supabase.from('members').select('*');
+      
       const resUsuarios = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
       const resPermissoes = await supabase.from('permissoes_usuario').select('*');
       const resMinisterios = await supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja);
@@ -77,17 +78,17 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dadosBackup, null, 2));
       const dataAtual = new Date().toISOString().split('T')[0];
-      const nomeArquivo = `backup_completo_igreja_${codigoIgreja}_${dataAtual}.json`;
+      const nomeFicheiro = `backup_completo_igreja_${codigoIgreja}_${dataAtual}.json`;
 
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", nomeArquivo);
+      downloadAnchor.setAttribute("download", nomeFicheiro);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
 
       await registrarLog('BACKUP_SISTEMA', `Backup completo executado com sucesso para a data ${dataAtual}`);
-      alert(`✅ Backup completo gerado com sucesso! Ficheiro: ${nomeArquivo}`);
+      alert(`✅ Backup completo gerado com sucesso! Ficheiro: ${nomeFicheiro}`);
     } catch (err: any) {
       alert('Erro ao gerar backup: ' + err.message);
     } finally {

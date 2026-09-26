@@ -591,8 +591,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   return (
-    // CONTAINER TOTALMENTE TRAVADO E ESTÁVEL (SEM FLUTUAR)
-    <div className="max-w-md mx-auto w-full bg-slate-100 h-[85vh] max-h-[720px] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
+    // CONTAINER BLINDADO COM ALTURA FIXA EM PIXELS MÁXIMOS E ESTABILIDADE DE VIEWPORT
+    <div className="max-w-md mx-auto w-full bg-slate-100 h-[680px] max-h-[90dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
       
       {/* CABEÇALHO */}
       <div className="bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0">
@@ -754,9 +754,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO ESTÁVEL (FIXO ABSOLUTO PARA EVITAR DISTORÇÕES COM O TECLADO) */}
+            {/* 0. CHAT RESPONSIVO ESTÁVEL (FIXO INTERNO INTEGRADO) */}
             {subAbaApp === 'chat' && (
-              <div className="absolute inset-x-3.5 top-3.5 bottom-3.5 bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col text-xs z-20">
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[320px] text-xs">
                 {/* Cabeçalho do Chat */}
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
                   <div className="truncate pr-2">

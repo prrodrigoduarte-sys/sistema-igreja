@@ -154,7 +154,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // BUSCA DE MEMBROS RESTRITA EXATAMENTE À IGREJA ATUAL
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, whatsapp')
@@ -368,9 +367,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleEnviarChatInterno = async (lanc: Lancamento) => {
     if (!lanc.membro_id) {
-      alert(
-        'Este lançamento não possui um membro vinculado. Clique em Editar e selecione o membro antes de enviar o agradecimento.'
-      );
+      alert('Este lançamento não possui um membro vinculado. Clique em Editar e selecione o membro antes de enviar o agradecimento.');
       return;
     }
 
@@ -379,9 +376,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     );
 
     if (!membro) {
-      alert(
-        'O membro vinculado não foi encontrado na igreja atual. Atualize a lista ou edite o lançamento.'
-      );
+      alert('O membro vinculado não foi encontrado na igreja atual. Atualize a lista ou edite o lançamento.');
       return;
     }
 

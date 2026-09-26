@@ -153,7 +153,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
-      // CORREÇÃO: Buscando apenas colunas existentes na tabela members
       const resMemb = await supabase
         .from('members')
         .select('id, nome, email, celular_principal')
@@ -398,14 +397,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         lanc.valor
       ).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
+      // CORREÇÃO APLICADA: Uso das colunas corretas da tabela chat_mensagens (sender, recipient_id, text, time, is_broadcast)
       const { error: chatError } = await supabase
         .from('chat_mensagens')
         .insert([
           {
             codigo_igreja: codigoIgreja,
-            remetente: emailUsuarioLogado,
-            membro_id: membro.id,
-            mensagem: textoMensagem,
+            sender: emailUsuarioLogado,
+            recipient_id: String(membro.id),
+            text: textoMensagem,
+            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            is_broadcast: false,
           },
         ]);
 

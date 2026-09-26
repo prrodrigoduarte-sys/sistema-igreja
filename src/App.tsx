@@ -51,8 +51,8 @@ export default function App() {
   const [isCelulasOpen, setIsCelulasOpen] = useState(false);
   const [subAbaCelulas, setSubAbaCelulas] = useState<'celulas' | 'setores' | 'redes'>('celulas');
   const [isDiscipuladoOpen, setIsDiscipuladoOpen] = useState(true);
-  const [isConfiguracoesOpen, setIsConfiguracoesOpen] = useState(false);
   const [isMobileModalOpen, setIsMobileModalOpen] = useState(false);
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -346,6 +346,7 @@ export default function App() {
       if (e.key === 'Escape') {
         setQrCodeUrlDinamico('');
         setIsMobileModalOpen(false);
+        setIsConfigModalOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -1035,62 +1036,14 @@ export default function App() {
             </button>
           )}
 
-{temPermissao('configuracoes') && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setIsConfiguracoesOpen(!isConfiguracoesOpen)}
-                className={`w-full text-left px-4 py-3 rounded-lg flex justify-between items-center font-medium transition cursor-pointer ${
-                  activeTab.startsWith('configuracoes') || activeTab === 'controle_registro' ? 'bg-blue-700' : 'hover:bg-blue-800'
-                }`}
-              >
-                <span>⚙️ Configurações</span>
-                <span>{isConfiguracoesOpen ? '▲' : '▼'}</span>
-              </button>
-
-              {isConfiguracoesOpen && (
-                <div className="ml-4 space-y-1 border-l-2 border-blue-700 pl-2">
-                  <button
-                    type="button"
-                    onClick={() => selecionarAba('configuracoes-usuarios')}
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                      activeTab === 'configuracoes-usuarios' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                    }`}
-                  >
-                    Controle de Usuários
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => selecionarAba('configuracoes-igreja')}
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                      activeTab === 'configuracoes-igreja' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                    }`}
-                  >
-                    🏛️ Cadastro da Igreja / Congregações
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => selecionarAba('controle_registro')}
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                      activeTab === 'controle_registro' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                    }`}
-                  >
-                    🔒 Controle de Registro
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => selecionarAba('configuracoes-backup')}
-                    className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition cursor-pointer ${
-                      activeTab === 'configuracoes-backup' ? 'bg-blue-600' : 'hover:bg-blue-700/80'
-                    }`}
-                  >
-                    📦 Backup e Restauração
-                  </button>
-                </div>
-              )}
-            </div>
+          {temPermissao('configuracoes') && (
+            <button
+              type="button"
+              onClick={() => setIsConfigModalOpen(true)}
+              className="w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer hover:bg-blue-800 flex items-center gap-2"
+            >
+              <span>⚙️ Configurações & Backup</span>
+            </button>
           )}
         </nav>
 
@@ -1329,21 +1282,6 @@ export default function App() {
           <DiscipuladoDEAModule loggedUser={userEfetivo} activeTab={activeTab} />
         )}
 
-        {activeTab === 'configuracoes-usuarios' && temPermissao('configuracoes') && (
-          <UsuariosModule loggedUser={userEfetivo} />
-        )}
-
-        {activeTab === 'configuracoes-igreja' && temPermissao('configuracoes') && (
-          <CadastroIgrejaModule loggedUser={userEfetivo} />
-        )}
-
-        {activeTab === 'controle_registro' && temPermissao('configuracoes') && (
-          <ControleRegistroModule loggedUser={userEfetivo} />
-        )}
-        {activeTab === 'configuracoes-backup' && (
-         <ConfiguracoesModule loggedUser={loggedUser} />
-        )}
-
         {activeTab === 'projetos' && temPermissao('projetos') && (
           <ProjetosModule loggedUser={userEfetivo} />
         )}
@@ -1357,6 +1295,32 @@ export default function App() {
         )}
       </main>
 
+      {/* Modal / Tela Flutuante de Configurações & Backup */}
+      {isConfigModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-5xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-6 my-8 max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center border-b pb-4 shrink-0">
+              <div>
+                <h3 className="text-2xl font-black text-blue-900">⚙️ Painel de Configurações & Backup</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Gerenciamento unificado da igreja, usuários e segurança dos dados</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfigModalOpen(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer transition"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            <div className="overflow-y-auto flex-1 pr-1">
+              <ConfiguracoesModule loggedUser={userEfetivo} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Mobile e Atalhos */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
           <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">

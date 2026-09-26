@@ -37,7 +37,6 @@ interface Membro {
   nome: string;
   email?: string;
   celular_principal?: string;
-  whatsapp?: string;
 }
 
 interface FinanceiroModuleProps {
@@ -154,15 +153,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
+      // CORREÇÃO: Buscando apenas colunas existentes na tabela members
       const resMemb = await supabase
         .from('members')
-        .select('id, nome, email, celular_principal, whatsapp')
+        .select('id, nome, email, celular_principal')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
-      if (resMemb.error) throw resMemb.error;
-
-      setMembrosList(resMemb.data || []);
+      if (resMemb.error) {
+        console.error("Erro ao buscar membros:", resMemb.error);
+      } else {
+        setMembrosList(resMemb.data || []);
+      }
 
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
@@ -208,7 +210,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         }
       }
 
-      // GARANTIA ABSOLUTA DO VÍNCULO DO MEMBRO
       const membroIdFinal = relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null;
 
       const payload = {
@@ -229,18 +230,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           .update(payload)
           .eq('id', editingLancamento.id);
 
-        if (error) {
-          console.error("Erro Supabase Update:", error);
-          throw error;
-        }
+        if (error) throw error;
         await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
         alert('Lançamento atualizado com sucesso!');
       } else {
         const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
-        if (error) {
-          console.error("Erro Supabase Insert:", error);
-          throw error;
-        }
+        if (error) throw error;
         await registrarLog('NOVO_LANCAMENTO', `Criou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
         alert('Lançamento realizado com sucesso!');
       }

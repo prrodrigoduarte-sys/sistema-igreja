@@ -749,14 +749,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
       </div>
 
       {/* ÁREA DE CONTEÚDO COM SCROLL INTERNO EXCLUSIVO */}
-      <div className="p-3.5 flex-1 overflow-y-auto space-y-3 min-h-0 bg-slate-100">
+      <div className="p-3.5 flex-1 overflow-y-auto space-y-3 min-h-0 bg-slate-100 relative">
         {loading ? (
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO ESTÁVEL (ALTURA FIXA REDUZIDA h-[34vh] PARA NÃO CORTAR COM O TECLADO) */}
+            {/* 0. CHAT RESPONSIVO ESTÁVEL (FIXO ABSOLUTO PARA EVITAR DISTORÇÕES COM O TECLADO) */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[34vh] text-xs">
+              <div className="absolute inset-x-3.5 top-3.5 bottom-3.5 bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col text-xs z-20">
                 {/* Cabeçalho do Chat */}
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
                   <div className="truncate pr-2">

@@ -39,7 +39,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
   const realizarBackup = async () => {
     setLoadingBackup(true);
     try {
-      const resMembers = await supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja);
+      const resMembers = await supabase.from('members').select('*');
       const resUsuarios = await supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja);
       const resPermissoes = await supabase.from('permissoes_usuario').select('*');
       const resMinisterios = await supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja);

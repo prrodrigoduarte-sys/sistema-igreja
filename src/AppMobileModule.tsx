@@ -754,9 +754,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO ESTÁVEL */}
+            {/* 0. CHAT RESPONSIVO ESTÁVEL (ALTURA FIXA REDUZIDA h-[34vh] PARA NÃO CORTAR COM O TECLADO) */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[46vh] text-xs">
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[34vh] text-xs">
                 {/* Cabeçalho do Chat */}
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
                   <div className="truncate pr-2">
@@ -769,7 +769,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     <button
                       type="button"
                       onClick={() => setMembroSelecionadoChat(null)}
-                      className="text-[9px] bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 shrink-0 cursor-pointer"
+                      className="text-[9px] bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-700 shrink-0 cursor-pointer"
                     >
                       ⬅️ Voltar Geral
                     </button>

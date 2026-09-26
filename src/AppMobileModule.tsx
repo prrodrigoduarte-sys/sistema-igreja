@@ -527,88 +527,100 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* NAVEGAÇÃO EM CAIXAS RETANGULARES (2 LINHAS) */}
-        <div className="grid grid-cols-4 gap-1.5 bg-blue-950/60 p-2 rounded-2xl text-[10px] font-bold text-center">
+        {/* NAVEGAÇÃO HORIZONTAL SOFISTICADA E MODAL COM SCROLL */}
+        <div className="flex gap-2 overflow-x-auto pb-1 pt-1 no-scrollbar scroll-smooth">
           <button
             type="button"
-            onClick={() => setSubAbaApp('perfil')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'perfil' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
+            onClick={() => setSubAbaApp('minha_agenda')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'minha_agenda' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
-            <span className="text-sm">👤</span>
-            <span>Perfil</span>
+            <span className="text-sm">📅</span>
+            <span className="text-xs font-bold">Agenda</span>
           </button>
 
           <button
             type="button"
-            onClick={() => setSubAbaApp('minha_agenda')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'minha_agenda' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
+            onClick={() => setSubAbaApp('perfil')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'perfil' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
-            <span className="text-sm">📅</span>
-            <span>Agenda</span>
+            <span className="text-sm">👤</span>
+            <span className="text-xs font-bold">Perfil</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('celula')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'celula' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'celula' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
             <span className="text-sm">🏡</span>
-            <span>Célula</span>
+            <span className="text-xs font-bold">Célula</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('igreja')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'igreja' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'igreja' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
             <span className="text-sm">⛪</span>
-            <span>Igreja</span>
+            <span className="text-xs font-bold">Igreja</span>
           </button>
-        </div>
 
-        <div className="grid grid-cols-3 gap-1.5 bg-blue-950/60 p-2 rounded-2xl text-[10px] font-bold text-center">
           <button
             type="button"
             onClick={() => setSubAbaApp('cadastro')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'cadastro' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'cadastro' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
             <span className="text-sm">📝</span>
-            <span>Cadastro</span>
+            <span className="text-xs font-bold">Cadastro</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('contribua')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'contribua' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:text-blue-800'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'contribua' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
             <span className="text-sm">💖</span>
-            <span>Contribua</span>
+            <span className="text-xs font-bold">Contribua</span>
           </button>
 
           <button
             type="button"
             onClick={() => setSubAbaApp('devocional')}
-            className={`p-2 rounded-xl transition cursor-pointer flex flex-col items-center justify-center gap-0.5 ${
-              subAbaApp === 'devocional' ? 'bg-blue-600 text-white font-extrabold shadow-md' : 'bg-blue-900/40 text-blue-200 hover:bg-blue-800'
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all duration-300 whitespace-nowrap cursor-pointer shadow-sm ${
+              subAbaApp === 'devocional' 
+                ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold shadow-blue-500/30 shadow-lg scale-105' 
+                : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
             }`}
           >
             <span className="text-sm">📖</span>
-            <span>Devocional</span>
+            <span className="text-xs font-bold">Devocional</span>
           </button>
         </div>
-      </div> {/* <--- FECHAMENTO CORRETO DA DIV DO CABEÇALHO AZUL */}
+      </div>
 
       {/* ÁREA DE CONTEÚDO */}
       <div className="p-4 flex-1 overflow-y-auto space-y-4">

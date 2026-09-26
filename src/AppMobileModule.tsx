@@ -591,9 +591,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-slate-100 min-h-[85vh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col">
+    // CONTANTO FIXO E ESTÁVEL NO CELULAR (SEM FLUTUAR OU EXPANDIR A PÁGINA)
+    <div className="max-w-md mx-auto w-full bg-slate-100 h-[88vh] max-h-[780px] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative">
+      
       {/* CABEÇALHO */}
-      <div className="bg-blue-900 text-white p-4 space-y-3">
+      <div className="bg-blue-900 text-white p-4 space-y-3 shrink-0">
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-lg font-black">📱 App {dadosIgreja.nome_igreja}</h2>
@@ -606,13 +608,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* 🚀 BOTÕES LARGOS E MODERNOS EM FORMATO DE CARDS EMPARELHADOS */}
+        {/* BOTÕES LARGOS E MODERNOS EM FORMATO DE CARDS EMPARELHADOS */}
         <div className="space-y-2 pt-1">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setSubAbaApp('chat')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'chat' 
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
@@ -628,7 +630,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('minha_agenda')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'minha_agenda' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -646,7 +648,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('perfil')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'perfil' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -662,7 +664,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('celula')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'celula' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -680,7 +682,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('igreja')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'igreja' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -696,7 +698,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('cadastro')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'cadastro' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -714,7 +716,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('contribua')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'contribua' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -730,7 +732,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <button
               type="button"
               onClick={() => setSubAbaApp('devocional')}
-              className={`p-3 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2.5 rounded-2xl transition-all flex items-center gap-3 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'devocional' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.02]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
@@ -746,15 +748,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       </div>
 
-      {/* ÁREA DE CONTEÚDO */}
-      <div className="p-4 flex-1 overflow-y-auto space-y-4">
+      {/* ÁREA DE CONTEÚDO ROLÁVEL INTERNAMENTE (NÃO MOVIMENTA A PÁGINA INTEIRA) */}
+      <div className="p-4 flex-1 overflow-y-auto space-y-4 min-h-0">
         {loading ? (
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO COM SELETOR DE MEMBRO CORRIGIDO */}
+            {/* 0. CHAT RESPONSIVO ESTÁVEL */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[65vh] text-xs">
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[52vh] text-xs">
                 {/* Cabeçalho do Chat */}
                 <div className="bg-slate-900 text-white p-3 flex justify-between items-center shrink-0">
                   <div className="truncate pr-2">
@@ -798,7 +800,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </select>
                 </div>
 
-                {/* Área de Mensagens (Rolagem interna isolada) */}
+                {/* Área de Mensagens com scroll próprio */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50 min-h-0">
                   {mensagensChat.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 py-6">
@@ -825,7 +827,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* Caixa de Input Fixa na Base */}
+                {/* Caixa de Input Fixa */}
                 <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-white flex gap-2 shrink-0">
                   <input
                     type="text"

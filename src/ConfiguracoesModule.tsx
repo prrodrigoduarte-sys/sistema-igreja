@@ -35,34 +35,64 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
     }
   };
 
-  // Rotina de Backup
+  // Rotina de Backup Completo de Todas as Tabelas
   const realizarBackup = async () => {
     setLoadingBackup(true);
     try {
-      const [lancamentos, planoContas, contasAdm, membros, logs] = await Promise.all([
+      const [
+        { data: members },
+        { data: usuarios },
+        { data: permissoes },
+        { data: ministerios },
+        { data: fornecedores },
+        { data: celulas },
+        { data: agenda },
+        { data: projetos },
+        { data: chatMensagens },
+        { data: lancamentos },
+        { data: planoContas },
+        { data: contasFinanceiras },
+        { data: logs }
+      ] = await Promise.all([
+        supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('usuarios').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('permissoes_usuario').select('*'),
+        supabase.from('ministerios').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('fornecedores').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('celulas').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('agenda').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('projetos').select('*').eq('codigo_igreja', codigoIgreja),
+        supabase.from('chat_mensagens').select('*').eq('codigo_igreja', codigoIgreja),
         supabase.from('lancamentos_financeiros').select('*').eq('codigo_igreja', codigoIgreja),
         supabase.from('plano_contas_contabil').select('*').eq('codigo_igreja', codigoIgreja),
         supabase.from('contas_financeiras').select('*').eq('codigo_igreja', codigoIgreja),
-        supabase.from('members').select('*').eq('codigo_igreja', codigoIgreja),
         supabase.from('logs_sistema').select('*').eq('codigo_igreja', codigoIgreja),
       ]);
 
       const dadosBackup = {
-        versao: '1.0',
+        versao: '2.0',
         codigo_igreja: codigoIgreja,
         data_geracao: new Date().toISOString(),
         tabelas: {
-          lancamentos_financeiros: lancamentos.data || [],
-          plano_contas_contabil: planoContas.data || [],
-          contas_financeiras: contasAdm.data || [],
-          members: membros.data || [],
-          logs_sistema: logs.data || [],
+          members: members || [],
+          usuarios: usuarios || [],
+          permissoes_usuario: permissoes || [],
+          ministerios: ministerios || [],
+          fornecedores: fornecedores || [],
+          celulas: celulas || [],
+          agenda: agenda || [],
+          projetos: projetos || [],
+          chat_mensagens: chatMensagens || [],
+          lancamentos_financeiros: lancamentos || [],
+          plano_contas_contabil: planoContas || [],
+          contas_financeiras: contasFinanceiras || [],
+          logs_sistema: logs || [],
         },
       };
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dadosBackup, null, 2));
       const dataAtual = new Date().toISOString().split('T')[0];
-      const nomeArquivo = `backup_igreja_${codigoIgreja}_${dataAtual}.json`;
+      const nomeArquivo = `backup_completo_igreja_${codigoIgreja}_${dataAtual}.json`;
 
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
@@ -71,8 +101,8 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
       downloadAnchor.click();
       downloadAnchor.remove();
 
-      await registrarLog('BACKUP_SISTEMA', `Backup executado com sucesso para a data ${dataAtual}`);
-      alert(`✅ Backup gerado com sucesso! Arquivo: ${nomeArquivo}`);
+      await registrarLog('BACKUP_SISTEMA', `Backup completo executado com sucesso para a data ${dataAtual}`);
+      alert(`✅ Backup completo gerado com sucesso! Arquivo: ${nomeArquivo}`);
     } catch (err: any) {
       alert('Erro ao gerar backup: ' + err.message);
     } finally {
@@ -80,7 +110,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
     }
   };
 
-  // Rotina de Restore
+  // Rotina de Restore Completo
   const realizarRestore = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!arquivoRestore) {
@@ -88,7 +118,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
       return;
     }
 
-    if (!window.confirm('⚠️ ATENÇÃO: Restaurar um backup pode sobrescrever ou mesclar os dados atuais da igreja. Deseja continuar?')) {
+    if (!window.confirm('⚠️ ATENÇÃO: Restaurar um backup completo irá atualizar e mesclar os dados de todas as tabelas atuais da igreja. Deseja continuar?')) {
       return;
     }
 
@@ -118,28 +148,49 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
             return;
           }
 
-          const { plano_contas_contabil, contas_financeiras, lancamentos_financeiros } = conteudoJson.tabelas;
+          const {
+            members,
+            usuarios,
+            permissoes_usuario,
+            ministerios,
+            fornecedores,
+            celulas,
+            agenda,
+            projetos,
+            chat_mensagens,
+            plano_contas_contabil,
+            contas_financeiras,
+            lancamentos_financeiros,
+            logs_sistema
+          } = conteudoJson.tabelas;
 
-          if (plano_contas_contabil && plano_contas_contabil.length > 0) {
-            for (const item of plano_contas_contabil) {
-              await supabase.from('plano_contas_contabil').upsert(item);
+          // Restaura todas as tabelas utilizando upsert de forma segura
+          const tabelasParaRestaurar = [
+            { nome: 'members', dados: members },
+            { nome: 'usuarios', dados: usuarios },
+            { nome: 'permissoes_usuario', dados: permissoes_usuario },
+            { nome: 'ministerios', dados: ministerios },
+            { nome: 'fornecedores', dados: fornecedores },
+            { nome: 'celulas', dados: celulas },
+            { nome: 'agenda', dados: agenda },
+            { nome: 'projetos', dados: projetos },
+            { nome: 'chat_mensagens', dados: chat_mensagens },
+            { nome: 'plano_contas_contabil', dados: plano_contas_contabil },
+            { nome: 'contas_financeiras', dados: contas_financeiras },
+            { nome: 'lancamentos_financeiros', dados: lancamentos_financeiros },
+            { nome: 'logs_sistema', dados: logs_sistema }
+          ];
+
+          for (const t of tabelasParaRestaurar) {
+            if (t.dados && Array.isArray(t.dados) && t.dados.length > 0) {
+              for (const item of t.dados) {
+                await supabase.from(t.nome).upsert(item);
+              }
             }
           }
 
-          if (contas_financeiras && contas_financeiras.length > 0) {
-            for (const item of contas_financeiras) {
-              await supabase.from('contas_financeiras').upsert(item);
-            }
-          }
-
-          if (lancamentos_financeiros && lancamentos_financeiros.length > 0) {
-            for (const item of lancamentos_financeiros) {
-              await supabase.from('lancamentos_financeiros').upsert(item);
-            }
-          }
-
-          await registrarLog('RESTORE_SISTEMA', `Restauração de dados executada com sucesso a partir do arquivo: ${arquivoRestore.name}`);
-          alert('✅ Sistema restaurado com sucesso a partir do backup!');
+          await registrarLog('RESTORE_SISTEMA', `Restauração completa de dados executada com sucesso a partir do arquivo: ${arquivoRestore.name}`);
+          alert('✅ Sistema restaurado com sucesso a partir do backup completo!');
           setArquivoRestore(null);
           setSenhaAdm('');
         } catch (parseErr: any) {
@@ -217,9 +268,9 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
             <div className="bg-slate-50 border p-6 rounded-3xl space-y-4 shadow-sm flex flex-col justify-between">
               <div className="space-y-2">
                 <span className="text-2xl">📦</span>
-                <h3 className="font-bold text-slate-800 text-base">Backup Diário dos Dados</h3>
+                <h3 className="font-bold text-slate-800 text-base">Backup Completo do Sistema</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Gera um arquivo contendo todas as tabelas oficiais do sistema nomeado com a data do dia, pronto para ser guardado na sua pasta de Downloads.
+                  Gera um arquivo contendo todas as tabelas do sistema (membros, financeiro, células, ministérios, chat, projetos, agenda e configurações) pronto para ser guardado.
                 </p>
               </div>
               <button
@@ -228,7 +279,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
                 disabled={loadingBackup}
                 className="w-full py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs flex items-center justify-center gap-2"
               >
-                {loadingBackup ? 'Gerando Backup...' : '📥 Fazer Backup Agora'}
+                {loadingBackup ? 'Gerando Backup Completo...' : '📥 Fazer Backup Completo Agora'}
               </button>
             </div>
 
@@ -238,7 +289,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
                 <span className="text-2xl">♻️</span>
                 <h3 className="font-bold text-slate-800 text-base">Restaurar Sistema (Restore)</h3>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Selecione um arquivo de backup com extensão <code>.json</code> para restaurar o banco de dados com segurança.
+                  Selecione um arquivo de backup completo com extensão <code>.json</code> para restaurar todas as tabelas com segurança.
                 </p>
               </div>
 
@@ -275,7 +326,7 @@ export default function ConfiguracoesModule({ loggedUser }: ConfiguracoesModuleP
                   disabled={loadingRestore}
                   className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer transition text-xs flex items-center justify-center gap-2"
                 >
-                  {loadingRestore ? 'Restaurando...' : '🔄 Restaurar Sistema'}
+                  {loadingRestore ? 'Restaurando Tudo...' : '🔄 Restaurar Sistema Completo'}
                 </button>
               </form>
             </div>

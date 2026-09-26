@@ -31,7 +31,7 @@ interface Devocional {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Controle de Abas (Perfil, Agenda, Célula, Igreja, Cadastro, Contribua, Devocional, Chat)
+  // Controle de Abas
   const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat'>('minha_agenda');
   const [loading, setLoading] = useState(false);
 
@@ -164,7 +164,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
-  // Carregar mensagens do chat
+  // Carregar mensagens do chat (Filtrando corretamente entre Broadcast e Chat Privado)
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -174,7 +174,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .order('created_at', { ascending: true });
 
       if (membroSelecionadoChat) {
-        query = query.or(`sender.eq.${membroSelecionadoChat.email},recipient_id.eq.${membroSelecionadoChat.id}`);
+        const idDest = membroSelecionadoChat.id;
+        const emailDest = membroSelecionadoChat.email;
+        query = query.or(`recipient_id.eq.${idDest},sender.eq.${emailDest}`);
       } else {
         query = query.eq('is_broadcast', true);
       }
@@ -750,7 +752,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-8 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO PARA DISPOSITIVOS MÓVEIS (SEM EXPANDIR TELA) */}
+            {/* 0. CHAT RESPONSIVO COM SELETOR DE MEMBRO CORRIGIDO */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-[65vh] text-xs">
                 {/* Cabeçalho do Chat */}
@@ -758,7 +760,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   <div className="truncate pr-2">
                     <h3 className="font-bold text-sm truncate">💬 Chat & Comunicação</h3>
                     <p className="text-[10px] text-slate-300 truncate">
-                      {membroSelecionadoChat ? `Conversa: ${membroSelecionadoChat.nome}` : 'Avisos para Todos (Broadcast)'}
+                      {membroSelecionadoChat ? `Conversa com: ${membroSelecionadoChat.nome}` : 'Avisos para Todos (Broadcast)'}
                     </p>
                   </div>
                   {membroSelecionadoChat && (
@@ -772,28 +774,31 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* Seletor Rápido de Contato otimizado para Mobile */}
+                {/* Seletor Rápido de Contato Funcional */}
                 <div className="bg-slate-50 border-b p-2 shrink-0">
                   <select
-                    className="w-full border rounded-xl p-2 text-xs bg-white font-bold text-slate-800 outline-none"
-                    value={membroSelecionadoChat?.id || 'broadcast'}
+                    className="w-full border rounded-xl p-2 text-xs bg-white font-bold text-slate-800 outline-none cursor-pointer shadow-sm"
+                    value={membroSelecionadoChat ? membroSelecionadoChat.id : 'broadcast'}
                     onChange={(e) => {
-                      if (e.target.value === 'broadcast') {
+                      const val = e.target.value;
+                      if (val === 'broadcast') {
                         setMembroSelecionadoChat(null);
                       } else {
-                        const encontrado = listaMembrosChat.find((m) => m.id === e.target.value);
-                        setMembroSelecionadoChat(encontrado || null);
+                        const membroEncontrado = listaMembrosChat.find((m) => String(m.id) === String(val));
+                        setMembroSelecionadoChat(membroEncontrado || null);
                       }
                     }}
                   >
                     <option value="broadcast">📢 Todos os Membros (Broadcast Geral)</option>
                     {listaMembrosChat.map((m) => (
-                      <option key={m.id} value={m.id}>👤 {m.nome} ({m.tipo_cadastro || 'Membro'})</option>
+                      <option key={m.id} value={m.id}>
+                        👤 {m.nome} ({m.tipo_cadastro || 'Membro'})
+                      </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Área de Mensagens (Rolagem interna isolada que não deforma a tela) */}
+                {/* Área de Mensagens (Rolagem interna isolada) */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-50/50 min-h-0">
                   {mensagensChat.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 py-6">
@@ -820,13 +825,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* Caixa de Input Fixa na Base do Chat (Sem estourar a tela) */}
+                {/* Caixa de Input Fixa na Base */}
                 <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-white flex gap-2 shrink-0">
                   <input
                     type="text"
                     value={novaMensagemChat}
                     onChange={(e) => setNovaMensagemChat(e.target.value)}
-                    placeholder={membroSelecionadoChat ? `Mensagem privada...` : 'Escreva um aviso geral...'}
+                    placeholder={membroSelecionadoChat ? `Mensagem privada para ${membroSelecionadoChat.nome}...` : 'Escreva um aviso geral...'}
                     className="flex-1 border rounded-xl px-3 py-2 text-xs outline-none bg-slate-50 focus:bg-white transition"
                   />
                   <button

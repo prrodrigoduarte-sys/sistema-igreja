@@ -687,53 +687,52 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // GERADOR DE IMAGEM INSTAGRAM (CANVAS 1080x1080) COM ASSINATURA EM ITÁLICO
-  const handleGerarImagemInstagram = () => {
+  // GERADOR DE IMAGEM VERTICAL PARA INSTAGRAM STORIES (1080x1920 PX)
+  const handleGerarImagemStories = () => {
     setGerandoImagem(true);
     try {
       const canvas = document.createElement('canvas');
       canvas.width = 1080;
-      canvas.height = 1080;
+      canvas.height = 1920;
       const ctx = canvas.getContext('2d');
 
       if (!ctx) return;
 
-      // 1. Fundo Gradiente Elegante
-      const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
+      // 1. Fundo Gradiente Elegante em Azul Escuro e Violeta
+      const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
       grad.addColorStop(0, '#0f172a'); // Slate 900
-      grad.addColorStop(0.5, '#1e1b4b'); // Indigo 950
-      grad.addColorStop(1, '#1e3a8a'); // Blue 900
+      grad.addColorStop(0.4, '#1e1b4b'); // Indigo 950
+      grad.addColorStop(0.8, '#1e3a8a'); // Blue 900
+      grad.addColorStop(1, '#0284c7'); // Sky 600
       ctx.fillStyle = grad;
-      ctx.fillRect(0, 0, 1080, 1080);
+      ctx.fillRect(0, 0, 1080, 1920);
 
       // 2. Moldura Interna Dourada / Suave
-      ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(50, 50, 980, 980);
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.35)';
+      ctx.lineWidth = 10;
+      ctx.strokeRect(60, 100, 960, 1720);
 
       // 3. Cabeçalho (Igreja e Data)
       ctx.fillStyle = '#fde047'; // Amarelo
-      ctx.font = 'bold 36px sans-serif';
+      ctx.font = 'bold 42px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 130);
+      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 220);
 
       ctx.fillStyle = '#93c5fd';
-      ctx.font = '28px sans-serif';
-      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 180);
+      ctx.font = '32px sans-serif';
+      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 280);
 
-      // Linha Divisória
+      // Linha Divisória Superior
       ctx.beginPath();
-      ctx.moveTo(240, 210);
-      ctx.lineTo(840, 210);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-      ctx.lineWidth = 2;
+      ctx.moveTo(200, 320);
+      ctx.lineTo(880, 320);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 3;
       ctx.stroke();
 
-      // 4. Título do Devocional
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 46px sans-serif';
-      
-      const quebrarTexto = (text: string, maxW: number) => {
+      // Função Auxiliar para Quebrar Linhas de Texto
+      const quebrarTexto = (text: string, maxW: number, font: string) => {
+        ctx.font = font;
         const words = text.split(' ');
         const lines: string[] = [];
         let currentLine = words[0];
@@ -751,55 +750,83 @@ export default function AppMobileModule({ loggedUser }: Props) {
         return lines;
       };
 
-      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 900);
-      let yPos = 280;
-      linhasTitulo.slice(0, 2).forEach((linha) => {
+      // 4. Título do Devocional
+      ctx.fillStyle = '#ffffff';
+      const fontTitulo = 'bold 52px sans-serif';
+      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 880, fontTitulo);
+      
+      let yPos = 420;
+      ctx.font = fontTitulo;
+      linhasTitulo.slice(0, 3).forEach((linha) => {
         ctx.fillText(linha, 540, yPos);
-        yPos += 55;
+        yPos += 65;
       });
 
-      // 5. Versículo / Referência
+      // 5. Referência e Versículo
       if (devocionalDoDia.referencia) {
+        yPos += 20;
         ctx.fillStyle = '#fde047';
-        ctx.font = 'bold italic 32px sans-serif';
-        ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos + 15);
-        yPos += 65;
+        ctx.font = 'bold 38px sans-serif';
+        ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos);
+        yPos += 60;
       }
 
-      // 6. Texto da Reflexão
-      ctx.fillStyle = '#e2e8f0';
-      ctx.font = '30px sans-serif';
-      const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-      const linhasReflexao = quebrarTexto(textoLimpo, 880);
+      if (devocionalDoDia.versiculo) {
+        ctx.fillStyle = '#e0f2fe';
+        const fontVerso = 'italic 32px sans-serif';
+        const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 840, fontVerso);
+        
+        ctx.font = fontVerso;
+        linhasVerso.slice(0, 4).forEach((linha) => {
+          ctx.fillText(linha, 540, yPos);
+          yPos += 45;
+        });
+        yPos += 30;
+      }
 
-      let yReflexao = yPos + 20;
-      // Exibir até 7 linhas para não estourar o layout do post
-      linhasReflexao.slice(0, 7).forEach((linha) => {
-        ctx.fillText(linha, 540, yReflexao);
-        yReflexao += 42;
+      // Linha Divisória Intermediária
+      ctx.beginPath();
+      ctx.moveTo(300, yPos);
+      ctx.lineTo(780, yPos);
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 6. Texto da Reflexão
+      yPos += 60;
+      ctx.fillStyle = '#f1f5f9';
+      const fontReflexao = '32px sans-serif';
+      const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
+      const linhasReflexao = quebrarTexto(textoLimpo, 860, fontReflexao);
+
+      ctx.font = fontReflexao;
+      // Exibe até 14 linhas no formato vertical dos Stories
+      linhasReflexao.slice(0, 14).forEach((linha) => {
+        ctx.fillText(linha, 540, yPos);
+        yPos += 48;
       });
 
-      // 7. ASSINATURA EM ITÁLICO NO RODAPÉ COM O NOME DO PASTOR E IGREJA
-      ctx.fillStyle = '#fef08a'; // Amarelo suave
-      ctx.font = 'italic 34px Georgia, serif';
+      // 7. ASSINATURA EM ITÁLICO NO RODAPÉ DO STORY
+      ctx.fillStyle = '#fef08a'; // Amarelo Dourado
+      ctx.font = 'italic bold 40px Georgia, serif';
       ctx.textAlign = 'center';
       
       const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-      ctx.fillText(`✍️ ${nomeAutor}`, 540, 960);
+      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1680);
 
-      ctx.fillStyle = '#94a3b8';
-      ctx.font = '24px sans-serif';
-      ctx.fillText(dadosIgreja.nome_igreja, 540, 1000);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '28px sans-serif';
+      ctx.fillText(dadosIgreja.nome_igreja, 540, 1730);
 
-      // Download da imagem
+      // Download da imagem no formato PNG 1080x1920
       const link = document.createElement('a');
-      link.download = `Devocional_${devocionalDoDia.data.replace(/\//g, '-')}.png`;
+      link.download = `Devocional_Story_${devocionalDoDia.data.replace(/\//g, '-')}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
 
-      alert('✨ Imagem para Instagram gerada e baixada com sucesso!');
+      alert('✨ Imagem para Instagram Stories gerada e baixada com sucesso!');
     } catch (err: any) {
-      alert('Erro ao gerar imagem: ' + err.message);
+      alert('Erro ao gerar imagem para Stories: ' + err.message);
     } finally {
       setGerandoImagem(false);
     }
@@ -1590,15 +1617,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* BOTÕES DE COMPARTILHAMENTO E GERADOR DE IMAGEM P/ INSTAGRAM */}
+                {/* BOTÕES DE COMPARTILHAMENTO E GERADOR DE IMAGEM P/ INSTAGRAM STORIES */}
                 <div className="space-y-2 pt-1">
                   <button
                     type="button"
-                    onClick={handleGerarImagemInstagram}
+                    onClick={handleGerarImagemStories}
                     disabled={gerandoImagem}
                     className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
                   >
-                    📸 {gerandoImagem ? 'Gerando Imagem...' : 'Gerar Imagem p/ Post do Instagram'}
+                    📸 {gerandoImagem ? 'Gerando Story...' : 'Gerar Imagem p/ Instagram Stories (9:16)'}
                   </button>
 
                   <button

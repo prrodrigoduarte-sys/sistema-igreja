@@ -46,7 +46,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
 
-  // 1.1 Estados do Formulário de Cadastro Único Sequencial (Etapas)
+  // 1.1 Estados do Formulário de Cadastro Único Sequencial
   const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3>(1);
   const [nomeMembro, setNomeMembro] = useState('');
   const [celularMembro, setCelularMembro] = useState('');
@@ -62,7 +62,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [jaCadastrado, setJaCadastrado] = useState(false);
   const [carregandoCadastro, setCarregandoCadastro] = useState(false);
 
-  // 2. Agenda Pessoal (Criação e Edição com Alarme)
+  // 2. Agenda Pessoal
   const [minhaAgenda, setMinhaAgenda] = useState<Compromisso[]>([]);
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaData, setNovaData] = useState(new Date().toISOString().split('T')[0]);
@@ -87,7 +87,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     referencia: '',
     versiculo: '',
     reflexao: 'Aguarde um momento.',
-    autor: 'Equipe Pastoral',
+    autor: 'Pastor / Equipe Pastoral',
     data: new Date().toLocaleDateString('pt-BR'),
   });
 
@@ -100,8 +100,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [editDevReflexao, setEditDevReflexao] = useState('');
   const [editDevAutor, setEditDevAutor] = useState('Pastor / Equipe Pastoral');
   const [savingDevocional, setSavingDevocional] = useState(false);
+  const [gerandoImagem, setGerandoImagem] = useState(false);
 
-  // 4. Controle de Célula (Criação e Edição)
+  // 4. Controle de Célula
   const [minhaCelula, setMinhaCelula] = useState<any>(null);
   const [participantesCelula, setParticipantesCelula] = useState<any[]>([]);
   const [reunioesCelula, setReunioesCelula] = useState<any[]>([]);
@@ -113,7 +114,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [temaEstudo, setTemaEstudo] = useState('');
   const [comentariosCelula, setComentariosCelula] = useState('');
 
-  // 5. Estados do Chat (Contatos + Mensagens Privadas/Broadcast)
+  // 5. Estados do Chat
   const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
   const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
@@ -293,7 +294,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         });
       }
 
-      // Consulta Devocional na tabela devotionals
+      // Consulta Devocional
       const hojeStr = new Date().toISOString().split('T')[0];
       const { data: dataDev } = await supabase
         .from('devotionals')
@@ -311,7 +312,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           referencia: dataDev.verse_reference || '',
           versiculo: dataDev.passage_text || '',
           reflexao: dataDev.content_html || '',
-          autor: dataDev.author_name || 'Equipe Pastoral',
+          autor: dataDev.author_name || 'Pastor / Equipe Pastoral',
           data: dataDev.publish_date ? dataDev.publish_date.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR'),
         });
       }
@@ -632,7 +633,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // Abrir modal de edição do devocional
   const handleAbrirEditarDevocional = () => {
     setEditDevData(new Date().toISOString().split('T')[0]);
     setEditDevTitulo(devocionalDoDia.titulo !== 'Carregando palavra do dia...' ? devocionalDoDia.titulo : '');
@@ -643,7 +643,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalDevocionalOpen(true);
   };
 
-  // Salvar devocional no banco diretamente do app
   const handleSalvarDevocionalMobile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editDevTitulo.trim() || !editDevReflexao.trim()) {
@@ -685,6 +684,124 @@ export default function AppMobileModule({ loggedUser }: Props) {
       alert('Erro ao salvar devocional: ' + err.message);
     } finally {
       setSavingDevocional(false);
+    }
+  };
+
+  // GERADOR DE IMAGEM INSTAGRAM (CANVAS 1080x1080) COM ASSINATURA EM ITÁLICO
+  const handleGerarImagemInstagram = () => {
+    setGerandoImagem(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) return;
+
+      // 1. Fundo Gradiente Elegante
+      const grad = ctx.createLinearGradient(0, 0, 1080, 1080);
+      grad.addColorStop(0, '#0f172a'); // Slate 900
+      grad.addColorStop(0.5, '#1e1b4b'); // Indigo 950
+      grad.addColorStop(1, '#1e3a8a'); // Blue 900
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // 2. Moldura Interna Dourada / Suave
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(50, 50, 980, 980);
+
+      // 3. Cabeçalho (Igreja e Data)
+      ctx.fillStyle = '#fde047'; // Amarelo
+      ctx.font = 'bold 36px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 130);
+
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = '28px sans-serif';
+      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 180);
+
+      // Linha Divisória
+      ctx.beginPath();
+      ctx.moveTo(240, 210);
+      ctx.lineTo(840, 210);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 4. Título do Devocional
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 46px sans-serif';
+      
+      const quebrarTexto = (text: string, maxW: number) => {
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+          const width = ctx.measureText(currentLine + ' ' + words[i]).width;
+          if (width < maxW) {
+            currentLine += ' ' + words[i];
+          } else {
+            lines.push(currentLine);
+            currentLine = words[i];
+          }
+        }
+        lines.push(currentLine);
+        return lines;
+      };
+
+      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 900);
+      let yPos = 280;
+      linhasTitulo.slice(0, 2).forEach((linha) => {
+        ctx.fillText(linha, 540, yPos);
+        yPos += 55;
+      });
+
+      // 5. Versículo / Referência
+      if (devocionalDoDia.referencia) {
+        ctx.fillStyle = '#fde047';
+        ctx.font = 'bold italic 32px sans-serif';
+        ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos + 15);
+        yPos += 65;
+      }
+
+      // 6. Texto da Reflexão
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '30px sans-serif';
+      const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
+      const linhasReflexao = quebrarTexto(textoLimpo, 880);
+
+      let yReflexao = yPos + 20;
+      // Exibir até 7 linhas para não estourar o layout do post
+      linhasReflexao.slice(0, 7).forEach((linha) => {
+        ctx.fillText(linha, 540, yReflexao);
+        yReflexao += 42;
+      });
+
+      // 7. ASSINATURA EM ITÁLICO NO RODAPÉ COM O NOME DO PASTOR E IGREJA
+      ctx.fillStyle = '#fef08a'; // Amarelo suave
+      ctx.font = 'italic 34px Georgia, serif';
+      ctx.textAlign = 'center';
+      
+      const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
+      ctx.fillText(`✍️ ${nomeAutor}`, 540, 960);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '24px sans-serif';
+      ctx.fillText(dadosIgreja.nome_igreja, 540, 1000);
+
+      // Download da imagem
+      const link = document.createElement('a');
+      link.download = `Devocional_${devocionalDoDia.data.replace(/\//g, '-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+
+      alert('✨ Imagem para Instagram gerada e baixada com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao gerar imagem: ' + err.message);
+    } finally {
+      setGerandoImagem(false);
     }
   };
 
@@ -1410,7 +1527,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 7. ABA DEVOCIONAL (COM BOTAO DE EDIÇÃO/CADASTRO INTEGRADO) */}
+            {/* 7. ABA DEVOCIONAL */}
             {subAbaApp === 'devocional' && (
               <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
                 <div className="border-b pb-1.5 flex justify-between items-center">
@@ -1419,7 +1536,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </h3>
                   
                   <div className="flex items-center gap-2">
-                    {/* Botão visível para Administradores e Líderes */}
                     {isAdminOuLider && (
                       <button
                         type="button"
@@ -1468,19 +1584,31 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   />
 
                   {devocionalDoDia.autor && (
-                    <p className="text-[10px] text-slate-400 font-medium italic pt-1 text-right">
+                    <p className="text-[10px] text-slate-500 font-bold italic pt-1 text-right">
                       ✍️ {devocionalDoDia.autor}
                     </p>
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleCompartilharDevocional}
-                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-                >
-                  ✨ Compartilhe esta palavra com alguém hoje e leve esperança!
-                </button>
+                {/* BOTÕES DE COMPARTILHAMENTO E GERADOR DE IMAGEM P/ INSTAGRAM */}
+                <div className="space-y-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleGerarImagemInstagram}
+                    disabled={gerandoImagem}
+                    className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
+                  >
+                    📸 {gerandoImagem ? 'Gerando Imagem...' : 'Gerar Imagem p/ Post do Instagram'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCompartilharDevocional}
+                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                  >
+                    💬 Compartilhar Texto no WhatsApp
+                  </button>
+                </div>
               </div>
             )}
           </>
@@ -1613,7 +1741,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE DEVOCIONAL (INTEGRADO NO MOBILE) */}
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE DEVOCIONAL */}
       {modalDevocionalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -1681,12 +1809,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Autor</label>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Autor (Ex: Pr. Rodrigo Duarte / IGRs)</label>
                 <input
                   type="text"
                   value={editDevAutor}
                   onChange={(e) => setEditDevAutor(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 text-xs"
+                  className="w-full border rounded-xl p-1.5 text-xs font-semibold"
                 />
               </div>
 

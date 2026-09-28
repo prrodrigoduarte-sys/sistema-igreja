@@ -691,171 +691,161 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // GERADOR DE STORIES COM FOTO REAL DE MENSAGEM / NATUREZA E SUPORTE A CELULARES
-  const handleGerarImagemStories = async () => {
-    setGerandoImagem(true);
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1080;
-      canvas.height = 1920;
-      const ctx = canvas.getContext('2d');
+// GERADOR DE STORIES COM FUNDO ILUMINADO E SUPORTE A CELULARES
+const handleGerarImagemStories = async () => {
+  setGerandoImagem(true);
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1080;
+    canvas.height = 1920;
+    const ctx = canvas.getContext('2d');
 
-      if (!ctx) return;
+    if (!ctx) return;
 
-      // 1. Carregar Foto de Fundo Profissional em Alta Definição (Cenário Inspiracional)
-      const urlFotoFundo = 'https://images.unsplash.com/photo-1509021436468-d51030076a08?auto=format&fit=crop&w=1080&q=80';
+    // 1. Criar um Fundo Artístico Fotográfico Elegante (Luz Celestial / Raios de Sol)
+    const gradFundo = ctx.createRadialGradient(540, 400, 50, 540, 960, 1100);
+    gradFundo.addColorStop(0, '#38bdf8');   // Azul Iluminado (Raios de luz no topo)
+    gradFundo.addColorStop(0.35, '#1e3a8a'); // Azul Imperial
+    gradFundo.addColorStop(0.75, '#0f172a'); // Indigo Escuro
+    gradFundo.addColorStop(1, '#020617');    // Slate Profundo
+    
+    ctx.fillStyle = gradFundo;
+    ctx.fillRect(0, 0, 1080, 1920);
 
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = urlFotoFundo;
-
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.onerror = resolve; // Continua com fundo solido se falhar conexão
-      });
-
-      if (img.complete && img.naturalWidth !== 0) {
-        // Desenha a foto ocupando toda a tela 1080x1920
-        ctx.drawImage(img, 0, 0, 1080, 1920);
-      } else {
-        // Fundo Gradiente reserva
-        const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
-        grad.addColorStop(0, '#0f172a');
-        grad.addColorStop(0.5, '#1e1b4b');
-        grad.addColorStop(1, '#0284c7');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 1080, 1920);
-      }
-
-      // 2. Sobreposição Escura (Overlay) para legibilidade perfeita do texto
-      const overlayGrad = ctx.createLinearGradient(0, 0, 0, 1920);
-      overlayGrad.addColorStop(0, 'rgba(15, 23, 42, 0.75)');
-      overlayGrad.addColorStop(0.5, 'rgba(15, 23, 42, 0.85)');
-      overlayGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
-      ctx.fillStyle = overlayGrad;
-      ctx.fillRect(0, 0, 1080, 1920);
-
-      // 3. Moldura Interna Dourada / Suave
-      ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(50, 80, 980, 1760);
-
-      // 4. Cabeçalho (Igreja e Data)
-      ctx.fillStyle = '#fde047'; // Amarelo Dourado
-      ctx.font = 'bold 42px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 190);
-
-      ctx.fillStyle = '#93c5fd';
-      ctx.font = '30px sans-serif';
-      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 245);
-
-      // Linha Divisória Superior
-      ctx.beginPath();
-      ctx.moveTo(200, 280);
-      ctx.lineTo(880, 280);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-
-      // Função Auxiliar para Quebrar Linhas de Texto
-      const quebrarTexto = (text: string, maxW: number, font: string) => {
-        ctx.font = font;
-        const words = text.split(' ');
-        const lines: string[] = [];
-        let currentLine = words[0];
-
-        for (let i = 1; i < words.length; i++) {
-          const width = ctx.measureText(currentLine + ' ' + words[i]).width;
-          if (width < maxW) {
-            currentLine += ' ' + words[i];
-          } else {
-            lines.push(currentLine);
-            currentLine = words[i];
-          }
-        }
-        lines.push(currentLine);
-        return lines;
-      };
-
-      // 5. Título do Devocional
-      ctx.fillStyle = '#ffffff';
-      const fontTitulo = 'bold 50px sans-serif';
-      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 860, fontTitulo);
+    // 2. Textura de Partículas de Luz / Brilho Celestial
+    for (let i = 0; i < 70; i++) {
+      const x = Math.random() * 1080;
+      const y = Math.random() * 1920;
+      const radius = Math.random() * 3 + 1;
+      const alpha = Math.random() * 0.5 + 0.1;
       
-      let yPos = 370;
-      ctx.font = fontTitulo;
-      linhasTitulo.slice(0, 3).forEach((linha) => {
-        ctx.fillText(linha, 540, yPos);
-        yPos += 62;
-      });
-
-      // 6. Referência e Versículo
-      if (devocionalDoDia.referencia) {
-        yPos += 15;
-        ctx.fillStyle = '#fde047';
-        ctx.font = 'bold 36px sans-serif';
-        ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos);
-        yPos += 55;
-      }
-
-      if (devocionalDoDia.versiculo) {
-        ctx.fillStyle = '#e0f2fe';
-        const fontVerso = 'italic 30px sans-serif';
-        const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 820, fontVerso);
-        
-        ctx.font = fontVerso;
-        linhasVerso.slice(0, 3).forEach((linha) => {
-          ctx.fillText(linha, 540, yPos);
-          yPos += 42;
-        });
-        yPos += 20;
-      }
-
-      // Linha Divisória Intermediária
       ctx.beginPath();
-      ctx.moveTo(320, yPos);
-      ctx.lineTo(760, yPos);
-      ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      // 7. Texto da Reflexão
-      yPos += 55;
-      ctx.fillStyle = '#f1f5f9';
-      const fontReflexao = '31px sans-serif';
-      const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-      const linhasReflexao = quebrarTexto(textoLimpo, 840, fontReflexao);
-
-      ctx.font = fontReflexao;
-      linhasReflexao.slice(0, 13).forEach((linha) => {
-        ctx.fillText(linha, 540, yPos);
-        yPos += 46;
-      });
-
-      // 8. ASSINATURA EM ITÁLICO DO PASTOR NO RODAPÉ DO STORY
-      ctx.fillStyle = '#fef08a'; // Amarelo Dourado
-      ctx.font = 'italic bold 38px Georgia, serif';
-      ctx.textAlign = 'center';
-      
-      const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
-
-      ctx.fillStyle = '#cbd5e1';
-      ctx.font = '26px sans-serif';
-      ctx.fillText(dadosIgreja.nome_igreja, 540, 1755);
-
-      // Gerar DataURL da imagem completa
-      const dataUrl = canvas.toDataURL('image/png');
-      setImagemStoryDataUrl(dataUrl);
-      setModalStoryGeradoOpen(true);
-
-    } catch (err: any) {
-      alert('Erro ao gerar imagem para Stories: ' + err.message);
-    } finally {
-      setGerandoImagem(false);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`; // Partículas Douradas
+      ctx.fill();
     }
-  };
+
+    // 3. Moldura Interna Dourada / Suave
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.45)';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(50, 80, 980, 1760);
+
+    // 4. Cabeçalho (Igreja e Data)
+    ctx.fillStyle = '#fde047'; // Amarelo Dourado
+    ctx.font = 'bold 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 190);
+
+    ctx.fillStyle = '#93c5fd';
+    ctx.font = '30px sans-serif';
+    ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 245);
+
+    // Linha Divisória Superior
+    ctx.beginPath();
+    ctx.moveTo(200, 280);
+    ctx.lineTo(880, 280);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+
+    // Função Auxiliar para Quebrar Linhas de Texto
+    const quebrarTexto = (text: string, maxW: number, font: string) => {
+      ctx.font = font;
+      const words = text.split(' ');
+      const lines: string[] = [];
+      let currentLine = words[0];
+
+      for (let i = 1; i < words.length; i++) {
+        const width = ctx.measureText(currentLine + ' ' + words[i]).width;
+        if (width < maxW) {
+          currentLine += ' ' + words[i];
+        } else {
+          lines.push(currentLine);
+          currentLine = words[i];
+        }
+      }
+      lines.push(currentLine);
+      return lines;
+    };
+
+    // 5. Título do Devocional
+    ctx.fillStyle = '#ffffff';
+    const fontTitulo = 'bold 50px sans-serif';
+    const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 860, fontTitulo);
+    
+    let yPos = 370;
+    ctx.font = fontTitulo;
+    linhasTitulo.slice(0, 3).forEach((linha) => {
+      ctx.fillText(linha, 540, yPos);
+      yPos += 62;
+    });
+
+    // 6. Referência e Versículo
+    if (devocionalDoDia.referencia) {
+      yPos += 15;
+      ctx.fillStyle = '#fde047';
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos);
+      yPos += 55;
+    }
+
+    if (devocionalDoDia.versiculo) {
+      ctx.fillStyle = '#e0f2fe';
+      const fontVerso = 'italic 30px sans-serif';
+      const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 820, fontVerso);
+      
+      ctx.font = fontVerso;
+      linhasVerso.slice(0, 3).forEach((linha) => {
+        ctx.fillText(linha, 540, yPos);
+        yPos += 42;
+      });
+      yPos += 20;
+    }
+
+    // Linha Divisória Intermediária
+    ctx.beginPath();
+    ctx.moveTo(320, yPos);
+    ctx.lineTo(760, yPos);
+    ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // 7. Texto da Reflexão
+    yPos += 55;
+    ctx.fillStyle = '#f1f5f9';
+    const fontReflexao = '31px sans-serif';
+    const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
+    const linhasReflexao = quebrarTexto(textoLimpo, 840, fontReflexao);
+
+    ctx.font = fontReflexao;
+    linhasReflexao.slice(0, 13).forEach((linha) => {
+      ctx.fillText(linha, 540, yPos);
+      yPos += 46;
+    });
+
+    // 8. ASSINATURA EM ITÁLICO DO PASTOR NO RODAPÉ DO STORY
+    ctx.fillStyle = '#fef08a'; // Amarelo Dourado
+    ctx.font = 'italic bold 38px Georgia, serif';
+    ctx.textAlign = 'center';
+    
+    const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
+    ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
+
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = '26px sans-serif';
+    ctx.fillText(dadosIgreja.nome_igreja, 540, 1755);
+
+    // Gerar DataURL da imagem completa
+    const dataUrl = canvas.toDataURL('image/png');
+    setImagemStoryDataUrl(dataUrl);
+    setModalStoryGeradoOpen(true);
+
+  } catch (err: any) {
+    alert('Erro ao gerar imagem para Stories: ' + err.message);
+  } finally {
+    setGerandoImagem(false);
+  }
+};
 
   return (
     <div className="max-w-md mx-auto w-full bg-slate-100 h-[680px] max-h-[90dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">

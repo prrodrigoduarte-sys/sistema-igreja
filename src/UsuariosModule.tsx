@@ -1,4 +1,3 @@
-// src/UsuariosModule.tsx
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
 
@@ -15,7 +14,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [perfilUsuario, setPerfilUsuario] = useState('comum');
   const [senhaAdminInput, setSenhaAdminInput] = useState('');
 
-  // Permissões individuais por usuário (Checkboxes dos módulos)
+  // Permissões individuais por usuário (Chaves dos módulos)
   const [permissoesUsuario, setPermissoesUsuario] = useState<{ [key: string]: boolean }>({
     dashboard: false,
     cadastros: false,
@@ -139,7 +138,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         nome_usuario: nomeUsuario.trim(),
         email: emailUsuario.trim(),
         perfil: perfilUsuario,
-        ativo: true, // Sempre ativo para evitar barramentos indevidos no login geral
+        ativo: true,
       };
 
       let usuarioId = editingUsuario?.id;
@@ -383,42 +382,42 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
                 <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.dashboard} onChange={() => handleCheckboxChange('dashboard')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.dashboard} onChange={() => handleCheckboxChange('dashboard')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">📊 Dashboard</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.cadastros} onChange={() => handleCheckboxChange('cadastros')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.cadastros} onChange={() => handleCheckboxChange('cadastros')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">📂 Cadastros</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.celulas} onChange={() => handleCheckboxChange('celulas')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.celulas} onChange={() => handleCheckboxChange('celulas')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">🏡 Células</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.discipulado} onChange={() => handleCheckboxChange('discipulado')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.discipulado} onChange={() => handleCheckboxChange('discipulado')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">🌱 Discipulado</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.agenda} onChange={() => handleCheckboxChange('agenda')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.agenda} onChange={() => handleCheckboxChange('agenda')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">📅 Agenda Geral</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.financeiro} onChange={() => handleCheckboxChange('financeiro')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.financeiro} onChange={() => handleCheckboxChange('financeiro')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">💰 Financeiro</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.projetos} onChange={() => handleCheckboxChange('projetos')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.projetos} onChange={() => handleCheckboxChange('projetos')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">📁 Projetos</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.app_mobile} onChange={() => handleCheckboxChange('app_mobile')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
+                    <input type="checkbox" checked={permissoesUsuario.app_mobile} onChange={() => handleCheckboxChange('app_mobile')} className="w-4 h-4 rounded text-blue-900" />
                     <span className="font-semibold text-slate-700">📱 App Mobile</span>
                   </label>
                 </div>

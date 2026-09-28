@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 
 interface Props {
@@ -100,7 +100,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [editDevReflexao, setEditDevReflexao] = useState('');
   const [editDevAutor, setEditDevAutor] = useState('Pastor / Equipe Pastoral');
   const [savingDevocional, setSavingDevocional] = useState(false);
+
+  // Estados do Gerador de Stories em Imagem Real
   const [gerandoImagem, setGerandoImagem] = useState(false);
+  const [modalStoryGeradoOpen, setModalStoryGeradoOpen] = useState(false);
+  const [imagemStoryDataUrl, setImagemStoryDataUrl] = useState('');
 
   // 4. Controle de Célula
   const [minhaCelula, setMinhaCelula] = useState<any>(null);
@@ -687,8 +691,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // GERADOR DE IMAGEM VERTICAL PARA INSTAGRAM STORIES (1080x1920 PX)
-  const handleGerarImagemStories = () => {
+  // GERADOR DE STORIES COM FOTO REAL DE MENSAGEM / NATUREZA E SUPORTE A CELULARES
+  const handleGerarImagemStories = async () => {
     setGerandoImagem(true);
     try {
       const canvas = document.createElement('canvas');
@@ -698,34 +702,58 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (!ctx) return;
 
-      // 1. Fundo Gradiente Elegante em Azul Escuro e Violeta
-      const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
-      grad.addColorStop(0, '#0f172a'); // Slate 900
-      grad.addColorStop(0.4, '#1e1b4b'); // Indigo 950
-      grad.addColorStop(0.8, '#1e3a8a'); // Blue 900
-      grad.addColorStop(1, '#0284c7'); // Sky 600
-      ctx.fillStyle = grad;
+      // 1. Carregar Foto de Fundo Profissional em Alta Definição (Cenário Inspiracional)
+      const urlFotoFundo = 'https://images.unsplash.com/photo-1509021436468-d51030076a08?auto=format&fit=crop&w=1080&q=80';
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = urlFotoFundo;
+
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.onerror = resolve; // Continua com fundo solido se falhar conexão
+      });
+
+      if (img.complete && img.naturalWidth !== 0) {
+        // Desenha a foto ocupando toda a tela 1080x1920
+        ctx.drawImage(img, 0, 0, 1080, 1920);
+      } else {
+        // Fundo Gradiente reserva
+        const grad = ctx.createLinearGradient(0, 0, 1080, 1920);
+        grad.addColorStop(0, '#0f172a');
+        grad.addColorStop(0.5, '#1e1b4b');
+        grad.addColorStop(1, '#0284c7');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 1080, 1920);
+      }
+
+      // 2. Sobreposição Escura (Overlay) para legibilidade perfeita do texto
+      const overlayGrad = ctx.createLinearGradient(0, 0, 0, 1920);
+      overlayGrad.addColorStop(0, 'rgba(15, 23, 42, 0.75)');
+      overlayGrad.addColorStop(0.5, 'rgba(15, 23, 42, 0.85)');
+      overlayGrad.addColorStop(1, 'rgba(15, 23, 42, 0.95)');
+      ctx.fillStyle = overlayGrad;
       ctx.fillRect(0, 0, 1080, 1920);
 
-      // 2. Moldura Interna Dourada / Suave
-      ctx.strokeStyle = 'rgba(253, 224, 71, 0.35)';
-      ctx.lineWidth = 10;
-      ctx.strokeRect(60, 100, 960, 1720);
+      // 3. Moldura Interna Dourada / Suave
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.4)';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(50, 80, 980, 1760);
 
-      // 3. Cabeçalho (Igreja e Data)
-      ctx.fillStyle = '#fde047'; // Amarelo
+      // 4. Cabeçalho (Igreja e Data)
+      ctx.fillStyle = '#fde047'; // Amarelo Dourado
       ctx.font = 'bold 42px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 220);
+      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 190);
 
       ctx.fillStyle = '#93c5fd';
-      ctx.font = '32px sans-serif';
-      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 280);
+      ctx.font = '30px sans-serif';
+      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 245);
 
       // Linha Divisória Superior
       ctx.beginPath();
-      ctx.moveTo(200, 320);
-      ctx.lineTo(880, 320);
+      ctx.moveTo(200, 280);
+      ctx.lineTo(880, 280);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.lineWidth = 3;
       ctx.stroke();
@@ -750,81 +778,78 @@ export default function AppMobileModule({ loggedUser }: Props) {
         return lines;
       };
 
-      // 4. Título do Devocional
+      // 5. Título do Devocional
       ctx.fillStyle = '#ffffff';
-      const fontTitulo = 'bold 52px sans-serif';
-      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 880, fontTitulo);
+      const fontTitulo = 'bold 50px sans-serif';
+      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 860, fontTitulo);
       
-      let yPos = 420;
+      let yPos = 370;
       ctx.font = fontTitulo;
       linhasTitulo.slice(0, 3).forEach((linha) => {
         ctx.fillText(linha, 540, yPos);
-        yPos += 65;
+        yPos += 62;
       });
 
-      // 5. Referência e Versículo
+      // 6. Referência e Versículo
       if (devocionalDoDia.referencia) {
-        yPos += 20;
+        yPos += 15;
         ctx.fillStyle = '#fde047';
-        ctx.font = 'bold 38px sans-serif';
+        ctx.font = 'bold 36px sans-serif';
         ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos);
-        yPos += 60;
+        yPos += 55;
       }
 
       if (devocionalDoDia.versiculo) {
         ctx.fillStyle = '#e0f2fe';
-        const fontVerso = 'italic 32px sans-serif';
-        const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 840, fontVerso);
+        const fontVerso = 'italic 30px sans-serif';
+        const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 820, fontVerso);
         
         ctx.font = fontVerso;
-        linhasVerso.slice(0, 4).forEach((linha) => {
+        linhasVerso.slice(0, 3).forEach((linha) => {
           ctx.fillText(linha, 540, yPos);
-          yPos += 45;
+          yPos += 42;
         });
-        yPos += 30;
+        yPos += 20;
       }
 
       // Linha Divisória Intermediária
       ctx.beginPath();
-      ctx.moveTo(300, yPos);
-      ctx.lineTo(780, yPos);
-      ctx.strokeStyle = 'rgba(253, 224, 71, 0.2)';
+      ctx.moveTo(320, yPos);
+      ctx.lineTo(760, yPos);
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // 6. Texto da Reflexão
-      yPos += 60;
+      // 7. Texto da Reflexão
+      yPos += 55;
       ctx.fillStyle = '#f1f5f9';
-      const fontReflexao = '32px sans-serif';
+      const fontReflexao = '31px sans-serif';
       const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-      const linhasReflexao = quebrarTexto(textoLimpo, 860, fontReflexao);
+      const linhasReflexao = quebrarTexto(textoLimpo, 840, fontReflexao);
 
       ctx.font = fontReflexao;
-      // Exibe até 14 linhas no formato vertical dos Stories
-      linhasReflexao.slice(0, 14).forEach((linha) => {
+      linhasReflexao.slice(0, 13).forEach((linha) => {
         ctx.fillText(linha, 540, yPos);
-        yPos += 48;
+        yPos += 46;
       });
 
-      // 7. ASSINATURA EM ITÁLICO NO RODAPÉ DO STORY
+      // 8. ASSINATURA EM ITÁLICO DO PASTOR NO RODAPÉ DO STORY
       ctx.fillStyle = '#fef08a'; // Amarelo Dourado
-      ctx.font = 'italic bold 40px Georgia, serif';
+      ctx.font = 'italic bold 38px Georgia, serif';
       ctx.textAlign = 'center';
       
       const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1680);
+      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
 
       ctx.fillStyle = '#cbd5e1';
-      ctx.font = '28px sans-serif';
-      ctx.fillText(dadosIgreja.nome_igreja, 540, 1730);
+      ctx.font = '26px sans-serif';
+      ctx.fillText(dadosIgreja.nome_igreja, 540, 1755);
 
-      // Download da imagem no formato PNG 1080x1920
-      const link = document.createElement('a');
-      link.download = `Devocional_Story_${devocionalDoDia.data.replace(/\//g, '-')}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      // Gerar DataURL da imagem completa
+      const dataUrl = canvas.toDataURL('image/png');
+      setImagemStoryDataUrl(dataUrl);
+      setModalStoryGeradoOpen(true);
 
-      alert('✨ Imagem para Instagram Stories gerada e baixada com sucesso!');
     } catch (err: any) {
       alert('Erro ao gerar imagem para Stories: ' + err.message);
     } finally {
@@ -1625,7 +1650,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     disabled={gerandoImagem}
                     className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
                   >
-                    📸 {gerandoImagem ? 'Gerando Story...' : 'Gerar Imagem p/ Instagram Stories (9:16)'}
+                    📸 {gerandoImagem ? 'Carregando Cenário Profissional...' : 'Gerar Arte de Stories c/ Foto de Fundo (9:16)'}
                   </button>
 
                   <button
@@ -1641,6 +1666,47 @@ export default function AppMobileModule({ loggedUser }: Props) {
           </>
         )}
       </div>
+
+      {/* MODAL DE VISUALIZAÇÃO E DOWNLOAD DO STORY (PERFEITO PARA CELULARES) */}
+      {modalStoryGeradoOpen && (
+        <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-center p-3">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-3 flex flex-col items-center space-y-3 shadow-2xl">
+            <div className="w-full flex justify-between items-center text-white px-1">
+              <span className="font-bold text-xs">📸 Sua Arte para Stories</span>
+              <button
+                type="button"
+                onClick={() => setModalStoryGeradoOpen(false)}
+                className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Exibição em tamanho proporcional de celular */}
+            <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden border-2 border-amber-400/50 shadow-lg bg-black">
+              <img
+                src={imagemStoryDataUrl}
+                alt="Devocional Instagram Story"
+                className="w-full h-full object-cover select-none"
+              />
+            </div>
+
+            <p className="text-[10px] text-amber-300 font-medium text-center">
+              💡 <strong>No celular:</strong> Pressione e segure a imagem acima para salvar direto na galeria de fotos!
+            </p>
+
+            <div className="flex gap-2 w-full pt-1">
+              <a
+                href={imagemStoryDataUrl}
+                download={`Devocional_Story_${devocionalDoDia.data.replace(/\//g, '-')}.png`}
+                className="w-full text-center py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
+              >
+                📥 Baixar Imagem no Aparelho
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* MODAL AGENDA MOBILE */}
       {modalNovaAgenda && (

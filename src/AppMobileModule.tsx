@@ -24,11 +24,13 @@ interface DadosIgreja {
 }
 
 interface Devocional {
-  versiculo: string;
+  id?: string;
+  titulo: string;
   referencia: string;
+  versiculo: string;
   reflexao: string;
+  autor: string;
   data: string;
-  titulo?: string;
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
@@ -79,13 +81,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
     chave_pix: '',
   });
 
-  // 3.1 Devocional Dinâmico (Puxando do Supabase)
+  // 3.1 Devocional Dinâmico (Mapeado exatamente para public.devotionals)
   const [devocionalDoDia, setDevocionalDoDia] = useState<Devocional>({
-    versiculo: 'Carregando palavra do dia...',
+    titulo: 'Carregando palavra do dia...',
     referencia: '',
+    versiculo: '',
     reflexao: 'Aguarde um momento.',
+    autor: 'Equipe Pastoral',
     data: new Date().toLocaleDateString('pt-BR'),
-    titulo: '',
   });
 
   // 4. Controle de Célula (Criação e Edição)
@@ -109,6 +112,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuario = loggedUser?.email?.trim().toLowerCase() || loggedUser?.usuario || 'admin@sistema.com';
   const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider';
+
+  // Formatador seguro para links de WhatsApp
+  const formatarWhatsapp = (num: string) => {
+    if (!num) return '';
+    const limpo = num.replace(/\D/g, '');
+    return limpo.startsWith('55') ? limpo : `55${limpo}`;
+  };
 
   // Solicitar permissão de Notificação do Navegador ao carregar
   useEffect(() => {
@@ -166,7 +176,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
-  // Carregar mensagens do chat
+  // Carregar mensagens do chat (Filtrando entre Broadcast e Privado)
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -190,14 +200,33 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja, membroSelecionadoChat]);
 
+  // Realtime para Mensagens do Chat
   useEffect(() => {
     if (subAbaApp === 'chat') {
       carregarMembrosChat();
       carregarMensagensChat();
-    }
-  }, [subAbaApp, carregarMembrosChat, carregarMensagensChat]);
 
-  // Carregar todos os dados das abas (incluindo busca flexível do Devocional)
+      const channel = supabase
+        .channel('chat_realtime_mobile')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
+          (payload) => {
+            const nova = payload.new;
+            if (nova.codigo_igreja === codigoIgreja) {
+              setMensagensChat((prev) => [...prev, nova]);
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [subAbaApp, carregarMembrosChat, carregarMensagensChat, codigoIgreja]);
+
+  // Carregar dados gerais das abas e buscar devocional na tabela devotionals
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -245,6 +274,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
+      // Dados da igreja
       const { data: dataIgr } = await supabase
         .from('igrejas')
         .select('*')
@@ -261,36 +291,33 @@ export default function AppMobileModule({ loggedUser }: Props) {
         });
       }
 
-      // Busca Inteligente no Supabase (Tenta 'devotionals' ou 'devocionais')
-      let resDev = await supabase
+      // Consulta à tabela public.devotionals
+      const hojeStr = new Date().toISOString().split('T')[0];
+      const { data: dataDev } = await supabase
         .from('devotionals')
         .select('*')
-        .order('created_at', { ascending: false })
+        .eq('is_published', true)
+        .lte('publish_date', hojeStr)
+        .order('publish_date', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (!resDev.data) {
-        resDev = await supabase
-          .from('devocionais')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-      }
-
-      if (resDev.data) {
-        const d = resDev.data;
+      if (dataDev) {
         setDevocionalDoDia({
-          titulo: d.title || d.titulo || 'Palavra de Hoje',
-          versiculo: d.passage_text || d.versiculo || d.title || 'Palavra do Dia',
-          referencia: d.verse_reference || d.referencia || 'Mateus 28:18-19',
-          reflexao: d.content_html || d.reflection || d.reflexao || '',
-          data: d.publish_date 
-            ? d.publish_date.split('-').reverse().join('/') 
-            : d.data 
-            ? d.data.split('-').reverse().join('/')
-            : new Date().toLocaleDateString('pt-BR'),
+          id: dataDev.id,
+          titulo: dataDev.title || 'Palavra de Hoje',
+          referencia: dataDev.verse_reference || '',
+          versiculo: dataDev.passage_text || '',
+          reflexao: dataDev.content_html || '',
+          autor: dataDev.author_name || 'Equipe Pastoral',
+          data: dataDev.publish_date ? dataDev.publish_date.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR'),
         });
+
+        // Incrementar contador de visualizações
+        await supabase
+          .from('devotionals')
+          .update({ views_count: (dataDev.views_count || 0) + 1 })
+          .eq('id', dataDev.id);
       }
 
       const { data: dataReunioes } = await supabase
@@ -596,15 +623,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   const handleCompartilharDevocional = () => {
-    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n"${devocionalDoDia.titulo || devocionalDoDia.versiculo}"\n${devocionalDoDia.referencia}\n\n*Reflexão:*\n${devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '')}`;
+    const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
+    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️ *Por:* ${devocionalDoDia.autor}`;
+
     if (navigator.share) {
       navigator.share({
-        title: devocionalDoDia.titulo || 'Devocional Diário',
+        title: devocionalDoDia.titulo,
         text: texto,
       });
     } else {
       navigator.clipboard.writeText(texto);
-      alert('✨ Devocional copiado! Abra o WhatsApp para compartilhar.');
+      alert('✨ Devocional copiado com sucesso! Abra o WhatsApp para compartilhar.');
     }
   };
 
@@ -625,7 +654,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* BOTÕES LARGOS E MODERNOS EM FORMATO DE CARDS EMPARELHADOS */}
+        {/* BOTÕES LARGOS E MODERNOS */}
         <div className="space-y-1.5 pt-0.5">
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -765,13 +794,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       </div>
 
-      {/* ÁREA DE CONTEÚDO COM SCROLL INTERNO EXCLUSIVO */}
+      {/* ÁREA DE CONTEÚDO */}
       <div className="p-3.5 flex-1 overflow-y-auto space-y-3 min-h-0 bg-slate-100 relative">
         {loading ? (
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO ESTÁVEL */}
+            {/* 0. CHAT COM REALTIME */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[320px] text-xs">
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
@@ -1020,10 +1049,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
                         <span className="font-bold text-slate-800">{p.nome}</span>
                         <a
-                          href={`https://wa.me/55${p.celular_principal?.replace(/\D/g, '')}`}
+                          href={`https://wa.me/${formatarWhatsapp(p.celular_principal)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200"
+                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 cursor-pointer"
                         >
                           💬 WhatsApp
                         </a>
@@ -1330,7 +1359,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 7. ABA DEVOCIONAL (DINÂMICO E COMPLETO COM SUPABASE) */}
+            {/* 7. ABA DEVOCIONAL (CONECTADO À TABELA public.devotionals) */}
             {subAbaApp === 'devocional' && (
               <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
                 <div className="border-b pb-1.5 flex justify-between items-center">
@@ -1347,19 +1376,21 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     PALAVRA DO DIA
                   </span>
                   
-                  {devocionalDoDia.titulo && (
-                    <h4 className="font-bold text-sm text-white leading-snug">
-                      "{devocionalDoDia.titulo}"
-                    </h4>
+                  <h4 className="font-extrabold text-sm text-yellow-300 leading-snug">
+                    "{devocionalDoDia.titulo}"
+                  </h4>
+
+                  {devocionalDoDia.versiculo && (
+                    <p className="text-xs font-semibold text-blue-100 leading-relaxed italic border-l-2 border-yellow-400 pl-2 my-1">
+                      "{devocionalDoDia.versiculo}"
+                    </p>
                   )}
 
-                  <p className="text-xs font-semibold text-blue-200">
-                    "{devocionalDoDia.versiculo}"
-                  </p>
-
-                  <p className="text-[10px] text-blue-300 italic font-medium">
-                    {devocionalDoDia.referencia}
-                  </p>
+                  {devocionalDoDia.referencia && (
+                    <p className="text-[10px] text-blue-300 font-bold">
+                      📍 {devocionalDoDia.referencia}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2 text-slate-700 leading-relaxed pt-1">
@@ -1371,6 +1402,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     className="text-[11px] whitespace-pre-wrap text-slate-600 leading-relaxed"
                     dangerouslySetInnerHTML={{ __html: devocionalDoDia.reflexao }}
                   />
+
+                  {devocionalDoDia.autor && (
+                    <p className="text-[10px] text-slate-400 font-medium italic pt-1 text-right">
+                      ✍️ {devocionalDoDia.autor}
+                    </p>
+                  )}
                 </div>
 
                 <button
@@ -1386,7 +1423,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         )}
       </div>
 
-      {/* MODAL AGENDA MOBILE COM ALARME */}
+      {/* MODAL AGENDA MOBILE */}
       {modalNovaAgenda && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">

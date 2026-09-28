@@ -81,7 +81,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     chave_pix: '',
   });
 
-  // 3.1 Devocional Dinâmico (Mapeado exatamente para public.devotionals)
+  // 3.1 Devocional Dinâmico
   const [devocionalDoDia, setDevocionalDoDia] = useState<Devocional>({
     titulo: 'Carregando palavra do dia...',
     referencia: '',
@@ -90,6 +90,16 @@ export default function AppMobileModule({ loggedUser }: Props) {
     autor: 'Equipe Pastoral',
     data: new Date().toLocaleDateString('pt-BR'),
   });
+
+  // Estados do Modal de Edição do Devocional
+  const [modalDevocionalOpen, setModalDevocionalOpen] = useState(false);
+  const [editDevData, setEditDevData] = useState(new Date().toISOString().split('T')[0]);
+  const [editDevTitulo, setEditDevTitulo] = useState('');
+  const [editDevRef, setEditDevRef] = useState('');
+  const [editDevVersiculo, setEditDevVersiculo] = useState('');
+  const [editDevReflexao, setEditDevReflexao] = useState('');
+  const [editDevAutor, setEditDevAutor] = useState('Pastor / Equipe Pastoral');
+  const [savingDevocional, setSavingDevocional] = useState(false);
 
   // 4. Controle de Célula (Criação e Edição)
   const [minhaCelula, setMinhaCelula] = useState<any>(null);
@@ -111,23 +121,20 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuario = loggedUser?.email?.trim().toLowerCase() || loggedUser?.usuario || 'admin@sistema.com';
-  const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider';
+  const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider' || loggedUser?.funcao === 'admin' || loggedUser?.cargo === 'Pastor';
 
-  // Formatador seguro para links de WhatsApp
   const formatarWhatsapp = (num: string) => {
     if (!num) return '';
     const limpo = num.replace(/\D/g, '');
     return limpo.startsWith('55') ? limpo : `55${limpo}`;
   };
 
-  // Solicitar permissão de Notificação do Navegador ao carregar
   useEffect(() => {
     if ('Notification' in window && Notification.permission !== 'granted') {
       Notification.requestPermission();
     }
   }, []);
 
-  // Verificar status do cadastro único na tabela members
   const verificarStatusCadastro = async () => {
     if (!emailUsuario) return;
     setCarregandoCadastro(true);
@@ -161,7 +168,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // Carregar lista de membros para o Chat
   const carregarMembrosChat = useCallback(async () => {
     try {
       const { data } = await supabase
@@ -176,7 +182,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
-  // Carregar mensagens do chat (Filtrando entre Broadcast e Privado)
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -200,7 +205,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja, membroSelecionadoChat]);
 
-  // Realtime para Mensagens do Chat
   useEffect(() => {
     if (subAbaApp === 'chat') {
       carregarMembrosChat();
@@ -226,7 +230,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [subAbaApp, carregarMembrosChat, carregarMensagensChat, codigoIgreja]);
 
-  // Carregar dados gerais das abas e buscar devocional na tabela devotionals
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -274,7 +277,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
-      // Dados da igreja
       const { data: dataIgr } = await supabase
         .from('igrejas')
         .select('*')
@@ -291,7 +293,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         });
       }
 
-      // Consulta à tabela public.devotionals
+      // Consulta Devocional na tabela devotionals
       const hojeStr = new Date().toISOString().split('T')[0];
       const { data: dataDev } = await supabase
         .from('devotionals')
@@ -312,12 +314,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
           autor: dataDev.author_name || 'Equipe Pastoral',
           data: dataDev.publish_date ? dataDev.publish_date.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR'),
         });
-
-        // Incrementar contador de visualizações
-        await supabase
-          .from('devotionals')
-          .update({ views_count: (dataDev.views_count || 0) + 1 })
-          .eq('id', dataDev.id);
       }
 
       const { data: dataReunioes } = await supabase
@@ -340,7 +336,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     verificarStatusCadastro();
   }, [carregarDadosApp]);
 
-  // Alarme sonoro e notificação ativa em tempo real
   useEffect(() => {
     const interval = setInterval(() => {
       const agora = new Date();
@@ -637,6 +632,62 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // Abrir modal de edição do devocional
+  const handleAbrirEditarDevocional = () => {
+    setEditDevData(new Date().toISOString().split('T')[0]);
+    setEditDevTitulo(devocionalDoDia.titulo !== 'Carregando palavra do dia...' ? devocionalDoDia.titulo : '');
+    setEditDevRef(devocionalDoDia.referencia || '');
+    setEditDevVersiculo(devocionalDoDia.versiculo || '');
+    setEditDevReflexao(devocionalDoDia.reflexao !== 'Aguarde um momento.' ? devocionalDoDia.reflexao : '');
+    setEditDevAutor(devocionalDoDia.autor || 'Pastor / Equipe Pastoral');
+    setModalDevocionalOpen(true);
+  };
+
+  // Salvar devocional no banco diretamente do app
+  const handleSalvarDevocionalMobile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editDevTitulo.trim() || !editDevReflexao.trim()) {
+      return alert('Preencha o título e o texto da reflexão.');
+    }
+
+    setSavingDevocional(true);
+    try {
+      const payload = {
+        publish_date: editDevData,
+        title: editDevTitulo.trim(),
+        verse_reference: editDevRef.trim(),
+        passage_text: editDevVersiculo.trim() || null,
+        content_html: editDevReflexao.trim(),
+        author_name: editDevAutor.trim() || 'Pastor / Equipe Pastoral',
+        is_published: true,
+      };
+
+      if (devocionalDoDia.id) {
+        const { error } = await supabase
+          .from('devotionals')
+          .update(payload)
+          .eq('id', devocionalDoDia.id);
+
+        if (error) throw error;
+        alert('✏️ Devocional atualizado com sucesso!');
+      } else {
+        const { error } = await supabase
+          .from('devotionals')
+          .insert([payload]);
+
+        if (error) throw error;
+        alert('✅ Devocional publicado com sucesso!');
+      }
+
+      setModalDevocionalOpen(false);
+      carregarDadosApp();
+    } catch (err: any) {
+      alert('Erro ao salvar devocional: ' + err.message);
+    } finally {
+      setSavingDevocional(false);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto w-full bg-slate-100 h-[680px] max-h-[90dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
       
@@ -654,7 +705,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* BOTÕES LARGOS E MODERNOS */}
+        {/* BOTÕES DE NAVEGAÇÃO */}
         <div className="space-y-1.5 pt-0.5">
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -1359,16 +1410,29 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 7. ABA DEVOCIONAL (CONECTADO À TABELA public.devotionals) */}
+            {/* 7. ABA DEVOCIONAL (COM BOTAO DE EDIÇÃO/CADASTRO INTEGRADO) */}
             {subAbaApp === 'devocional' && (
               <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
                 <div className="border-b pb-1.5 flex justify-between items-center">
                   <h3 className="font-black text-blue-900 text-sm flex items-center gap-1.5">
                     📖 Devocional Diário
                   </h3>
-                  <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                    {devocionalDoDia.data}
-                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    {/* Botão visível para Administradores e Líderes */}
+                    {isAdminOuLider && (
+                      <button
+                        type="button"
+                        onClick={handleAbrirEditarDevocional}
+                        className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow text-[10px] flex items-center gap-1 cursor-pointer transition"
+                      >
+                        ✏️ {devocionalDoDia.id ? 'Editar' : 'Novo'}
+                      </button>
+                    )}
+                    <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                      {devocionalDoDia.data}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-2 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 text-white p-4 rounded-2xl shadow-inner">
@@ -1542,6 +1606,104 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </button>
                 <button type="submit" className="w-full py-2 bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs">
                   {itemEditandoReuniao ? 'Salvar Alterações' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE DEVOCIONAL (INTEGRADO NO MOBILE) */}
+      {modalDevocionalOpen && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
+              {devocionalDoDia.id ? '✏️ Editar Devocional' : '➕ Novo Devocional'}
+            </h3>
+            
+            <form onSubmit={handleSalvarDevocionalMobile} className="space-y-2">
+              <div>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Data de Publicação</label>
+                <input
+                  type="date"
+                  value={editDevData}
+                  onChange={(e) => setEditDevData(e.target.value)}
+                  className="w-full border rounded-xl p-1.5 font-semibold text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Título da Mensagem *</label>
+                <input
+                  type="text"
+                  placeholder="Ex: O Poder da Oração"
+                  value={editDevTitulo}
+                  onChange={(e) => setEditDevTitulo(e.target.value)}
+                  className="w-full border rounded-xl p-1.5 font-bold text-xs"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Referência Bíblica *</label>
+                <input
+                  type="text"
+                  placeholder="Ex: Mateus 28:18-19"
+                  value={editDevRef}
+                  onChange={(e) => setEditDevRef(e.target.value)}
+                  className="w-full border rounded-xl p-1.5 text-xs font-medium"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Versículo / Passagem</label>
+                <textarea
+                  placeholder="Texto do versículo em destaque"
+                  value={editDevVersiculo}
+                  onChange={(e) => setEditDevVersiculo(e.target.value)}
+                  className="w-full border rounded-xl p-1.5 text-xs"
+                  rows={2}
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Reflexão / Mensagem *</label>
+                <textarea
+                  placeholder="Escreva a reflexão diária..."
+                  value={editDevReflexao}
+                  onChange={(e) => setEditDevReflexao(e.target.value)}
+                  className="w-full border rounded-xl p-1.5 text-xs"
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Autor</label>
+                <input
+                  type="text"
+                  value={editDevAutor}
+                  onChange={(e) => setEditDevAutor(e.target.value)}
+                  className="w-full border rounded-xl p-1.5 text-xs"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setModalDevocionalOpen(false)}
+                  className="w-1/2 py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingDevocional}
+                  className="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs disabled:opacity-50"
+                >
+                  {savingDevocional ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </form>

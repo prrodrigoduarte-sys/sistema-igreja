@@ -28,6 +28,7 @@ interface Devocional {
   referencia: string;
   reflexao: string;
   data: string;
+  titulo?: string;
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
@@ -84,6 +85,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     referencia: '',
     reflexao: 'Aguarde um momento.',
     data: new Date().toLocaleDateString('pt-BR'),
+    titulo: '',
   });
 
   // 4. Controle de Célula (Criação e Edição)
@@ -164,7 +166,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
-  // Carregar mensagens do chat (Filtrando corretamente entre Broadcast e Chat Privado)
+  // Carregar mensagens do chat
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -195,7 +197,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [subAbaApp, carregarMembrosChat, carregarMensagensChat]);
 
-  // Carregar todos os dados das abas (incluindo o Devocional do Supabase)
+  // Carregar todos os dados das abas (incluindo busca flexível do Devocional)
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -243,7 +245,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
-      // Carregando os dados da tabela correta 'igrejas'
       const { data: dataIgr } = await supabase
         .from('igrejas')
         .select('*')
@@ -260,21 +261,35 @@ export default function AppMobileModule({ loggedUser }: Props) {
         });
       }
 
-      // Carregar o Devocional mais recente cadastrado na tabela 'devocionais'
-      const { data: dataDev } = await supabase
-        .from('devocionais')
+      // Busca Inteligente no Supabase (Tenta 'devotionals' ou 'devocionais')
+      let resDev = await supabase
+        .from('devotionals')
         .select('*')
-        .eq('codigo_igreja', codigoIgreja)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      if (dataDev) {
+      if (!resDev.data) {
+        resDev = await supabase
+          .from('devocionais')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+      }
+
+      if (resDev.data) {
+        const d = resDev.data;
         setDevocionalDoDia({
-          versiculo: dataDev.versiculo || 'O Senhor é o meu pastor...',
-          referencia: dataDev.referencia || 'Salmos 23:1',
-          reflexao: dataDev.reflexao || 'Reflexão diária...',
-          data: dataDev.data ? dataDev.data.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR'),
+          titulo: d.title || d.titulo || 'Palavra de Hoje',
+          versiculo: d.passage_text || d.versiculo || d.title || 'Palavra do Dia',
+          referencia: d.verse_reference || d.referencia || 'Mateus 28:18-19',
+          reflexao: d.content_html || d.reflection || d.reflexao || '',
+          data: d.publish_date 
+            ? d.publish_date.split('-').reverse().join('/') 
+            : d.data 
+            ? d.data.split('-').reverse().join('/')
+            : new Date().toLocaleDateString('pt-BR'),
         });
       }
 
@@ -359,7 +374,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 1: SALVAR / ATUALIZAR PERFIL
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
@@ -384,7 +398,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // LÓGICA DO CADASTRO ÚNICO EM ETAPAS
   const handleFinalizarCadastroUnico = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -445,7 +458,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 2: ABRIR MODAL AGENDA (CRIAR)
   const handleAbrirCriarAgenda = () => {
     setItemEditandoAgenda(null);
     setNovoTitulo('');
@@ -456,7 +468,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalNovaAgenda(true);
   };
 
-  // AÇÃO 3: ABRIR MODAL AGENDA (EDITAR)
   const handleAbrirEditarAgenda = (item: Compromisso) => {
     setItemEditandoAgenda(item);
     setNovoTitulo(item.descricao || '');
@@ -467,7 +478,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalNovaAgenda(true);
   };
 
-  // AÇÃO 4: SALVAR / ATUALIZAR AGENDA
   const handleSalvarMinhaAgenda = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!novoTitulo.trim()) return alert('Informe a descrição do compromisso.');
@@ -505,7 +515,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 5: EXCLUIR AGENDA
   const handleExcluirCompromisso = async (id: string) => {
     if (!window.confirm('Deseja remover este compromisso da sua agenda?')) return;
     try {
@@ -519,7 +528,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 6: ABRIR MODAL CÉLULA (CRIAR)
   const handleAbrirCriarReuniao = () => {
     setItemEditandoReuniao(null);
     setDataReuniao(new Date().toISOString().split('T')[0]);
@@ -529,7 +537,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalNovaReuniao(true);
   };
 
-  // AÇÃO 7: ABRIR MODAL CÉLULA (EDITAR)
   const handleAbrirEditarReuniao = (item: any) => {
     setItemEditandoReuniao(item);
     setDataReuniao(item.data_reuniao || new Date().toISOString().split('T')[0]);
@@ -539,7 +546,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setModalNovaReuniao(true);
   };
 
-  // AÇÃO 8: SALVAR / ATUALIZAR REUNIÃO CÉLULA
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -578,7 +584,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // AÇÃO 9: EXCLUIR REUNIÃO CÉLULA
   const handleExcluirReuniao = async (id: any) => {
     if (!window.confirm('Excluir este registro de reunião?')) return;
     try {
@@ -590,8 +595,20 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  const handleCompartilharDevocional = () => {
+    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n"${devocionalDoDia.titulo || devocionalDoDia.versiculo}"\n${devocionalDoDia.referencia}\n\n*Reflexão:*\n${devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '')}`;
+    if (navigator.share) {
+      navigator.share({
+        title: devocionalDoDia.titulo || 'Devocional Diário',
+        text: texto,
+      });
+    } else {
+      navigator.clipboard.writeText(texto);
+      alert('✨ Devocional copiado! Abra o WhatsApp para compartilhar.');
+    }
+  };
+
   return (
-    // CONTAINER BLINDADO COM ALTURA FIXA EM PIXELS MÁXIMOS E ESTABILIDADE DE VIEWPORT
     <div className="max-w-md mx-auto w-full bg-slate-100 h-[680px] max-h-[90dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
       
       {/* CABEÇALHO */}
@@ -754,10 +771,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT RESPONSIVO ESTÁVEL (FIXO INTERNO INTEGRADO) */}
+            {/* 0. CHAT RESPONSIVO ESTÁVEL */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[320px] text-xs">
-                {/* Cabeçalho do Chat */}
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
                   <div className="truncate pr-2">
                     <h3 className="font-bold text-xs truncate">💬 Chat & Comunicação</h3>
@@ -776,7 +792,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* Seletor Rápido de Contato Funcional */}
                 <div className="bg-slate-50 border-b p-2 shrink-0">
                   <select
                     className="w-full border rounded-xl p-2 text-xs bg-white font-bold text-slate-800 outline-none cursor-pointer shadow-sm"
@@ -800,7 +815,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </select>
                 </div>
 
-                {/* Área de Mensagens com scroll próprio */}
                 <div className="flex-1 overflow-y-auto p-2.5 space-y-2 bg-slate-50/50 min-h-0">
                   {mensagensChat.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-400 py-4">
@@ -827,7 +841,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* Caixa de Input Fixa */}
                 <form onSubmit={handleEnviarMensagemChat} className="p-2 border-t bg-white flex gap-2 shrink-0">
                   <input
                     type="text"
@@ -1095,7 +1108,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 5. ABA CADASTRO EM ETAPAS (SEQUENCIAL) */}
+            {/* 5. ABA CADASTRO EM ETAPAS */}
             {subAbaApp === 'cadastro' && (
               <div className="bg-white p-3.5 rounded-2xl border shadow-sm space-y-3 text-xs">
                 <div className="border-b pb-1.5 flex justify-between items-center">
@@ -1119,7 +1132,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </div>
                 ) : (
                   <form onSubmit={handleFinalizarCadastroUnico} className="space-y-2.5">
-                    {/* ETAPA 1: DADOS BÁSICOS */}
+                    {/* ETAPA 1 */}
                     {etapaCadastro === 1 && (
                       <div className="space-y-2.5">
                         <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">1️⃣ Dados Pessoais Básicos</h4>
@@ -1181,7 +1194,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     )}
 
-                    {/* ETAPA 2: ENDEREÇO */}
+                    {/* ETAPA 2 */}
                     {etapaCadastro === 2 && (
                       <div className="space-y-2.5">
                         <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">2️⃣ Endereço Residencial</h4>
@@ -1236,7 +1249,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     )}
 
-                    {/* ETAPA 3: DADOS ECLESIÁSTICOS & FINALIZAÇÃO */}
+                    {/* ETAPA 3 */}
                     {etapaCadastro === 3 && (
                       <div className="space-y-2.5">
                         <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">3️⃣ Dados Eclesiásticos & Finalização</h4>
@@ -1317,32 +1330,56 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             )}
 
-            {/* 7. ABA DEVOCIONAL (DINÂMICO DO SUPABASE) */}
+            {/* 7. ABA DEVOCIONAL (DINÂMICO E COMPLETO COM SUPABASE) */}
             {subAbaApp === 'devocional' && (
               <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
                 <div className="border-b pb-1.5 flex justify-between items-center">
-                  <h3 className="font-black text-blue-900 text-sm">📖 Devocional Diário</h3>
+                  <h3 className="font-black text-blue-900 text-sm flex items-center gap-1.5">
+                    📖 Devocional Diário
+                  </h3>
                   <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
                     {devocionalDoDia.data}
                   </span>
                 </div>
 
-                <div className="space-y-2 bg-gradient-to-br from-blue-900 to-indigo-950 text-white p-3.5 rounded-2xl shadow">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300">Palavra do Dia</span>
-                  <h4 className="font-black text-sm text-yellow-300">"{devocionalDoDia.versiculo}"</h4>
-                  <p className="text-[10px] text-blue-100 italic">{devocionalDoDia.referencia}</p>
-                </div>
+                <div className="space-y-2 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 text-white p-4 rounded-2xl shadow-inner">
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
+                    PALAVRA DO DIA
+                  </span>
+                  
+                  {devocionalDoDia.titulo && (
+                    <h4 className="font-bold text-sm text-white leading-snug">
+                      "{devocionalDoDia.titulo}"
+                    </h4>
+                  )}
 
-                <div className="space-y-1.5 text-slate-700 leading-relaxed">
-                  <strong className="block text-blue-900 font-bold text-[11px]">Reflexão:</strong>
-                  <p className="text-[11px] whitespace-pre-wrap">
-                    {devocionalDoDia.reflexao}
+                  <p className="text-xs font-semibold text-blue-200">
+                    "{devocionalDoDia.versiculo}"
+                  </p>
+
+                  <p className="text-[10px] text-blue-300 italic font-medium">
+                    {devocionalDoDia.referencia}
                   </p>
                 </div>
 
-                <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-center font-medium text-[10px]">
-                  ✨ Compartilhe esta palavra com alguém hoje e leve esperança!
+                <div className="space-y-2 text-slate-700 leading-relaxed pt-1">
+                  <strong className="block text-slate-800 font-bold text-[11px]">
+                    Reflexão:
+                  </strong>
+                  
+                  <div 
+                    className="text-[11px] whitespace-pre-wrap text-slate-600 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: devocionalDoDia.reflexao }}
+                  />
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleCompartilharDevocional}
+                  className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                >
+                  ✨ Compartilhe esta palavra com alguém hoje e leve esperança!
+                </button>
               </div>
             )}
           </>

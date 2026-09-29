@@ -455,6 +455,13 @@ export default function App() {
       return;
     }
 
+    if (!password || password.length < 6) {
+      alert('⚠️ A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    const emailLimpo = email.trim().toLowerCase();
+
     const { count, error: countError } = await supabase
       .from('usuarios')
       .select('*', { count: 'exact', head: true })
@@ -464,7 +471,7 @@ export default function App() {
     const perfilInicial = isPrimeiro ? 'administrador' : 'comum';
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
+      email: emailLimpo,
       password,
     });
 
@@ -475,11 +482,18 @@ export default function App() {
 
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
+    if (!authUserId) {
+      alert('⚠️ Cadastro realizado, mas o Supabase exigiu confirmação por e-mail ou gerou sessão pendente. Verifique sua caixa de entrada ou faça login.');
+      setIsLogin(true);
+      return;
+    }
+
+    // Cria o registo na tabela pública 'usuarios'
     const { data: novoUsuario, error: profileError } = await supabase.from('usuarios').insert([
       {
-        auth_user_id: authUserId || null,
-        email: email.trim().toLowerCase(),
-        nome_usuario: nomeUsuario,
+        auth_user_id: authUserId,
+        email: emailLimpo,
+        nome_usuario: nomeUsuario.trim(),
         codigo_igreja: codigoIgreja.toUpperCase().trim(),
         perfil: perfilInicial,
         ativo: true,
@@ -502,10 +516,16 @@ export default function App() {
       await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
     }
 
-    alert(isPrimeiro 
-      ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
-      : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados (apenas App Mobile ativo) até que o Administrador altere as permissões.');
-    setIsLogin(true);
+    // Se o Supabase retornou sessão imediata, já entra direto no sistema!
+    if (authData.session) {
+      setSession(authData.session);
+      alert(isPrimeiro 
+        ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+        : '👤 Conta criada e logada com sucesso!');
+    } else {
+      alert('✅ Conta criada com sucesso! Por favor, faça login com suas credenciais.');
+      setIsLogin(true);
+    }
   };
 
   const handleCompletarPerfil = async (e: React.FormEvent) => {

@@ -165,13 +165,22 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const carregarMembrosChat = useCallback(async () => {
     try {
-      let membros: any[] = [];
-      const resMembers = await supabase.from('members').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-      if (resMembers.data && resMembers.data.length > 0) {
-        membros = resMembers.data;
+      let membrosEncontrados: any[] = [];
+      
+      const { data: resMembers, error: errMembers } = await supabase
+        .from('members')
+        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+        
+      if (!errMembers && resMembers && resMembers.length > 0) {
+        membrosEncontrados = resMembers;
       } else {
-        const resMembros = await supabase.from('membros').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-        if (resMembros.data) membros = resMembros.data;
+        const { data: resMembros, error: errMembros } = await supabase
+          .from('membros')
+          .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+          
+        if (!errMembros && resMembros) {
+          membrosEncontrados = resMembros;
+        }
       }
 
       const { data: mensagens } = await supabase
@@ -179,14 +188,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .select('sender, recipient_id, created_at')
         .order('created_at', { ascending: false });
 
-      if (membros && membros.length > 0) {
+      if (membrosEncontrados.length > 0) {
         const ultimaConversaMap = new Map<string, string>();
         if (mensagens) {
           mensagens.forEach((msg) => {
             const outroEmail = msg.sender?.trim().toLowerCase();
             const recipientId = msg.recipient_id;
             
-            membros.forEach((m) => {
+            membrosEncontrados.forEach((m) => {
               const matchEmail = m.email?.trim().toLowerCase() === outroEmail;
               const matchId = m.id === recipientId;
               if ((matchEmail || matchId) && !ultimaConversaMap.has(m.id)) {
@@ -196,7 +205,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           });
         }
 
-        const membrosOrdenados = [...membros].sort((a, b) => {
+        const membrosOrdenados = [...membrosEncontrados].sort((a, b) => {
           const dataA = ultimaConversaMap.get(a.id) ? new Date(ultimaConversaMap.get(a.id)!).getTime() : 0;
           const dataB = ultimaConversaMap.get(b.id) ? new Date(ultimaConversaMap.get(b.id)!).getTime() : 0;
           if (dataA !== dataB) return dataB - dataA;
@@ -209,7 +218,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         setListaMembrosChat([]);
       }
     } catch (err) {
-      console.error('Erro ao carregar membros:', err);
+      console.error('Erro crítico ao carregar membros do chat:', err);
       setListaMembrosChat([]);
     }
   }, [emailUsuario]);
@@ -253,7 +262,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v21')
+        .channel('chat_realtime_mobile_v22')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -637,7 +646,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const handleCompartilharDevocional = () => {
     const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️️ *Por:* ${devocionalDoDia.autor}`;
+    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️ *Por:* ${devocionalDoDia.autor}`;
 
     if (navigator.share) {
       navigator.share({

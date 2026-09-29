@@ -110,7 +110,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [comentariosCelula, setComentariosCelula] = useState('');
 
   const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
-  const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
+  const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null); // null = Todos os Membros (Broadcast)
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
   const [novaMensagemChat, setNovaMensagemChat] = useState('');
 
@@ -211,7 +211,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v2')
+        .channel('chat_realtime_mobile_v3')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -362,6 +362,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
     } catch (err: any) {
       alert('Erro ao enviar mensagem: ' + err.message);
+    }
+  };
+
+  const handleExcluirMensagemChat = async (id: string) => {
+    if (!window.confirm('Deseja excluir esta mensagem?')) return;
+    try {
+      const { error } = await supabase.from('chat_mensagens').delete().eq('id', id);
+      if (error) throw error;
+      carregarMensagensChat();
+    } catch (err: any) {
+      alert('Erro ao excluir mensagem: ' + err.message);
     }
   };
 
@@ -799,7 +810,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   return (
-    <div className="max-w-md mx-auto w-full bg-slate-100 h-[680px] max-h-[90dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
+    <div className="max-w-4xl mx-auto w-full bg-slate-100 h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
       
       {/* CABEÇALHO */}
       <div className="bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0">
@@ -817,138 +828,134 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
         {/* BOTÕES DE NAVEGAÇÃO */}
         <div className="space-y-1.5 pt-0.5">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               type="button"
               onClick={() => setSubAbaApp('chat')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'chat' 
                   ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
               }`}
             >
-              <span className="text-lg">💬</span>
+              <span className="text-base">💬</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Chat Geral</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Mensagens e avisos</p>
+                <p className="font-black truncate text-[11px]">Chat Geral</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Mensagens</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('minha_agenda')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'minha_agenda' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">📅</span>
+              <span className="text-base">📅</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Minha Agenda</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Compromissos e alarmes</p>
+                <p className="font-black truncate text-[11px]">Agenda</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Compromissos</p>
               </div>
             </button>
-          </div>
 
-          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setSubAbaApp('perfil')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'perfil' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">👤</span>
+              <span className="text-base">👤</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Meu Perfil</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Dados e endereço</p>
+                <p className="font-black truncate text-[11px]">Meu Perfil</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Dados</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('celula')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'celula' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">🏡</span>
+              <span className="text-base">🏡</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Minha Célula</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Encontros e grupo</p>
+                <p className="font-black truncate text-[11px]">Célula</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Encontros</p>
               </div>
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-4 gap-1.5">
             <button
               type="button"
               onClick={() => setSubAbaApp('igreja')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'igreja' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">⛪</span>
+              <span className="text-base">⛪</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">A Igreja</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Endereço e redes sociais</p>
+                <p className="font-black truncate text-[11px]">A Igreja</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Endereço</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('cadastro')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'cadastro' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">📝</span>
+              <span className="text-base">📝</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Ficha Cadastro</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Formulário oficial</p>
+                <p className="font-black truncate text-[11px]">Cadastro</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Formulário</p>
               </div>
             </button>
-          </div>
 
-          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => setSubAbaApp('contribua')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'contribua' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">💖</span>
+              <span className="text-base">💖</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Contribua</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Dízimos e PIX</p>
+                <p className="font-black truncate text-[11px]">Contribua</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Dízimos</p>
               </div>
             </button>
 
             <button
               type="button"
               onClick={() => setSubAbaApp('devocional')}
-              className={`p-2 rounded-2xl transition-all flex items-center gap-2.5 cursor-pointer font-bold text-xs shadow-sm ${
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
                 subAbaApp === 'devocional' 
                   ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
                   : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
               }`}
             >
-              <span className="text-lg">📖</span>
+              <span className="text-base">📖</span>
               <div className="text-left truncate">
-                <p className="font-black truncate">Devocional</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Palavra diária</p>
+                <p className="font-black truncate text-[11px]">Devocional</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">Palavra</p>
               </div>
             </button>
           </div>
@@ -961,98 +968,148 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM REALTIME */}
+            {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP DESKTOP) */}
             {subAbaApp === 'chat' && (
-              <div className="bg-slate-200 rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[340px] text-xs">
-                <div className="bg-[#005e54] text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
-                  <div className="truncate pr-2">
-                    <h3 className="font-bold text-xs truncate flex items-center gap-1.5">💬 WhatsApp da Igreja</h3>
-                    <p className="text-[9px] text-emerald-100 truncate">
-                      {membroSelecionadoChat ? `Conversa com: ${membroSelecionadoChat.nome}` : 'Transmissão Geral (Broadcast)'}
-                    </p>
+              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
+                
+                {/* COLUNA ESQUERDA: LISTA DE MEMBROS E BROADCAST */}
+                <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
+                  <div className="p-2.5 bg-slate-100 border-b shrink-0">
+                    <h3 className="font-black text-slate-800 text-xs">💬 Membros e Status</h3>
+                    <p className="text-[9px] text-slate-500">Clique para iniciar conversa</p>
                   </div>
-                  {membroSelecionadoChat && (
-                    <button
-                      type="button"
+
+                  <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
+                    {/* Opção Broadcast Geral */}
+                    <div
                       onClick={() => setMembroSelecionadoChat(null)}
-                      className="text-[9px] bg-emerald-900 hover:bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-700 shrink-0 cursor-pointer font-medium"
+                      className={`p-2 rounded-xl cursor-pointer transition flex items-center gap-2 ${
+                        !membroSelecionadoChat ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
+                      }`}
                     >
-                      ⬅️ Voltar Geral
-                    </button>
-                  )}
-                </div>
-
-                <div className="bg-white border-b p-2 shrink-0 space-y-1.5 shadow-sm">
-                  <select
-                    className="w-full border rounded-xl p-2 text-xs bg-slate-50 font-bold text-slate-800 outline-none cursor-pointer shadow-inner"
-                    value={membroSelecionadoChat ? membroSelecionadoChat.id : 'broadcast'}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === 'broadcast') {
-                        setMembroSelecionadoChat(null);
-                      } else {
-                        const membroEncontrado = listaMembrosChat.find((m) => String(m.id) === String(val));
-                        setMembroSelecionadoChat(membroEncontrado || null);
-                      }
-                    }}
-                  >
-                    <option value="broadcast">📢 Transmissão para Todos (Broadcast Geral)</option>
-                    {listaMembrosChat.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        👤 {m.nome} ({m.tipo_cadastro || 'Membro'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-[#efeae2] bg-[radial-gradient(#d1c7bd_1px,transparent_1px)] [background-size:16px_16px] min-h-0">
-                  {mensagensChat.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-500 py-6">
-                      <div className="bg-emerald-100 border border-emerald-300 text-emerald-800 p-3 rounded-2xl text-center shadow-sm max-w-[80%] space-y-1">
-                        <p className="font-bold text-xs">🔒 Mensagens protegidas</p>
-                        <p className="text-[10px]">Envie uma mensagem abaixo para iniciar a conversa!</p>
+                      <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow">
+                        📢
+                      </div>
+                      <div className="truncate">
+                        <p className="font-black text-slate-900 text-xs truncate">Todos os Membros</p>
+                        <p className="text-[9px] text-emerald-700 font-semibold truncate">Enviar para toda a rede</p>
                       </div>
                     </div>
-                  ) : (
-                    mensagensChat.map((m) => {
-                      const meuMsg = m.sender === emailUsuario;
+
+                    {/* Lista de Membros */}
+                    {listaMembrosChat.map((m) => {
+                      const selecionado = membroSelecionadoChat?.id === m.id;
                       return (
-                        <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
-                          {!meuMsg && <span className="text-[9px] font-bold text-emerald-900 px-1 mb-0.5">{m.sender}</span>}
-                          
-                          <div className={`relative px-3.5 py-2 rounded-2xl max-w-[80%] text-xs shadow-sm break-words ${
-                            meuMsg 
-                              ? 'bg-[#dcf8c6] text-slate-900 rounded-tr-none border border-[#c1e8b2]' 
-                              : 'bg-white text-slate-900 rounded-tl-none border border-slate-200 font-normal'
-                          }`}>
-                            <p className="leading-relaxed text-[12px]">{m.text}</p>
-                            <div className={`flex items-center justify-end gap-1 mt-1 select-none ${meuMsg ? 'text-[9px] text-slate-500' : 'text-[9px] text-slate-400'}`}>
-                              <span>{m.time || ''}</span>
-                              {meuMsg && <span className="text-sky-600 font-bold tracking-tighter">✓✓</span>}
+                        <div
+                          key={m.id}
+                          onClick={() => setMembroSelecionadoChat(m)}
+                          className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between gap-2 ${
+                            selecionado ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <div className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
+                              👤
+                            </div>
+                            <div className="truncate">
+                              <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
+                              <p className="text-[9px] text-slate-500 truncate">Tipo: {m.tipo_cadastro || 'Membro'}</p>
                             </div>
                           </div>
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Online"></span>
                         </div>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </div>
 
-                <form onSubmit={handleEnviarMensagemChat} className="p-2 border-t bg-[#f0f0f0] flex gap-2 items-center shrink-0 shadow">
-                  <input
-                    type="text"
-                    value={novaMensagemChat}
-                    onChange={(e) => setNovaMensagemChat(e.target.value)}
-                    placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}...` : 'Digite uma mensagem...'}
-                    className="flex-1 border border-slate-300 rounded-full px-4 py-2 text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600 transition shadow-inner"
-                  />
-                  <button
-                    type="submit"
-                    className="h-9 px-4 bg-[#005e54] hover:bg-[#004d44] text-white font-bold rounded-full shadow flex items-center justify-center cursor-pointer text-xs shrink-0 transition active:scale-95 gap-1"
-                  >
-                    <span>Enviar</span>
-                    <span>➤</span>
-                  </button>
-                </form>
+                {/* COLUNA DIREITA: JANELA DE CONVERSA */}
+                <div className="flex-1 flex flex-col bg-[#efeae2] bg-[radial-gradient(#d1c7bd_1px,transparent_1px)] [background-size:16px_16px] min-h-0">
+                  {/* Cabeçalho do Chat */}
+                  <div className="bg-[#005e54] text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
+                    <div className="truncate pr-2">
+                      <h3 className="font-bold text-xs truncate flex items-center gap-1.5">
+                        {membroSelecionadoChat ? `👤 ${membroSelecionadoChat.nome}` : '📢 Conversa Geral'}
+                      </h3>
+                      <p className="text-[9px] text-emerald-100 truncate">
+                        {membroSelecionadoChat ? `Celular: ${membroSelecionadoChat.celular_principal || 'Não informado'}` : 'Mensagem enviada para todos os membros'}
+                      </p>
+                    </div>
+                    {membroSelecionadoChat && (
+                      <button
+                        type="button"
+                        onClick={() => setMembroSelecionadoChat(null)}
+                        className="text-[9px] bg-emerald-900 hover:bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-700 shrink-0 cursor-pointer font-medium"
+                      >
+                        ⬅️ Voltar Geral
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Mensagens */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0">
+                    {mensagensChat.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center h-full text-slate-500 py-6">
+                        <div className="bg-emerald-100/90 border border-emerald-300 text-emerald-900 p-3 rounded-2xl text-center shadow-sm max-w-[80%] space-y-1">
+                          <p className="font-bold text-xs">🔒 Nenhuma mensagem ainda</p>
+                          <p className="text-[10px]">Envie uma mensagem abaixo para iniciar a conversa!</p>
+                        </div>
+                      </div>
+                    ) : (
+                      mensagensChat.map((m) => {
+                        const meuMsg = m.sender === emailUsuario;
+                        return (
+                          <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
+                            {!meuMsg && <span className="text-[9px] font-bold text-emerald-900 px-1 mb-0.5">{m.sender}</span>}
+                            
+                            <div className={`relative px-3.5 py-2 rounded-2xl max-w-[80%] text-xs shadow-sm break-words ${
+                              meuMsg 
+                                ? 'bg-[#dcf8c6] text-slate-900 rounded-tr-none border border-[#c1e8b2]' 
+                                : 'bg-white text-slate-900 rounded-tl-none border border-slate-200 font-normal'
+                            }`}>
+                              <p className="leading-relaxed text-[12px]">{m.text}</p>
+                              <div className={`flex items-center justify-end gap-1.5 mt-1 select-none ${meuMsg ? 'text-[9px] text-slate-500' : 'text-[9px] text-slate-400'}`}>
+                                <span>{m.time || ''}</span>
+                                {meuMsg && (
+                                  <>
+                                    <span className="text-sky-600 font-bold tracking-tighter">✓✓</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleExcluirMensagemChat(m.id)}
+                                      className="text-rose-600 hover:text-rose-800 ml-1 cursor-pointer font-bold"
+                                      title="Excluir mensagem"
+                                    >
+                                      🗑️
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+
+                  {/* Input de Envio */}
+                  <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-[#f0f0f0] flex gap-2 items-center shrink-0 shadow">
+                    <input
+                      type="text"
+                      value={novaMensagemChat}
+                      onChange={(e) => setNovaMensagemChat(e.target.value)}
+                      placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}...` : 'Escrever mensagem para todos os membros...'}
+                      className="flex-1 border border-slate-300 rounded-full px-4 py-2 text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600 transition shadow-inner"
+                    />
+                    <button
+                      type="submit"
+                      className="h-9 px-4 bg-[#005e54] hover:bg-[#004d44] text-white font-bold rounded-full shadow flex items-center justify-center cursor-pointer text-xs shrink-0 transition active:scale-95 gap-1"
+                    >
+                      <span>Enviar</span>
+                      <span>➤</span>
+                    </button>
+                  </form>
+                </div>
+
               </div>
             )}
 

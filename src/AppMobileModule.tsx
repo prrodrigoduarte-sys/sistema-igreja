@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
 
 interface Props {
@@ -34,11 +34,9 @@ interface Devocional {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  // Controle de Abas
   const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat'>('minha_agenda');
   const [loading, setLoading] = useState(false);
 
-  // 1. Dados do Perfil Pessoal
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
   const [fotoUrl, setFotoUrl] = useState('');
   const [rua, setRua] = useState('');
@@ -46,7 +44,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [bairro, setBairro] = useState('');
   const [cidade, setCidade] = useState('');
 
-  // 1.1 Estados do Formulário de Cadastro Único Sequencial
   const [etapaCadastro, setEtapaCadastro] = useState<1 | 2 | 3>(1);
   const [nomeMembro, setNomeMembro] = useState('');
   const [celularMembro, setCelularMembro] = useState('');
@@ -62,7 +59,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [jaCadastrado, setJaCadastrado] = useState(false);
   const [carregandoCadastro, setCarregandoCadastro] = useState(false);
 
-  // 2. Agenda Pessoal
   const [minhaAgenda, setMinhaAgenda] = useState<Compromisso[]>([]);
   const [novoTitulo, setNovoTitulo] = useState('');
   const [novaData, setNovaData] = useState(new Date().toISOString().split('T')[0]);
@@ -72,7 +68,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [modalNovaAgenda, setModalNovaAgenda] = useState(false);
   const [itemEditandoAgenda, setItemEditandoAgenda] = useState<Compromisso | null>(null);
 
-  // 3. Dados da Igreja
   const [dadosIgreja, setDadosIgreja] = useState<DadosIgreja>({
     nome_igreja: 'Sua Igreja',
     endereco_completo: 'Teófilo Otoni - MG',
@@ -81,7 +76,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     chave_pix: '',
   });
 
-  // 3.1 Devocional Dinâmico
   const [devocionalDoDia, setDevocionalDoDia] = useState<Devocional>({
     titulo: 'Carregando palavra do dia...',
     referencia: '',
@@ -91,7 +85,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     data: new Date().toLocaleDateString('pt-BR'),
   });
 
-  // Estados do Modal de Edição do Devocional
   const [modalDevocionalOpen, setModalDevocionalOpen] = useState(false);
   const [editDevData, setEditDevData] = useState(new Date().toISOString().split('T')[0]);
   const [editDevTitulo, setEditDevTitulo] = useState('');
@@ -101,12 +94,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [editDevAutor, setEditDevAutor] = useState('Pastor / Equipe Pastoral');
   const [savingDevocional, setSavingDevocional] = useState(false);
 
-  // Estados do Gerador de Stories em Imagem Real
   const [gerandoImagem, setGerandoImagem] = useState(false);
   const [modalStoryGeradoOpen, setModalStoryGeradoOpen] = useState(false);
   const [imagemStoryDataUrl, setImagemStoryDataUrl] = useState('');
 
-  // 4. Controle de Célula
   const [minhaCelula, setMinhaCelula] = useState<any>(null);
   const [participantesCelula, setParticipantesCelula] = useState<any[]>([]);
   const [reunioesCelula, setReunioesCelula] = useState<any[]>([]);
@@ -118,7 +109,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [temaEstudo, setTemaEstudo] = useState('');
   const [comentariosCelula, setComentariosCelula] = useState('');
 
-  // 5. Estados do Chat Atualizados
   const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
   const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
@@ -187,7 +177,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
-  // Consulta bidirecional corrigida para o chat privado
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -216,7 +205,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja, membroSelecionadoChat, emailUsuario, membroPerfil]);
 
-  // Realtime do Chat Integrado
   useEffect(() => {
     if (subAbaApp === 'chat') {
       carregarMembrosChat();
@@ -349,39 +337,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     carregarDadosApp();
     verificarStatusCadastro();
   }, [carregarDadosApp]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const agora = new Date();
-      const dataHoje = agora.toISOString().split('T')[0];
-      const horaAgora = agora.toTimeString().substring(0, 5);
-
-      minhaAgenda.forEach((c) => {
-        if (c.data === dataHoje && c.hora === horaAgora && !c.concluido) {
-          try {
-            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-            const osc = ctx.createOscillator();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(880, ctx.currentTime);
-            osc.connect(ctx.destination);
-            osc.start();
-            osc.stop(ctx.currentTime + 1.5);
-          } catch (e) {
-            console.log('Audio Context bloqueado pelo navegador');
-          }
-
-          if ('Notification' in window && Notification.permission === 'granted') {
-            new Notification('⏰ Lembrete de Compromisso!', {
-              body: `${c.descricao} às ${c.hora}`,
-              icon: '/icon.png',
-            });
-          }
-        }
-      });
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [minhaAgenda]);
 
   const handleEnviarMensagemChat = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1006,10 +961,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM ESTILO WHATSAPP (PADRÃO WHATS) */}
+            {/* 0. CHAT COM REALTIME */}
             {subAbaApp === 'chat' && (
               <div className="bg-slate-200 rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[340px] text-xs">
-                <div className="bg-emerald-800 text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
+                <div className="bg-[#005e54] text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
                   <div className="truncate pr-2">
                     <h3 className="font-bold text-xs truncate flex items-center gap-1.5">💬 WhatsApp da Igreja</h3>
                     <p className="text-[9px] text-emerald-100 truncate">
@@ -1050,13 +1005,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </select>
                 </div>
 
-                {/* ÁREA DE MENSAGENS COM ESTILO DE FUNDO E BALÕES WHATSAPP */}
                 <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-[#efeae2] bg-[radial-gradient(#d1c7bd_1px,transparent_1px)] [background-size:16px_16px] min-h-0">
                   {mensagensChat.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 py-6">
                       <div className="bg-emerald-100 border border-emerald-300 text-emerald-800 p-3 rounded-2xl text-center shadow-sm max-w-[80%] space-y-1">
-                        <p className="font-bold text-xs">🔒 Mensagens protegidas e criptografadas</p>
-                        <p className="text-[10px]">Envie uma mensagem abaixo para iniciar a conversa no padrão WhatsApp!</p>
+                        <p className="font-bold text-xs">🔒 Mensagens protegidas</p>
+                        <p className="text-[10px]">Envie uma mensagem abaixo para iniciar a conversa!</p>
                       </div>
                     </div>
                   ) : (
@@ -1065,12 +1019,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       return (
                         <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
                           {!meuMsg && <span className="text-[9px] font-bold text-emerald-900 px-1 mb-0.5">{m.sender}</span>}
-                          <div className={`relative px-3 py-2 rounded-xl max-w-[85%] text-xs shadow-sm break-words ${
+                          
+                          <div className={`relative px-3.5 py-2 rounded-2xl max-w-[80%] text-xs shadow-sm break-words ${
                             meuMsg 
                               ? 'bg-[#dcf8c6] text-slate-900 rounded-tr-none border border-[#c1e8b2]' 
                               : 'bg-white text-slate-900 rounded-tl-none border border-slate-200 font-normal'
                           }`}>
-                            <p className="leading-relaxed">{m.text}</p>
+                            <p className="leading-relaxed text-[12px]">{m.text}</p>
                             <div className={`flex items-center justify-end gap-1 mt-1 select-none ${meuMsg ? 'text-[9px] text-slate-500' : 'text-[9px] text-slate-400'}`}>
                               <span>{m.time || ''}</span>
                               {meuMsg && <span className="text-sky-600 font-bold tracking-tighter">✓✓</span>}
@@ -1082,7 +1037,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                {/* FORMULÁRIO DE DIGITAÇÃO WHATSAPP */}
                 <form onSubmit={handleEnviarMensagemChat} className="p-2 border-t bg-[#f0f0f0] flex gap-2 items-center shrink-0 shadow">
                   <input
                     type="text"
@@ -1093,10 +1047,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   />
                   <button
                     type="submit"
-                    className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full shadow flex items-center justify-center cursor-pointer text-sm shrink-0 transition active:scale-95"
-                    title="Enviar Mensagem"
+                    className="h-9 px-4 bg-[#005e54] hover:bg-[#004d44] text-white font-bold rounded-full shadow flex items-center justify-center cursor-pointer text-xs shrink-0 transition active:scale-95 gap-1"
                   >
-                    ➤
+                    <span>Enviar</span>
+                    <span>➤</span>
                   </button>
                 </form>
               </div>

@@ -196,15 +196,28 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     }
 
     try {
-      await supabase.from('permissoes_usuario').delete().eq('usuario_id', id);
+      // 1. Remove primeiro as permissões vinculadas ao usuário
+      const { error: permError } = await supabase
+        .from('permissoes_usuario')
+        .delete()
+        .eq('usuario_id', id);
 
-      const { error } = await supabase.from('usuarios').delete().eq('id', id);
-      if (error) throw error;
+      if (permError) {
+        console.warn('Aviso ao limpar permissões (pode não ter registos):', permError.message);
+      }
 
-      alert('🗑️ Usuário excluído com sucesso.');
+      // 2. Remove o usuário principal
+      const { error: userError } = await supabase
+        .from('usuarios')
+        .delete()
+        .eq('id', id);
+
+      if (userError) throw userError;
+
+      alert('🗑️ Utilizador excluído com sucesso.');
       carregarUsuarios();
     } catch (err: any) {
-      alert('Erro ao excluir: ' + err.message);
+      alert('Erro ao excluir utilizador: ' + err.message);
     }
   };
 

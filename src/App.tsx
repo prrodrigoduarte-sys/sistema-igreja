@@ -417,7 +417,6 @@ export default function App() {
     setPrecisaCompletarPerfil(false);
     setLoggedUser(data);
 
-    // Apenas Administrador tem acesso total automático. Líderes e Comuns seguem os checkboxes.
     if (data.perfil === 'admin' || data.perfil === 'administrador') {
       setPermissoesAtivas(['dashboard', 'app-mobile', 'chat-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
       setPrecisaCompletarCadastro(false);
@@ -492,13 +491,12 @@ export default function App() {
       return;
     }
 
-    // Se não for o primeiro (admin), cria as permissões iniciais (apenas app_mobile true, resto false)
     if (novoUsuario && !isPrimeiro) {
       const modulosList = ['dashboard', 'cadastros', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'app_mobile'];
       const permissoesIniciais = modulosList.map((mod) => ({
         usuario_id: novoUsuario.id,
         modulo: mod,
-        permitido: mod === 'app_mobile', // Apenas App Mobile liberado por defeito no cadastro comum
+        permitido: mod === 'app_mobile',
       }));
 
       await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
@@ -575,9 +573,6 @@ export default function App() {
 
       await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
     }
-
-    await carregarUsuarioEPermissoes();
-  };
 
     await carregarUsuarioEPermissoes();
   };

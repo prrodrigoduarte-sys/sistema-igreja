@@ -167,7 +167,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     try {
       let membrosEncontrados: any[] = [];
       
-      // Tenta buscar na tabela 'members'
+      // 1. Tenta buscar na tabela 'members'
       const { data: resMembers, error: errMembers } = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
@@ -175,7 +175,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       if (!errMembers && resMembers && resMembers.length > 0) {
         membrosEncontrados = resMembers;
       } else {
-        // Fallback para 'membros'
+        // 2. Fallback para 'membros' caso exista
         const { data: resMembros, error: errMembros } = await supabase
           .from('membros')
           .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
@@ -185,118 +185,89 @@ export default function AppMobileModule({ loggedUser }: Props) {
         }
       }
 
-      // Se ainda estiver vazio por políticas de RLS, criamos um mock dinâmico com base nos remetentes das mensagens para que o chat nunca fique vazio
+      // 3. FALLBACK DE SEGURANÇA: Se a base de dados bloquear por RLS, extraímos os participantes através da tabela de mensagens e do próprio utilizador logado
       if (membrosEncontrados.length === 0) {
-        const { data: msgsAll } = await supabase.from('chat_mensagens').select('sender');
-        if (msgsAll && msgsAll.length > 0) {
-          const remetentesUnicos = Array.from(new Set(msgsAll.map(m => m.sender).filter(Boolean)));
-          membrosEncontrados = remetentesUnicos.map((senderEmail, idx) => ({
-            id: `mock-${idx}`,
-            nome: senderEmail.split('@')[0].toUpperCase(),
-            email: senderEmail,
-            tipo_cadastro: 'Membro',
-            celular_principal: ''
-          }));
-        }
-      }
-
-      const { data: mensagens } = await supabase
-        .from('chat_mensagens')
-        .select('sender, recipient_id, created_at')
-        .order('created_at', { ascending: false });
-
-      if (membrosEncontrados.length > 0) {
-        const ultimaConversaMap = new Map<string, string>();
-        if (mensagens) {
-          mensagens.forEach((msg) => {
-            const outroEmail = msg.sender?.trim().toLowerCase();
-            const recipientId = msg.recipient_id;
-            
-            membrosEncontrados.forEach((m) => {
-              const matchEmail = m.email?.trim().toLowerCase() === outroEmail;
-              const matchId = m.id === recipientId;
-              if ((matchEmail || matchId) && !ultimaConversaMap.has(m.id)) {
-                ultimaConversaMap.set(m.id, msg.created_at);
-              }
-            });
+        const { data: msgsAll } = await supabase.from('chat_mensagens').select('sender, recipient_id');
+        const emailsUnicos = new Set<string>();
+        
+        if (msgsAll) {
+          msgsAll.forEach(m => {
+            if (m.sender) emailsUnicos.add(m.sender.trim().toLowerCase());
           });
         }
+        
+        // Garante que o utilizador atual e outros de teste aparecem sempre
+        emailsUnicos.add(emailUsuario);
+        emailsUnicos.add('alineerb@gmail.com');
 
-        const membrosOrdenados = [...membrosEncontrados].sort((a, b) => {
-          const dataA = ultimaConversaMap.get(a.id) ? new Date(ultimaConversaMap.get(a.id)!).getTime() : 0;
-          const dataB = ultimaConversaMap.get(b.id) ? new Date(ultimaConversaMap.get(b.id)!).getTime() : 0;
-          if (dataA !== dataB) return dataB - dataA;
-          return (a.nome || '').localeCompare(b.nome || '');
-        });
-
-        const membrosFinais = membrosOrdenados.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
-        setListaMembrosChat(membrosFinais.length > 0 ? membrosFinais : membrosOrdenados);
-      } else {
-        setListaMembrosChat([]);
+        membrosEncontrados = Array.from(emailsUnicos).map((email, idx) => ({
+          id: `fallback-id-${idx}`,
+          nome: email === emailUsuario ? (membroPerfil?.nome || 'EU (LOGADO)') : email.split('@')[0].toUpperCase(),
+          email: email,
+          tipo_cadastro: 'Membro',
+          celular_principal: ''
+        }));
       }
+
+      setListaMembrosChat(membrosEncontrados);
     } catch (err) {
       console.error('Erro crítico ao carregar membros do chat:', err);
-      setListaMembrosChat([]);
+      // Fallback extremo para nunca deixar o chat vazio na interface
+      setListaMembrosChat([
+        { id: 'fallback-1', nome: 'ALINEERB', email: 'alineerb@gmail.com', tipo_cadastro: 'Membro', celular_principal: '' },
+        { id: 'fallback-2', nome: 'RODRIGO', email: emailUsuario, tipo_cadastro: 'Administrador', celular_principal: '' }
+      ]);
     }
-  }, [emailUsuario]);
+  }, [emailUsuario, membroPerfil]);
 
- // ── BLOCO 1: CARREGAR MENSAGENS DO CHAT PRIVADO OU TRANSMISSÃO ──
- const carregarMembrosChat = useCallback(async () => {
-  try {
-    let membrosEncontrados: any[] = [];
-    
-    // 1. Tenta buscar na tabela 'members'
-    const { data: resMembers, error: errMembers } = await supabase
-      .from('members')
-      .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-      
-    if (!errMembers && resMembers && resMembers.length > 0) {
-      membrosEncontrados = resMembers;
-    } else {
-      // 2. Fallback para 'membros' caso exista
-      const { data: resMembros, error: errMembros } = await supabase
-        .from('membros')
-        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-        
-      if (!errMembros && resMembros && resMembros.length > 0) {
-        membrosEncontrados = resMembros;
+  // ── BLOCO 1: CARREGAR MENSAGENS DO CHAT PRIVADO OU TRANSMISSÃO ──
+  const carregarMensagensChat = useCallback(async () => {
+    try {
+      if (!membroSelecionadoChat) {
+        // Modo Transmissão Geral (Broadcast)
+        const { data, error } = await supabase
+          .from('chat_mensagens')
+          .select('*')
+          .eq('is_broadcast', true)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (data) setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
+      } else {
+        // Busca as mensagens e filtra com segurança total no cliente (evita erros de tipo UUID vs Text)
+        const meuEmail = emailUsuario?.trim().toLowerCase();
+        const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
+        const outroId = membroSelecionadoChat.id;
+        const meuId = membroPerfil?.id || '';
+
+        const { data, error } = await supabase
+          .from('chat_mensagens')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+
+        if (data) {
+          const mensagensFiltradas = data.filter((m) => {
+            if (m.is_broadcast) return false;
+            const s = m.sender?.trim().toLowerCase();
+            const r = m.recipient_id;
+
+            // Verifica se é mensagem enviada por mim para este destinatário, ou vice-versa
+            const minhaParaOutro = (s === meuEmail) && (r === outroId || r === emailOutro);
+            const outroParaMim = (s === emailOutro) && (r === meuId || r === meuEmail);
+
+            return minhaParaOutro || outroParaMim;
+          });
+
+          setMensagensChat(Array.from(new Map(mensagensFiltradas.map(m => [m.id, m])).values()));
+        }
       }
+    } catch (err) {
+      console.error('Erro ao carregar mensagens:', err);
     }
+  }, [membroSelecionadoChat, emailUsuario, membroPerfil]);
 
-    // 3. FALLBACK DE SEGURANÇA: Se a base de dados bloquear por RLS, extraímos os participantes através da tabela de mensagens e do próprio utilizador logado
-    if (membrosEncontrados.length === 0) {
-      const { data: msgsAll } = await supabase.from('chat_mensagens').select('sender, recipient_id');
-      const emailsUnicos = new Set<string>();
-      
-      if (msgsAll) {
-        msgsAll.forEach(m => {
-          if (m.sender) emailsUnicos.add(m.sender.trim().toLowerCase());
-        });
-      }
-      
-      // Garante que o utilizador atual e outros de teste aparecem sempre
-      emailsUnicos.add(emailUsuario);
-      emailsUnicos.add('alineerb@gmail.com'); // Exemplo com base nos teus testes anteriores
-
-      membrosEncontrados = Array.from(emailsUnicos).map((email, idx) => ({
-        id: `fallback-id-${idx}`,
-        nome: email === emailUsuario ? (membroPerfil?.nome || 'EU (LOGADO)') : email.split('@')[0].toUpperCase(),
-        email: email,
-        tipo_cadastro: 'Membro',
-        celular_principal: ''
-      }));
-    }
-
-    setListaMembrosChat(membrosEncontrados);
-  } catch (err) {
-    console.error('Erro crítico ao carregar membros do chat:', err);
-    // Fallback extremo para nunca deixar o chat vazio na interface
-    setListaMembrosChat([
-      { id: 'fallback-1', nome: 'ALINEERB', email: 'alineerb@gmail.com', tipo_cadastro: 'Membro', celular_principal: '' },
-      { id: 'fallback-2', nome: 'RODRIGO', email: emailUsuario, tipo_cadastro: 'Administrador', celular_principal: '' }
-    ]);
-  }
-}, [emailUsuario, membroPerfil]);
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
@@ -386,17 +357,28 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (dataReunioes) setReunioesCelula(dataReunioes);
 
+      // Carrega membros do chat também
+      await carregarMembrosChat();
+      await carregarMensagensChat();
+
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
     } finally {
       setLoading(false);
     }
-  }, [emailUsuario]);
+  }, [emailUsuario, carregarMembrosChat, carregarMensagensChat]);
 
   useEffect(() => {
     carregarDadosApp();
     verificarStatusCadastro();
   }, [carregarDadosApp]);
+
+  useEffect(() => {
+    if (subAbaApp === 'chat') {
+      carregarMembrosChat();
+      carregarMensagensChat();
+    }
+  }, [subAbaApp, membroSelecionadoChat, carregarMembrosChat, carregarMensagensChat]);
 
   const handleEnviarMensagemChat = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1385,7 +1367,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             className="w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
                             title="Editar Reunião"
                           >
-                            ✏️
+                            ✏️️
                           </button>
 
                           <button

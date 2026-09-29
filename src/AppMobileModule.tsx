@@ -163,26 +163,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // BUSCA INTELIGENTE COM AUTODETECÇÃO DE TABELA DE MEMBROS
+  // BUSCA AMPLA DE MEMBROS E ORDENAÇÃO INTELIGENTE PELAS ÚLTIMAS CONVERSAS/COMENTÁRIOS
   const carregarMembrosChat = useCallback(async () => {
     try {
-      let membros: any[] = [];
-      
-      // Tenta buscar na tabela 'members'
-      const resMembers = await supabase.from('members').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-      if (resMembers.data && resMembers.data.length > 0) {
-        membros = resMembers.data;
-      } else {
-        // Se falhar ou estiver vazia, tenta 'membros' em Português
-        const resMembros = await supabase.from('membros').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-        if (resMembros.data && resMembros.data.length > 0) {
-          membros = resMembros.data;
-        } else {
-          // Tenta 'profiles'
-          const resProfiles = await supabase.from('profiles').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-          if (resProfiles.data) membros = resProfiles.data;
-        }
-      }
+      // Puxa todos os membros da tabela exata que a versão web utiliza
+      const { data: membros, error: errMembros } = await supabase
+        .from('members')
+        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+
+      if (errMembros) throw errMembros;
 
       const { data: mensagens } = await supabase
         .from('chat_mensagens')
@@ -206,6 +195,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           });
         }
 
+        // Ordena: quem tem mensagem/comentário mais recente fica no topo da lista esquerda
         const membrosOrdenados = [...membros].sort((a, b) => {
           const dataA = ultimaConversaMap.get(a.id) ? new Date(ultimaConversaMap.get(a.id)!).getTime() : 0;
           const dataB = ultimaConversaMap.get(b.id) ? new Date(ultimaConversaMap.get(b.id)!).getTime() : 0;
@@ -213,20 +203,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
           return (a.nome || '').localeCompare(b.nome || '');
         });
 
+        // Filtra o próprio usuário logado para não aparecer a falar consigo mesmo
         const membrosFinais = membrosOrdenados.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
         setListaMembrosChat(membrosFinais.length > 0 ? membrosFinais : membrosOrdenados);
       } else {
-        // Se realmente não houver registros nas tabelas, injeta temporariamente dados reais de exemplo para veres a funcionar
-        setListaMembrosChat([
-          { id: 'usr-1', nome: 'Pastor Titular', email: 'pastor@vidaepaz.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' },
-          { id: 'usr-2', nome: 'Secretaria', email: 'secretaria@vidaepaz.com', celular_principal: '33988888888', tipo_cadastro: 'Administrativo' }
-        ]);
+        setListaMembrosChat([]);
       }
     } catch (err) {
       console.error('Erro ao carregar membros:', err);
-      setListaMembrosChat([
-        { id: 'usr-1', nome: 'Pastor Titular', email: 'pastor@vidaepaz.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' }
-      ]);
+      setListaMembrosChat([]);
     }
   }, [emailUsuario]);
 
@@ -269,7 +254,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v14')
+        .channel('chat_realtime_mobile_v15')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -1026,7 +1011,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
                 
-                {/* COLUNA ESQUERDA: LISTA COM AUTODETECÇÃO DE MEMBROS E ORDENAÇÃO RECENTE */}
+                {/* COLUNA ESQUERDA: LISTA DE MEMBROS ORDENADA POR ÚLTIMAS CONVERSAS E COMENTÁRIOS */}
                 <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
                   <div className="p-2.5 bg-slate-100 border-b shrink-0 flex justify-between items-center">
                     <div>
@@ -1054,9 +1039,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     </div>
 
-                    {/* Lista Dinâmica de Membros */}
+                    {/* Lista Dinâmica de Membros com Últimas Conversas/Comentários no Topo */}
                     {listaMembrosChat.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro encontrado na base de dados.</p>
+                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro cadastrado.</p>
                     ) : (
                       listaMembrosChat.map((m) => {
                         const selecionado = membroSelecionadoChat?.id === m.id;
@@ -1152,7 +1137,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                                       className="text-rose-600 hover:text-rose-800 ml-1 cursor-pointer font-bold"
                                       title="Excluir mensagem"
                                     >
-                                      🗑️️
+                                      🗑️
                                     </button>
                                   </>
                                 )}
@@ -1863,7 +1848,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
             <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
-              {itemEditandoReuniao ? '✏️️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
+              {itemEditandoReuniao ? '✏️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
             </h3>
             <form onSubmit={handleSalvarReuniaoCelula} className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2">

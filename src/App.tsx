@@ -235,57 +235,6 @@ export default function App() {
     // Login efetuado com sucesso, entra direto no sistema!
     setSession(authData.session);
   };
-    const { data: regTentativa } = await supabase
-      .from('tentativas_login')
-      .select('*')
-      .eq('email', emailLimpo)
-      .maybeSingle();
-
-    const teveTresErros = (regTentativa?.tentativas || 0) >= 3;
-
-    if (teveTresErros) {
-      dispararVerificacao2FA('Múltiplas tentativas incorretas de senha (3x)', authData.session);
-    } else {
-      setSession(authData.session);
-    }
-  };
-
-  const handleConfirmar2FA = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (codigoDigitado2FA.trim() !== codigoGerado2FA) {
-      alert('❌ Código incorreto! Verifique e tente novamente.');
-      return;
-    }
-
-    const emailLimpo = email.trim().toLowerCase();
-    const deviceToken = getOrCreateDeviceToken();
-
-    await supabase.from('tentativas_login').upsert(
-      [{ email: emailLimpo, tentativas: 0, updated_at: new Date().toISOString() }],
-      { onConflict: 'email' }
-    );
-
-    if (usuarioPendente2FA?.user?.id) {
-      await supabase.from('dispositivos_autorizados').upsert(
-        [
-          {
-            usuario_id: usuarioPendente2FA.user.id,
-            email: emailLimpo,
-            device_token: deviceToken,
-            nome_dispositivo: navigator.userAgent.substring(0, 50),
-            ultimo_acesso: new Date().toISOString(),
-          },
-        ],
-        { onConflict: 'usuario_id,device_token' }
-      );
-    }
-
-    alert('✅ Dispositivo verificado e autorizado com sucesso!');
-    setExigir2FA(false);
-    setCodigoDigitado2FA('');
-    setSession(usuarioPendente2FA);
-  };
 
   const gerarNovoQrCodeTemporario = async () => {
     if (!isAdmin) {
@@ -294,7 +243,6 @@ export default function App() {
     }
     if (!loggedUser) return;
     setGerandoQr(true);
-
     try {
       const tokenUnico = Math.random().toString(36).substring(2) + Date.now().toString(36);
       const dataExpiracao = new Date(new Date().getTime() + 6 * 60 * 60 * 1000).toISOString();

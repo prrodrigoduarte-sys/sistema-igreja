@@ -110,7 +110,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [comentariosCelula, setComentariosCelula] = useState('');
 
   const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
-  const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null); // null = Todos os Membros (Broadcast)
+  const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
   const [novaMensagemChat, setNovaMensagemChat] = useState('');
 
@@ -167,8 +167,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
     try {
       const { data } = await supabase
         .from('members')
-        .select('id, nome, email, celular_principal, tipo_cadastro')
+        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url, ultima_interacao, tem_nao_lida')
         .eq('codigo_igreja', codigoIgreja)
+        .order('ultima_interacao', { ascending: false, nullsFirst: false })
         .order('nome', { ascending: true });
 
       if (data) setListaMembrosChat(data);
@@ -211,7 +212,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v3')
+        .channel('chat_realtime_mobile_v4')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -222,6 +223,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 if (prev.some((m) => m.id === nova.id)) return prev;
                 return [...prev, nova];
               });
+              carregarMembrosChat();
             }
           }
         )
@@ -968,15 +970,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP DESKTOP) */}
+            {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP RECENTES E NÃO LIDAS) */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
                 
-                {/* COLUNA ESQUERDA: LISTA DE MEMBROS E BROADCAST */}
+                {/* COLUNA ESQUERDA: LISTA DE MEMBROS E RECENTES */}
                 <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
-                  <div className="p-2.5 bg-slate-100 border-b shrink-0">
-                    <h3 className="font-black text-slate-800 text-xs">💬 Membros e Status</h3>
-                    <p className="text-[9px] text-slate-500">Clique para iniciar conversa</p>
+                  <div className="p-2.5 bg-slate-100 border-b shrink-0 flex justify-between items-center">
+                    <div>
+                      <h3 className="font-black text-slate-800 text-xs">💬 Conversas</h3>
+                      <p className="text-[9px] text-slate-500">Recentes em evidência</p>
+                    </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
@@ -990,15 +994,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow">
                         📢
                       </div>
-                      <div className="truncate">
-                        <p className="font-black text-slate-900 text-xs truncate">Todos os Membros</p>
+                      <div className="truncate flex-1">
+                        <div className="flex justify-between items-center">
+                          <p className="font-black text-slate-900 text-xs truncate">Transmissão Geral</p>
+                        </div>
                         <p className="text-[9px] text-emerald-700 font-semibold truncate">Enviar para toda a rede</p>
                       </div>
                     </div>
 
-                    {/* Lista de Membros */}
+                    {/* Lista de Membros (Ordenada por recentes / não lidas) */}
                     {listaMembrosChat.map((m) => {
                       const selecionado = membroSelecionadoChat?.id === m.id;
+                      const temNaoLida = m.tem_nao_lida;
+
                       return (
                         <div
                           key={m.id}
@@ -1007,16 +1015,32 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             selecionado ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
                           }`}
                         >
-                          <div className="flex items-center gap-2 truncate">
-                            <div className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
-                              👤
+                          <div className="flex items-center gap-2 truncate flex-1">
+                            <div className="relative">
+                              <div className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                {m.foto_url ? (
+                                  <img src={m.foto_url} alt="" className="w-full h-full rounded-full object-cover" />
+                                ) : (
+                                  '👤'
+                                )}
+                              </div>
+                              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
                             </div>
-                            <div className="truncate">
-                              <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
-                              <p className="text-[9px] text-slate-500 truncate">Tipo: {m.tipo_cadastro || 'Membro'}</p>
+
+                            <div className="truncate flex-1">
+                              <div className="flex justify-between items-center">
+                                <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
+                                {temNaoLida && (
+                                  <span className="bg-emerald-600 text-white font-black text-[9px] px-1.5 py-0.2 rounded-full shrink-0">
+                                    1
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-[9px] text-slate-500 truncate">
+                                {m.ultima_mensagem || `Tipo: ${m.tipo_cadastro || 'Membro'}`}
+                              </p>
                             </div>
                           </div>
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Online"></span>
                         </div>
                       );
                     })}
@@ -1914,7 +1938,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setModalDevocionalOpen(false)}
+                  onChange={() => setModalDevocionalOpen(false)}
                   className="w-1/2 py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs"
                 >
                   Cancelar

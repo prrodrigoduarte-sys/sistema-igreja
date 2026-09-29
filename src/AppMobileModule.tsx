@@ -187,7 +187,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
-  // Função otimizada e corrigida para consulta bidirecional no chat privado
+  // Consulta bidirecional corrigida para o chat privado
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -216,7 +216,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja, membroSelecionadoChat, emailUsuario, membroPerfil]);
 
-  // Realtime do Chat Integrado e Otimizado
+  // Realtime do Chat Integrado
   useEffect(() => {
     if (subAbaApp === 'chat') {
       carregarMembrosChat();
@@ -1006,30 +1006,30 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM REALTIME */}
+            {/* 0. CHAT COM ESTILO WHATSAPP (PADRÃO WHATS) */}
             {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[320px] text-xs">
-                <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
+              <div className="bg-slate-200 rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[340px] text-xs">
+                <div className="bg-emerald-800 text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
                   <div className="truncate pr-2">
-                    <h3 className="font-bold text-xs truncate">💬 Chat & Comunicação</h3>
-                    <p className="text-[9px] text-slate-300 truncate">
-                      {membroSelecionadoChat ? `Conversa com: ${membroSelecionadoChat.nome}` : 'Avisos para Todos (Broadcast)'}
+                    <h3 className="font-bold text-xs truncate flex items-center gap-1.5">💬 WhatsApp da Igreja</h3>
+                    <p className="text-[9px] text-emerald-100 truncate">
+                      {membroSelecionadoChat ? `Conversa com: ${membroSelecionadoChat.nome}` : 'Transmissão Geral (Broadcast)'}
                     </p>
                   </div>
                   {membroSelecionadoChat && (
                     <button
                       type="button"
                       onClick={() => setMembroSelecionadoChat(null)}
-                      className="text-[9px] bg-slate-800 hover:bg-slate-700 px-2.5 py-1 rounded-lg border border-slate-700 shrink-0 cursor-pointer"
+                      className="text-[9px] bg-emerald-900 hover:bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-700 shrink-0 cursor-pointer font-medium"
                     >
                       ⬅️ Voltar Geral
                     </button>
                   )}
                 </div>
 
-                <div className="bg-slate-50 border-b p-2 shrink-0 space-y-1.5">
+                <div className="bg-white border-b p-2 shrink-0 space-y-1.5 shadow-sm">
                   <select
-                    className="w-full border rounded-xl p-2 text-xs bg-white font-bold text-slate-800 outline-none cursor-pointer shadow-sm"
+                    className="w-full border rounded-xl p-2 text-xs bg-slate-50 font-bold text-slate-800 outline-none cursor-pointer shadow-inner"
                     value={membroSelecionadoChat ? membroSelecionadoChat.id : 'broadcast'}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -1041,7 +1041,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       }
                     }}
                   >
-                    <option value="broadcast">📢 Todos os Membros (Broadcast Geral)</option>
+                    <option value="broadcast">📢 Transmissão para Todos (Broadcast Geral)</option>
                     {listaMembrosChat.map((m) => (
                       <option key={m.id} value={m.id}>
                         👤 {m.nome} ({m.tipo_cadastro || 'Membro'})
@@ -1050,25 +1050,31 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </select>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-2.5 space-y-2 bg-slate-50/50 min-h-0">
+                {/* ÁREA DE MENSAGENS COM ESTILO DE FUNDO E BALÕES WHATSAPP */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-[#efeae2] bg-[radial-gradient(#d1c7bd_1px,transparent_1px)] [background-size:16px_16px] min-h-0">
                   {mensagensChat.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-full text-slate-400 py-4">
-                      <p className="text-xs">Nenhuma mensagem nesta conversa.</p>
-                      <p className="text-[9px]">Envie uma mensagem abaixo para iniciar!</p>
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 py-6">
+                      <div className="bg-emerald-100 border border-emerald-300 text-emerald-800 p-3 rounded-2xl text-center shadow-sm max-w-[80%] space-y-1">
+                        <p className="font-bold text-xs">🔒 Mensagens protegidas e criptografadas</p>
+                        <p className="text-[10px]">Envie uma mensagem abaixo para iniciar a conversa no padrão WhatsApp!</p>
+                      </div>
                     </div>
                   ) : (
                     mensagensChat.map((m) => {
                       const meuMsg = m.sender === emailUsuario;
                       return (
                         <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
-                          <span className="text-[9px] text-slate-400 px-1">{m.sender}</span>
-                          <div className={`p-2.5 rounded-2xl max-w-[85%] text-xs shadow-sm break-words ${
-                            meuMsg ? 'bg-blue-900 text-white rounded-tr-none' : 'bg-white text-slate-800 border rounded-tl-none font-medium'
+                          {!meuMsg && <span className="text-[9px] font-bold text-emerald-900 px-1 mb-0.5">{m.sender}</span>}
+                          <div className={`relative px-3 py-2 rounded-xl max-w-[85%] text-xs shadow-sm break-words ${
+                            meuMsg 
+                              ? 'bg-[#dcf8c6] text-slate-900 rounded-tr-none border border-[#c1e8b2]' 
+                              : 'bg-white text-slate-900 rounded-tl-none border border-slate-200 font-normal'
                           }`}>
-                            {m.text}
-                            <span className={`block text-[9px] text-right mt-1 ${meuMsg ? 'text-blue-200' : 'text-slate-400'}`}>
-                              {m.time || ''}
-                            </span>
+                            <p className="leading-relaxed">{m.text}</p>
+                            <div className={`flex items-center justify-end gap-1 mt-1 select-none ${meuMsg ? 'text-[9px] text-slate-500' : 'text-[9px] text-slate-400'}`}>
+                              <span>{m.time || ''}</span>
+                              {meuMsg && <span className="text-sky-600 font-bold tracking-tighter">✓✓</span>}
+                            </div>
                           </div>
                         </div>
                       );
@@ -1076,19 +1082,21 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   )}
                 </div>
 
-                <form onSubmit={handleEnviarMensagemChat} className="p-2 border-t bg-white flex gap-2 shrink-0">
+                {/* FORMULÁRIO DE DIGITAÇÃO WHATSAPP */}
+                <form onSubmit={handleEnviarMensagemChat} className="p-2 border-t bg-[#f0f0f0] flex gap-2 items-center shrink-0 shadow">
                   <input
                     type="text"
                     value={novaMensagemChat}
                     onChange={(e) => setNovaMensagemChat(e.target.value)}
-                    placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}...` : 'Escreva um aviso geral...'}
-                    className="flex-1 border rounded-xl px-2.5 py-1.5 text-xs outline-none bg-slate-50 focus:bg-white transition"
+                    placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}...` : 'Digite uma mensagem...'}
+                    className="flex-1 border border-slate-300 rounded-full px-4 py-2 text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600 transition shadow-inner"
                   />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs shrink-0"
+                    className="w-9 h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-full shadow flex items-center justify-center cursor-pointer text-sm shrink-0 transition active:scale-95"
+                    title="Enviar Mensagem"
                   >
-                    Enviar
+                    ➤
                   </button>
                 </form>
               </div>

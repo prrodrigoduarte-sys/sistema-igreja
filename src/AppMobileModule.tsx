@@ -77,7 +77,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   });
 
   const [devocionalDoDia, setDevocionalDoDia] = useState<Devocional>({
-    titulo: 'Carregando palavra do dia...',
+    titulo: 'A carregar palavra do dia...',
     referencia: '',
     versiculo: '',
     reflexao: 'Aguarde um momento.',
@@ -163,33 +163,26 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // BUSCA EXCLUSIVA DOS MEMBROS REAIS DA TABELA 'members' DO SUPABASE
   const carregarMembrosChat = useCallback(async () => {
     try {
-      // Consulta direta e segura por igreja
       const { data: membros, error } = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, tipo_cadastro, foto_url')
-        .eq('codigo_igreja', codigoIgreja);
+        .eq('codigo_igreja', codigoIgreja)
+        .order('nome', { ascending: true });
 
       if (error) throw error;
 
-      if (membros && membros.length > 0) {
-        setListaMembrosChat(membros);
-      } else {
-        // Fallback robusto se a tabela estiver vazia
-        setListaMembrosChat([
-          { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' },
-          { id: '2', nome: 'Secretaria da Igreja', email: 'secretaria@igreja.com', celular_principal: '33988888888', tipo_cadastro: 'Administrativo' }
-        ]);
+      if (membros) {
+        // Remove opcionalmente o próprio utilizador logado da lista para não aparecer a si próprio como destinatário
+        const membrosReais = membros.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
+        setListaMembrosChat(membrosReais.length > 0 ? membrosReais : membros);
       }
     } catch (err) {
-      console.error('Erro ao carregar membros:', err);
-      setListaMembrosChat([
-        { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' },
-        { id: '2', nome: 'Secretaria da Igreja', email: 'secretaria@igreja.com', celular_principal: '33988888888', tipo_cadastro: 'Administrativo' }
-      ]);
+      console.error('Erro ao carregar membros da base de dados:', err);
     }
-  }, [codigoIgreja]);
+  }, [codigoIgreja, emailUsuario]);
 
   const carregarMensagensChat = useCallback(async () => {
     try {
@@ -231,7 +224,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v9')
+        .channel('chat_realtime_mobile_v10')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -595,7 +588,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       } else {
         const { error } = await supabase.from('reunioes_celulas').insert([payload]);
         if (error) throw error;
-        alert('🏡 Reunião da célula registrada!');
+        alert('🏡 Reunião da célula registada!');
       }
 
       setTemaEstudo('');
@@ -609,7 +602,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   const handleExcluirReuniao = async (id: any) => {
-    if (!window.confirm('Excluir este registro de reunião?')) return;
+    if (!window.confirm('Excluir este registo de reunião?')) return;
     try {
       const { error } = await supabase.from('reunioes_celulas').delete().eq('id', id);
       if (error) throw error;
@@ -630,13 +623,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
       });
     } else {
       navigator.clipboard.writeText(texto);
-      alert('✨ Devocional copiado com sucesso! Abra o WhatsApp para compartilhar.');
+      alert('✨ Devocional copiado com sucesso! Abra o WhatsApp para partilhar.');
     }
   };
 
   const handleAbrirEditarDevocional = () => {
     setEditDevData(new Date().toISOString().split('T')[0]);
-    setEditDevTitulo(devocionalDoDia.titulo !== 'Carregando palavra do dia...' ? devocionalDoDia.titulo : '');
+    setEditDevTitulo(devocionalDoDia.titulo !== 'A carregar palavra do dia...' ? devocionalDoDia.titulo : '');
     setEditDevRef(devocionalDoDia.referencia || '');
     setEditDevVersiculo(devocionalDoDia.versiculo || '');
     setEditDevReflexao(devocionalDoDia.reflexao !== 'Aguarde um momento.' ? devocionalDoDia.reflexao : '');
@@ -814,7 +807,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       ctx.textAlign = 'center';
       
       const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-      ctx.fillText(`✍️️ ${nomeAutor}`, 540, 1710);
+      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '26px sans-serif';
@@ -987,19 +980,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
       {/* ÁREA DE CONTEÚDO */}
       <div className="p-3.5 flex-1 overflow-y-auto space-y-3 min-h-0 bg-slate-100 relative">
         {loading ? (
-          <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
+          <p className="text-center py-6 text-xs text-slate-500">A carregar dados...</p>
         ) : (
           <>
             {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP COMPLETO) */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
                 
-                {/* COLUNA ESQUERDA: LISTA DE MEMBROS E RECENTES */}
+                {/* COLUNA ESQUERDA: LISTA DE MEMBROS REAIS DA TABELA */}
                 <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
                   <div className="p-2.5 bg-slate-100 border-b shrink-0 flex justify-between items-center">
                     <div>
                       <h3 className="font-black text-slate-800 text-xs">💬 Conversas</h3>
-                      <p className="text-[9px] text-slate-500">Recentes em evidência</p>
+                      <p className="text-[9px] text-slate-500">Membros da Igreja</p>
                     </div>
                   </div>
 
@@ -1022,41 +1015,45 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     </div>
 
-                    {/* Lista de Membros Real */}
-                    {listaMembrosChat.map((m) => {
-                      const selecionado = membroSelecionadoChat?.id === m.id;
-                      return (
-                        <div
-                          key={m.id}
-                          onClick={() => setMembroSelecionadoChat(m)}
-                          className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between gap-2 ${
-                            selecionado ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate flex-1">
-                            <div className="relative">
-                              <div className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
-                                {m.foto_url ? (
-                                  <img src={m.foto_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                ) : (
-                                  '👤'
-                                )}
+                    {/* Lista Dinâmica de Membros da Tabela 'members' */}
+                    {listaMembrosChat.length === 0 ? (
+                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum outro membro cadastrado ainda.</p>
+                    ) : (
+                      listaMembrosChat.map((m) => {
+                        const selecionado = membroSelecionadoChat?.id === m.id;
+                        return (
+                          <div
+                            key={m.id}
+                            onClick={() => setMembroSelecionadoChat(m)}
+                            className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between gap-2 ${
+                              selecionado ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate flex-1">
+                              <div className="relative">
+                                <div className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                  {m.foto_url ? (
+                                    <img src={m.foto_url} alt="" className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    '👤'
+                                  )}
+                                </div>
+                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
                               </div>
-                              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-                            </div>
 
-                            <div className="truncate flex-1">
-                              <div className="flex justify-between items-center">
-                                <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
+                              <div className="truncate flex-1">
+                                <div className="flex justify-between items-center">
+                                  <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
+                                </div>
+                                <p className="text-[9px] text-slate-500 truncate">
+                                  {m.tipo_cadastro || 'Membro'}
+                                </p>
                               </div>
-                              <p className="text-[9px] text-slate-500 truncate">
-                                {m.tipo_cadastro || 'Membro'}
-                              </p>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })
+                    )}
                   </div>
                 </div>
 
@@ -1155,7 +1152,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               <div className="bg-white p-3.5 rounded-2xl shadow-sm border space-y-3 text-xs">
                 <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">✏️ Editar Meu Cadastro</h3>
                 <p className="text-[10px] text-slate-500">
-                  Você pode atualizar sua foto de perfil e seu endereço residencial.
+                  Pode atualizar a sua foto de perfil e o seu endereço residencial.
                 </p>
 
                 <form onSubmit={handleSalvarPerfil} className="space-y-2.5">
@@ -1225,7 +1222,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     <h3 className="font-black text-blue-900 text-xs flex items-center gap-1.5">
                       📅 Minha Agenda & Alarmes
                     </h3>
-                    <p className="text-[9px] text-slate-500">Seus compromissos com alerta sonoro</p>
+                    <p className="text-[9px] text-slate-500">Os seus compromissos com alerta sonoro</p>
                   </div>
                   <button
                     type="button"
@@ -1238,7 +1235,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                 {minhaAgenda.length === 0 ? (
                   <div className="p-6 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-1.5">
-                    <p className="font-bold text-slate-700 text-xs">Sua agenda está vazia.</p>
+                    <p className="font-bold text-slate-700 text-xs">A sua agenda está vazia.</p>
                     <p className="text-[10px] text-slate-500">Clique em "+ Criar" para agendar um compromisso!</p>
                   </div>
                 ) : (
@@ -1293,7 +1290,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       onClick={handleAbrirCriarReuniao}
                       className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer text-[10px]"
                     >
-                      ➕ Registrar Encontro
+                      ➕ Registar Encontro
                     </button>
                   </div>
 
@@ -1328,7 +1325,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     📋 Histórico de Encontros & Notas
                   </h4>
                   {reunioesCelula.length === 0 ? (
-                    <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registrado.</p>
+                    <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registado.</p>
                   ) : (
                     reunioesCelula.map((r) => (
                       <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
@@ -1347,7 +1344,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             className="w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
                             title="Editar Reunião"
                           >
-                            ✏️️
+                            ✏️
                           </button>
 
                           <button
@@ -1381,7 +1378,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     rel="noreferrer"
                     className="block w-full text-center py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer mt-1 text-[11px]"
                   >
-                    🗺️ Como Chegar na Igreja (GPS)
+                    🗺️ Como Chegar à Igreja (GPS)
                   </a>
                 </div>
 
@@ -1393,7 +1390,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     rel="noreferrer"
                     className="block w-full text-center py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer text-[11px]"
                   >
-                    📷 Acessar Instagram Oficial
+                    📷 Aceder ao Instagram Oficial
                   </a>
                 </div>
               </div>
@@ -1415,7 +1412,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
 
                 {carregandoCadastro ? (
-                  <p className="text-center text-xs text-slate-500 py-4">Carregando informações...</p>
+                  <p className="text-center text-xs text-slate-500 py-4">A carregar informações...</p>
                 ) : jaCadastrado && !isAdminOuLider ? (
                   <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-1">
                     <p>🔒 Dados já confirmados e salvos.</p>
@@ -1437,7 +1434,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           />
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Celular / WhatsApp *</label>
+                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Telemóvel / WhatsApp *</label>
                           <input
                             type="text"
                             value={celularMembro}
@@ -1474,7 +1471,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                         <button
                           type="button"
                           onClick={() => {
-                            if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
+                            if (!nomeMembro.trim()) return alert('Informe o seu nome completo para continuar.');
                             setEtapaCadastro(2);
                           }}
                           className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2 text-xs"
@@ -1613,7 +1610,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
 
                 <div className="p-2.5 bg-slate-50 rounded-xl border text-[10px] text-slate-500 text-center">
-                  Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!
+                  Após realizar a sua contribuição por dízimo ou oferta, guarde o comprovativo. Deus abençoe a sua vida e a sua generosidade!
                 </div>
               </div>
             )}
@@ -1688,7 +1685,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     disabled={gerandoImagem}
                     className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
                   >
-                    📸 {gerandoImagem ? 'Carregando Cenário Profissional...' : 'Gerar Arte de Stories c/ Foto de Fundo (9:16)'}
+                    📸 {gerandoImagem ? 'A carregar cenário profissional...' : 'Gerar Arte de Stories c/ Foto de Fundo (9:16)'}
                   </button>
 
                   <button
@@ -1696,7 +1693,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     onClick={handleCompartilharDevocional}
                     className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                   >
-                    💬 Compartilhar Texto no WhatsApp
+                    💬 Partilhar Texto no WhatsApp
                   </button>
                 </div>
               </div>
@@ -1710,7 +1707,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-center p-3">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-3 flex flex-col items-center space-y-3 shadow-2xl">
             <div className="w-full flex justify-between items-center text-white px-1">
-              <span className="font-bold text-xs">📸 Sua Arte para Stories</span>
+              <span className="font-bold text-xs">📸 A sua Arte para Stories</span>
               <button
                 type="button"
                 onClick={() => setModalStoryGeradoOpen(false)}
@@ -1729,7 +1726,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             </div>
 
             <p className="text-[10px] text-amber-300 font-medium text-center">
-              💡 <strong>No celular:</strong> Pressione e segure a imagem acima para salvar direto na galeria de fotos!
+              💡 <strong>No telemóvel:</strong> Pressione e segure a imagem acima para guardar diretamente na galeria de fotos!
             </p>
 
             <div className="flex gap-2 w-full pt-1">
@@ -1738,7 +1735,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 download={`Devocional_Story_${devocionalDoDia.data.replace(/\//g, '-')}.png`}
                 className="w-full text-center py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
               >
-                📥 Baixar Imagem no Aparelho
+                📥 Descarregar Imagem no Aparelho
               </a>
             </div>
           </div>
@@ -1827,7 +1824,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
             <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
-              {itemEditandoReuniao ? '✏️️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
+              {itemEditandoReuniao ? '✏️️ Editar Encontro da Célula' : 'Registar Encontro da Célula'}
             </h3>
             <form onSubmit={handleSalvarReuniaoCelula} className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2">
@@ -1961,7 +1958,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   disabled={savingDevocional}
                   className="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs disabled:opacity-50"
                 >
-                  {savingDevocional ? 'Salvando...' : 'Salvar'}
+                  {savingDevocional ? 'A guardar...' : 'Salvar'}
                 </button>
               </div>
             </form>

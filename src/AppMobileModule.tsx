@@ -254,54 +254,39 @@ export default function AppMobileModule({ loggedUser }: Props) {
       if (error) throw error;
       if (data) setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
     } else {
-      // Chat Privado bidirecional corrigido
+      // Busca as mensagens e filtra com segurança total no cliente (evita erros de tipo UUID vs Text)
       const meuEmail = emailUsuario?.trim().toLowerCase();
       const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
       const outroId = membroSelecionadoChat.id;
-      const meuId = membroPerfil?.id || '0';
+      const meuId = membroPerfil?.id || '';
 
       const { data, error } = await supabase
         .from('chat_mensagens')
         .select('*')
-        .or(`and(sender.eq.${meuEmail},recipient_id.eq.${outroId}),and(sender.eq.${emailOutro},recipient_id.eq.${meuId}),and(sender.eq.${meuEmail},recipient_id.eq.${meuId}),and(sender.eq.${emailOutro},recipient_id.eq.${outroId})`)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
+
       if (data) {
-        setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
+        const mensagensFiltradas = data.filter((m) => {
+          if (m.is_broadcast) return false;
+          const s = m.sender?.trim().toLowerCase();
+          const r = m.recipient_id;
+
+          // Verifica se é mensagem enviada por mim para este destinatário, ou vice-versa
+          const minhaParaOutro = (s === meuEmail) && (r === outroId || r === emailOutro);
+          const outroParaMim = (s === emailOutro) && (r === meuId || r === meuEmail);
+
+          return minhaParaOutro || outroParaMim;
+        });
+
+        setMensagensChat(Array.from(new Map(mensagensFiltradas.map(m => [m.id, m])).values()));
       }
     }
   } catch (err) {
     console.error('Erro ao carregar mensagens:', err);
   }
 }, [membroSelecionadoChat, emailUsuario, membroPerfil]);
-  useEffect(() => {
-    if (subAbaApp === 'chat') {
-      carregarMembrosChat();
-      carregarMensagensChat();
-
-      const channel = supabase
-        .channel('chat_realtime_mobile_v23')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
-          (payload) => {
-            const nova = payload.new;
-            setMensagensChat((prev) => {
-              if (prev.some((m) => m.id === nova.id)) return prev;
-              return [...prev, nova];
-            });
-            carregarMembrosChat();
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [subAbaApp, carregarMembrosChat, carregarMensagensChat]);
-
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {

@@ -165,7 +165,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const carregarMembrosChat = useCallback(async () => {
     try {
-      // Consulta limpa garantindo que traga todos os membros da mesma igreja
       const { data: membros, error } = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, tipo_cadastro, foto_url')
@@ -174,10 +173,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
       if (error) throw error;
 
       if (membros && membros.length > 0) {
-        // Filtra para não duplicar o próprio utilizador na lista individual se preferir, ou mantém todos
-        setListaMembrosChat(membros);
+        // Exclui o próprio utilizador logado da lista lateral de conversas privadas para não conversar consigo mesmo
+        const membrosFiltrados = membros.filter((m) => m.email?.toLowerCase() !== emailUsuario);
+        setListaMembrosChat(membrosFiltrados.length > 0 ? membrosFiltrados : membros);
       } else {
-        // Fallback de teste se a base estiver vazia para garantir que a lista exiba itens na tela
         setListaMembrosChat([
           { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' },
           { id: '2', nome: 'Secretaria da Igreja', email: 'secretaria@igreja.com', celular_principal: '33988888888', tipo_cadastro: 'Administrativo' }
@@ -185,12 +184,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
       }
     } catch (err) {
       console.error('Erro ao carregar membros:', err);
-      // Fallback em caso de erro na query
       setListaMembrosChat([
         { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' }
       ]);
     }
-  }, [codigoIgreja]);
+  }, [codigoIgreja, emailUsuario]);
 
   const carregarMensagensChat = useCallback(async () => {
     try {
@@ -201,12 +199,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .order('created_at', { ascending: true });
 
       if (membroSelecionadoChat) {
-        const emailDestinatario = membroSelecionadoChat.email;
+        const emailDestinatario = membroSelecionadoChat.email?.trim().toLowerCase();
         const meuId = membroPerfil?.id || '0';
+        const meuEmail = emailUsuario;
 
+        // Condição exata para chat privado bidirecional sem duplicar
         query = query.or(
-          `and(sender.eq.${emailUsuario},recipient_id.eq.${membroSelecionadoChat.id}),` +
-          `and(sender.eq.${emailDestinatario},recipient_id.eq.${meuId})`
+          `and(sender.eq.${meuEmail},recipient_id.eq.${membroSelecionadoChat.id}),` +
+          `and(sender.eq.${emailDestinatario},recipient_id.eq.${meuId}),` +
+          `and(sender.eq.${emailDestinatario},is_broadcast.eq.false)`
         );
       } else {
         query = query.eq('is_broadcast', true);
@@ -214,7 +215,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       const { data, error } = await query;
       if (error) throw error;
-      if (data) setMensagensChat(data);
+      
+      if (data) {
+        // Remove duplicados pelo ID da mensagem
+        const unicas = Array.from(new Map(data.map(m => [m.id, m])).values());
+        setMensagensChat(unicas);
+      }
     } catch (err) {
       console.error('Erro ao carregar mensagens:', err);
     }
@@ -226,7 +232,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v7')
+        .channel('chat_realtime_mobile_v8')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -1089,7 +1095,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     ) : (
                       mensagensChat.map((m) => {
-                        const meuMsg = m.sender === emailUsuario;
+                        const meuMsg = m.sender?.trim().toLowerCase() === emailUsuario?.trim().toLowerCase();
                         return (
                           <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
                             {!meuMsg && <span className="text-[9px] font-bold text-emerald-900 px-1 mb-0.5">{m.sender}</span>}
@@ -1520,7 +1526,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             onClick={() => setEtapaCadastro(1)}
                             className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs"
                           >
-                            ⬅️️ Voltar
+                            ⬅️ Voltar
                           </button>
                           <button
                             type="button"

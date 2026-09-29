@@ -163,39 +163,27 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  const carregarMensagensChat = useCallback(async () => {
+  const carregarMembrosChat = useCallback(async () => {
     try {
-      if (!membroSelecionadoChat) {
-        // Modo Transmissão Geral (Broadcast)
-        const { data, error } = await supabase
-          .from('chat_mensagens')
-          .select('*')
-          .eq('is_broadcast', true)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        if (data) setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
+      let membrosEncontrados: any[] = [];
+      
+      // Tenta buscar na tabela 'members'
+      const { data: resMembers, error: errMembers } = await supabase
+        .from('members')
+        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+        
+      if (!errMembers && resMembers && resMembers.length > 0) {
+        membrosEncontrados = resMembers;
       } else {
-        // Chat Privado entre o utilizador logado e o membro selecionado
-        const meuEmail = emailUsuario?.trim().toLowerCase();
-        const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
-
-        // Busca mensagens onde (remetente = eu E destinatário = outro) OU (remetente = outro E destinatário = eu)
-        const { data, error } = await supabase
-          .from('chat_mensagens')
-          .select('*')
-          .or(`and(sender.eq.${meuEmail},recipient_id.eq.${membroSelecionadoChat.id}),and(sender.eq.${emailOutro},recipient_id.eq.${membroPerfil?.id || '0'})`)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        if (data) {
-          setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
+        // Fallback para 'membros'
+        const { data: resMembros, error: errMembros } = await supabase
+          .from('membros')
+          .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+          
+        if (!errMembros && resMembros && resMembros.length > 0) {
+          membrosEncontrados = resMembros;
         }
       }
-    }  catch (err) {
-      console.error('Erro ao carregar mensagens:', err);
-    }
-  }, [membroSelecionadoChat, emailUsuario, membroPerfil]);
 
       // Se ainda estiver vazio por políticas de RLS, criamos um mock dinâmico com base nos remetentes das mensagens para que o chat nunca fique vazio
       if (membrosEncontrados.length === 0) {
@@ -252,39 +240,41 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [emailUsuario]);
 
-  const carregarMensagensChat = useCallback(async () => {
-    try {
-      let query = supabase
+ // ── BLOCO 1: CARREGAR MENSAGENS DO CHAT PRIVADO OU TRANSMISSÃO ──
+ const carregarMensagensChat = useCallback(async () => {
+  try {
+    if (!membroSelecionadoChat) {
+      // Modo Transmissão Geral (Broadcast)
+      const { data, error } = await supabase
         .from('chat_mensagens')
         .select('*')
+        .eq('is_broadcast', true)
         .order('created_at', { ascending: true });
 
-      if (membroSelecionadoChat) {
-        const emailDestinatario = membroSelecionadoChat.email?.trim().toLowerCase();
-        const meuId = membroPerfil?.id || '0';
-        const meuEmail = emailUsuario;
-
-        query = query.or(
-          `and(sender.eq.${meuEmail},recipient_id.eq.${membroSelecionadoChat.id}),` +
-          `and(sender.eq.${emailDestinatario},recipient_id.eq.${meuId}),` +
-          `and(sender.eq.${emailDestinatario},is_broadcast.eq.false)`
-        );
-      } else {
-        query = query.eq('is_broadcast', true);
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
-      
-      if (data) {
-        const unicas = Array.from(new Map(data.map(m => [m.id, m])).values());
-        setMensagensChat(unicas);
-      }
-    } catch (err) {
-      console.error('Erro ao carregar mensagens:', err);
-    }
-  }, [membroSelecionadoChat, emailUsuario, membroPerfil]);
+      if (data) setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
+    } else {
+      // Chat Privado bidirecional corrigido
+      const meuEmail = emailUsuario?.trim().toLowerCase();
+      const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
+      const outroId = membroSelecionadoChat.id;
+      const meuId = membroPerfil?.id || '0';
 
+      const { data, error } = await supabase
+        .from('chat_mensagens')
+        .select('*')
+        .or(`and(sender.eq.${meuEmail},recipient_id.eq.${outroId}),and(sender.eq.${emailOutro},recipient_id.eq.${meuId}),and(sender.eq.${meuEmail},recipient_id.eq.${meuId}),and(sender.eq.${emailOutro},recipient_id.eq.${outroId})`)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      if (data) {
+        setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
+      }
+    }
+  } catch (err) {
+    console.error('Erro ao carregar mensagens:', err);
+  }
+}, [membroSelecionadoChat, emailUsuario, membroPerfil]);
   useEffect(() => {
     if (subAbaApp === 'chat') {
       carregarMembrosChat();

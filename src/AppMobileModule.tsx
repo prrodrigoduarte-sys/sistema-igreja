@@ -163,18 +163,21 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // BUSCA AMPLA DE MEMBROS E ORDENAÇÃO POR ÚLTIMAS MENSAGENS / COMENTÁRIOS
+  // BUSCA EXATA E ROBUSTA DE MEMBROS COM ORDENAÇÃO INTELIGENTE PELOS ÚLTIMOS COMENTÁRIOS / MENSAGENS
   const carregarMembrosChat = useCallback(async () => {
     try {
-      let membros: any[] = [];
-      const resMembers = await supabase.from('members').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-      if (resMembers.data && resMembers.data.length > 0) {
-        membros = resMembers.data;
-      } else {
-        const resMembros = await supabase.from('membros').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-        if (resMembros.data) membros = resMembros.data;
+      // Busca ampla na tabela members sem travar por código de igreja restrito se necessário
+      let { data: membros, error } = await supabase
+        .from('members')
+        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+
+      if (error || !membros || membros.length === 0) {
+        // Fallback caso a tabela venha vazia ou com outro nome
+        const resAlt = await supabase.from('membros').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+        if (resAlt.data) membros = resAlt.data;
       }
 
+      // Busca mensagens e interações recentes para mapear quem falou por último
       const { data: mensagens } = await supabase
         .from('chat_mensagens')
         .select('sender, recipient_id, created_at')
@@ -182,6 +185,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (membros && membros.length > 0) {
         const ultimaConversaMap = new Map<string, string>();
+        
         if (mensagens) {
           mensagens.forEach((msg) => {
             const outroEmail = msg.sender?.trim().toLowerCase();
@@ -197,13 +201,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
           });
         }
 
+        // ORDENAÇÃO: Quem tem mensagem ou comentário mais recente vai para o topo da lista esquerda
         const membrosOrdenados = [...membros].sort((a, b) => {
           const dataA = ultimaConversaMap.get(a.id) ? new Date(ultimaConversaMap.get(a.id)!).getTime() : 0;
           const dataB = ultimaConversaMap.get(b.id) ? new Date(ultimaConversaMap.get(b.id)!).getTime() : 0;
-          if (dataA !== dataB) return dataB - dataA;
+          
+          if (dataA !== dataB) {
+            return dataB - dataA; // Mais recente primeiro
+          }
+          // Se não houver mensagens recentes, ordena alfabeticamente por nome
           return (a.nome || '').localeCompare(b.nome || '');
         });
 
+        // Remove o próprio usuário logado da lista lateral de conversas diretas
         const membrosFinais = membrosOrdenados.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
         setListaMembrosChat(membrosFinais.length > 0 ? membrosFinais : membrosOrdenados);
       } else {
@@ -254,7 +264,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v19')
+        .channel('chat_realtime_mobile_v16')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -540,7 +550,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           .eq('id', itemEditandoAgenda.id);
 
         if (error) throw error;
-        alert('✏️ Compromisso atualizado com sucesso!');
+        alert('✏️️ Compromisso atualizado com sucesso!');
       } else {
         const { error } = await supabase.from('agenda_mobile').insert([payload]);
         if (error) throw error;
@@ -1007,11 +1017,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM DUAS COLUNAS */}
+            {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP COMPLETO) */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
                 
-                {/* COLUNA ESQUERDA: LISTA DE MEMBROS ORDENADA POR ÚLTIMAS CONVERSAS/COMENTÁRIOS */}
+                {/* COLUNA ESQUERDA: LISTA DE MEMBROS ORDENADA POR ÚLTIMAS CONVERSAS E COMENTÁRIOS */}
                 <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
                   <div className="p-2.5 bg-slate-100 border-b shrink-0 flex justify-between items-center">
                     <div>
@@ -1021,6 +1031,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </div>
 
                   <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
+                    {/* Opção Broadcast Geral */}
                     <div
                       onClick={() => setMembroSelecionadoChat(null)}
                       className={`p-2 rounded-xl cursor-pointer transition flex items-center gap-2 ${
@@ -1038,6 +1049,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     </div>
 
+                    {/* Lista de Membros com Últimas Conversas/Comentários no Topo */}
                     {listaMembrosChat.length === 0 ? (
                       <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro encontrado.</p>
                     ) : (
@@ -1079,8 +1091,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   </div>
                 </div>
 
-                {/* COLUNA DIREITA: JANELA DE MENSAGENS */}
+                {/* COLUNA DIREITA: JANELA DE CONVERSA */}
                 <div className="flex-1 flex flex-col bg-[#efeae2] bg-[radial-gradient(#d1c7bd_1px,transparent_1px)] [background-size:16px_16px] min-h-0">
+                  {/* Cabeçalho do Chat */}
                   <div className="bg-[#005e54] text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
                     <div className="truncate pr-2">
                       <h3 className="font-bold text-xs truncate flex items-center gap-1.5">
@@ -1101,6 +1114,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     )}
                   </div>
 
+                  {/* Mensagens */}
                   <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0">
                     {mensagensChat.length === 0 ? (
                       <div className="flex flex-col items-center justify-center h-full text-slate-500 py-6">
@@ -1145,6 +1159,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     )}
                   </div>
 
+                  {/* Input de Envio */}
                   <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-[#f0f0f0] flex gap-2 items-center shrink-0 shadow">
                     <input
                       type="text"

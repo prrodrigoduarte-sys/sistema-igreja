@@ -163,24 +163,48 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // BUSCA EXCLUSIVA DOS MEMBROS REAIS DA TABELA 'members' DO SUPABASE
+  // BUSCA OS MEMBROS E ORDENA PELAS ÚLTIMAS CONVERSAS/INTERAÇÕES NO CHAT
   const carregarMembrosChat = useCallback(async () => {
     try {
-      const { data: membros, error } = await supabase
-        .from('members')
-        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url')
-        .eq('codigo_igreja', codigoIgreja)
-        .order('nome', { ascending: true });
+      const [{ data: membros, error: errMembros }, { data: mensagens, error: errMsgs }] = await Promise.all([
+        supabase.from('members').select('id, nome, email, celular_principal, tipo_cadastro, foto_url').eq('codigo_igreja', codigoIgreja),
+        supabase.from('chat_mensagens').select('sender, recipient_id, created_at').eq('codigo_igreja', codigoIgreja).order('created_at', { ascending: false })
+      ]);
 
-      if (error) throw error;
+      if (errMembros) throw errMembros;
 
       if (membros) {
-        // Remove opcionalmente o próprio utilizador logado da lista para não aparecer a si próprio como destinatário
-        const membrosReais = membros.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
-        setListaMembrosChat(membrosReais.length > 0 ? membrosReais : membros);
+        // Mapeia a data da última mensagem para cada membro
+        const ultimaConversaMap = new Map<string, string>();
+        if (mensagens) {
+          mensagens.forEach((msg) => {
+            const outroEmail = msg.sender?.trim().toLowerCase();
+            const recipientId = msg.recipient_id;
+            
+            membros.forEach((m) => {
+              const matchEmail = m.email?.trim().toLowerCase() === outroEmail;
+              const matchId = m.id === recipientId;
+              if ((matchEmail || matchId) && !ultimaConversaMap.has(m.id)) {
+                ultimaConversaMap.set(m.id, msg.created_at);
+              }
+            });
+          });
+        }
+
+        // Ordena: quem tem mensagem mais recente fica em cima; quem não tem fica logo abaixo por ordem alfabética
+        const membrosOrdenados = [...membros].sort((a, b) => {
+          const dataA = ultimaConversaMap.get(a.id) ? new Date(ultimaConversaMap.get(a.id)!).getTime() : 0;
+          const dataB = ultimaConversaMap.get(b.id) ? new Date(ultimaConversaMap.get(b.id)!).getTime() : 0;
+          if (dataA !== dataB) return dataB - dataA;
+          return a.nome.localeCompare(b.nome);
+        });
+
+        // Filtra o próprio utilizador logado para não aparecer a falar consigo mesmo
+        const membrosFinais = membrosOrdenados.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
+        setListaMembrosChat(membrosFinais.length > 0 ? membrosFinais : membrosOrdenados);
       }
     } catch (err) {
-      console.error('Erro ao carregar membros da base de dados:', err);
+      console.error('Erro ao carregar conversas recentes:', err);
     }
   }, [codigoIgreja, emailUsuario]);
 
@@ -224,7 +248,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v10')
+        .channel('chat_realtime_mobile_v11')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -614,7 +638,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const handleCompartilharDevocional = () => {
     const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️️ *Por:* ${devocionalDoDia.autor}`;
+    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍ *Por:* ${devocionalDoDia.autor}`;
 
     if (navigator.share) {
       navigator.share({
@@ -987,12 +1011,12 @@ export default function AppMobileModule({ loggedUser }: Props) {
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
                 
-                {/* COLUNA ESQUERDA: LISTA DE MEMBROS REAIS DA TABELA */}
+                {/* COLUNA ESQUERDA: LISTA ORDENADA PELAS ÚLTIMAS CONVERSAS */}
                 <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
                   <div className="p-2.5 bg-slate-100 border-b shrink-0 flex justify-between items-center">
                     <div>
                       <h3 className="font-black text-slate-800 text-xs">💬 Conversas</h3>
-                      <p className="text-[9px] text-slate-500">Membros da Igreja</p>
+                      <p className="text-[9px] text-slate-500">Recentes em evidência</p>
                     </div>
                   </div>
 
@@ -1015,9 +1039,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     </div>
 
-                    {/* Lista Dinâmica de Membros da Tabela 'members' */}
+                    {/* Lista Dinâmica Ordenada por Conversas Recentes */}
                     {listaMembrosChat.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum outro membro cadastrado ainda.</p>
+                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro cadastrado ainda.</p>
                     ) : (
                       listaMembrosChat.map((m) => {
                         const selecionado = membroSelecionadoChat?.id === m.id;
@@ -1262,7 +1286,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           title="Editar compromisso"
                           className="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
                         >
-                          ✏️️
+                          ✏️
                         </button>
                         <button
                           type="button"
@@ -1290,7 +1314,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       onClick={handleAbrirCriarReuniao}
                       className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer text-[10px]"
                     >
-                      ➕ Registar Encontro
+                      ➕ Registrar Encontro
                     </button>
                   </div>
 
@@ -1325,7 +1349,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     📋 Histórico de Encontros & Notas
                   </h4>
                   {reunioesCelula.length === 0 ? (
-                    <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registado.</p>
+                    <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registrado.</p>
                   ) : (
                     reunioesCelula.map((r) => (
                       <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
@@ -1378,7 +1402,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     rel="noreferrer"
                     className="block w-full text-center py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer mt-1 text-[11px]"
                   >
-                    🗺️ Como Chegar à Igreja (GPS)
+                    🗺️ Como Chegar na Igreja (GPS)
                   </a>
                 </div>
 
@@ -1390,7 +1414,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     rel="noreferrer"
                     className="block w-full text-center py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer text-[11px]"
                   >
-                    📷 Aceder ao Instagram Oficial
+                    📷 Acessar Instagram Oficial
                   </a>
                 </div>
               </div>
@@ -1412,7 +1436,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
 
                 {carregandoCadastro ? (
-                  <p className="text-center text-xs text-slate-500 py-4">A carregar informações...</p>
+                  <p className="text-center text-xs text-slate-500 py-4">Carregando informações...</p>
                 ) : jaCadastrado && !isAdminOuLider ? (
                   <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-1">
                     <p>🔒 Dados já confirmados e salvos.</p>
@@ -1434,7 +1458,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           />
                         </div>
                         <div>
-                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Telemóvel / WhatsApp *</label>
+                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Celular / WhatsApp *</label>
                           <input
                             type="text"
                             value={celularMembro}
@@ -1471,7 +1495,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                         <button
                           type="button"
                           onClick={() => {
-                            if (!nomeMembro.trim()) return alert('Informe o seu nome completo para continuar.');
+                            if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
                             setEtapaCadastro(2);
                           }}
                           className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2 text-xs"
@@ -1610,7 +1634,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 </div>
 
                 <div className="p-2.5 bg-slate-50 rounded-xl border text-[10px] text-slate-500 text-center">
-                  Após realizar a sua contribuição por dízimo ou oferta, guarde o comprovativo. Deus abençoe a sua vida e a sua generosidade!
+                  Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!
                 </div>
               </div>
             )}
@@ -1685,7 +1709,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     disabled={gerandoImagem}
                     className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
                   >
-                    📸 {gerandoImagem ? 'A carregar cenário profissional...' : 'Gerar Arte de Stories c/ Foto de Fundo (9:16)'}
+                    📸 {gerandoImagem ? 'Carregando Cenário Profissional...' : 'Gerar Arte de Stories c/ Foto de Fundo (9:16)'}
                   </button>
 
                   <button
@@ -1693,7 +1717,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     onClick={handleCompartilharDevocional}
                     className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
                   >
-                    💬 Partilhar Texto no WhatsApp
+                    💬 Compartilhar Texto no WhatsApp
                   </button>
                 </div>
               </div>
@@ -1707,7 +1731,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-center p-3">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-3 flex flex-col items-center space-y-3 shadow-2xl">
             <div className="w-full flex justify-between items-center text-white px-1">
-              <span className="font-bold text-xs">📸 A sua Arte para Stories</span>
+              <span className="font-bold text-xs">📸 Sua Arte para Stories</span>
               <button
                 type="button"
                 onClick={() => setModalStoryGeradoOpen(false)}
@@ -1726,7 +1750,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             </div>
 
             <p className="text-[10px] text-amber-300 font-medium text-center">
-              💡 <strong>No telemóvel:</strong> Pressione e segure a imagem acima para guardar diretamente na galeria de fotos!
+              💡 <strong>No celular:</strong> Pressione e segure a imagem acima para salvar direto na galeria de fotos!
             </p>
 
             <div className="flex gap-2 w-full pt-1">
@@ -1735,7 +1759,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 download={`Devocional_Story_${devocionalDoDia.data.replace(/\//g, '-')}.png`}
                 className="w-full text-center py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
               >
-                📥 Descarregar Imagem no Aparelho
+                📥 Baixar Imagem no Aparelho
               </a>
             </div>
           </div>
@@ -1824,7 +1848,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
             <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
-              {itemEditandoReuniao ? '✏️️ Editar Encontro da Célula' : 'Registar Encontro da Célula'}
+              {itemEditandoReuniao ? '✏️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
             </h3>
             <form onSubmit={handleSalvarReuniaoCelula} className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2">
@@ -1958,7 +1982,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   disabled={savingDevocional}
                   className="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs disabled:opacity-50"
                 >
-                  {savingDevocional ? 'A guardar...' : 'Salvar'}
+                  {savingDevocional ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </form>

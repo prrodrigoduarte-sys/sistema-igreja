@@ -163,27 +163,39 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  const carregarMembrosChat = useCallback(async () => {
+  const carregarMensagensChat = useCallback(async () => {
     try {
-      let membrosEncontrados: any[] = [];
-      
-      // Tenta buscar na tabela 'members'
-      const { data: resMembers, error: errMembers } = await supabase
-        .from('members')
-        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-        
-      if (!errMembers && resMembers && resMembers.length > 0) {
-        membrosEncontrados = resMembers;
+      if (!membroSelecionadoChat) {
+        // Modo Transmissão Geral (Broadcast)
+        const { data, error } = await supabase
+          .from('chat_mensagens')
+          .select('*')
+          .eq('is_broadcast', true)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (data) setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
       } else {
-        // Fallback para 'membros'
-        const { data: resMembros, error: errMembros } = await supabase
-          .from('membros')
-          .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-          
-        if (!errMembros && resMembros && resMembros.length > 0) {
-          membrosEncontrados = resMembros;
+        // Chat Privado entre o utilizador logado e o membro selecionado
+        const meuEmail = emailUsuario?.trim().toLowerCase();
+        const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
+
+        // Busca mensagens onde (remetente = eu E destinatário = outro) OU (remetente = outro E destinatário = eu)
+        const { data, error } = await supabase
+          .from('chat_mensagens')
+          .select('*')
+          .or(`and(sender.eq.${meuEmail},recipient_id.eq.${membroSelecionadoChat.id}),and(sender.eq.${emailOutro},recipient_id.eq.${membroPerfil?.id || '0'})`)
+          .order('created_at', { ascending: true });
+
+        if (error) throw error;
+        if (data) {
+          setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
         }
       }
+    }  catch (err) {
+      console.error('Erro ao carregar mensagens:', err);
+    }
+  }, [membroSelecionadoChat, emailUsuario, membroPerfil]);
 
       // Se ainda estiver vazio por políticas de RLS, criamos um mock dinâmico com base nos remetentes das mensagens para que o chat nunca fique vazio
       if (membrosEncontrados.length === 0) {

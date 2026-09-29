@@ -165,14 +165,36 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const carregarMembrosChat = useCallback(async () => {
     try {
-      const { data } = await supabase
+      // Busca segura de membros ordenada por nome sem depender de colunas inexistentes
+      const { data: membros } = await supabase
         .from('members')
-        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url, ultima_interacao, tem_nao_lida')
+        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url')
         .eq('codigo_igreja', codigoIgreja)
-        .order('ultima_interacao', { ascending: false, nullsFirst: false })
         .order('nome', { ascending: true });
 
-      if (data) setListaMembrosChat(data);
+      if (membros) {
+        // Busca as últimas mensagens para priorizar conversas recentes no topo (estilo WhatsApp)
+        const { data: msgs } = await supabase
+          .from('chat_mensagens')
+          .select('recipient_id, sender, created_at, text')
+          .eq('codigo_igreja', codigoIgreja)
+          .order('created_at', { ascending: false });
+
+        const membrosComRecentes = membros.map((m) => {
+          const ultimaMsgMembro = msgs?.find(
+            (msg) => msg.recipient_id === m.id || msg.sender === m.email
+          );
+          return {
+            ...m,
+            ultima_mensagem: ultimaMsgMembro ? ultimaMsgMembro.text : `Tipo: ${m.tipo_cadastro || 'Membro'}`,
+            ultima_data: ultimaMsgMembro ? new Date(ultimaMsgMembro.created_at).getTime() : 0,
+          };
+        });
+
+        // Ordena colocando as conversas mais recentes no topo
+        membrosComRecentes.sort((a, b) => b.ultima_data - a.ultima_data);
+        setListaMembrosChat(membrosComRecentes);
+      }
     } catch (err) {
       console.error('Erro ao carregar membros para o chat:', err);
     }
@@ -212,7 +234,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v4')
+        .channel('chat_realtime_mobile_v5')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -362,6 +384,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       setNovaMensagemChat('');
       carregarMensagensChat();
+      carregarMembrosChat();
     } catch (err: any) {
       alert('Erro ao enviar mensagem: ' + err.message);
     }
@@ -970,7 +993,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP RECENTES E NÃO LIDAS) */}
+            {/* 0. CHAT COM DUAS COLUNAS (ESTILO WHATSAPP REAL) */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
                 
@@ -1002,11 +1025,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     </div>
 
-                    {/* Lista de Membros (Ordenada por recentes / não lidas) */}
+                    {/* Lista de Membros Carregada do Banco */}
                     {listaMembrosChat.map((m) => {
                       const selecionado = membroSelecionadoChat?.id === m.id;
-                      const temNaoLida = m.tem_nao_lida;
-
                       return (
                         <div
                           key={m.id}
@@ -1030,14 +1051,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             <div className="truncate flex-1">
                               <div className="flex justify-between items-center">
                                 <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
-                                {temNaoLida && (
-                                  <span className="bg-emerald-600 text-white font-black text-[9px] px-1.5 py-0.2 rounded-full shrink-0">
-                                    1
-                                  </span>
-                                )}
                               </div>
                               <p className="text-[9px] text-slate-500 truncate">
-                                {m.ultima_mensagem || `Tipo: ${m.tipo_cadastro || 'Membro'}`}
+                                {m.ultima_mensagem}
                               </p>
                             </div>
                           </div>
@@ -1938,7 +1954,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onChange={() => setModalDevocionalOpen(false)}
+                  onClick={() => setModalDevocionalOpen(false)}
                   className="w-1/2 py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs"
                 >
                   Cancelar

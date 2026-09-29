@@ -228,33 +228,13 @@ export default function App() {
     });
 
     if (error) {
-      const { data: regTentativa } = await supabase
-        .from('tentativas_login')
-        .select('*')
-        .eq('email', emailLimpo)
-        .maybeSingle();
-
-      const numTentativas = (regTentativa?.tentativas || 0) + 1;
-
-      await supabase.from('tentativas_login').upsert(
-        [
-          {
-            email: emailLimpo,
-            tentativas: numTentativas,
-            updated_at: new Date().toISOString(),
-          },
-        ],
-        { onConflict: 'email' }
-      );
-
-      if (numTentativas >= 3) {
-        alert('⚠️ Senha incorreta pela 3ª vez! Por segurança, o 2º nível de verificação será exigido no próximo login correto.');
-      } else {
-        alert(`Senha incorreta! Tentativa ${numTentativas} de 3.`);
-      }
+      alert('E-mail ou senha incorretos. Tente novamente.');
       return;
     }
 
+    // Login efetuado com sucesso, entra direto no sistema!
+    setSession(authData.session);
+  };
     const { data: regTentativa } = await supabase
       .from('tentativas_login')
       .select('*')

@@ -187,6 +187,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   }, [codigoIgreja]);
 
+  // Função otimizada e corrigida para consulta bidirecional no chat privado
   const carregarMensagensChat = useCallback(async () => {
     try {
       let query = supabase
@@ -196,13 +197,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .order('created_at', { ascending: true });
 
       if (membroSelecionadoChat) {
-        const idDest = membroSelecionadoChat.id;
-        query = query.or(`and(sender.eq.${emailUsuario},recipient_id.eq.${idDest}),and(sender.eq.${membroSelecionadoChat.email},recipient_id.eq.${membroPerfil?.id || '0'})`);
+        const emailDestinatario = membroSelecionadoChat.email;
+        const meuId = membroPerfil?.id || '0';
+
+        query = query.or(
+          `and(sender.eq.${emailUsuario},recipient_id.eq.${membroSelecionadoChat.id}),` +
+          `and(sender.eq.${emailDestinatario},recipient_id.eq.${meuId})`
+        );
       } else {
         query = query.eq('is_broadcast', true);
       }
 
-      const { data } = await query;
+      const { data, error } = await query;
+      if (error) throw error;
       if (data) setMensagensChat(data);
     } catch (err) {
       console.error('Erro ao carregar mensagens:', err);
@@ -999,7 +1006,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM REALTIME E DESTAQUE PENDENTE */}
+            {/* 0. CHAT COM REALTIME */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[320px] text-xs">
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
@@ -1035,19 +1042,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     }}
                   >
                     <option value="broadcast">📢 Todos os Membros (Broadcast Geral)</option>
-                    {listaMembrosChat.map((m) => {
-                      // Identifica se há mensagens pendentes deste membro específico
-                      const ultimaMsgMembro = mensagensChat
-                        .filter((msg) => msg.sender === m.email)
-                        .slice(-1)[0];
-                      const temPendencia = ultimaMsgMembro && ultimaMsgMembro.sender !== emailUsuario;
-
-                      return (
-                        <option key={m.id} value={m.id}>
-                          {temPendencia ? '🔔 [PENDENTE] ' : '👤 '} {m.nome} ({m.tipo_cadastro || 'Membro'})
-                        </option>
-                      );
-                    })}
+                    {listaMembrosChat.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        👤 {m.nome} ({m.tipo_cadastro || 'Membro'})
+                      </option>
+                    ))}
                   </select>
                 </div>
 

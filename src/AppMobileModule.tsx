@@ -118,7 +118,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [temaEstudo, setTemaEstudo] = useState('');
   const [comentariosCelula, setComentariosCelula] = useState('');
 
-  // 5. Estados do Chat
+  // 5. Estados do Chat Atualizados
   const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
   const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
   const [mensagensChat, setMensagensChat] = useState<any[]>([]);
@@ -197,8 +197,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (membroSelecionadoChat) {
         const idDest = membroSelecionadoChat.id;
-        const emailDest = membroSelecionadoChat.email;
-        query = query.or(`recipient_id.eq.${idDest},sender.eq.${emailDest}`);
+        query = query.or(`and(sender.eq.${emailUsuario},recipient_id.eq.${idDest}),and(sender.eq.${membroSelecionadoChat.email},recipient_id.eq.${membroPerfil?.id || '0'})`);
       } else {
         query = query.eq('is_broadcast', true);
       }
@@ -208,22 +207,26 @@ export default function AppMobileModule({ loggedUser }: Props) {
     } catch (err) {
       console.error('Erro ao carregar mensagens:', err);
     }
-  }, [codigoIgreja, membroSelecionadoChat]);
+  }, [codigoIgreja, membroSelecionadoChat, emailUsuario, membroPerfil]);
 
+  // Realtime do Chat Integrado e Otimizado
   useEffect(() => {
     if (subAbaApp === 'chat') {
       carregarMembrosChat();
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile')
+        .channel('chat_realtime_mobile_v2')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
           (payload) => {
             const nova = payload.new;
             if (nova.codigo_igreja === codigoIgreja) {
-              setMensagensChat((prev) => [...prev, nova]);
+              setMensagensChat((prev) => {
+                if (prev.some((m) => m.id === nova.id)) return prev;
+                return [...prev, nova];
+              });
             }
           }
         )
@@ -298,7 +301,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         });
       }
 
-      // Consulta Devocional
       const hojeStr = new Date().toISOString().split('T')[0];
       const { data: dataDev } = await supabase
         .from('devotionals')
@@ -691,161 +693,148 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-// GERADOR DE STORIES COM FUNDO ILUMINADO E SUPORTE A CELULARES
-const handleGerarImagemStories = async () => {
-  setGerandoImagem(true);
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1080;
-    canvas.height = 1920;
-    const ctx = canvas.getContext('2d');
+  const handleGerarImagemStories = async () => {
+    setGerandoImagem(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1920;
+      const ctx = canvas.getContext('2d');
 
-    if (!ctx) return;
+      if (!ctx) return;
 
-    // 1. Criar um Fundo Artístico Fotográfico Elegante (Luz Celestial / Raios de Sol)
-    const gradFundo = ctx.createRadialGradient(540, 400, 50, 540, 960, 1100);
-    gradFundo.addColorStop(0, '#38bdf8');   // Azul Iluminado (Raios de luz no topo)
-    gradFundo.addColorStop(0.35, '#1e3a8a'); // Azul Imperial
-    gradFundo.addColorStop(0.75, '#0f172a'); // Indigo Escuro
-    gradFundo.addColorStop(1, '#020617');    // Slate Profundo
-    
-    ctx.fillStyle = gradFundo;
-    ctx.fillRect(0, 0, 1080, 1920);
-
-    // 2. Textura de Partículas de Luz / Brilho Celestial
-    for (let i = 0; i < 70; i++) {
-      const x = Math.random() * 1080;
-      const y = Math.random() * 1920;
-      const radius = Math.random() * 3 + 1;
-      const alpha = Math.random() * 0.5 + 0.1;
+      const gradFundo = ctx.createRadialGradient(540, 400, 50, 540, 960, 1100);
+      gradFundo.addColorStop(0, '#38bdf8');
+      gradFundo.addColorStop(0.35, '#1e3a8a');
+      gradFundo.addColorStop(0.75, '#0f172a');
+      gradFundo.addColorStop(1, '#020617');
       
-      ctx.beginPath();
-      ctx.arc(x, y, radius, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`; // Partículas Douradas
-      ctx.fill();
-    }
+      ctx.fillStyle = gradFundo;
+      ctx.fillRect(0, 0, 1080, 1920);
 
-    // 3. Moldura Interna Dourada / Suave
-    ctx.strokeStyle = 'rgba(253, 224, 71, 0.45)';
-    ctx.lineWidth = 8;
-    ctx.strokeRect(50, 80, 980, 1760);
-
-    // 4. Cabeçalho (Igreja e Data)
-    ctx.fillStyle = '#fde047'; // Amarelo Dourado
-    ctx.font = 'bold 42px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 190);
-
-    ctx.fillStyle = '#93c5fd';
-    ctx.font = '30px sans-serif';
-    ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 245);
-
-    // Linha Divisória Superior
-    ctx.beginPath();
-    ctx.moveTo(200, 280);
-    ctx.lineTo(880, 280);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
-    ctx.lineWidth = 3;
-    ctx.stroke();
-
-    // Função Auxiliar para Quebrar Linhas de Texto
-    const quebrarTexto = (text: string, maxW: number, font: string) => {
-      ctx.font = font;
-      const words = text.split(' ');
-      const lines: string[] = [];
-      let currentLine = words[0];
-
-      for (let i = 1; i < words.length; i++) {
-        const width = ctx.measureText(currentLine + ' ' + words[i]).width;
-        if (width < maxW) {
-          currentLine += ' ' + words[i];
-        } else {
-          lines.push(currentLine);
-          currentLine = words[i];
-        }
+      for (let i = 0; i < 70; i++) {
+        const x = Math.random() * 1080;
+        const y = Math.random() * 1920;
+        const radius = Math.random() * 3 + 1;
+        const alpha = Math.random() * 0.5 + 0.1;
+        
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`;
+        ctx.fill();
       }
-      lines.push(currentLine);
-      return lines;
-    };
 
-    // 5. Título do Devocional
-    ctx.fillStyle = '#ffffff';
-    const fontTitulo = 'bold 50px sans-serif';
-    const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 860, fontTitulo);
-    
-    let yPos = 370;
-    ctx.font = fontTitulo;
-    linhasTitulo.slice(0, 3).forEach((linha) => {
-      ctx.fillText(linha, 540, yPos);
-      yPos += 62;
-    });
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.45)';
+      ctx.lineWidth = 8;
+      ctx.strokeRect(50, 80, 980, 1760);
 
-    // 6. Referência e Versículo
-    if (devocionalDoDia.referencia) {
-      yPos += 15;
       ctx.fillStyle = '#fde047';
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos);
-      yPos += 55;
-    }
+      ctx.font = 'bold 42px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`⛪ ${dadosIgreja.nome_igreja.toUpperCase()}`, 540, 190);
 
-    if (devocionalDoDia.versiculo) {
-      ctx.fillStyle = '#e0f2fe';
-      const fontVerso = 'italic 30px sans-serif';
-      const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 820, fontVerso);
+      ctx.fillStyle = '#93c5fd';
+      ctx.font = '30px sans-serif';
+      ctx.fillText(`DEVOCIONAL DIÁRIO • ${devocionalDoDia.data}`, 540, 245);
+
+      ctx.beginPath();
+      ctx.moveTo(200, 280);
+      ctx.lineTo(880, 280);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      const quebrarTexto = (text: string, maxW: number, font: string) => {
+        ctx.font = font;
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+          const width = ctx.measureText(currentLine + ' ' + words[i]).width;
+          if (width < maxW) {
+            currentLine += ' ' + words[i];
+          } else {
+            lines.push(currentLine);
+            currentLine = words[i];
+          }
+        }
+        lines.push(currentLine);
+        return lines;
+      };
+
+      ctx.fillStyle = '#ffffff';
+      const fontTitulo = 'bold 50px sans-serif';
+      const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 860, fontTitulo);
       
-      ctx.font = fontVerso;
-      linhasVerso.slice(0, 3).forEach((linha) => {
+      let yPos = 370;
+      ctx.font = fontTitulo;
+      linhasTitulo.slice(0, 3).forEach((linha) => {
         ctx.fillText(linha, 540, yPos);
-        yPos += 42;
+        yPos += 62;
       });
-      yPos += 20;
+
+      if (devocionalDoDia.referencia) {
+        yPos += 15;
+        ctx.fillStyle = '#fde047';
+        ctx.font = 'bold 36px sans-serif';
+        ctx.fillText(`📖 ${devocionalDoDia.referencia}`, 540, yPos);
+        yPos += 55;
+      }
+
+      if (devocionalDoDia.versiculo) {
+        ctx.fillStyle = '#e0f2fe';
+        const fontVerso = 'italic 30px sans-serif';
+        const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 820, fontVerso);
+        
+        ctx.font = fontVerso;
+        linhasVerso.slice(0, 3).forEach((linha) => {
+          ctx.fillText(linha, 540, yPos);
+          yPos += 42;
+        });
+        yPos += 20;
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(320, yPos);
+      ctx.lineTo(760, yPos);
+      ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      yPos += 55;
+      ctx.fillStyle = '#f1f5f9';
+      const fontReflexao = '31px sans-serif';
+      const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
+      const linhasReflexao = quebrarTexto(textoLimpo, 840, fontReflexao);
+
+      ctx.font = fontReflexao;
+      linhasReflexao.slice(0, 13).forEach((linha) => {
+        ctx.fillText(linha, 540, yPos);
+        yPos += 46;
+      });
+
+      ctx.fillStyle = '#fef08a';
+      ctx.font = 'italic bold 38px Georgia, serif';
+      ctx.textAlign = 'center';
+      
+      const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
+      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
+
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '26px sans-serif';
+      ctx.fillText(dadosIgreja.nome_igreja, 540, 1755);
+
+      const dataUrl = canvas.toDataURL('image/png');
+      setImagemStoryDataUrl(dataUrl);
+      setModalStoryGeradoOpen(true);
+
+    } catch (err: any) {
+      alert('Erro ao gerar imagem para Stories: ' + err.message);
+    } finally {
+      setGerandoImagem(false);
     }
-
-    // Linha Divisória Intermediária
-    ctx.beginPath();
-    ctx.moveTo(320, yPos);
-    ctx.lineTo(760, yPos);
-    ctx.strokeStyle = 'rgba(253, 224, 71, 0.3)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // 7. Texto da Reflexão
-    yPos += 55;
-    ctx.fillStyle = '#f1f5f9';
-    const fontReflexao = '31px sans-serif';
-    const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-    const linhasReflexao = quebrarTexto(textoLimpo, 840, fontReflexao);
-
-    ctx.font = fontReflexao;
-    linhasReflexao.slice(0, 13).forEach((linha) => {
-      ctx.fillText(linha, 540, yPos);
-      yPos += 46;
-    });
-
-    // 8. ASSINATURA EM ITÁLICO DO PASTOR NO RODAPÉ DO STORY
-    ctx.fillStyle = '#fef08a'; // Amarelo Dourado
-    ctx.font = 'italic bold 38px Georgia, serif';
-    ctx.textAlign = 'center';
-    
-    const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-    ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
-
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = '26px sans-serif';
-    ctx.fillText(dadosIgreja.nome_igreja, 540, 1755);
-
-    // Gerar DataURL da imagem completa
-    const dataUrl = canvas.toDataURL('image/png');
-    setImagemStoryDataUrl(dataUrl);
-    setModalStoryGeradoOpen(true);
-
-  } catch (err: any) {
-    alert('Erro ao gerar imagem para Stories: ' + err.message);
-  } finally {
-    setGerandoImagem(false);
-  }
-};
+  };
 
   return (
     <div className="max-w-md mx-auto w-full bg-slate-100 h-[680px] max-h-[90dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
@@ -1010,7 +999,7 @@ const handleGerarImagemStories = async () => {
           <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
         ) : (
           <>
-            {/* 0. CHAT COM REALTIME */}
+            {/* 0. CHAT COM REALTIME E DESTAQUE PENDENTE */}
             {subAbaApp === 'chat' && (
               <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex flex-col h-full min-h-[320px] text-xs">
                 <div className="bg-slate-900 text-white p-2.5 flex justify-between items-center shrink-0">
@@ -1031,7 +1020,7 @@ const handleGerarImagemStories = async () => {
                   )}
                 </div>
 
-                <div className="bg-slate-50 border-b p-2 shrink-0">
+                <div className="bg-slate-50 border-b p-2 shrink-0 space-y-1.5">
                   <select
                     className="w-full border rounded-xl p-2 text-xs bg-white font-bold text-slate-800 outline-none cursor-pointer shadow-sm"
                     value={membroSelecionadoChat ? membroSelecionadoChat.id : 'broadcast'}
@@ -1046,11 +1035,19 @@ const handleGerarImagemStories = async () => {
                     }}
                   >
                     <option value="broadcast">📢 Todos os Membros (Broadcast Geral)</option>
-                    {listaMembrosChat.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        👤 {m.nome} ({m.tipo_cadastro || 'Membro'})
-                      </option>
-                    ))}
+                    {listaMembrosChat.map((m) => {
+                      // Identifica se há mensagens pendentes deste membro específico
+                      const ultimaMsgMembro = mensagensChat
+                        .filter((msg) => msg.sender === m.email)
+                        .slice(-1)[0];
+                      const temPendencia = ultimaMsgMembro && ultimaMsgMembro.sender !== emailUsuario;
+
+                      return (
+                        <option key={m.id} value={m.id}>
+                          {temPendencia ? '🔔 [PENDENTE] ' : '👤 '} {m.nome} ({m.tipo_cadastro || 'Membro'})
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -1371,7 +1368,6 @@ const handleGerarImagemStories = async () => {
                   </div>
                 ) : (
                   <form onSubmit={handleFinalizarCadastroUnico} className="space-y-2.5">
-                    {/* ETAPA 1 */}
                     {etapaCadastro === 1 && (
                       <div className="space-y-2.5">
                         <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">1️⃣ Dados Pessoais Básicos</h4>
@@ -1433,7 +1429,6 @@ const handleGerarImagemStories = async () => {
                       </div>
                     )}
 
-                    {/* ETAPA 2 */}
                     {etapaCadastro === 2 && (
                       <div className="space-y-2.5">
                         <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">2️⃣ Endereço Residencial</h4>
@@ -1488,7 +1483,6 @@ const handleGerarImagemStories = async () => {
                       </div>
                     )}
 
-                    {/* ETAPA 3 */}
                     {etapaCadastro === 3 && (
                       <div className="space-y-2.5">
                         <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">3️⃣ Dados Eclesiásticos & Finalização</h4>
@@ -1632,7 +1626,6 @@ const handleGerarImagemStories = async () => {
                   )}
                 </div>
 
-                {/* BOTÕES DE COMPARTILHAMENTO E GERADOR DE IMAGEM P/ INSTAGRAM STORIES */}
                 <div className="space-y-2 pt-1">
                   <button
                     type="button"
@@ -1657,7 +1650,7 @@ const handleGerarImagemStories = async () => {
         )}
       </div>
 
-      {/* MODAL DE VISUALIZAÇÃO E DOWNLOAD DO STORY (PERFEITO PARA CELULARES) */}
+      {/* MODAL DE VISUALIZAÇÃO E DOWNLOAD DO STORY */}
       {modalStoryGeradoOpen && (
         <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-center p-3">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-3 flex flex-col items-center space-y-3 shadow-2xl">
@@ -1672,7 +1665,6 @@ const handleGerarImagemStories = async () => {
               </button>
             </div>
 
-            {/* Exibição em tamanho proporcional de celular */}
             <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden border-2 border-amber-400/50 shadow-lg bg-black">
               <img
                 src={imagemStoryDataUrl}
@@ -1892,7 +1884,7 @@ const handleGerarImagemStories = async () => {
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Autor (Ex: Pr. Rodrigo Duarte / IGRs)</label>
+                <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Autor</label>
                 <input
                   type="text"
                   value={editDevAutor}

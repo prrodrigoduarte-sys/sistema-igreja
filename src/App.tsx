@@ -67,12 +67,6 @@ export default function App() {
   const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
   const [membrosChat, setMembrosChat] = useState<any[]>([]);
 
-  const [exigir2FA, setExigir2FA] = useState(false);
-  const [codigoDigitado2FA, setCodigoDigitado2FA] = useState('');
-  const [codigoGerado2FA, setCodigoGerado2FA] = useState('');
-  const [motivo2FA, setMotivo2FA] = useState('');
-  const [usuarioPendente2FA, setUsuarioPendente2FA] = useState<any>(null);
-
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
 
@@ -208,16 +202,6 @@ export default function App() {
   const todayStr = new Date().toISOString().slice(5, 10);
   const todaysBirthdays = membrosChat.filter(m => (m.data_nascimento || '').slice(5, 10) === todayStr);
 
-  const dispararVerificacao2FA = (motivo: string, userTemp: any) => {
-    const codigoHex = Math.floor(100000 + Math.random() * 900000).toString();
-    setCodigoGerado2FA(codigoHex);
-    setUsuarioPendente2FA(userTemp);
-    setMotivo2FA(motivo);
-    setExigir2FA(true);
-
-    alert(`🔒 SEGURANÇA (2º NÍVEL):\nMotivo: ${motivo}\n\nSeu código de verificação é: ${codigoHex}`);
-  };
-
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     const emailLimpo = email.trim().toLowerCase();
@@ -232,7 +216,6 @@ export default function App() {
       return;
     }
 
-    // Login efetuado com sucesso, entra direto no sistema!
     setSession(authData.session);
   };
 
@@ -416,7 +399,6 @@ export default function App() {
       return;
     }
 
-    // Cria o registo na tabela pública 'usuarios'
     const { data: novoUsuario, error: profileError } = await supabase.from('usuarios').insert([
       {
         auth_user_id: authUserId,
@@ -444,7 +426,6 @@ export default function App() {
       await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
     }
 
-    // Se o Supabase retornou sessão imediata, já entra direto no sistema!
     if (authData.session) {
       setSession(authData.session);
       alert(isPrimeiro 
@@ -550,50 +531,6 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-700 font-bold">
         Carregando sistema...
-      </div>
-    );
-  }
-
-  if (exigir2FA) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-900 to-indigo-950 p-4">
-        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full space-y-5 text-center">
-          <div className="w-16 h-16 bg-blue-100 text-blue-900 rounded-full flex items-center justify-center mx-auto text-3xl font-black">
-            🔒
-          </div>
-          <h2 className="text-2xl font-black text-blue-900">VERIFICAÇÃO DE SEGURANÇA</h2>
-          <p className="text-xs text-slate-600 font-medium">{motivo2FA}</p>
-
-          <form onSubmit={handleConfirmar2FA} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-2">DIGITE O CÓDIGO DE 6 DÍGITOS</label>
-              <input
-                type="text"
-                maxLength={6}
-                value={codigoDigitado2FA}
-                onChange={(e) => setCodigoDigitado2FA(e.target.value)}
-                placeholder="000000"
-                required
-                className="w-full text-center text-3xl tracking-widest font-mono py-3 border-2 border-blue-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-600"
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-900 hover:bg-blue-800 text-white font-bold py-3.5 rounded-2xl transition cursor-pointer shadow-lg"
-            >
-              VERIFICAR E LIBERAR ACESSO
-            </button>
-          </form>
-
-          <button
-            type="button"
-            onClick={() => setExigir2FA(false)}
-            className="text-xs text-slate-500 font-bold hover:underline cursor-pointer pt-2 block mx-auto"
-          >
-            Cancelar e Voltar ao Login
-          </button>
-        </div>
       </div>
     );
   }
@@ -753,8 +690,24 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      <aside className="w-64 bg-blue-900 text-white flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col lg:flex-row">
+      {/* Cabeçalho Mobile */}
+      <header className="lg:hidden bg-blue-900 text-white p-4 flex justify-between items-center shadow-md shrink-0">
+        <div>
+          <h1 className="text-lg font-black">SISTEMA IGREJA</h1>
+          <p className="text-[10px] text-blue-200">{userEfetivo.nome_usuario} ({userEfetivo.codigo_igreja})</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsMobileModalOpen(true)}
+          className="bg-blue-800 px-3 py-2 rounded-xl text-xs font-bold shadow cursor-pointer"
+        >
+          ☰ Menu & Módulos
+        </button>
+      </header>
+
+      {/* Sidebar Desktop */}
+      <aside className="hidden lg:flex w-64 bg-blue-900 text-white flex-col shrink-0">
         <div className="p-6 border-b border-blue-800">
           <h1 className="text-2xl font-black">SISTEMA IGREJA</h1>
           <p className="text-xs text-blue-200 mt-2 truncate">
@@ -1041,6 +994,7 @@ export default function App() {
         </div>
       </aside>
 
+      {/* Main Content Adaptativo */}
       <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-8">
         {activeTab === 'dashboard' && temPermissao('dashboard') && (
           <DashboardHome loggedUser={userEfetivo} selecionarAba={selecionarAba} />
@@ -1073,8 +1027,8 @@ export default function App() {
               )}
             </div>
 
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              <div className="w-1/3 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
+            <div className="flex min-h-0 flex-1 overflow-hidden flex-col sm:flex-row">
+              <div className="w-full sm:w-1/3 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
                 <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
                   Membros e Status
                 </h3>
@@ -1298,104 +1252,189 @@ export default function App() {
       {/* Modal Mobile e Atalhos */}
       {isMobileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/80 p-4">
-          <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl">
-            <div className="mb-6 flex items-center justify-between border-b pb-4">
+          <div className="my-8 w-full max-w-lg rounded-3xl bg-white p-8 shadow-2xl space-y-6">
+            <div className="flex items-center justify-between border-b pb-4">
               <div>
                 <h3 className="text-xl font-black text-blue-900">
-                  Painel Mobile e Atalhos
+                  Menu & Navegação de Módulos
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Opções rápidas para dispositivos móveis
+                  Selecione a seção desejada
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() => setIsMobileModalOpen(false)}
-                className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600"
+                className="rounded-xl bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 hover:bg-rose-50 hover:text-rose-600 cursor-pointer"
               >
                 ✕ Fechar
               </button>
             </div>
 
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <a
-                  href="#cadastro"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full rounded-xl bg-blue-900 px-4 py-3 text-center text-sm font-bold text-white shadow transition hover:bg-blue-800"
-                >
-                  🔗 1. Abrir Tela de Cadastro Público
-                </a>
-                <p className="px-1 text-xs text-slate-500">
-                  Abre a interface externa de cadastro de membros e visitantes.
-                </p>
-              </div>
-
-              <div className="space-y-2 border-t pt-4">
+            <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
+              {temPermissao('dashboard') && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsMobileModalOpen(false);
-                    selecionarAba('agenda');
-                  }}
-                  className="w-full rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-center text-sm font-bold text-indigo-900 transition hover:bg-indigo-100"
+                  onClick={() => { selecionarAba('dashboard'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
                 >
-                  📅 2. Ver Agenda e Próximos Eventos
+                  🏠 Dashboard
                 </button>
-                <p className="px-1 text-xs text-slate-500">
-                  Acesse cultos, reuniões e programações agendadas.
-                </p>
-              </div>
+              )}
 
-              <div className="space-y-3 border-t pt-4">
-                <h4 className="text-sm font-bold text-blue-900">
-                  📱 3. Gerar QR Code para Membros Escanearem
-                </h4>
-                <p className="text-xs leading-relaxed text-slate-600">
-                  Gere um QR Code temporário, válido por 6 horas, para cadastro pelo celular.
-                </p>
+              {temPermissao('app-mobile') && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('app-mobile'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  📱 Aplicativo Mobile
+                </button>
+              )}
 
-                {isAdmin && (
-                  <div className="space-y-3">
-                    <button
-                      type="button"
-                      onClick={gerarNovoQrCodeTemporario}
-                      disabled={gerandoQr}
-                      className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50"
-                    >
-                      {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
-                    </button>
+              <button
+                type="button"
+                onClick={() => { selecionarAba('chat-mobile'); setIsMobileModalOpen(false); }}
+                className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+              >
+                💬 Chat & Aniversários
+              </button>
 
-                    {qrCodeUrlDinamico && (
-                      <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
-                        <img
-                          src={qrCodeUrlDinamico}
-                          alt="QR Code temporário para cadastro"
-                          className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
-                        />
-                        <p className="text-[10px] font-semibold text-slate-500">
-                          Mostre esta imagem para o membro escanear.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setQrCodeUrlDinamico('')}
-                          className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
-                        >
-                          ✕ Fechar QR Code
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+              {temPermissao('cadastros') && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { selecionarAba('cadastros-membros'); setIsMobileModalOpen(false); }}
+                    className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                  >
+                    👥 Membros
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { selecionarAba('cadastros-fornecedores'); setIsMobileModalOpen(false); }}
+                    className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                  >
+                    🏢 Fornecedores
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { selecionarAba('cadastros-ministerios'); setIsMobileModalOpen(false); }}
+                    className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                  >
+                    🏛️ Ministérios
+                  </button>
+                </>
+              )}
 
-                {!isAdmin && (
-                  <p className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center text-xs font-semibold text-rose-600">
-                    🔒 Recurso restrito: apenas administradores podem gerar o QR Code de cadastro.
-                  </p>
-                )}
-              </div>
+              {temPermissao('visitantes') && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('acompanhamento-visitantes'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  🤝 Acompanhamento Visitantes
+                </button>
+              )}
+
+              {temPermissao('celulas') && (
+                <button
+                  type="button"
+                  onClick={() => { setSubAbaCelulas('celulas'); selecionarAba('celulas-modulo'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  🏡 Células
+                </button>
+              )}
+
+              {temPermissao('discipulado') && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('discipulado-dea'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  🌱 Discipulado (D.E.A.)
+                </button>
+              )}
+
+              {temPermissao('agenda') && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('agenda'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  📅 Agenda
+                </button>
+              )}
+
+              {temPermissao('financeiro') && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('financeiro'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  💰 Financeiro
+                </button>
+              )}
+
+              {temPermissao('projetos') && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('projetos'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  🚀 Projetos
+                </button>
+              )}
+
+              {temPermissao('configuracoes') && (
+                <button
+                  type="button"
+                  onClick={() => { setIsMobileModalOpen(false); setIsConfigModalOpen(true); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-indigo-50 font-bold text-indigo-900 hover:bg-indigo-100 transition"
+                >
+                  ⚙️ Configurações & Backup
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-3 border-t pt-4">
+              <h4 className="text-sm font-bold text-blue-900">
+                📱 Gerar QR Code para Membros
+              </h4>
+              <p className="text-xs leading-relaxed text-slate-600">
+                Gere um QR Code temporário para cadastro rápido pelo telemóvel.
+              </p>
+
+              {isAdmin && (
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={gerarNovoQrCodeTemporario}
+                    disabled={gerandoQr}
+                    className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50 cursor-pointer"
+                  >
+                    {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
+                  </button>
+
+                  {qrCodeUrlDinamico && (
+                    <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
+                      <img
+                        src={qrCodeUrlDinamico}
+                        alt="QR Code temporário para cadastro"
+                        className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setQrCodeUrlDinamico('')}
+                        className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+                      >
+                        ✕ Fechar QR Code
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -1708,54 +1747,56 @@ function DashboardHome({
                   Nenhum registro encontrado.
                 </div>
               ) : (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold sticky top-0">
-                      <th className="p-3">Nome</th>
-                      <th className="p-3">Tipo</th>
-                      <th className="p-3">Telefone</th>
-                      <th className="p-3">Bairro / Cidade</th>
-                      <th className="p-3 text-right">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y text-xs">
-                    {filtradosModal.map((p) => (
-                      <tr key={p.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-bold text-slate-800">{p.nome || 'Sem nome'}</td>
-                        <td className="p-3">
-                          <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
-                            {p.tipo_cadastro || 'Membro'}
-                          </span>
-                        </td>
-                        <td className="p-3 text-slate-600">{p.celular_principal || '-'}</td>
-                        <td className="p-3 text-slate-500">{[p.bairro, p.cidade].filter(Boolean).join(' - ') || '-'}</td>
-                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => setItemDetalhes(p)}
-                            className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
-                          >
-                            👁️ Ver
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setItemEditando(p)}
-                            className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
-                          >
-                            ✏️ Editar
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleExcluirRegistro(p.id, p.nome)}
-                            className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
-                          >
-                            🗑️
-                          </button>
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[500px]">
+                    <thead>
+                      <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold sticky top-0">
+                        <th className="p-3">Nome</th>
+                        <th className="p-3">Tipo</th>
+                        <th className="p-3">Telefone</th>
+                        <th className="p-3">Bairro / Cidade</th>
+                        <th className="p-3 text-right">Ações</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {filtradosModal.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50">
+                          <td className="p-3 font-bold text-slate-800">{p.nome || 'Sem nome'}</td>
+                          <td className="p-3">
+                            <span className="bg-blue-100 text-blue-800 text-[10px] font-black px-2 py-0.5 rounded-md uppercase">
+                              {p.tipo_cadastro || 'Membro'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-slate-600">{p.celular_principal || '-'}</td>
+                          <td className="p-3 text-slate-500">{[p.bairro, p.cidade].filter(Boolean).join(' - ') || '-'}</td>
+                          <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => setItemDetalhes(p)}
+                              className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg cursor-pointer"
+                            >
+                              👁️ Ver
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setItemEditando(p)}
+                              className="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg cursor-pointer"
+                            >
+                              ✏️ Editar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleExcluirRegistro(p.id, p.nome)}
+                              className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg cursor-pointer"
+                            >
+                              🗑️
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
           </div>
@@ -1899,7 +1940,7 @@ function DashboardHome({
               <button
                 type="button"
                 onClick={() => setItemDetalhes(null)}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl"
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
               >
                 ✕ Fechar
               </button>

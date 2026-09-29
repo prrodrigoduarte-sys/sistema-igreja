@@ -34,7 +34,7 @@ interface Devocional {
 }
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat'>('minha_agenda');
+  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat'>('chat');
   const [loading, setLoading] = useState(false);
 
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
@@ -163,16 +163,21 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  // BUSCA AMPLA DE MEMBROS E ORDENAÇÃO INTELIGENTE PELAS ÚLTIMAS CONVERSAS/COMENTÁRIOS
+  // BUSCA EXATA E ROBUSTA DE MEMBROS COM ORDENAÇÃO INTELIGENTE PELOS ÚLTIMOS COMENTÁRIOS / MENSAGENS
   const carregarMembrosChat = useCallback(async () => {
     try {
-      // Puxa todos os membros da tabela exata que a versão web utiliza
-      const { data: membros, error: errMembros } = await supabase
+      // Busca ampla na tabela members sem travar por código de igreja restrito se necessário
+      let { data: membros, error } = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
 
-      if (errMembros) throw errMembros;
+      if (error || !membros || membros.length === 0) {
+        // Fallback caso a tabela venha vazia ou com outro nome
+        const resAlt = await supabase.from('membros').select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
+        if (resAlt.data) membros = resAlt.data;
+      }
 
+      // Busca mensagens e interações recentes para mapear quem falou por último
       const { data: mensagens } = await supabase
         .from('chat_mensagens')
         .select('sender, recipient_id, created_at')
@@ -180,6 +185,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
       if (membros && membros.length > 0) {
         const ultimaConversaMap = new Map<string, string>();
+        
         if (mensagens) {
           mensagens.forEach((msg) => {
             const outroEmail = msg.sender?.trim().toLowerCase();
@@ -195,15 +201,19 @@ export default function AppMobileModule({ loggedUser }: Props) {
           });
         }
 
-        // Ordena: quem tem mensagem/comentário mais recente fica no topo da lista esquerda
+        // ORDENAÇÃO: Quem tem mensagem ou comentário mais recente vai para o topo da lista esquerda
         const membrosOrdenados = [...membros].sort((a, b) => {
           const dataA = ultimaConversaMap.get(a.id) ? new Date(ultimaConversaMap.get(a.id)!).getTime() : 0;
           const dataB = ultimaConversaMap.get(b.id) ? new Date(ultimaConversaMap.get(b.id)!).getTime() : 0;
-          if (dataA !== dataB) return dataB - dataA;
+          
+          if (dataA !== dataB) {
+            return dataB - dataA; // Mais recente primeiro
+          }
+          // Se não houver mensagens recentes, ordena alfabeticamente por nome
           return (a.nome || '').localeCompare(b.nome || '');
         });
 
-        // Filtra o próprio usuário logado para não aparecer a falar consigo mesmo
+        // Remove o próprio usuário logado da lista lateral de conversas diretas
         const membrosFinais = membrosOrdenados.filter((m) => m.email?.trim().toLowerCase() !== emailUsuario);
         setListaMembrosChat(membrosFinais.length > 0 ? membrosFinais : membrosOrdenados);
       } else {
@@ -254,7 +264,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v15')
+        .channel('chat_realtime_mobile_v16')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -540,7 +550,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           .eq('id', itemEditandoAgenda.id);
 
         if (error) throw error;
-        alert('✏️ Compromisso atualizado com sucesso!');
+        alert('✏️️ Compromisso atualizado com sucesso!');
       } else {
         const { error } = await supabase.from('agenda_mobile').insert([payload]);
         if (error) throw error;
@@ -1039,9 +1049,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       </div>
                     </div>
 
-                    {/* Lista Dinâmica de Membros com Últimas Conversas/Comentários no Topo */}
+                    {/* Lista de Membros com Últimas Conversas/Comentários no Topo */}
                     {listaMembrosChat.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro cadastrado.</p>
+                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro encontrado.</p>
                     ) : (
                       listaMembrosChat.map((m) => {
                         const selecionado = membroSelecionadoChat?.id === m.id;

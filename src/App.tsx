@@ -417,17 +417,17 @@ export default function App() {
     setPrecisaCompletarPerfil(false);
     setLoggedUser(data);
 
-    if (data.perfil === 'admin' || data.perfil === 'administrador' || data.perfil === 'lider') {
+    // Apenas Administrador tem acesso total automático. Líderes e Comuns seguem os checkboxes.
+    if (data.perfil === 'admin' || data.perfil === 'administrador') {
       setPermissoesAtivas(['dashboard', 'app-mobile', 'chat-mobile', 'cadastros', 'visitantes', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'configuracoes']);
       setPrecisaCompletarCadastro(false);
     } else {
       const { data: permData } = await supabase
         .from('permissoes_usuario')
-        .select('modulo')
-        .eq('usuario_id', data.id)
-        .eq('permitido', true);
+        .select('modulo, permitido')
+        .eq('usuario_id', data.id);
 
-      const mods = permData ? permData.map((p) => p.modulo) : [];
+      const mods = permData ? permData.filter((p) => p.permitido).map((p) => p.modulo) : [];
       setPermissoesAtivas(mods);
 
       const { data: membroInfo } = await supabase
@@ -461,7 +461,8 @@ export default function App() {
       .select('*', { count: 'exact', head: true })
       .eq('codigo_igreja', codigoIgreja.toUpperCase().trim());
 
-    const perfilInicial = (countError || count === 0) ? 'administrador' : 'comum';
+    const isPrimeiro = countError || count === 0;
+    const perfilInicial = isPrimeiro ? 'administrador' : 'comum';
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
@@ -475,7 +476,7 @@ export default function App() {
 
     const authUserId = authData.user?.id || authData.session?.user?.id;
 
-    const { error: profileError } = await supabase.from('usuarios').insert([
+    const { data: novoUsuario, error: profileError } = await supabase.from('usuarios').insert([
       {
         auth_user_id: authUserId || null,
         email: email.trim().toLowerCase(),
@@ -484,16 +485,28 @@ export default function App() {
         perfil: perfilInicial,
         ativo: true,
       },
-    ]);
+    ]).select().single();
 
     if (profileError) {
       alert('Erro ao criar perfil do usuário: ' + profileError.message);
       return;
     }
 
-    alert(perfilInicial === 'administrador' 
+    // Se não for o primeiro (admin), cria as permissões iniciais (apenas app_mobile true, resto false)
+    if (novoUsuario && !isPrimeiro) {
+      const modulosList = ['dashboard', 'cadastros', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'app_mobile'];
+      const permissoesIniciais = modulosList.map((mod) => ({
+        usuario_id: novoUsuario.id,
+        modulo: mod,
+        permitido: mod === 'app_mobile', // Apenas App Mobile liberado por defeito no cadastro comum
+      }));
+
+      await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
+    }
+
+    alert(isPrimeiro 
       ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
-      : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados até que o Administrador os libere.');
+      : '👤 Cadastro realizado com sucesso! Seus módulos virão zerados (apenas App Mobile ativo) até que o Administrador altere as permissões.');
     setIsLogin(true);
   };
 
@@ -514,6 +527,7 @@ export default function App() {
       .maybeSingle();
 
     let error;
+    let usuarioIdCriado = null;
 
     if (registroExistente) {
       const res = await supabase
@@ -526,8 +540,11 @@ export default function App() {
           perfil: 'comum',
           ativo: true,
         })
-        .eq('id', registroExistente.id);
+        .eq('id', registroExistente.id)
+        .select()
+        .single();
       error = res.error;
+      usuarioIdCriado = registroExistente.id;
     } else {
       const res = await supabase.from('usuarios').insert([
         {
@@ -538,14 +555,29 @@ export default function App() {
           perfil: 'comum',
           ativo: true,
         },
-      ]);
+      ]).select().single();
       error = res.error;
+      usuarioIdCriado = res.data?.id;
     }
 
     if (error) {
       alert('Erro ao salvar perfil: ' + error.message);
       return;
     }
+
+    if (usuarioIdCriado) {
+      const modulosList = ['dashboard', 'cadastros', 'celulas', 'discipulado', 'agenda', 'financeiro', 'projetos', 'app_mobile'];
+      const permissoesIniciais = modulosList.map((mod) => ({
+        usuario_id: usuarioIdCriado,
+        modulo: mod,
+        permitido: mod === 'app_mobile',
+      }));
+
+      await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
+    }
+
+    await carregarUsuarioEPermissoes();
+  };
 
     await carregarUsuarioEPermissoes();
   };

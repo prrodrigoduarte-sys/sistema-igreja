@@ -165,6 +165,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const carregarMembrosChat = useCallback(async () => {
     try {
+      // Consulta direta e segura por igreja
       const { data: membros, error } = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, tipo_cadastro, foto_url')
@@ -173,10 +174,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
       if (error) throw error;
 
       if (membros && membros.length > 0) {
-        // Exclui o próprio utilizador logado da lista lateral de conversas privadas para não conversar consigo mesmo
-        const membrosFiltrados = membros.filter((m) => m.email?.toLowerCase() !== emailUsuario);
-        setListaMembrosChat(membrosFiltrados.length > 0 ? membrosFiltrados : membros);
+        setListaMembrosChat(membros);
       } else {
+        // Fallback robusto se a tabela estiver vazia
         setListaMembrosChat([
           { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' },
           { id: '2', nome: 'Secretaria da Igreja', email: 'secretaria@igreja.com', celular_principal: '33988888888', tipo_cadastro: 'Administrativo' }
@@ -185,10 +185,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
     } catch (err) {
       console.error('Erro ao carregar membros:', err);
       setListaMembrosChat([
-        { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' }
+        { id: '1', nome: 'Pastor Responsável', email: 'pastor@igreja.com', celular_principal: '33999999999', tipo_cadastro: 'Líder' },
+        { id: '2', nome: 'Secretaria da Igreja', email: 'secretaria@igreja.com', celular_principal: '33988888888', tipo_cadastro: 'Administrativo' }
       ]);
     }
-  }, [codigoIgreja, emailUsuario]);
+  }, [codigoIgreja]);
 
   const carregarMensagensChat = useCallback(async () => {
     try {
@@ -203,7 +204,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         const meuId = membroPerfil?.id || '0';
         const meuEmail = emailUsuario;
 
-        // Condição exata para chat privado bidirecional sem duplicar
         query = query.or(
           `and(sender.eq.${meuEmail},recipient_id.eq.${membroSelecionadoChat.id}),` +
           `and(sender.eq.${emailDestinatario},recipient_id.eq.${meuId}),` +
@@ -217,7 +217,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
       if (error) throw error;
       
       if (data) {
-        // Remove duplicados pelo ID da mensagem
         const unicas = Array.from(new Map(data.map(m => [m.id, m])).values());
         setMensagensChat(unicas);
       }
@@ -232,7 +231,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       carregarMensagensChat();
 
       const channel = supabase
-        .channel('chat_realtime_mobile_v8')
+        .channel('chat_realtime_mobile_v9')
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'chat_mensagens' },
@@ -622,7 +621,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const handleCompartilharDevocional = () => {
     const textoLimpo = devocionalDoDia.reflexao.replace(/<[^>]*>?/gm, '');
-    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️ *Por:* ${devocionalDoDia.autor}`;
+    const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️️ *Por:* ${devocionalDoDia.autor}`;
 
     if (navigator.share) {
       navigator.share({
@@ -815,7 +814,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       ctx.textAlign = 'center';
       
       const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
+      ctx.fillText(`✍️️ ${nomeAutor}`, 540, 1710);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '26px sans-serif';
@@ -1067,7 +1066,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   <div className="bg-[#005e54] text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
                     <div className="truncate pr-2">
                       <h3 className="font-bold text-xs truncate flex items-center gap-1.5">
-                        {membroSelecionadoChat ? `👤 ${membroSelecionadoChat.nome}` : '📢 Conversa Geral'}
+                        {membroSelecionadoChat ? `👤 ${membroSelecionadoChat.nome}` : '📢 Transmissão Geral'}
                       </h3>
                       <p className="text-[9px] text-emerald-100 truncate">
                         {membroSelecionadoChat ? `Celular: ${membroSelecionadoChat.celular_principal || 'Não informado'}` : 'Mensagem enviada para todos os membros'}
@@ -1266,7 +1265,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           title="Editar compromisso"
                           className="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
                         >
-                          ✏️
+                          ✏️️
                         </button>
                         <button
                           type="button"
@@ -1348,7 +1347,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                             className="w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
                             title="Editar Reunião"
                           >
-                            ✏️
+                            ✏️️
                           </button>
 
                           <button
@@ -1828,7 +1827,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
             <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
-              {itemEditandoReuniao ? '✏️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
+              {itemEditandoReuniao ? '✏️️ Editar Encontro da Célula' : 'Registrar Encontro da Célula'}
             </h3>
             <form onSubmit={handleSalvarReuniaoCelula} className="space-y-2.5">
               <div className="grid grid-cols-2 gap-2">

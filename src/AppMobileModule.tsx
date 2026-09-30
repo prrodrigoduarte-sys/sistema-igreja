@@ -65,6 +65,31 @@ const nomeDoEmail = (email?: string) => {
   return prefixo ? prefixo.replace(/\b\w/g, (c) => c.toUpperCase()) : 'Membro';
 };
 
+// Reduz a foto no aparelho: recorta quadrado, 256x256, JPEG ~20 KB (a original do celular tem vários MB)
+const redimensionarImagem = (arquivo: File, lado = 256, qualidade = 0.75): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const leitor = new FileReader();
+    leitor.onerror = () => reject(new Error('Não foi possível ler a imagem.'));
+    leitor.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Arquivo de imagem inválido.'));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = lado;
+        canvas.height = lado;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Não foi possível processar a imagem.'));
+        const corte = Math.min(img.width, img.height);
+        const sx = (img.width - corte) / 2;
+        const sy = (img.height - corte) / 2;
+        ctx.drawImage(img, sx, sy, corte, corte, 0, 0, lado, lado);
+        resolve(canvas.toDataURL('image/jpeg', qualidade));
+      };
+      img.src = leitor.result as string;
+    };
+    leitor.readAsDataURL(arquivo);
+  });
+
 // "ALINE DAMASCENO DUARTE" -> "Aline Damasceno Duarte"
 const nomeBonito = (nome?: string) => {
   const minusculas = ['de', 'da', 'do', 'das', 'dos', 'e'];
@@ -93,6 +118,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
   const [fotoUrl, setFotoUrl] = useState('');
+  const [processandoFoto, setProcessandoFoto] = useState(false);
   const [rua, setRua] = useState('');
   const [numero, setNumero] = useState('');
   const [bairro, setBairro] = useState('');
@@ -224,7 +250,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
   // ── CHAT: carregar membros (não depende de nenhum estado que mude sozinho) ──
   const carregarMembrosChat = useCallback(async () => {
     try {
-      const { data, error } = await supabase.from('members').select('*');
+      // Só colunas leves: foto_url pode conter imagem em base64 e derrubar a consulta por timeout
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, nome, email, celular_principal, tipo_cadastro')
+        .not('email', 'is', null)
+        .order('nome', { ascending: true })
+        .limit(500);
       if (error) {
         console.error('Erro ao ler members:', error);
         setAvisoMembros(`Não foi possível ler a tabela members: ${error.message}`);
@@ -243,7 +275,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           email: String(m.email).trim().toLowerCase(),
           celular_principal: m.celular_principal || '',
           tipo_cadastro: m.tipo_cadastro || 'Membro',
-          foto_url: m.foto_url || '',
+          foto_url: '',
         }))
         .filter((m: any) => (vistos.has(m.email) ? false : (vistos.add(m.email), true)));
 
@@ -297,7 +329,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
             const { data: dataPart } = await supabase
               .from('members')
-              .select('id, nome, celular_principal, foto_url')
+              .select('id, nome, celular_principal')
               .eq('celula_id', dataMembro.celula_id);
             if (dataPart) setParticipantesCelula(dataPart);
           }
@@ -358,6 +390,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
     verificarStatusCadastro();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregarDadosApp]);
+
+  // Se a leitura dos nomes falhar (ex.: timeout do banco), tenta de novo sozinho a cada 10s
+  useEffect(() => {
+    if (!avisoMembros) return;
+    const t = setInterval(() => carregarMembrosChat(), 10000);
+    return () => clearInterval(t);
+  }, [avisoMembros, carregarMembrosChat]);
 
   // Chat: carga inicial + tempo real + atualização de segurança a cada 8s
   useEffect(() => {
@@ -536,6 +575,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
+    if (fotoUrl.length > 300000) {
+      return alert('A foto está muito pesada. Toque em "Escolher foto" para enviar uma versão reduzida.');
+    }
     try {
       const { error } = await supabase
         .from('members')
@@ -1200,14 +1242,34 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
                   <form onSubmit={handleSalvarPerfil} className="space-y-2.5">
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">URL da Foto de Perfil</label>
-                      <input
-                        type="text"
-                        placeholder="Cole a URL ou base64 da imagem"
-                        value={fotoUrl}
-                        onChange={(e) => setFotoUrl(e.target.value)}
-                        className="w-full border rounded-xl p-2 font-mono text-[10px]"
-                      />
+                      <label className="block font-bold text-slate-700 mb-1">Foto de Perfil</label>
+                      <div className="flex items-center gap-3">
+                        <div className="w-14 h-14 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                          {fotoUrl ? <img src={fotoUrl} alt="" className="w-full h-full object-cover" /> : '👤'}
+                        </div>
+                        <label className="px-3 py-2 bg-blue-50 hover:bg-blue-100 text-blue-900 font-bold rounded-xl cursor-pointer text-[11px] border border-blue-200">
+                          {processandoFoto ? 'Processando...' : '📷 Escolher foto'}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={async (e) => {
+                              const arquivo = e.target.files?.[0];
+                              if (!arquivo) return;
+                              setProcessandoFoto(true);
+                              try {
+                                setFotoUrl(await redimensionarImagem(arquivo));
+                              } catch (err: any) {
+                                alert(err.message);
+                              } finally {
+                                setProcessandoFoto(false);
+                                e.target.value = '';
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="text-[10px] text-slate-500 mt-1">A foto é reduzida automaticamente. Depois toque em "Atualizar Meu Cadastro".</p>
                     </div>
 
                     <div className="space-y-2 border-t pt-2">

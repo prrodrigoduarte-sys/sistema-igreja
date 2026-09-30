@@ -113,9 +113,10 @@ export default function ChatModule({ loggedUser, visivel = true, onVoltar }: Pro
       .from('members')
       .select('id, nome')
       .eq('email', emailUsuario)
+      .eq('codigo_igreja', codigoIgreja)
       .maybeSingle()
       .then(({ data }) => setMembroPerfil(data || null));
-  }, [emailUsuario]);
+  }, [emailUsuario, codigoIgreja]);
 
   // ── CHAT: carregar membros (não depende de nenhum estado que mude sozinho) ──
   const carregarMembrosChat = useCallback(async () => {
@@ -124,6 +125,7 @@ export default function ChatModule({ loggedUser, visivel = true, onVoltar }: Pro
       const { data, error } = await supabase
         .from('members')
         .select('id, nome, email, celular_principal, tipo_cadastro')
+        .eq('codigo_igreja', codigoIgreja)
         .not('email', 'is', null)
         .order('nome', { ascending: true })
         .limit(500);
@@ -153,7 +155,7 @@ export default function ChatModule({ loggedUser, visivel = true, onVoltar }: Pro
     } catch (err) {
       console.error('Erro ao carregar membros do chat:', err);
     }
-  }, []);
+  }, [codigoIgreja]);
 
   // ── CHAT: uma única busca traz todas as mensagens; o filtro é feito em memória (useMemo) ──
   const carregarMensagensChat = useCallback(async () => {
@@ -161,9 +163,11 @@ export default function ChatModule({ loggedUser, visivel = true, onVoltar }: Pro
       const { data, error } = await supabase
         .from('chat_mensagens')
         .select('*')
-        .order('created_at', { ascending: true })
+        .eq('codigo_igreja', codigoIgreja)
+        .order('created_at', { ascending: false }) // as 1000 mais recentes...
         .limit(1000);
       if (error) throw error;
+      if (data) data.reverse(); // ...exibidas da mais antiga para a mais nova
       if (data) {
         setTodasMensagens((prev) => {
           const igual =
@@ -176,7 +180,7 @@ export default function ChatModule({ loggedUser, visivel = true, onVoltar }: Pro
     } catch (err) {
       console.error('Erro ao carregar mensagens:', err);
     }
-  }, []);
+  }, [codigoIgreja]);
 
   // Se a leitura dos nomes falhar (ex.: timeout do banco), tenta de novo sozinho a cada 10s
   useEffect(() => {

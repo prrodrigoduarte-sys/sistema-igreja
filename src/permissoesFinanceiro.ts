@@ -49,17 +49,23 @@ export const FINANCEIRO_PADRAO: PermissoesFinanceiro = {
 export const CHAVES_FINANCEIRO = SUBMODULOS_FINANCEIRO.map((s) => s.chave);
 
 // Lê as sub-permissões do usuário logado. Administrador pode tudo.
-export async function carregarPermissoesFinanceiro(usuarioId: any, ehAdmin: boolean): Promise<PermissoesFinanceiro> {
+export async function carregarPermissoesFinanceiro(usuarioId: any, ehAdmin: boolean, email?: string): Promise<PermissoesFinanceiro> {
   if (ehAdmin) return { ...FINANCEIRO_TOTAL };
-  if (!usuarioId) return { ...FINANCEIRO_PADRAO };
+  const buscar = async (id: any) =>
+    supabase.from('permissoes_usuario').select('modulo, permitido').eq('usuario_id', id).in('modulo', CHAVES_FINANCEIRO);
 
-  const { data, error } = await supabase
-    .from('permissoes_usuario')
-    .select('modulo, permitido')
-    .eq('usuario_id', usuarioId)
-    .in('modulo', CHAVES_FINANCEIRO);
+  let resp: any = usuarioId ? await buscar(usuarioId) : { data: [], error: null };
 
-  if (error || !data || data.length === 0) return { ...FINANCEIRO_PADRAO };
+  // Se o id do login não for o id da tabela usuarios, procura o usuário pelo e-mail
+  if (!resp.error && (!resp.data || resp.data.length === 0) && email) {
+    const { data: u } = await supabase.from('usuarios').select('id').ilike('email', String(email).trim()).limit(1);
+    const idPeloEmail = u && u[0]?.id;
+    if (idPeloEmail && String(idPeloEmail) !== String(usuarioId)) resp = await buscar(idPeloEmail);
+  }
+
+  const { data, error } = resp;
+  if (error) return { ...FINANCEIRO_SOMENTE_LANCAMENTO, fin_lancar: false }; // falha ao ler: fecha, não abre
+  if (!data || data.length === 0) return { ...FINANCEIRO_PADRAO };
 
   const perms: PermissoesFinanceiro = { ...FINANCEIRO_SOMENTE_LANCAMENTO, fin_lancar: false };
   data.forEach((p: any) => {

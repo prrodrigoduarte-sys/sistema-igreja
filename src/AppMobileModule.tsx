@@ -33,6 +33,20 @@ interface Devocional {
   data: string;
 }
 
+// Servidores STUN públicos (descobrem o endereço de cada aparelho para a chamada direta).
+// Em algumas redes (4G de certas operadoras, Wi-Fi corporativo) a chamada só conecta com um servidor TURN:
+// para incluir, acrescente aqui { urls: 'turn:SEU_SERVIDOR:3478', username: '...', credential: '...' }.
+const ICE_SERVERS: RTCConfiguration = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }],
+};
+
+interface Chamada {
+  estado: 'chamando' | 'recebendo' | 'conectando' | 'em_chamada';
+  comEmail: string;
+  comNome: string;
+  mudo: boolean;
+}
+
 type SubAba = 'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat' | 'inicio';
 
 const ABAS: { id: Exclude<SubAba, 'inicio'>; icone: string; titulo: string }[] = [
@@ -628,6 +642,336 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // ═════════ PRESENÇA (online/offline) + CHAMADAS DE VOZ INTERNAS (WebRTC) ═════════
+  const [emailsOnline, setEmailsOnline] = useState<string[]>([]);
+  const [chamada, setChamadaState] = useState<Chamada | null>(null);
+  const [segundosChamada, setSegundosChamada] = useState(0);
+  const [avisoChamada, setAvisoChamada] = useState('');
+
+  const chamadaRef = useRef<Chamada | null>(null);
+  const canalRef = useRef<any>(null);
+  const pcRef = useRef<RTCPeerConnection | null>(null);
+  const streamLocalRef = useRef<MediaStream | null>(null);
+  const audioRemotoRef = useRef<HTMLAudioElement | null>(null);
+  const ofertaRecebidaRef = useRef<any>(null);
+  const icePendenteRef = useRef<any[]>([]);
+  const timeoutChamadaRef = useRef<any>(null);
+  const toqueRef = useRef<any>(null);
+  const avisoTimerRef = useRef<any>(null);
+  const sinalRef = useRef<(p: any) => void>(() => {});
+  const saiuRef = useRef<(email: string) => void>(() => {});
+  const limparRef = useRef<() => void>(() => {});
+
+  const emailsOnlineSet = useMemo(() => new Set(emailsOnline), [emailsOnline]);
+  const estaOnline = (email?: string) => !!email && emailsOnlineSet.has(email.trim().toLowerCase());
+  const nomeMeu = nomeBonito(membroPerfil?.nome || loggedUser?.nome_usuario || emailUsuario.split('@')[0]);
+
+  const setChamada = (c: Chamada | null) => {
+    chamadaRef.current = c;
+    setChamadaState(c);
+  };
+
+  const mostrarAviso = (msg: string) => {
+    setAvisoChamada(msg);
+    clearTimeout(avisoTimerRef.current);
+    avisoTimerRef.current = setTimeout(() => setAvisoChamada(''), 4500);
+  };
+
+  const enviarSinal = (payload: any) => {
+    canalRef.current?.send({
+      type: 'broadcast',
+      event: 'sinal',
+      payload: { ...payload, de: emailUsuario, deNome: nomeMeu },
+    });
+  };
+
+  const pararToque = () => {
+    if (toqueRef.current) {
+      clearInterval(toqueRef.current.timer);
+      try {
+        toqueRef.current.ctx.close();
+      } catch {}
+      toqueRef.current = null;
+    }
+    try {
+      navigator.vibrate?.(0);
+    } catch {}
+  };
+
+  const tocarToque = () => {
+    pararToque();
+    try {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new Ctx();
+      const bip = () => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.value = 480;
+        gain.gain.value = 0.08;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+        try {
+          navigator.vibrate?.([400, 200, 400]);
+        } catch {}
+      };
+      bip();
+      toqueRef.current = { ctx, timer: setInterval(bip, 2500) };
+    } catch {}
+  };
+
+  const limparChamada = () => {
+    clearTimeout(timeoutChamadaRef.current);
+    pararToque();
+    if (pcRef.current) {
+      pcRef.current.onicecandidate = null;
+      pcRef.current.ontrack = null;
+      pcRef.current.onconnectionstatechange = null;
+      pcRef.current.close();
+      pcRef.current = null;
+    }
+    streamLocalRef.current?.getTracks().forEach((t) => t.stop());
+    streamLocalRef.current = null;
+    if (audioRemotoRef.current) audioRemotoRef.current.srcObject = null;
+    ofertaRecebidaRef.current = null;
+    icePendenteRef.current = [];
+    setSegundosChamada(0);
+    setChamada(null);
+  };
+  limparRef.current = limparChamada;
+
+  const encerrarChamada = () => {
+    const c = chamadaRef.current;
+    if (c) enviarSinal({ tipo: 'fim', para: c.comEmail });
+    limparChamada();
+  };
+
+  const obterMicrofone = async (): Promise<MediaStream | null> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      alert('Chamadas de voz só funcionam em conexão segura (https). Abra o app pelo endereço https.');
+      return null;
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch {
+      alert('Não foi possível usar o microfone. Permita o acesso ao microfone nas configurações do navegador e tente de novo.');
+      return null;
+    }
+  };
+
+  const criarPeer = (comEmail: string) => {
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    pc.onicecandidate = (e) => {
+      if (e.candidate) enviarSinal({ tipo: 'ice', para: comEmail, candidate: e.candidate.toJSON() });
+    };
+    pc.ontrack = (e) => {
+      if (audioRemotoRef.current) {
+        audioRemotoRef.current.srcObject = e.streams[0];
+        audioRemotoRef.current.play().catch(() => {});
+      }
+    };
+    pc.onconnectionstatechange = () => {
+      const c = chamadaRef.current;
+      if (!c) return;
+      if (pc.connectionState === 'connected') setChamada({ ...c, estado: 'em_chamada' });
+      if (pc.connectionState === 'failed') {
+        limparChamada();
+        mostrarAviso('Não foi possível conectar a chamada. A rede pode estar bloqueando a ligação direta.');
+      }
+    };
+    return pc;
+  };
+
+  const aplicarIcePendente = async (pc: RTCPeerConnection) => {
+    const lista = icePendenteRef.current;
+    icePendenteRef.current = [];
+    for (const cand of lista) {
+      try {
+        await pc.addIceCandidate(cand);
+      } catch {}
+    }
+  };
+
+  const iniciarChamada = async (membro: any) => {
+    if (chamadaRef.current) return alert('Você já está em uma chamada.');
+    if (!estaOnline(membro.email)) return alert(`${membro.nome} não está online agora.`);
+
+    const stream = await obterMicrofone();
+    if (!stream) return;
+    streamLocalRef.current = stream;
+    setChamada({ estado: 'chamando', comEmail: membro.email, comNome: membro.nome, mudo: false });
+
+    try {
+      const pc = criarPeer(membro.email);
+      pcRef.current = pc;
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      const oferta = await pc.createOffer();
+      await pc.setLocalDescription(oferta);
+      enviarSinal({ tipo: 'oferta', para: membro.email, sdp: { type: oferta.type, sdp: oferta.sdp } });
+      timeoutChamadaRef.current = setTimeout(() => {
+        if (chamadaRef.current?.estado === 'chamando') {
+          encerrarChamada();
+          mostrarAviso(`${membro.nome} não atendeu.`);
+        }
+      }, 45000);
+    } catch {
+      limparChamada();
+      mostrarAviso('Não foi possível iniciar a chamada.');
+    }
+  };
+
+  const atenderChamada = async () => {
+    const c = chamadaRef.current;
+    const oferta = ofertaRecebidaRef.current;
+    if (!c || !oferta) return;
+    clearTimeout(timeoutChamadaRef.current);
+    pararToque();
+
+    const stream = await obterMicrofone();
+    if (!stream) {
+      enviarSinal({ tipo: 'recusa', para: c.comEmail });
+      limparChamada();
+      return;
+    }
+    streamLocalRef.current = stream;
+    setChamada({ ...c, estado: 'conectando' });
+
+    try {
+      const pc = criarPeer(c.comEmail);
+      pcRef.current = pc;
+      stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+      await pc.setRemoteDescription(oferta);
+      await aplicarIcePendente(pc);
+      const resposta = await pc.createAnswer();
+      await pc.setLocalDescription(resposta);
+      enviarSinal({ tipo: 'resposta', para: c.comEmail, sdp: { type: resposta.type, sdp: resposta.sdp } });
+    } catch {
+      enviarSinal({ tipo: 'fim', para: c.comEmail });
+      limparChamada();
+      mostrarAviso('Não foi possível atender a chamada.');
+    }
+  };
+
+  const recusarChamada = () => {
+    const c = chamadaRef.current;
+    if (c) enviarSinal({ tipo: 'recusa', para: c.comEmail });
+    limparChamada();
+  };
+
+  const alternarMudo = () => {
+    const c = chamadaRef.current;
+    if (!c) return;
+    streamLocalRef.current?.getAudioTracks().forEach((t) => (t.enabled = c.mudo));
+    setChamada({ ...c, mudo: !c.mudo });
+  };
+
+  const tratarSinal = async (p: any) => {
+    if (!p || (p.para || '').toLowerCase() !== emailUsuario) return;
+    const de = (p.de || '').toLowerCase();
+    const c = chamadaRef.current;
+
+    if (p.tipo === 'oferta') {
+      if (c) {
+        enviarSinal({ tipo: 'ocupado', para: de });
+        return;
+      }
+      ofertaRecebidaRef.current = p.sdp;
+      icePendenteRef.current = [];
+      setChamada({
+        estado: 'recebendo',
+        comEmail: de,
+        comNome: p.deNome ? nomeBonito(p.deNome) : nomePorEmail[de] || nomeDoEmail(de),
+        mudo: false,
+      });
+      tocarToque();
+      clearTimeout(timeoutChamadaRef.current);
+      timeoutChamadaRef.current = setTimeout(() => {
+        if (chamadaRef.current?.estado === 'recebendo') {
+          const nome = chamadaRef.current.comNome;
+          limparChamada();
+          mostrarAviso(`Chamada perdida de ${nome}.`);
+        }
+      }, 45000);
+      return;
+    }
+
+    if (!c || c.comEmail !== de) return;
+
+    if (p.tipo === 'resposta' && pcRef.current) {
+      clearTimeout(timeoutChamadaRef.current);
+      setChamada({ ...c, estado: 'conectando' });
+      try {
+        await pcRef.current.setRemoteDescription(p.sdp);
+        await aplicarIcePendente(pcRef.current);
+      } catch {
+        limparChamada();
+        mostrarAviso('Falha ao conectar a chamada.');
+      }
+    } else if (p.tipo === 'ice') {
+      if (pcRef.current?.remoteDescription) {
+        try {
+          await pcRef.current.addIceCandidate(p.candidate);
+        } catch {}
+      } else {
+        icePendenteRef.current.push(p.candidate);
+      }
+    } else if (p.tipo === 'recusa') {
+      limparChamada();
+      mostrarAviso(`${c.comNome} recusou a chamada.`);
+    } else if (p.tipo === 'ocupado') {
+      limparChamada();
+      mostrarAviso(`${c.comNome} está em outra chamada.`);
+    } else if (p.tipo === 'fim') {
+      const perdida = c.estado === 'recebendo';
+      limparChamada();
+      mostrarAviso(perdida ? `Chamada perdida de ${c.comNome}.` : 'Chamada encerrada.');
+    }
+  };
+  sinalRef.current = tratarSinal;
+  saiuRef.current = (email: string) => {
+    const c = chamadaRef.current;
+    if (c && c.comEmail === email.trim().toLowerCase()) {
+      limparChamada();
+      mostrarAviso(`${c.comNome} saiu do app.`);
+    }
+  };
+
+  // Um único canal por igreja: presença (quem está online) + sinais da chamada
+  useEffect(() => {
+    if (!emailUsuario) return;
+    const canal = supabase.channel(`app_${codigoIgreja}`, {
+      config: { presence: { key: emailUsuario }, broadcast: { self: false } },
+    });
+    canal
+      .on('presence', { event: 'sync' }, () => {
+        setEmailsOnline(Object.keys(canal.presenceState()).map((k) => k.toLowerCase()));
+      })
+      .on('presence', { event: 'leave' }, ({ key }: any) => saiuRef.current(key || ''))
+      .on('broadcast', { event: 'sinal' }, ({ payload }: any) => {
+        sinalRef.current(payload);
+      })
+      .subscribe(async (status: string) => {
+        if (status === 'SUBSCRIBED') await canal.track({ email: emailUsuario, desde: new Date().toISOString() });
+      });
+    canalRef.current = canal;
+    return () => {
+      supabase.removeChannel(canal);
+      canalRef.current = null;
+    };
+  }, [emailUsuario, codigoIgreja]);
+
+  // Cronômetro da chamada
+  useEffect(() => {
+    if (chamada?.estado !== 'em_chamada') return;
+    setSegundosChamada(0);
+    const t = setInterval(() => setSegundosChamada((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [chamada?.estado]);
+
+  // Ao sair do app, encerra a chamada e libera o microfone
+  useEffect(() => () => limparRef.current(), []);
+
   // ── Demais handlers (inalterados) ──
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1048,6 +1392,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 ← Voltar ao app
               </button>
               <h3 className="font-black text-slate-800 text-sm">Conversas</h3>
+              <span className="ml-auto text-[10px] font-semibold text-emerald-700">
+                {emailsOnline.filter((e) => e !== emailUsuario).length} online
+              </span>
             </div>
             <input
               type="text"
@@ -1091,8 +1438,16 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     membroSelecionadoChat?.email === m.email ? 'bg-emerald-50' : 'hover:bg-slate-50'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 overflow-hidden">
-                    {m.foto_url ? <img src={m.foto_url} alt="" className="w-full h-full object-cover" /> : '👤'}
+                  <div className="relative shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center overflow-hidden">
+                      {m.foto_url ? <img src={m.foto_url} alt="" className="w-full h-full object-cover" /> : '👤'}
+                    </div>
+                    {estaOnline(m.email) && (
+                      <span
+                        className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white"
+                        title="Online agora"
+                      />
+                    )}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex justify-between items-baseline gap-2">
@@ -1139,21 +1494,54 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <div className="min-w-0 flex-1">
               <h3 className="font-bold text-[13px] truncate">{nomeConversa}</h3>
               <p className="text-[10px] text-emerald-100 truncate">
-                {membroSelecionadoChat
-                  ? `Celular: ${membroSelecionadoChat.celular_principal || 'não informado'}`
-                  : 'Mensagem enviada para todos os membros'}
+                {membroSelecionadoChat ? (
+                  <>
+                    <span
+                      className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                        estaOnline(membroSelecionadoChat.email) ? 'bg-emerald-300' : 'bg-slate-400'
+                      }`}
+                    />
+                    {estaOnline(membroSelecionadoChat.email) ? 'online agora' : 'offline'}
+                    {membroSelecionadoChat.celular_principal ? ` · ${membroSelecionadoChat.celular_principal}` : ''}
+                  </>
+                ) : (
+                  'Mensagem enviada para todos os membros'
+                )}
               </p>
             </div>
-            {membroSelecionadoChat?.celular_principal && (
-              <button
-                type="button"
-                onClick={() => ligarPara(membroSelecionadoChat.celular_principal, membroSelecionadoChat.nome)}
-                className="shrink-0 h-9 px-3 rounded-full bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition"
-                aria-label={`Ligar para ${membroSelecionadoChat.nome}`}
-              >
-                <span>📞</span>
-                <span>Ligar</span>
-              </button>
+            {membroSelecionadoChat && (
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => iniciarChamada(membroSelecionadoChat)}
+                  disabled={!estaOnline(membroSelecionadoChat.email) || !!chamada}
+                  title={
+                    estaOnline(membroSelecionadoChat.email)
+                      ? `Chamar ${membroSelecionadoChat.nome} pelo app`
+                      : 'Disponível quando a pessoa estiver online'
+                  }
+                  className={`h-9 px-3 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition ${
+                    estaOnline(membroSelecionadoChat.email) && !chamada
+                      ? 'bg-emerald-500 hover:bg-emerald-400 text-white cursor-pointer active:scale-95'
+                      : 'bg-emerald-900/60 text-emerald-200/50 cursor-not-allowed'
+                  }`}
+                  aria-label={`Chamar ${membroSelecionadoChat.nome} pelo app`}
+                >
+                  <span>📞</span>
+                  <span className="hidden sm:inline">Chamar no app</span>
+                </button>
+                {membroSelecionadoChat.celular_principal && (
+                  <button
+                    type="button"
+                    onClick={() => ligarPara(membroSelecionadoChat.celular_principal, membroSelecionadoChat.nome)}
+                    className="h-9 px-3 rounded-full bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition"
+                    aria-label={`Ligar para o celular de ${membroSelecionadoChat.nome}`}
+                  >
+                    <span>📱</span>
+                    <span className="hidden sm:inline">Celular</span>
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -1765,6 +2153,71 @@ export default function AppMobileModule({ loggedUser }: Props) {
               )}
             </>
           )}
+        </div>
+      )}
+
+      <audio ref={audioRemotoRef} autoPlay playsInline />
+
+      {avisoChamada && (
+        <div
+          role="status"
+          className="fixed top-3 left-1/2 -translate-x-1/2 z-[80] max-w-[90vw] bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-full shadow-lg text-center"
+        >
+          {avisoChamada}
+        </div>
+      )}
+
+      {chamada && (
+        <div className="fixed inset-0 z-[70] bg-slate-950/90 flex items-center justify-center p-4" role="dialog" aria-label="Chamada de voz">
+          <div className="w-full max-w-xs rounded-3xl bg-gradient-to-b from-blue-950 to-slate-900 border border-white/10 text-white p-6 text-center space-y-5 shadow-2xl">
+            <div className="mx-auto w-24 h-24 rounded-full bg-white/5 ring-2 ring-white/20 flex items-center justify-center relative">
+              {(chamada.estado === 'chamando' || chamada.estado === 'recebendo') && (
+                <span className="absolute inset-0 rounded-full ring-4 ring-emerald-400/40 animate-ping motion-reduce:animate-none" />
+              )}
+              <Icone nome="perfil" className="w-12 h-12 text-white/90" />
+            </div>
+
+            <div>
+              <h3 className="text-lg font-black leading-tight">{chamada.comNome}</h3>
+              <p className="text-xs text-blue-200 mt-1">
+                {chamada.estado === 'chamando' && 'Chamando…'}
+                {chamada.estado === 'recebendo' && 'Chamada de voz pelo app'}
+                {chamada.estado === 'conectando' && 'Conectando…'}
+                {chamada.estado === 'em_chamada' &&
+                  `${String(Math.floor(segundosChamada / 60)).padStart(2, '0')}:${String(segundosChamada % 60).padStart(2, '0')}`}
+              </p>
+            </div>
+
+            {chamada.estado === 'recebendo' ? (
+              <div className="flex gap-3">
+                <button type="button" onClick={recusarChamada} className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
+                  Recusar
+                </button>
+                <button type="button" onClick={atenderChamada} className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-bold text-sm cursor-pointer active:scale-95 transition">
+                  Atender
+                </button>
+              </div>
+            ) : chamada.estado === 'chamando' ? (
+              <button type="button" onClick={encerrarChamada} className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
+                Cancelar
+              </button>
+            ) : (
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={alternarMudo}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-sm cursor-pointer active:scale-95 transition ${
+                    chamada.mudo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/10 hover:bg-white/20'
+                  }`}
+                >
+                  {chamada.mudo ? '🔇 Sem áudio' : '🎙 Microfone'}
+                </button>
+                <button type="button" onClick={encerrarChamada} className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
+                  Desligar
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

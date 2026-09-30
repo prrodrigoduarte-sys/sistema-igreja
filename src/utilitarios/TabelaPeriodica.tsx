@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { IconeUtil } from './IconesUtil';
-import { CATEGORIAS, Categoria, ELEMENTOS, Elemento, formatarMassa, semAcento } from './elementos';
+import { CATEGORIAS, type Categoria, ELEMENTOS, type Elemento, formatarMassa, semAcento } from './elementos';
 
 export default function TabelaPeriodica() {
   const [selecionado, setSelecionado] = useState<Elemento>(ELEMENTOS[0]);

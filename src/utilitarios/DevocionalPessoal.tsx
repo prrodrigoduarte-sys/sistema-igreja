@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { IconeUtil } from './IconesUtil';
+import { supabase } from '../supabase';
+import { dataBR, hojeLocal, textoParaHtml } from '../devocionalUtil';
 
 // Devocional pessoal: a pessoa escolhe versículos na Bíblia e escreve o que Deus falou com ela.
 // Fica guardado neste aparelho (localStorage), separado por usuário.
@@ -56,9 +58,16 @@ interface Props {
   rascunho: Rascunho | null; // quando vem da Bíblia com versículos marcados, abre direto o editor
   onFechar: () => void;
   onMudou?: (total: number) => void;
+  // Pastor e administrador: podem enviar o devocional para a aba "Devocional" do app (para toda a igreja)
+  podePublicar?: boolean;
+  codigoIgreja?: string;
 }
 
-export default function DevocionalPessoal({ email, nome, rascunho, onFechar, onMudou }: Props) {
+// Monta o conteúdo do devocional da igreja a partir do devocional pessoal
+const reflexaoParaIgreja = (d: Devocional) =>
+  textoParaHtml(d.reflexao) + (d.oracao.trim() ? `<blockquote>${textoParaHtml(`🙏 Oração: ${d.oracao.trim()}`)}</blockquote>` : '');
+
+export default function DevocionalPessoal({ email, nome, rascunho, onFechar, onMudou, podePublicar = false, codigoIgreja = '' }: Props) {
   const [lista, setLista] = useState<Devocional[]>(() => lerDevocionais(email));
   const [editando, setEditando] = useState<Devocional | null>(() =>
     rascunho
@@ -67,6 +76,8 @@ export default function DevocionalPessoal({ email, nome, rascunho, onFechar, onM
   );
   const [vendo, setVendo] = useState<Devocional | null>(null);
   const [aviso, setAviso] = useState('');
+  const [dataPublicacao, setDataPublicacao] = useState(hojeLocal());
+  const [publicando, setPublicando] = useState(false);
 
   useEffect(() => {
     onMudou?.(lista.length);
@@ -110,6 +121,27 @@ export default function DevocionalPessoal({ email, nome, rascunho, onFechar, onM
     } catch {
       mostrarAviso('Não foi possível copiar');
     }
+  };
+
+  const publicarNaIgreja = async (d: Devocional) => {
+    if (!podePublicar || !codigoIgreja) return;
+    const quando = dataPublicacao > hojeLocal() ? `agendado para ${dataBR(dataPublicacao)}` : 'publicado hoje';
+    if (!window.confirm(`Enviar "${d.titulo}" para o Devocional da igreja (${quando})? Todos os membros vão ver no app.`)) return;
+    setPublicando(true);
+    const { error } = await supabase.from('devotionals').insert([
+      {
+        codigo_igreja: codigoIgreja,
+        publish_date: dataPublicacao,
+        title: d.titulo,
+        verse_reference: d.referencia,
+        passage_text: d.versiculo || null,
+        content_html: reflexaoParaIgreja(d),
+        author_name: nome || 'Pastor / Equipe Pastoral',
+        is_published: true,
+      },
+    ]);
+    setPublicando(false);
+    mostrarAviso(error ? 'Não foi possível publicar: ' + error.message : dataPublicacao > hojeLocal() ? `Agendado para ${dataBR(dataPublicacao)}!` : 'Publicado no Devocional do app!');
   };
 
   const compartilhar = async (d: Devocional) => {
@@ -253,6 +285,29 @@ export default function DevocionalPessoal({ email, nome, rascunho, onFechar, onM
                   Excluir
                 </button>
               </div>
+
+              {podePublicar && (
+                <div className="mt-4 rounded-2xl border border-blue-200 bg-blue-50 p-3 space-y-2">
+                  <p className="text-sm font-black text-blue-900">📢 Publicar no Devocional da igreja</p>
+                  <p className="text-[11px] text-blue-800 leading-snug">Aparece para todos os membros na aba “Devocional” do app, no dia escolhido.</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="date"
+                      value={dataPublicacao}
+                      onChange={(e) => setDataPublicacao(e.target.value)}
+                      className="flex-1 min-w-0 rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => publicarNaIgreja(vendo)}
+                      disabled={publicando}
+                      className="shrink-0 rounded-xl bg-blue-900 hover:bg-blue-800 px-4 py-2 text-sm font-bold text-white cursor-pointer disabled:opacity-60"
+                    >
+                      {publicando ? 'Enviando...' : 'Publicar'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

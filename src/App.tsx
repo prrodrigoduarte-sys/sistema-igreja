@@ -20,8 +20,9 @@ import CelulasModule from './CelulasModule';
 import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
+import ChatModule from './ChatModule';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
-import { MessageSquare, Send, Bell, Trash2 } from 'lucide-react';
+import { MessageSquare, Bell } from 'lucide-react';
 import ConfiguracoesModule from './ConfiguracoesModule';
 
 function getOrCreateDeviceToken() {
@@ -60,11 +61,7 @@ export default function App() {
   const [codigoIgreja, setCodigoIgreja] = useState('');
   const [isLogin, setIsLogin] = useState(true);
 
-  const [chatMessages, setChatMessages] = useState<Array<any>>([
-    { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
-  ]);
-  const [messageInput, setMessageInput] = useState('');
-  const [selectedRecipient, setSelectedRecipient] = useState<string>('all');
+  // Membros (usado para os aniversariantes do dia; o chat agora fica no ChatModule)
   const [membrosChat, setMembrosChat] = useState<any[]>([]);
 
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
@@ -74,47 +71,13 @@ export default function App() {
   const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
 
   useEffect(() => {
-    const hoje = new Date();
-    const dia = hoje.getDate();
-    const mes = hoje.getMonth() + 1;
-    const anoAtual = hoje.getFullYear();
-
-    const ultimaLimpezaAno = localStorage.getItem('ultimo_ano_limpeza_chat');
-
-    if (dia === 1 && mes === 1 && ultimaLimpezaAno !== anoAtual.toString()) {
-      setChatMessages(prev => prev.filter(m => !m.isBroadcast));
-      localStorage.setItem('ultimo_ano_limpeza_chat', anoAtual.toString());
-    }
-  }, []);
-
-  useEffect(() => {
     if (window.location.hostname.startsWith('app.')) {
       setIsMobileSubdomain(true);
     }
   }, []);
 
   useEffect(() => {
-    const carregarDadosDoChat = async () => {
-      const { data: msgData, error: msgError } = await supabase
-        .from('chat_mensagens')
-        .select('*')
-        .eq('codigo_igreja', igrejaAtual)
-        .order('created_at', { ascending: true });
-
-      if (!msgError && msgData) {
-        const formatadas = msgData.map((m: any) => ({
-          id: m.id,
-          sender: m.sender,
-          text: m.text,
-          time: m.time,
-          isBroadcast: m.is_broadcast,
-          recipientId: m.recipient_id
-        }));
-        setChatMessages(formatadas.length > 0 ? formatadas : [
-          { id: '1', sender: 'Sistema', text: 'Bem-vindo ao chat da rede!', time: '10:00', isBroadcast: true }
-        ]);
-      }
-
+    const carregarMembros = async () => {
       const { data: membrosData, error: membrosError } = await supabase
         .from('members')
         .select('id, nome, tipo_cadastro, celular_principal, data_nascimento')
@@ -126,78 +89,17 @@ export default function App() {
           id: m.id.toString(),
           nome: m.nome,
           type: m.tipo_cadastro || 'Membro',
-          status: 'online',
           celular_principal: m.celular_principal,
           data_nascimento: m.data_nascimento,
-          ehLiderOuPastor: m.tipo_cadastro?.toLowerCase().includes('lider') || m.tipo_cadastro?.toLowerCase().includes('pastor')
         }));
         setMembrosChat(membrosFormatados);
       }
     };
 
     if (loggedUser) {
-      carregarDadosDoChat();
+      carregarMembros();
     }
   }, [igrejaAtual, loggedUser]);
-
-  const handleSendMessage = async () => {
-    if (!messageInput.trim()) return;
-    
-    const isGeral = selectedRecipient === 'all';
-
-    const novaMsg = {
-      codigo_igreja: igrejaAtual,
-      sender: loggedUser?.nome_usuario || 'Você',
-      text: isGeral ? `[TRANSMISSÃO PARA TODOS] ${messageInput}` : `[Privado] ${messageInput}`,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      is_broadcast: isGeral,
-      recipient_id: isGeral ? null : selectedRecipient
-    };
-
-    const { data, error } = await supabase
-      .from('chat_mensagens')
-      .insert([novaMsg])
-      .select()
-      .single();
-
-    if (error) {
-      alert('Erro ao enviar mensagem: ' + error.message);
-      return;
-    }
-
-    if (data) {
-      setChatMessages(prev => [...prev, {
-        id: data.id,
-        sender: data.sender,
-        text: data.text,
-        time: data.time,
-        isBroadcast: data.is_broadcast,
-        recipientId: data.recipient_id
-      }]);
-      setMessageInput('');
-    }
-  };
-
-  const handleExcluirMensagemChat = async (msgId: string, isBroadcastMsg?: boolean) => {
-    if (isBroadcastMsg && !isAdmin) {
-      alert('🔒 Apenas o Administrador pode excluir mensagens da conversa geral (todos os membros).');
-      return;
-    }
-
-    if (!window.confirm('Deseja realmente excluir esta mensagem?')) return;
-
-    const { error } = await supabase
-      .from('chat_mensagens')
-      .delete()
-      .eq('id', msgId);
-
-    if (error) {
-      alert('Erro ao excluir mensagem: ' + error.message);
-      return;
-    }
-
-    setChatMessages(prev => prev.filter(m => m.id !== msgId));
-  };
 
   const todayStr = new Date().toISOString().slice(5, 10);
   const todaysBirthdays = membrosChat.filter(m => (m.data_nascimento || '').slice(5, 10) === todayStr);
@@ -242,7 +144,7 @@ export default function App() {
 
       const linkCompleto = `${window.location.origin}${window.location.pathname}#cadastro?token=${tokenUnico}`;
       const novaUrlQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkCompleto)}`;
-      
+
       setQrCodeUrlDinamico(novaUrlQr);
     } catch (err: any) {
       console.error('Erro ao gerar QR Code:', err);
@@ -428,8 +330,8 @@ export default function App() {
 
     if (authData.session) {
       setSession(authData.session);
-      alert(isPrimeiro 
-        ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.' 
+      alert(isPrimeiro
+        ? '🎉 Cadastro realizado! Como primeiro usuário desta igreja, você é o Administrador.'
         : '👤 Conta criada e logada com sucesso!');
     } else {
       alert('✅ Conta criada com sucesso! Por favor, faça login com suas credenciais.');
@@ -1006,184 +908,29 @@ export default function App() {
           </div>
         )}
 
+        {/* Chat: o mesmo do aplicativo (mesmas conversas, quem está online e chamadas) */}
         {activeTab === 'chat-mobile' && (
-          <div className="mx-auto flex h-[75vh] max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
-            <div className="flex items-center justify-between bg-slate-900 p-4 text-white">
-              <div>
+          <div className="mx-auto flex h-[80vh] min-h-[520px] max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow">
+            <div className="flex shrink-0 items-center justify-between gap-3 bg-blue-900 px-4 py-3 text-white">
+              <div className="min-w-0">
                 <h2 className="flex items-center gap-2 text-lg font-bold">
                   <MessageSquare size={20} />
-                  Chat e Avisos Mobile
+                  Chat da Igreja
                 </h2>
-                <p className="text-xs text-slate-400">
-                  Comunicação direta com status online e repasse automático para líderes.
+                <p className="truncate text-xs text-blue-200">
+                  As mesmas conversas do aplicativo: mensagens, quem está online e chamadas.
                 </p>
               </div>
 
               {todaysBirthdays.length > 0 && (
-                <div className="flex items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900">
+                <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-slate-900">
                   <Bell size={14} />
                   🎂 {todaysBirthdays.length} aniversariante(s) hoje
                 </div>
               )}
             </div>
 
-            <div className="flex min-h-0 flex-1 overflow-hidden flex-col sm:flex-row">
-              <div className="w-full sm:w-1/3 overflow-y-auto border-r border-slate-200 bg-slate-50 p-4">
-                <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Membros e Status
-                </h3>
-
-                <div
-                  onClick={() => setSelectedRecipient('all')}
-                  className={`mb-2 cursor-pointer rounded-lg p-3 transition ${
-                    selectedRecipient === 'all'
-                      ? 'border border-blue-300 bg-blue-100'
-                      : 'bg-white hover:bg-slate-100'
-                  }`}
-                >
-                  <p className="text-sm font-semibold text-slate-800">
-                    📢 Todos os Membros
-                  </p>
-                  <p className="text-xs text-slate-500">
-                    Enviar para toda a rede
-                  </p>
-                </div>
-
-                {membrosChat.map((member) => (
-                  <div
-                    key={member.id}
-                    onClick={() => setSelectedRecipient(member.id)}
-                    className={`mb-2 flex cursor-pointer items-center justify-between rounded-lg p-3 transition ${
-                      selectedRecipient === member.id
-                        ? 'border border-blue-300 bg-blue-100'
-                        : 'bg-white hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-800">
-                        {member.nome || 'Membro sem nome'}
-                      </p>
-                      <p className="text-xs capitalize text-slate-500">
-                        Tipo: {member.type}
-                        {member.ehLiderOuPastor ? ' ⭐' : ''}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`ml-3 h-2.5 w-2.5 shrink-0 rounded-full ${
-                        member.status === 'online'
-                          ? 'bg-emerald-500'
-                          : 'bg-slate-300'
-                      }`}
-                      title={member.status === 'online' ? 'Online' : 'Offline'}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex min-w-0 flex-1 flex-col justify-between bg-white p-4">
-                <div className="mb-3 border-b border-slate-200 pb-3">
-                  <h3 className="text-sm font-bold text-slate-800">
-                    {selectedRecipient === 'all'
-                      ? '📢 Conversa Geral'
-                      : `💬 Conversa com ${
-                          membrosChat.find((member) => member.id === selectedRecipient)?.nome ||
-                          'Membro selecionado'
-                        }`}
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    {selectedRecipient === 'all'
-                      ? 'Mensagem enviada para todos os membros'
-                      : 'Conversa privada com este membro'}
-                  </p>
-                </div>
-
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-2">
-                  {chatMessages
-                    .filter((msg) => {
-                      const mensagem = msg as any;
-                      if (selectedRecipient === 'all') {
-                        return mensagem.isBroadcast || !mensagem.recipientId;
-                      }
-                      return (
-                        !mensagem.isBroadcast &&
-                        mensagem.recipientId === selectedRecipient
-                      );
-                    })
-                    .map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`relative group rounded-lg p-3 ${
-                          msg.isBroadcast
-                            ? 'mx-auto w-full border border-amber-200 bg-amber-50 text-center'
-                            : 'bg-slate-100'
-                        }`}
-                      >
-                        <div className="mb-1 flex justify-between text-xs text-slate-500">
-                          <span className="font-semibold">{msg.sender}</span>
-                          <div className="flex items-center gap-2">
-                            <span>{msg.time}</span>
-                            {(!msg.isBroadcast || isAdmin) && (
-                              <button
-                                type="button"
-                                onClick={() => handleExcluirMensagemChat(msg.id, msg.isBroadcast)}
-                                className="text-rose-500 hover:text-rose-700 p-0.5 rounded cursor-pointer"
-                                title={msg.isBroadcast ? "Excluir transmissão geral (Admin)" : "Excluir mensagem"}
-                              >
-                                <Trash2 size={13} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-sm text-slate-800">{msg.text}</p>
-                      </div>
-                    ))}
-
-                  {chatMessages.filter((msg) => {
-                    const mensagem = msg as any;
-                    if (selectedRecipient === 'all') {
-                      return mensagem.isBroadcast || !mensagem.recipientId;
-                    }
-                    return (
-                      !mensagem.isBroadcast &&
-                      mensagem.recipientId === selectedRecipient
-                    );
-                  }).length === 0 && (
-                    <p className="py-8 text-center text-xs text-slate-400">
-                      Nenhuma mensagem nesta conversa.
-                    </p>
-                  )}
-                </div>
-
-                <div className="mt-4 flex gap-2 border-t border-slate-200 pt-3">
-                  <input
-                    type="text"
-                    value={messageInput}
-                    onChange={(event) => setMessageInput(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') {
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder={
-                      selectedRecipient === 'all'
-                        ? 'Escrever mensagem para todos os membros...'
-                        : 'Digite sua mensagem privada...'
-                    }
-                    className="min-w-0 flex-1 rounded-lg border border-slate-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={handleSendMessage}
-                    className="flex cursor-pointer items-center gap-2 rounded-lg bg-blue-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-800"
-                  >
-                    <Send size={16} />
-                    Enviar
-                  </button>
-                </div>
-              </div>
-            </div>
+            <ChatModule loggedUser={userEfetivo} />
           </div>
         )}
 
@@ -1456,7 +1203,7 @@ function DashboardHome({
 
   const [qtdMembros, setQtdMembros] = useState(0);
   const [qtdVisitantes, setQtdVisitantes] = useState(0);
-  
+
   const [modalListaOpen, setModalListaOpen] = useState(false);
   const [tipoListaModal, setTipoListaModal] = useState<'Membros' | 'Visitantes'>('Membros');
   const [listaPessoas, setListaPessoas] = useState<any[]>([]);
@@ -1582,8 +1329,8 @@ function DashboardHome({
     try {
       const payload = {
         ...itemEditando,
-        data_nascimento: itemEditando.data_nascimento && itemEditando.data_nascimento.trim() !== '' 
-          ? itemEditando.data_nascimento 
+        data_nascimento: itemEditando.data_nascimento && itemEditando.data_nascimento.trim() !== ''
+          ? itemEditando.data_nascimento
           : null,
       };
 

@@ -21,6 +21,8 @@ import AcompanhamentoVisitantesModule from './AcompanhamentoVisitantesModule';
 import DiscipuladoDEAModule from './DiscipuladoDEAModule';
 import AppMobileModule from './AppMobileModule';
 import ChatModule from './ChatModule';
+import DevocionalModule from './DevocionalModule';
+import { podeEditarDevocional } from './devocionalUtil';
 import CadastroIgrejaModule from './CadastroIgrejaModule';
 import { MessageSquare, Bell } from 'lucide-react';
 import ConfiguracoesModule from './ConfiguracoesModule';
@@ -68,6 +70,8 @@ export default function App() {
   const [gerandoQr, setGerandoQr] = useState(false);
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+  // Devocional: administrador e pastor (a mesma regra do aplicativo)
+  const podeDevocional = podeEditarDevocional(loggedUser);
   const igrejaAtual = loggedUser?.codigo_igreja || 'IGR-001';
 
   useEffect(() => {
@@ -246,6 +250,7 @@ export default function App() {
         .from('members')
         .select('id, cadastro_concluido')
         .eq('email', emailUsuario)
+        .eq('codigo_igreja', data.codigo_igreja)
         .maybeSingle();
 
       if (!membroInfo || !membroInfo.cadastro_concluido) {
@@ -323,6 +328,7 @@ export default function App() {
         usuario_id: novoUsuario.id,
         modulo: mod,
         permitido: mod === 'app_mobile',
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
       }));
 
       await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
@@ -400,6 +406,7 @@ export default function App() {
         usuario_id: usuarioIdCriado,
         modulo: mod,
         permitido: mod === 'app_mobile',
+        codigo_igreja: codigoIgreja.toUpperCase().trim(),
       }));
 
       await supabase.from('permissoes_usuario').upsert(permissoesIniciais, { onConflict: 'usuario_id,modulo' });
@@ -657,6 +664,19 @@ export default function App() {
               </span>
             )}
           </button>
+
+          {podeDevocional && (
+            <button
+              type="button"
+              onClick={() => selecionarAba('devocional')}
+              className={`w-full text-left px-4 py-3 rounded-lg font-medium transition cursor-pointer flex items-center justify-between ${
+                activeTab === 'devocional' ? 'bg-blue-700 font-bold' : 'hover:bg-blue-800'
+              }`}
+            >
+              <span className="flex items-center gap-2">📖 Devocional</span>
+              <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">APP</span>
+            </button>
+          )}
 
           {temPermissao('cadastros') && (
             <div>
@@ -934,6 +954,10 @@ export default function App() {
           </div>
         )}
 
+        {activeTab === 'devocional' && podeDevocional && (
+          <DevocionalModule loggedUser={userEfetivo} />
+        )}
+
         {activeTab === 'cadastros-membros' && temPermissao('cadastros') && (
           <MembrosModule loggedUser={userEfetivo} />
         )}
@@ -1047,6 +1071,16 @@ export default function App() {
               >
                 💬 Chat & Aniversários
               </button>
+
+              {podeDevocional && (
+                <button
+                  type="button"
+                  onClick={() => { selecionarAba('devocional'); setIsMobileModalOpen(false); }}
+                  className="w-full text-left px-4 py-3 rounded-xl bg-slate-100 font-bold text-slate-800 hover:bg-blue-900 hover:text-white transition"
+                >
+                  📖 Devocional
+                </button>
+              )}
 
               {temPermissao('cadastros') && (
                 <>

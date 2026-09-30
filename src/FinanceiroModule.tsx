@@ -37,15 +37,32 @@ interface Membro {
   nome: string;
   email?: string;
   celular_principal?: string;
-  whatsapp?: string;
 }
 
 interface FinanceiroModuleProps {
   loggedUser: any;
 }
 
+// Data de hoje no fuso do aparelho (toISOString usa o horário de Londres: depois das 21h no Brasil já dava o dia seguinte)
+const hojeLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Primeiro e último dia de um mês, no formato AAAA-MM-DD
+const inicioDoMes = (ano: number, mes: number) => {
+  const d = new Date(ano, mes, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+};
+const fimDoMes = (ano: number, mes: number) => {
+  const d = new Date(ano, mes + 1, 0);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const dataBR = (iso?: string) => (iso ? iso.split('-').reverse().join('/') : '');
+const moeda = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
 const formLancamentoInicial = {
-  data_lancamento: new Date().toISOString().split('T')[0],
+  data_lancamento: hojeLocal(),
   tipo: 'receita' as 'receita' | 'despesa',
   descricao: '',
   valor: '',
@@ -77,7 +94,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
   const [contasAdmList, setContasAdmList] = useState<ContaFinanceiraAdm[]>([]);
   const [membrosList, setMembrosList] = useState<Membro[]>([]);
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +124,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [showModalRecibo, setShowModalRecibo] = useState(false);
   const [lancamentoParaRecibo, setLancamentoParaRecibo] = useState<Lancamento | null>(null);
 
+  // Filtros dos relatórios (padrão: mês atual, todas as contas)
+  const [dataInicio, setDataInicio] = useState(() => inicioDoMes(new Date().getFullYear(), new Date().getMonth()));
+  const [dataFim, setDataFim] = useState(() => fimDoMes(new Date().getFullYear(), new Date().getMonth()));
+  const [contaExtrato, setContaExtrato] = useState(''); // '' = todas as contas
+
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+
+  // Só o administrador edita ou exclui lançamentos e cadastra/edita contas
+  const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
+  const exigirAdmin = () => {
+    if (isAdmin) return true;
+    alert('🔒 Apenas o administrador pode fazer esta alteração.');
+    return false;
+  };
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
 
   const registrarLog = async (acao: string, detalhes: string) => {
@@ -157,7 +187,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       // BUSCA DE MEMBROS RESTRITA EXATAMENTE À IGREJA ATUAL
       const resMemb = await supabase
         .from('members')
-        .select('id, nome, email, celular_principal, whatsapp')
+        .select('id, nome, email, celular_principal')
         .eq('codigo_igreja', codigoIgreja)
         .order('nome', { ascending: true });
 
@@ -182,6 +212,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (editingLancamento && !exigirAdmin()) return;
     try {
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
@@ -203,7 +234,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           .from('documentos_financeiros')
           .upload(nomeArquivo, arquivoDocumento);
 
-        if (!uploadError && uploadData) {
+        if (uploadError || !uploadData) {
+          const continuar = window.confirm(
+            `Não foi possível enviar o comprovante (${uploadError?.message || 'erro desconhecido'}).\n\nDeseja salvar o lançamento mesmo assim, sem o comprovante?`
+          );
+          if (!continuar) return;
+        } else {
           const { data: urlData } = supabase.storage
             .from('documentos_financeiros')
             .getPublicUrl(nomeArquivo);
@@ -241,7 +277,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       setShowModalLancamento(false);
       setEditingLancamento(null);
-      setFormLancamento(formLancamentoInicial);
+      setFormLancamento({ ...formLancamentoInicial, data_lancamento: hojeLocal() });
       setArquivoDocumento(null);
       setRelacionadoMembro(false);
       setSenhaExclusao('');
@@ -253,6 +289,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitConta = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!exigirAdmin()) return;
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
 
@@ -294,6 +331,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitAdm = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!exigirAdmin()) return;
     try {
       const payload = { ...formAdm, codigo_igreja: codigoIgreja };
 
@@ -336,6 +374,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const confirmarExclusao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemParaExcluir) return;
+    if (!exigirAdmin()) return;
 
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({
@@ -396,19 +435,35 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       return;
     }
 
+    // No chat, a conversa é identificada pelo e-mail: sem e-mail no cadastro, a mensagem não chega
+    const emailMembro = (membro.email || '').trim().toLowerCase();
+    if (!emailMembro) {
+      alert(
+        `${membro.nome} não tem e-mail no cadastro, então a mensagem não chegaria no chat. Cadastre o e-mail do membro e tente de novo.`
+      );
+      return;
+    }
+
+    if (lanc.agradecimento_enviado && !window.confirm(`O agradecimento já foi enviado para ${membro.nome}. Enviar de novo?`)) {
+      return;
+    }
+
     try {
       const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(
         lanc.valor
       ).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
+      // Mesmas colunas usadas pelo chat do app e do sistema (ChatModule)
       const { error: chatError } = await supabase
         .from('chat_mensagens')
         .insert([
           {
             codigo_igreja: codigoIgreja,
-            remetente: emailUsuarioLogado,
-            membro_id: membro.id,
-            mensagem: textoMensagem,
+            sender: String(emailUsuarioLogado).trim().toLowerCase(),
+            recipient_id: emailMembro,
+            text: textoMensagem,
+            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            is_broadcast: false,
           },
         ]);
 
@@ -451,36 +506,67 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return m ? m.nome : null;
   };
 
+  // ── RELATÓRIOS: período e conta ──
+  // (datas no formato AAAA-MM-DD podem ser comparadas como texto)
+  const noPeriodo = (l: Lancamento) =>
+    (!dataInicio || (l.data_lancamento || '') >= dataInicio) && (!dataFim || (l.data_lancamento || '') <= dataFim);
+  const antesDoPeriodo = (l: Lancamento) => !!dataInicio && (l.data_lancamento || '') < dataInicio;
+  const sinal = (l: Lancamento) => (l.tipo === 'receita' ? 1 : -1) * Number(l.valor || 0);
+  const daConta = (l: Lancamento) => !contaExtrato || (l.conta_corrente_id || '') === contaExtrato;
+
+  const lancamentosPeriodo = lancamentos.filter(noPeriodo);
+
   const dadosBalancete = contasContabeis.map((conta) => {
-    const lancsDaConta = lancamentos.filter((l) => l.id_conta_contabil === conta.id);
+    const lancsDaConta = lancamentosPeriodo.filter((l) => l.id_conta_contabil === conta.id);
     const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
     return { ...conta, total };
   }).filter((c) => c.total > 0);
 
-  const totalReceitas = lancamentos
+  const totalReceitas = lancamentosPeriodo
     .filter((l) => l.tipo === 'receita')
     .reduce((acc, l) => acc + Number(l.valor || 0), 0);
 
-  const totalDespesas = lancamentos
+  const totalDespesas = lancamentosPeriodo
     .filter((l) => l.tipo === 'despesa')
     .reduce((acc, l) => acc + Number(l.valor || 0), 0);
 
   const resultadoLiquido = totalReceitas - totalDespesas;
 
-  let saldoAcumulado = 0;
-  const lancamentosComSaldo = lancamentos.map((l) => {
-    const valorNum = Number(l.valor || 0);
-    if (l.tipo === 'receita') {
-      saldoAcumulado += valorNum;
-    } else {
-      saldoAcumulado -= valorNum;
-    }
+  // Extrato: começa pelo saldo de tudo o que houve antes da data inicial
+  const saldoAnterior = lancamentos.filter((l) => antesDoPeriodo(l) && daConta(l)).reduce((acc, l) => acc + sinal(l), 0);
+  let saldoAcumulado = saldoAnterior;
+  const lancamentosComSaldo = lancamentosPeriodo.filter(daConta).map((l) => {
+    saldoAcumulado += sinal(l);
     return { ...l, saldoParcial: saldoAcumulado };
   });
+  const saldoFinalExtrato = saldoAcumulado;
+
+  // Resumo por conta (aparece quando o extrato está em "Todas as contas")
+  const idsContas = Array.from(new Set([...contasAdmList.map((c) => c.id), ...lancamentos.map((l) => l.conta_corrente_id || '')]));
+  const resumoPorConta = idsContas.map((id) => {
+    const daquela = lancamentos.filter((l) => (l.conta_corrente_id || '') === id);
+    const anterior = daquela.filter(antesDoPeriodo).reduce((acc, l) => acc + sinal(l), 0);
+    const periodo = daquela.filter(noPeriodo);
+    const entradas = periodo.filter((l) => l.tipo === 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    const saidas = periodo.filter((l) => l.tipo === 'despesa').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+    return { id, nome: id ? getNomeContaAdm(id) : 'Sem conta informada', anterior, entradas, saidas, saldo: anterior + entradas - saidas };
+  });
+
+  const hojeData = new Date();
+  const atalhosPeriodo = [
+    { rotulo: 'Este mês', ini: inicioDoMes(hojeData.getFullYear(), hojeData.getMonth()), fim: fimDoMes(hojeData.getFullYear(), hojeData.getMonth()) },
+    { rotulo: 'Mês passado', ini: inicioDoMes(hojeData.getFullYear(), hojeData.getMonth() - 1), fim: fimDoMes(hojeData.getFullYear(), hojeData.getMonth() - 1) },
+    { rotulo: 'Este ano', ini: `${hojeData.getFullYear()}-01-01`, fim: `${hojeData.getFullYear()}-12-31` },
+    { rotulo: 'Tudo', ini: '', fim: '' },
+  ];
+  const textoPeriodo =
+    dataInicio || dataFim
+      ? `Período: ${dataInicio ? dataBR(dataInicio) : 'início'} a ${dataFim ? dataBR(dataFim) : 'hoje'}`
+      : 'Período: todos os lançamentos';
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
-      
+
       <style>{`
         @media print {
           body * {
@@ -574,7 +660,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             type="button"
             onClick={() => {
               setEditingLancamento(null);
-              setFormLancamento(formLancamentoInicial);
+              setFormLancamento({ ...formLancamentoInicial, data_lancamento: hojeLocal() });
               setArquivoDocumento(null);
               setRelacionadoMembro(false);
               setSenhaExclusao('');
@@ -590,6 +676,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <button
             type="button"
             onClick={() => {
+              if (!exigirAdmin()) return;
               setEditingAdm(null);
               setFormAdm(formContaAdmInicial);
               setSenhaExclusao('');
@@ -605,6 +692,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <button
             type="button"
             onClick={() => {
+              if (!exigirAdmin()) return;
               setEditingConta(null);
               setFormConta(formContaContabilInicial);
               setSenhaExclusao('');
@@ -616,6 +704,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
         )}
       </div>
+
+      {!isAdmin && (
+        <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs no-print">
+          🔒 Você pode registrar lançamentos e ver os relatórios. <strong>Editar, excluir e cadastrar contas</strong> é só para o administrador.
+        </div>
+      )}
 
       {loading && <p className="text-center py-6 text-slate-500">Carregando dados financeiros...</p>}
       {error && <div className="p-4 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-sm">{error}</div>}
@@ -692,8 +786,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                               type="button"
                               onClick={() => handleEnviarChatInterno(l)}
                               className={`px-2.5 py-1 font-bold text-xs rounded-lg transition cursor-pointer border ${
-                                l.agradecimento_enviado 
-                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                                l.agradecimento_enviado
+                                  ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                                   : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                               }`}
                               title={l.agradecimento_enviado ? "Agradecimento já enviado no chat" : "Enviar agradecimento no chat interno"}
@@ -705,6 +799,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <button
                             type="button"
                             onClick={() => {
+                              if (!exigirAdmin()) return;
                               setEditingLancamento(l);
                               setFormLancamento({
                                 data_lancamento: l.data_lancamento || '',
@@ -729,6 +824,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <button
                             type="button"
                             onClick={() => {
+                              if (!exigirAdmin()) return;
                               setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
                               setSenhaExclusao('');
                               setShowDeleteModal(true);
@@ -778,6 +874,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <button
                           type="button"
                           onClick={() => {
+                            if (!exigirAdmin()) return;
                             setEditingAdm(adm);
                             setFormAdm({
                               codigo_conta: adm.codigo_conta,
@@ -795,6 +892,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <button
                           type="button"
                           onClick={() => {
+                            if (!exigirAdmin()) return;
                             setItemParaExcluir({ id: adm.id, tipo: 'conta_adm', nome: `${adm.codigo_conta} - ${adm.nome_conta}` });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
@@ -845,6 +943,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <button
                           type="button"
                           onClick={() => {
+                            if (!exigirAdmin()) return;
                             setEditingConta(c);
                             setFormConta({
                               codigo_conta: c.codigo_conta,
@@ -862,6 +961,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <button
                           type="button"
                           onClick={() => {
+                            if (!exigirAdmin()) return;
                             setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
@@ -922,11 +1022,59 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             </button>
           </div>
 
+          {/* FILTRO DE PERÍODO */}
+          <div className="bg-white border rounded-2xl p-3 sm:p-4 space-y-3 no-print">
+            <div className="flex flex-wrap items-end gap-3">
+              <label className="text-xs font-bold text-slate-700">
+                De
+                <input
+                  type="date"
+                  value={dataInicio}
+                  onChange={(e) => setDataInicio(e.target.value)}
+                  className="block mt-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white"
+                />
+              </label>
+              <label className="text-xs font-bold text-slate-700">
+                Até
+                <input
+                  type="date"
+                  value={dataFim}
+                  onChange={(e) => setDataFim(e.target.value)}
+                  className="block mt-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white"
+                />
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {atalhosPeriodo.map((a) => {
+                  const ativo = dataInicio === a.ini && dataFim === a.fim;
+                  return (
+                    <button
+                      key={a.rotulo}
+                      type="button"
+                      onClick={() => {
+                        setDataInicio(a.ini);
+                        setDataFim(a.fim);
+                      }}
+                      className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
+                        ativo ? 'bg-blue-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      {a.rotulo}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            {dataInicio && dataFim && dataInicio > dataFim && (
+              <p className="text-xs font-bold text-rose-700">A data inicial está depois da data final: nenhum lançamento vai aparecer.</p>
+            )}
+          </div>
+
           <div className="printable-area bg-slate-50 border rounded-2xl p-4 sm:p-6 space-y-4">
-            
+
             <div className="flex justify-between items-center border-b pb-4">
               <div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Igreja ID: {codigoIgreja}</span>
+                <p className="text-sm font-black text-blue-900">{textoPeriodo}</p>
                 <p className="text-xs text-slate-500">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
               </div>
               <button
@@ -940,10 +1088,66 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
             {/* RELATÓRIO 1: CONTA CORRENTE */}
             {tipoRelatorio === 'conta_corrente' && (
-              <div>
-                <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
-                <p className="text-xs text-slate-500 mb-4">Movimentação financeira com saldo parcial acumulado por linha.</p>
-                
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                  <div>
+                    <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Administrativo: Extrato por Conta Adm</h3>
+                    <p className="text-xs text-slate-500">
+                      {contaExtrato ? `Conta: ${getNomeContaAdm(contaExtrato)}` : 'Todas as contas'} · saldo parcial acumulado por linha.
+                    </p>
+                  </div>
+                  <label className="text-xs font-bold text-slate-700 no-print">
+                    Conta
+                    <select
+                      value={contaExtrato}
+                      onChange={(e) => setContaExtrato(e.target.value)}
+                      className="block mt-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white font-medium min-w-[220px]"
+                    >
+                      <option value="">Todas as contas</option>
+                      {contasAdmList.map((adm) => (
+                        <option key={adm.id} value={adm.id}>
+                          {adm.codigo_conta} ({adm.nome_conta})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+
+                {/* Resumo por conta (só em "Todas as contas") */}
+                {!contaExtrato && resumoPorConta.length > 0 && (
+                  <div className="overflow-x-auto bg-white rounded-xl border">
+                    <table className="w-full text-left border-collapse text-sm">
+                      <thead>
+                        <tr className="border-b bg-slate-100 text-slate-700 text-xs font-bold uppercase">
+                          <th className="p-3">Conta</th>
+                          <th className="p-3 text-right">Saldo anterior</th>
+                          <th className="p-3 text-right">Entradas</th>
+                          <th className="p-3 text-right">Saídas</th>
+                          <th className="p-3 text-right">Saldo final</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {resumoPorConta.map((c) => (
+                          <tr key={c.id || 'sem-conta'}>
+                            <td className="p-3 font-semibold text-slate-800">{c.nome}</td>
+                            <td className="p-3 text-right text-slate-600">{moeda(c.anterior)}</td>
+                            <td className="p-3 text-right font-bold text-emerald-700">{moeda(c.entradas)}</td>
+                            <td className="p-3 text-right font-bold text-rose-700">{moeda(c.saidas)}</td>
+                            <td className={`p-3 text-right font-black ${c.saldo >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(c.saldo)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-slate-50 font-black">
+                          <td className="p-3 text-slate-800">Total geral</td>
+                          <td className="p-3 text-right text-slate-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.anterior, 0))}</td>
+                          <td className="p-3 text-right text-emerald-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.entradas, 0))}</td>
+                          <td className="p-3 text-right text-rose-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.saidas, 0))}</td>
+                          <td className="p-3 text-right text-blue-900">{moeda(resumoPorConta.reduce((acc, c) => acc + c.saldo, 0))}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
@@ -957,22 +1161,41 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       </tr>
                     </thead>
                     <tbody className="divide-y">
+                      {dataInicio && (
+                        <tr className="bg-slate-50">
+                          <td className="p-3 text-slate-600 whitespace-nowrap">{dataBR(dataInicio)}</td>
+                          <td className="p-3" />
+                          <td className="p-3 font-bold text-slate-700">Saldo anterior</td>
+                          <td className="p-3" />
+                          <td className="p-3" />
+                          <td className={`p-3 text-right font-black ${saldoAnterior >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(saldoAnterior)}</td>
+                        </tr>
+                      )}
+                      {lancamentosComSaldo.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-6 text-center text-xs text-slate-400">Nenhum lançamento neste período.</td>
+                        </tr>
+                      )}
                       {lancamentosComSaldo.map((l) => {
                         const isReceita = l.tipo === 'receita';
                         const saldoPositivo = l.saldoParcial >= 0;
                         return (
                           <tr key={l.id}>
-                            <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
+                            <td className="p-3 text-slate-600 whitespace-nowrap">{dataBR(l.data_lancamento)}</td>
                             <td className="p-3 font-semibold text-slate-800">{getNomeContaAdm(l.conta_corrente_id)}</td>
                             <td className="p-3 text-slate-600">{l.descricao}</td>
-                            <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
-                            <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? `R$ ${Number(l.valor).toFixed(2)}` : '-'}</td>
+                            <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? moeda(Number(l.valor)) : '-'}</td>
+                            <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? moeda(Number(l.valor)) : '-'}</td>
                             <td className={`p-3 text-right font-black ${saldoPositivo ? 'text-blue-900' : 'text-rose-700'}`}>
-                              R$ {l.saldoParcial.toFixed(2)}
+                              {moeda(l.saldoParcial)}
                             </td>
                           </tr>
                         );
                       })}
+                      <tr className="bg-slate-50">
+                        <td colSpan={5} className="p-3 text-right font-black text-slate-800">Saldo final</td>
+                        <td className={`p-3 text-right font-black ${saldoFinalExtrato >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(saldoFinalExtrato)}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -984,7 +1207,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
                 <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
-                
+
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
@@ -996,7 +1219,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {lancamentos.map((l) => (
+                      {lancamentosPeriodo.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-6 text-center text-xs text-slate-400">Nenhum lançamento neste período.</td>
+                        </tr>
+                      )}
+                      {lancamentosPeriodo.map((l) => (
                         <tr key={l.id}>
                           <td className="p-3 text-slate-600 whitespace-nowrap">{l.data_lancamento?.split('-').reverse().join('/')}</td>
                           <td className="p-3 font-medium text-slate-800">{l.descricao}</td>
@@ -1015,7 +1243,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
                 <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
-                
+
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
                     <thead>
@@ -1032,7 +1260,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
                           <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
                           <td className="p-3">{c.tipo_natureza}</td>
-                          <td className="p-3 text-right font-black text-slate-800">R$ {c.total.toFixed(2)}</td>
+                          <td className="p-3 text-right font-black text-slate-800">{moeda(c.total)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1052,18 +1280,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 <div className="bg-white rounded-2xl border p-6 space-y-4 shadow-sm">
                   <div className="flex justify-between items-center border-b pb-3">
                     <span className="font-bold text-emerald-800 text-sm">🟢 Total de Receitas</span>
-                    <span className="font-black text-emerald-700 text-base">R$ {totalReceitas.toFixed(2)}</span>
+                    <span className="font-black text-emerald-700 text-base">{moeda(totalReceitas)}</span>
                   </div>
 
                   <div className="flex justify-between items-center border-b pb-3">
                     <span className="font-bold text-rose-800 text-sm">🔴 Total de Despesas</span>
-                    <span className="font-black text-rose-700 text-base">R$ {totalDespesas.toFixed(2)}</span>
+                    <span className="font-black text-rose-700 text-base">{moeda(totalDespesas)}</span>
                   </div>
 
                   <div className="flex justify-between items-center pt-2">
                     <span className="font-black text-blue-900 text-base"> Resultado Líquido (Superávit / Déficit):</span>
                     <span className={`font-black text-lg ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                      R$ {resultadoLiquido.toFixed(2)}
+                      {moeda(resultadoLiquido)}
                     </span>
                   </div>
                 </div>
@@ -1135,6 +1363,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 <input
                   type="number"
                   step="0.01"
+                  min="0.01"
                   value={formLancamento.valor}
                   onChange={(e) => setFormLancamento({ ...formLancamento, valor: e.target.value })}
                   placeholder="0.00"
@@ -1228,7 +1457,6 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 <input
                   type="file"
                   accept="image/*,application/pdf"
-                  capture="environment"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
                       setArquivoDocumento(e.target.files[0]);
@@ -1240,6 +1468,16 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <p className="text-xs text-emerald-700 font-bold">
                     Selecionado: {arquivoDocumento.name}
                   </p>
+                )}
+                {!arquivoDocumento && formLancamento.documento_url && (
+                  <a
+                    href={formLancamento.documento_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-block text-xs font-bold text-blue-800 underline"
+                  >
+                    📄 Ver comprovante já anexado
+                  </a>
                 )}
               </div>
 
@@ -1364,7 +1602,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             <h3 className="text-xl font-black text-blue-900">
               {editingAdm ? 'Editar Conta Adm' : 'Nova Conta Adm'}
             </h3>
-            
+
             <form onSubmit={handleSubmitAdm} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Tipo / Descrição (Código da Conta) *</label>
@@ -1452,7 +1690,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             <h3 className="text-xl font-black text-blue-900">
               {editingConta ? 'Editar Conta Contábil' : 'Nova Conta Contábil'}
             </h3>
-            
+
             <form onSubmit={handleSubmitConta} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
@@ -1465,7 +1703,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Nome da Conta *</label>
                 <input
@@ -1477,7 +1715,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Natureza *</label>
                 <select

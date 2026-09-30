@@ -9,6 +9,7 @@ import {
   SUBMODULOS_FINANCEIRO,
   type ChaveFinanceiro,
 } from './permissoesFinanceiro';
+import { redefinirSenhaUsuario, souAdmChefe } from './redefinirSenhaUsuario';
 
 // Sub-opções do Financeiro todas desmarcadas
 const FINANCEIRO_NADA = Object.fromEntries(CHAVES_FINANCEIRO.map((c) => [c, false])) as Record<ChaveFinanceiro, boolean>;
@@ -38,6 +39,12 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [perfilUsuario, setPerfilUsuario] = useState('comum');
   const [senhaAdminInput, setSenhaAdminInput] = useState('');
 
+  // Redefinir a senha de login de outro usuário: só o administrador CHEFE (o servidor confere; aqui só mostramos o campo)
+  const [ehChefe, setEhChefe] = useState(false);
+  const [novaSenhaLogin, setNovaSenhaLogin] = useState('');
+  const [confirmaSenhaLogin, setConfirmaSenhaLogin] = useState('');
+  const [mostrarSenhaLogin, setMostrarSenhaLogin] = useState(false);
+
   // Permissões individuais por usuário (Checkboxes dos módulos + sub-opções do Financeiro)
   const [permissoesUsuario, setPermissoesUsuario] = useState<{ [key: string]: boolean }>(permissoesVazias);
 
@@ -55,6 +62,20 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   useEffect(() => {
     carregarUsuarios();
   }, [codigoIgreja]);
+
+  useEffect(() => {
+    let ativo = true;
+    souAdmChefe().then((v) => ativo && setEhChefe(v));
+    return () => {
+      ativo = false;
+    };
+  }, []);
+
+  const limparSenhaLogin = () => {
+    setNovaSenhaLogin('');
+    setConfirmaSenhaLogin('');
+    setMostrarSenhaLogin(false);
+  };
 
   const carregarUsuarios = async () => {
     setLoading(true);
@@ -93,6 +114,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     });
 
     setSenhaAdminInput('');
+    limparSenhaLogin();
     setShowModal(true);
   };
 
@@ -104,6 +126,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
     const permsIniciais = permissoesVazias();
     let temSubFinanceiro = false;
+    let temTransferir = false;
 
     try {
       const { data: permData } = await supabase
@@ -115,6 +138,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         permData.forEach((p) => {
           permsIniciais[p.modulo] = p.permitido;
           if ((CHAVES_FINANCEIRO as string[]).includes(p.modulo)) temSubFinanceiro = true;
+          if (p.modulo === 'fin_transferir') temTransferir = true;
         });
       }
     } catch (err) {
@@ -123,9 +147,12 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
     // Usuário antigo com Financeiro liberado, mas sem as sub-opções: mostra o acesso que ele já tinha
     if (permsIniciais.financeiro && !temSubFinanceiro) Object.assign(permsIniciais, FINANCEIRO_PADRAO);
+    // Usuário configurado antes de existir "Transferir entre contas": herda o que já podia (quem lança, transfere)
+    else if (temSubFinanceiro && !temTransferir) permsIniciais.fin_transferir = !!permsIniciais.fin_lancar;
 
     setPermissoesUsuario(permsIniciais);
     setSenhaAdminInput('');
+    limparSenhaLogin();
     setShowModal(true);
   };
 
@@ -170,7 +197,32 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
       return;
     }
 
+    // Nova senha de login (opcional, só o administrador chefe): valida antes de salvar qualquer coisa
+    const querTrocarSenha = ehChefe && !!editingUsuario && novaSenhaLogin.length > 0;
+    if (querTrocarSenha) {
+      if (novaSenhaLogin.length < 8) {
+        alert('A nova senha de login precisa ter pelo menos 8 caracteres.');
+        return;
+      }
+      if (novaSenhaLogin !== confirmaSenhaLogin) {
+        alert('A confirmação da nova senha não confere.');
+        return;
+      }
+      if (emailUsuario.trim().toLowerCase() !== String(editingUsuario.email || '').trim().toLowerCase()) {
+        alert('Você alterou o e-mail e a senha ao mesmo tempo. Salve primeiro o novo e-mail e depois defina a senha em outra edição.');
+        return;
+      }
+    }
+
     try {
+      if (querTrocarSenha) {
+        const r = await redefinirSenhaUsuario(String(editingUsuario.email), novaSenhaLogin);
+        if (!r.ok) {
+          alert('Não foi possível alterar a senha: ' + (r.erro || 'erro desconhecido') + '\n\nNada foi salvo.');
+          return;
+        }
+      }
+
       const payload = {
         codigo_igreja: codigoIgreja,
         nome_usuario: nomeUsuario.trim(),
@@ -220,7 +272,12 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         }
       }
 
-      alert('✏️ Usuário e permissões salvos com sucesso!');
+      alert(
+        querTrocarSenha
+          ? '✏️ Usuário e permissões salvos, e a senha de login foi alterada. Avise a pessoa da nova senha.'
+          : '✏️ Usuário e permissões salvos com sucesso!'
+      );
+      limparSenhaLogin();
       setShowModal(false);
       carregarUsuarios();
     } catch (err: any) {
@@ -536,6 +593,43 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                   </div>
                 </div>
               </div>
+
+              {/* SENHA DE LOGIN: só aparece para o administrador chefe, ao editar um usuário existente */}
+              {editingUsuario && ehChefe && (
+                <div className="border-t pt-3 space-y-2">
+                  <label className="block font-black text-rose-800 text-sm">🔑 Alterar senha de login deste usuário</label>
+                  <p className="text-[11px] text-slate-500">
+                    Deixe em branco para não mudar. A nova senha vale na hora e a pessoa precisará usá-la no próximo acesso.
+                  </p>
+                  <input
+                    type={mostrarSenhaLogin ? 'text' : 'password'}
+                    value={novaSenhaLogin}
+                    onChange={(e) => setNovaSenhaLogin(e.target.value)}
+                    placeholder="Nova senha (mínimo 8 caracteres)"
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={72}
+                    className="w-full border rounded-xl p-2.5 outline-none font-semibold border-rose-300 bg-rose-50/40"
+                  />
+                  <input
+                    type={mostrarSenhaLogin ? 'text' : 'password'}
+                    value={confirmaSenhaLogin}
+                    onChange={(e) => setConfirmaSenhaLogin(e.target.value)}
+                    placeholder="Repita a nova senha"
+                    autoComplete="new-password"
+                    className="w-full border rounded-xl p-2.5 outline-none font-semibold border-rose-300 bg-rose-50/40"
+                  />
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={mostrarSenhaLogin}
+                      onChange={(e) => setMostrarSenhaLogin(e.target.checked)}
+                      className="w-4 h-4 rounded cursor-pointer"
+                    />
+                    Mostrar a senha
+                  </label>
+                </div>
+              )}
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">🔒 Senha Mestre de Segurança</label>

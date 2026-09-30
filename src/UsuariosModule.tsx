@@ -9,7 +9,7 @@ import {
   SUBMODULOS_FINANCEIRO,
   type ChaveFinanceiro,
 } from './permissoesFinanceiro';
-import { redefinirSenhaUsuario, souAdmChefe } from './redefinirSenhaUsuario';
+import { redefinirSenhaUsuario, verificarChefe } from './redefinirSenhaUsuario';
 
 // Sub-opções do Financeiro todas desmarcadas
 const FINANCEIRO_NADA = Object.fromEntries(CHAVES_FINANCEIRO.map((c) => [c, false])) as Record<ChaveFinanceiro, boolean>;
@@ -41,6 +41,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
   // Redefinir a senha de login de outro usuário: só o administrador CHEFE (o servidor confere; aqui só mostramos o campo)
   const [ehChefe, setEhChefe] = useState(false);
+  const [motivoSemSenha, setMotivoSemSenha] = useState('');
   const [novaSenhaLogin, setNovaSenhaLogin] = useState('');
   const [confirmaSenhaLogin, setConfirmaSenhaLogin] = useState('');
   const [mostrarSenhaLogin, setMostrarSenhaLogin] = useState(false);
@@ -65,7 +66,12 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
   useEffect(() => {
     let ativo = true;
-    souAdmChefe().then((v) => ativo && setEhChefe(v));
+    verificarChefe().then((r) => {
+      if (!ativo) return;
+      setEhChefe(r.chefe);
+      setMotivoSemSenha(r.motivo);
+      if (!r.chefe && r.motivo) console.warn('[senha de login] campo indisponível:', r.motivo);
+    });
     return () => {
       ativo = false;
     };
@@ -629,6 +635,12 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                     Mostrar a senha
                   </label>
                 </div>
+              )}
+
+              {editingUsuario && !ehChefe && (loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'admin') && motivoSemSenha && (
+                <p className="border-t pt-3 text-[11px] text-slate-500">
+                  🔑 Alterar senha de login indisponível: {motivoSemSenha}
+                </p>
               )}
 
               <div>

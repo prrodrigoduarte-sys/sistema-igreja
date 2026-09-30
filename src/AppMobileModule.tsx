@@ -90,6 +90,20 @@ const redimensionarImagem = (arquivo: File, lado = 256, qualidade = 0.75): Promi
     leitor.readAsDataURL(arquivo);
   });
 
+// Liga pelo celular; no computador (sem discador) copia o número para você ligar pelo telefone
+const ligarPara = (celular: string, nome?: string) => {
+  const digitos = (celular || '').replace(/\D/g, '');
+  const numero = digitos.startsWith('55') ? digitos : `55${digitos}`;
+  const ehAparelhoMovel = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if (ehAparelhoMovel) {
+    window.location.href = `tel:+${numero}`;
+    return;
+  }
+  const legivel = celular;
+  navigator.clipboard?.writeText(legivel).catch(() => {});
+  alert(`📞 ${nome || 'Contato'}\n${legivel}\n\nNo computador não dá para ligar direto. O número foi copiado: disque pelo seu celular.`);
+};
+
 // "ALINE DAMASCENO DUARTE" -> "Aline Damasceno Duarte"
 const nomeBonito = (nome?: string) => {
   const minusculas = ['de', 'da', 'do', 'das', 'dos', 'e'];
@@ -1087,6 +1101,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   : 'Mensagem enviada para todos os membros'}
               </p>
             </div>
+            {membroSelecionadoChat?.celular_principal && (
+              <button
+                type="button"
+                onClick={() => ligarPara(membroSelecionadoChat.celular_principal, membroSelecionadoChat.nome)}
+                className="shrink-0 h-9 px-3 rounded-full bg-emerald-800 hover:bg-emerald-900 text-white text-[11px] font-bold flex items-center gap-1.5 cursor-pointer active:scale-95 transition"
+                aria-label={`Ligar para ${membroSelecionadoChat.nome}`}
+              >
+                <span>📞</span>
+                <span>Ligar</span>
+              </button>
+            )}
           </div>
 
           {/* Mensagens */}
@@ -1377,14 +1402,25 @@ export default function AppMobileModule({ loggedUser }: Props) {
                       {participantesCelula.map((p) => (
                         <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
                           <span className="font-bold text-slate-800">{p.nome}</span>
-                          <a
-                            href={`https://wa.me/${formatarWhatsapp(p.celular_principal)}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 cursor-pointer"
-                          >
-                            💬 WhatsApp
-                          </a>
+                          <div className="flex items-center gap-1.5">
+                            {p.celular_principal && (
+                              <button
+                                type="button"
+                                onClick={() => ligarPara(p.celular_principal, p.nome)}
+                                className="text-[9px] font-bold text-blue-800 bg-blue-50 px-2 py-1 rounded-lg border border-blue-200 cursor-pointer"
+                              >
+                                📞 Ligar
+                              </button>
+                            )}
+                            <a
+                              href={`https://wa.me/${formatarWhatsapp(p.celular_principal)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 cursor-pointer"
+                            >
+                              💬 WhatsApp
+                            </a>
+                          </div>
                         </div>
                       ))}
                     </div>

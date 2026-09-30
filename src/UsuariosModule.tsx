@@ -102,6 +102,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
   const handleOpenNew = () => {
     setEditingUsuario(null);
+    limparSenhaLogin();
     setNomeUsuario('');
     setEmailUsuario('');
     const isPrimeiro = usuarios.length === 0;
@@ -204,7 +205,12 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     }
 
     // Nova senha de login (opcional, só o administrador chefe): valida antes de salvar qualquer coisa
-    const querTrocarSenha = ehChefe && !!editingUsuario && novaSenhaLogin.length > 0;
+    const novoComLogin = ehChefe && !editingUsuario;
+    if (novoComLogin && novaSenhaLogin.length === 0) {
+      alert('Defina a senha de login do novo usuário (mínimo 8 caracteres). Sem ela a pessoa não consegue entrar.');
+      return;
+    }
+    const querTrocarSenha = ehChefe && (novoComLogin || (!!editingUsuario && novaSenhaLogin.length > 0));
     if (querTrocarSenha) {
       if (novaSenhaLogin.length < 8) {
         alert('A nova senha de login precisa ter pelo menos 8 caracteres.');
@@ -214,19 +220,21 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
         alert('A confirmação da nova senha não confere.');
         return;
       }
-      if (emailUsuario.trim().toLowerCase() !== String(editingUsuario.email || '').trim().toLowerCase()) {
+      if (editingUsuario && emailUsuario.trim().toLowerCase() !== String(editingUsuario.email || '').trim().toLowerCase()) {
         alert('Você alterou o e-mail e a senha ao mesmo tempo. Salve primeiro o novo e-mail e depois defina a senha em outra edição.');
         return;
       }
     }
 
+    let contaCriada = false;
     try {
-      if (querTrocarSenha) {
+      if (querTrocarSenha && editingUsuario) {
         const r = await redefinirSenhaUsuario(String(editingUsuario.email), novaSenhaLogin);
         if (!r.ok) {
           alert('Não foi possível alterar a senha: ' + (r.erro || 'erro desconhecido') + '\n\nNada foi salvo.');
           return;
         }
+        contaCriada = !!r.criado;
       }
 
       const payload = {
@@ -255,6 +263,17 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
         if (error) throw error;
         usuarioId = novoUsuario.id;
+
+        // Novo usuário: cria o login (Supabase Auth) junto. Se falhar, desfaz o cadastro para não ficar usuário sem login.
+        if (querTrocarSenha) {
+          const r = await redefinirSenhaUsuario(payload.email, novaSenhaLogin);
+          if (!r.ok) {
+            await supabase.from('usuarios').delete().eq('id', usuarioId);
+            alert('Não foi possível criar o login: ' + (r.erro || 'erro desconhecido') + '\n\nO usuário não foi cadastrado.');
+            return;
+          }
+          contaCriada = !!r.criado;
+        }
       }
 
       if (usuarioId) {
@@ -280,7 +299,9 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
       alert(
         querTrocarSenha
-          ? '✏️ Usuário e permissões salvos, e a senha de login foi alterada. Avise a pessoa da nova senha.'
+          ? contaCriada
+            ? '✏️ Usuário e permissões salvos, e o login foi criado com a senha informada. Avise a pessoa: ela entra com o e-mail e essa senha.'
+            : '✏️ Usuário e permissões salvos, e a senha de login foi alterada. Avise a pessoa da nova senha.'
           : '✏️ Usuário e permissões salvos com sucesso!'
       );
       limparSenhaLogin();
@@ -601,11 +622,13 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
               </div>
 
               {/* SENHA DE LOGIN: só aparece para o administrador chefe, ao editar um usuário existente */}
-              {editingUsuario && ehChefe && (
+              {ehChefe && (
                 <div className="border-t pt-3 space-y-2">
-                  <label className="block font-black text-rose-800 text-sm">🔑 Alterar senha de login deste usuário</label>
+                  <label className="block font-black text-rose-800 text-sm">{editingUsuario ? '🔑 Alterar senha de login deste usuário' : '🔑 Senha de login do novo usuário (obrigatória)'}</label>
                   <p className="text-[11px] text-slate-500">
-                    Deixe em branco para não mudar. A nova senha vale na hora e a pessoa precisará usá-la no próximo acesso.
+                    {editingUsuario
+                      ? 'Deixe em branco para não mudar. A nova senha vale na hora. Se o usuário ainda não tem login, o login é criado com essa senha.'
+                      : 'O login é criado junto com o cadastro. A pessoa entra com o e-mail acima e esta senha.'}
                   </p>
                   <input
                     type={mostrarSenhaLogin ? 'text' : 'password'}
@@ -637,7 +660,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                 </div>
               )}
 
-              {editingUsuario && !ehChefe && (loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'admin') && motivoSemSenha && (
+              {!ehChefe && (loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'admin') && motivoSemSenha && (
                 <p className="border-t pt-3 text-[11px] text-slate-500">
                   🔑 Alterar senha de login indisponível: {motivoSemSenha}
                 </p>

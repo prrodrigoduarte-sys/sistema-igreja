@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from './supabase';
+import UtilitariosModule from './utilitarios/UtilitariosModule';
+import ReuniaoModule from './reuniao/ReuniaoModule';
 
 interface Props {
   loggedUser: any;
@@ -45,9 +47,11 @@ interface Chamada {
   comEmail: string;
   comNome: string;
   mudo: boolean;
+  video: boolean; // chamada de vídeo
+  semCamera: boolean; // câmera desligada (ou indisponível)
 }
 
-type SubAba = 'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat' | 'inicio';
+type SubAba = 'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat' | 'utilitarios' | 'reuniao' | 'inicio';
 
 const ABAS: { id: Exclude<SubAba, 'inicio'>; icone: string; titulo: string }[] = [
   { id: 'chat', icone: 'chat', titulo: 'Chat Geral' },
@@ -58,9 +62,20 @@ const ABAS: { id: Exclude<SubAba, 'inicio'>; icone: string; titulo: string }[] =
   { id: 'cadastro', icone: 'cadastro', titulo: 'Cadastro' },
   { id: 'contribua', icone: 'contribua', titulo: 'Contribua' },
   { id: 'devocional', icone: 'devocional', titulo: 'Devocional' },
+  { id: 'reuniao', icone: 'reuniao', titulo: 'Reunião' },
+  { id: 'utilitarios', icone: 'utilitarios', titulo: 'Utilitários' },
 ];
 
 const ICONES: Record<string, React.ReactNode> = {
+  reuniao: (
+    <>
+      <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" />
+      <rect x="2" y="6" width="14" height="12" rx="2" />
+    </>
+  ),
+  utilitarios: (
+    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+  ),
   chat: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
   agenda: (
     <>
@@ -583,7 +598,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   // No celular, o chat ocupa a tela toda: trava a rolagem da página por trás
   useEffect(() => {
-    if (subAbaApp !== 'chat') return;
+    if (subAbaApp !== 'chat' && subAbaApp !== 'utilitarios' && subAbaApp !== 'reuniao') return;
     const ehCelular = window.matchMedia('(max-width: 767px)').matches;
     if (!ehCelular) return;
     const anterior = document.body.style.overflow;
@@ -652,7 +667,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const canalRef = useRef<any>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamLocalRef = useRef<MediaStream | null>(null);
-  const audioRemotoRef = useRef<HTMLAudioElement | null>(null);
+  const audioRemotoRef = useRef<HTMLVideoElement | null>(null); // toca o áudio e, em vídeo, mostra a imagem
+  const videoLocalRef = useRef<HTMLVideoElement | null>(null);
   const ofertaRecebidaRef = useRef<any>(null);
   const icePendenteRef = useRef<any[]>([]);
   const timeoutChamadaRef = useRef<any>(null);
@@ -734,6 +750,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     streamLocalRef.current?.getTracks().forEach((t) => t.stop());
     streamLocalRef.current = null;
     if (audioRemotoRef.current) audioRemotoRef.current.srcObject = null;
+    if (videoLocalRef.current) videoLocalRef.current.srcObject = null;
     ofertaRecebidaRef.current = null;
     icePendenteRef.current = [];
     setSegundosChamada(0);
@@ -747,13 +764,27 @@ export default function AppMobileModule({ loggedUser }: Props) {
     limparChamada();
   };
 
-  const obterMicrofone = async (): Promise<MediaStream | null> => {
+  // Pede microfone (e câmera, se for vídeo). Se a câmera falhar, segue só com áudio.
+  const obterMicrofone = async (comVideo = false): Promise<{ stream: MediaStream; temCamera: boolean } | null> => {
     if (!navigator.mediaDevices?.getUserMedia) {
-      alert('Chamadas de voz só funcionam em conexão segura (https). Abra o app pelo endereço https.');
+      alert('Chamadas só funcionam em conexão segura (https). Abra o app pelo endereço https.');
       return null;
     }
+    const audio = { echoCancellation: true, noiseSuppression: true };
     try {
-      return await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      if (comVideo) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio,
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 24, max: 30 } },
+          });
+          return { stream, temCamera: true };
+        } catch {
+          mostrarAviso('Câmera indisponível: você seguirá só com áudio.');
+        }
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio });
+      return { stream, temCamera: false };
     } catch {
       alert('Não foi possível usar o microfone. Permita o acesso ao microfone nas configurações do navegador e tente de novo.');
       return null;
@@ -793,14 +824,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
-  const iniciarChamada = async (membro: any) => {
+  const iniciarChamada = async (membro: any, comVideo = false) => {
     if (chamadaRef.current) return alert('Você já está em uma chamada.');
     if (!estaOnline(membro.email)) return alert(`${membro.nome} não está online agora.`);
 
-    const stream = await obterMicrofone();
-    if (!stream) return;
+    const midia = await obterMicrofone(comVideo);
+    if (!midia) return;
+    const stream = midia.stream;
     streamLocalRef.current = stream;
-    setChamada({ estado: 'chamando', comEmail: membro.email, comNome: membro.nome, mudo: false });
+    setChamada({ estado: 'chamando', comEmail: membro.email, comNome: membro.nome, mudo: false, video: comVideo, semCamera: comVideo && !midia.temCamera });
 
     try {
       const pc = criarPeer(membro.email);
@@ -808,7 +840,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       stream.getTracks().forEach((t) => pc.addTrack(t, stream));
       const oferta = await pc.createOffer();
       await pc.setLocalDescription(oferta);
-      enviarSinal({ tipo: 'oferta', para: membro.email, sdp: { type: oferta.type, sdp: oferta.sdp } });
+      enviarSinal({ tipo: 'oferta', para: membro.email, video: comVideo, sdp: { type: oferta.type, sdp: oferta.sdp } });
       timeoutChamadaRef.current = setTimeout(() => {
         if (chamadaRef.current?.estado === 'chamando') {
           encerrarChamada();
@@ -828,14 +860,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
     clearTimeout(timeoutChamadaRef.current);
     pararToque();
 
-    const stream = await obterMicrofone();
-    if (!stream) {
+    const midia = await obterMicrofone(c.video);
+    if (!midia) {
       enviarSinal({ tipo: 'recusa', para: c.comEmail });
       limparChamada();
       return;
     }
+    const stream = midia.stream;
     streamLocalRef.current = stream;
-    setChamada({ ...c, estado: 'conectando' });
+    setChamada({ ...c, estado: 'conectando', semCamera: c.video && !midia.temCamera });
 
     try {
       const pc = criarPeer(c.comEmail);
@@ -866,6 +899,20 @@ export default function AppMobileModule({ loggedUser }: Props) {
     setChamada({ ...c, mudo: !c.mudo });
   };
 
+  const alternarCamera = () => {
+    const c = chamadaRef.current;
+    if (!c || !c.video) return;
+    const faixas = streamLocalRef.current?.getVideoTracks() || [];
+    if (faixas.length === 0) return;
+    faixas.forEach((t) => (t.enabled = c.semCamera));
+    setChamada({ ...c, semCamera: !c.semCamera });
+  };
+
+  // Mostra a própria imagem no cantinho da tela
+  useEffect(() => {
+    if (chamada?.video && videoLocalRef.current) videoLocalRef.current.srcObject = streamLocalRef.current;
+  }, [chamada?.video, chamada?.estado]);
+
   const tratarSinal = async (p: any) => {
     if (!p || (p.para || '').toLowerCase() !== emailUsuario) return;
     const de = (p.de || '').toLowerCase();
@@ -883,6 +930,8 @@ export default function AppMobileModule({ loggedUser }: Props) {
         comEmail: de,
         comNome: p.deNome ? nomeBonito(p.deNome) : nomePorEmail[de] || nomeDoEmail(de),
         mudo: false,
+        video: !!p.video,
+        semCamera: false,
       });
       tocarToque();
       clearTimeout(timeoutChamadaRef.current);
@@ -1530,6 +1579,25 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   <span>📞</span>
                   <span className="hidden sm:inline">Chamar no app</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => iniciarChamada(membroSelecionadoChat, true)}
+                  disabled={!estaOnline(membroSelecionadoChat.email) || !!chamada}
+                  title={
+                    estaOnline(membroSelecionadoChat.email)
+                      ? `Chamada de vídeo com ${membroSelecionadoChat.nome}`
+                      : 'Disponível quando a pessoa estiver online'
+                  }
+                  className={`h-9 px-3 rounded-full text-[11px] font-bold flex items-center gap-1.5 transition ${
+                    estaOnline(membroSelecionadoChat.email) && !chamada
+                      ? 'bg-sky-500 hover:bg-sky-400 text-white cursor-pointer active:scale-95'
+                      : 'bg-sky-900/60 text-sky-200/50 cursor-not-allowed'
+                  }`}
+                  aria-label={`Chamada de vídeo com ${membroSelecionadoChat.nome}`}
+                >
+                  <span>🎥</span>
+                  <span className="hidden sm:inline">Vídeo</span>
+                </button>
                 {membroSelecionadoChat.celular_principal && (
                   <button
                     type="button"
@@ -1630,6 +1698,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const naInicio = subAbaApp === 'inicio';
   const noChat = subAbaApp === 'chat';
+  const noUtil = subAbaApp === 'utilitarios' || subAbaApp === 'reuniao';
   const tituloAba = ABAS.find((a) => a.id === subAbaApp)?.titulo || '';
   const nomeUsuario = membroPerfil?.nome ? nomeBonito(membroPerfil.nome) : loggedUser?.nome_usuario || 'Membro';
 
@@ -1649,7 +1718,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       className={`max-w-4xl mx-auto w-full h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative ${
         naInicio ? 'bg-gradient-to-b from-blue-950 via-blue-900 to-indigo-950' : 'bg-slate-100'
       } ${
-        noChat
+        noChat || noUtil
           ? 'max-md:fixed max-md:inset-0 max-md:z-40 max-md:h-[100dvh] max-md:max-h-none max-md:rounded-none max-md:border-0 max-md:shadow-none'
           : ''
       }`}
@@ -1707,6 +1776,20 @@ export default function AppMobileModule({ loggedUser }: Props) {
       {/* ÁREA DE CONTEÚDO */}
       {naInicio ? null : subAbaApp === 'chat' ? (
         renderChat()
+      ) : subAbaApp === 'reuniao' ? (
+        <div className="flex-1 min-h-0 bg-slate-100">
+          <ReuniaoModule codigoIgreja={codigoIgreja} emailUsuario={emailUsuario} nomeUsuario={nomeUsuario} />
+        </div>
+      ) : subAbaApp === 'utilitarios' ? (
+        <div className="flex-1 min-h-0 bg-slate-100">
+          <UtilitariosModule
+            compromissos={minhaAgenda}
+            codigoIgreja={codigoIgreja}
+            emailUsuario={emailUsuario}
+            nomeUsuario={nomeUsuario}
+            isAdmin={!!isAdminOuLider}
+          />
+        </div>
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 bg-slate-100 relative">
           {loading ? (
@@ -2156,8 +2239,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       )}
 
-      <audio ref={audioRemotoRef} autoPlay playsInline />
-
       {avisoChamada && (
         <div
           role="status"
@@ -2168,55 +2249,98 @@ export default function AppMobileModule({ loggedUser }: Props) {
       )}
 
       {chamada && (
-        <div className="fixed inset-0 z-[70] bg-slate-950/90 flex items-center justify-center p-4" role="dialog" aria-label="Chamada de voz">
-          <div className="w-full max-w-xs rounded-3xl bg-gradient-to-b from-blue-950 to-slate-900 border border-white/10 text-white p-6 text-center space-y-5 shadow-2xl">
-            <div className="mx-auto w-24 h-24 rounded-full bg-white/5 ring-2 ring-white/20 flex items-center justify-center relative">
-              {(chamada.estado === 'chamando' || chamada.estado === 'recebendo') && (
-                <span className="absolute inset-0 rounded-full ring-4 ring-emerald-400/40 animate-ping motion-reduce:animate-none" />
+        <div className="fixed inset-0 z-[70] bg-slate-950/90 flex items-center justify-center p-4" role="dialog" aria-label={chamada.video ? 'Chamada de vídeo' : 'Chamada de voz'}>
+          <div
+            className={`w-full rounded-3xl bg-gradient-to-b from-blue-950 to-slate-900 border border-white/10 text-white shadow-2xl overflow-hidden ${
+              chamada.video && (chamada.estado === 'em_chamada' || chamada.estado === 'conectando') ? 'max-w-md' : 'max-w-xs'
+            }`}
+          >
+            {/* Vídeo remoto (também toca o áudio das chamadas só de voz) */}
+            <div
+              className={
+                chamada.video && (chamada.estado === 'em_chamada' || chamada.estado === 'conectando')
+                  ? 'relative bg-black aspect-[3/4] max-h-[60dvh] w-full'
+                  : 'hidden'
+              }
+            >
+              <video ref={audioRemotoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              <video
+                ref={videoLocalRef}
+                autoPlay
+                playsInline
+                muted
+                className={`absolute right-2 bottom-2 w-24 aspect-[3/4] object-cover rounded-xl border-2 border-white/60 bg-slate-800 ${
+                  chamada.semCamera ? 'opacity-30' : ''
+                }`}
+              />
+              <p className="absolute left-3 top-3 text-xs font-bold bg-black/50 rounded-full px-2.5 py-1">{chamada.comNome}</p>
+            </div>
+
+            <div className="p-6 text-center space-y-5">
+              {!(chamada.video && (chamada.estado === 'em_chamada' || chamada.estado === 'conectando')) && (
+                <div className="mx-auto w-24 h-24 rounded-full bg-white/5 ring-2 ring-white/20 flex items-center justify-center relative">
+                  {(chamada.estado === 'chamando' || chamada.estado === 'recebendo') && (
+                    <span className="absolute inset-0 rounded-full ring-4 ring-emerald-400/40 animate-ping motion-reduce:animate-none" />
+                  )}
+                  <Icone nome="perfil" className="w-12 h-12 text-white/90" />
+                </div>
               )}
-              <Icone nome="perfil" className="w-12 h-12 text-white/90" />
-            </div>
 
-            <div>
-              <h3 className="text-lg font-black leading-tight">{chamada.comNome}</h3>
-              <p className="text-xs text-blue-200 mt-1">
-                {chamada.estado === 'chamando' && 'Chamando…'}
-                {chamada.estado === 'recebendo' && 'Chamada de voz pelo app'}
-                {chamada.estado === 'conectando' && 'Conectando…'}
-                {chamada.estado === 'em_chamada' &&
-                  `${String(Math.floor(segundosChamada / 60)).padStart(2, '0')}:${String(segundosChamada % 60).padStart(2, '0')}`}
-              </p>
-            </div>
+              <div>
+                {!(chamada.video && (chamada.estado === 'em_chamada' || chamada.estado === 'conectando')) && (
+                  <h3 className="text-lg font-black leading-tight">{chamada.comNome}</h3>
+                )}
+                <p className="text-xs text-blue-200 mt-1">
+                  {chamada.estado === 'chamando' && (chamada.video ? 'Chamando em vídeo…' : 'Chamando…')}
+                  {chamada.estado === 'recebendo' && (chamada.video ? 'Chamada de vídeo pelo app' : 'Chamada de voz pelo app')}
+                  {chamada.estado === 'conectando' && 'Conectando…'}
+                  {chamada.estado === 'em_chamada' &&
+                    `${String(Math.floor(segundosChamada / 60)).padStart(2, '0')}:${String(segundosChamada % 60).padStart(2, '0')}`}
+                </p>
+              </div>
 
-            {chamada.estado === 'recebendo' ? (
-              <div className="flex gap-3">
-                <button type="button" onClick={recusarChamada} className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
-                  Recusar
+              {chamada.estado === 'recebendo' ? (
+                <div className="flex gap-3">
+                  <button type="button" onClick={recusarChamada} className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
+                    Recusar
+                  </button>
+                  <button type="button" onClick={atenderChamada} className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-bold text-sm cursor-pointer active:scale-95 transition">
+                    Atender
+                  </button>
+                </div>
+              ) : chamada.estado === 'chamando' ? (
+                <button type="button" onClick={encerrarChamada} className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
+                  Cancelar
                 </button>
-                <button type="button" onClick={atenderChamada} className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-600 font-bold text-sm cursor-pointer active:scale-95 transition">
-                  Atender
-                </button>
-              </div>
-            ) : chamada.estado === 'chamando' ? (
-              <button type="button" onClick={encerrarChamada} className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
-                Cancelar
-              </button>
-            ) : (
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={alternarMudo}
-                  className={`flex-1 py-3 rounded-2xl font-bold text-sm cursor-pointer active:scale-95 transition ${
-                    chamada.mudo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/10 hover:bg-white/20'
-                  }`}
-                >
-                  {chamada.mudo ? '🔇 Sem áudio' : '🎙 Microfone'}
-                </button>
-                <button type="button" onClick={encerrarChamada} className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-sm cursor-pointer active:scale-95 transition">
-                  Desligar
-                </button>
-              </div>
-            )}
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={alternarMudo}
+                    className={`flex-1 py-3 rounded-2xl font-bold text-xs cursor-pointer active:scale-95 transition ${
+                      chamada.mudo ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/10 hover:bg-white/20'
+                    }`}
+                  >
+                    {chamada.mudo ? '🔇 Sem áudio' : '🎙 Microfone'}
+                  </button>
+                  {chamada.video && (
+                    <button
+                      type="button"
+                      onClick={alternarCamera}
+                      disabled={(streamLocalRef.current?.getVideoTracks().length || 0) === 0}
+                      className={`flex-1 py-3 rounded-2xl font-bold text-xs cursor-pointer active:scale-95 transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                        chamada.semCamera ? 'bg-amber-500 hover:bg-amber-600' : 'bg-white/10 hover:bg-white/20'
+                      }`}
+                    >
+                      {chamada.semCamera ? '📷 Câmera off' : '🎥 Câmera'}
+                    </button>
+                  )}
+                  <button type="button" onClick={encerrarChamada} className="flex-1 py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 font-bold text-xs cursor-pointer active:scale-95 transition">
+                    Desligar
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

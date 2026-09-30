@@ -1,6 +1,7 @@
 // src/FinanceiroModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+import { carregarPermissoesFinanceiro, FINANCEIRO_PADRAO, PermissoesFinanceiro } from './permissoesFinanceiro';
 
 interface Lancamento {
   id: string;
@@ -126,6 +127,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [membrosList, setMembrosList] = useState<Membro[]>([]);
   const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
   const [semTabelaTransf, setSemTabelaTransf] = useState(false);
+  const [permFin, setPermFin] = useState<PermissoesFinanceiro>(FINANCEIRO_PADRAO);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -177,6 +179,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return false;
   };
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
+
+  // Sub-permissões do Financeiro (administrador pode tudo)
+  useEffect(() => {
+    if (!loggedUser) return;
+    let ativo = true;
+    carregarPermissoesFinanceiro(loggedUser.id, isAdmin)
+      .then((p) => ativo && setPermFin(p))
+      .catch(() => ativo && setPermFin(FINANCEIRO_PADRAO));
+    return () => {
+      ativo = false;
+    };
+  }, [loggedUser, isAdmin]);
+  const podeTransferir = isAdmin || permFin.fin_transferir;
+  const verTransferencias = podeTransferir || permFin.fin_ver;
 
   const registrarLog = async (acao: string, detalhes: string) => {
     try {
@@ -344,6 +360,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitTransferencia = async (e: React.FormEvent) => {
     e.preventDefault();
     if (salvandoTransf) return;
+    if (!podeTransferir) {
+      alert('🔒 Você não tem permissão para transferir entre contas. Peça ao administrador.');
+      return;
+    }
 
     const valor = parseFloat(formTransf.valor);
     if (!formTransf.conta_origem_id || !formTransf.conta_destino_id) {
@@ -836,6 +856,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       <div className="flex justify-end no-print">
         {subAba === 'lancamentos' && (
           <div className="flex flex-wrap justify-end gap-2">
+          {podeTransferir && (
           <button
             type="button"
             onClick={() => {
@@ -847,6 +868,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             🔁 Transferir entre contas
           </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -1035,6 +1057,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           )}
 
           {/* TRANSFERÊNCIAS ENTRE CONTAS */}
+          {verTransferencias && (
           <div className="space-y-2 no-print">
             <h3 className="font-black text-blue-900 text-base">🔁 Transferências entre contas</h3>
             {semTabelaTransf ? (
@@ -1101,6 +1124,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               </div>
             )}
           </div>
+          )}
         </>
       )}
 

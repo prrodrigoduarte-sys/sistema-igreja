@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { IconeUtil } from './IconesUtil';
-import { GRUPOS, Grupo, ITENS, ItemJuris, REVISAO_CONTEUDO, SITUACOES, Situacao } from './jurisigDados';
+import { GRUPOS, type Grupo, ITENS, type ItemJuris, REVISAO_CONTEUDO, SITUACOES, type Situacao } from './jurisigDados';
 import { semAcento } from './elementos';
 
 const CHAVE_FAV = 'util_jurisig_fav';

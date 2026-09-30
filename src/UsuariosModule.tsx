@@ -207,6 +207,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
           usuario_id: usuarioId,
           modulo: modulo,
           permitido: permitido,
+          codigo_igreja: codigoIgreja,
         }));
 
         const { error: permError } = await supabase

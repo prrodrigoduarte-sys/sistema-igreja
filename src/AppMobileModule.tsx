@@ -69,7 +69,7 @@ const horaMsg = (m: any) => {
 };
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  const [subAbaApp, setSubAbaApp] = useState<SubAba>('chat');
+  const [subAbaApp, setSubAbaApp] = useState<SubAba>('devocional');
   const [loading, setLoading] = useState(false);
 
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
@@ -151,7 +151,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [novaMensagemChat, setNovaMensagemChat] = useState('');
   const [buscaChat, setBuscaChat] = useState('');
   const [telaChat, setTelaChat] = useState<'lista' | 'conversa'>('lista'); // usado só em telas pequenas
-  const fimMensagensRef = useRef<HTMLDivElement | null>(null);
+  const msgsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuario = loggedUser?.email?.trim().toLowerCase() || loggedUser?.usuario || 'admin@sistema.com';
@@ -245,7 +245,15 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .order('created_at', { ascending: true })
         .limit(1000);
       if (error) throw error;
-      if (data) setTodasMensagens(data);
+      if (data) {
+        setTodasMensagens((prev) => {
+          const igual =
+            prev.length === data.length &&
+            prev[0]?.id === data[0]?.id &&
+            prev[prev.length - 1]?.id === data[data.length - 1]?.id;
+          return igual ? prev : data;
+        });
+      }
     } catch (err) {
       console.error('Erro ao carregar mensagens:', err);
     }
@@ -430,9 +438,32 @@ export default function AppMobileModule({ loggedUser }: Props) {
   }, [listaMembrosChat, todasMensagens, emailUsuario, meuId, buscaChat]);
 
   // Rolagem automática para a última mensagem
+  // (scrollIntoView movia a página inteira no celular e causava o "tremor"; aqui só rola a lista)
   useEffect(() => {
-    fimMensagensRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [mensagensChat.length, membroSelecionadoChat, telaChat]);
+    const el = msgsContainerRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [mensagensChat.length, membroSelecionadoChat, telaChat, subAbaApp]);
+
+  // No celular, o chat ocupa a tela toda: trava a rolagem da página por trás
+  useEffect(() => {
+    if (subAbaApp !== 'chat') return;
+    const ehCelular = window.matchMedia('(max-width: 767px)').matches;
+    if (!ehCelular) return;
+    const anterior = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = anterior;
+    };
+  }, [subAbaApp]);
+
+  // Nome de quem enviou (nunca mostra o e-mail completo)
+  const nomeDoRemetente = (email?: string) => {
+    const chave = email?.trim().toLowerCase() || '';
+    if (chave === emailUsuario) return membroPerfil?.nome || loggedUser?.nome_usuario || 'Você';
+    if (nomePorEmail[chave]) return nomePorEmail[chave];
+    const prefixo = chave.split('@')[0].replace(/[._-]+/g, ' ');
+    return prefixo ? prefixo.replace(/\b\w/g, (c) => c.toUpperCase()) : 'Membro';
+  };
 
   const abrirConversa = (membro: any | null) => {
     setMembroSelecionadoChat(membro);
@@ -883,13 +914,22 @@ export default function AppMobileModule({ loggedUser }: Props) {
           className={`${telaChat === 'conversa' ? 'hidden' : 'flex'} md:flex w-full md:w-72 md:shrink-0 border-r border-slate-200 bg-white flex-col min-h-0`}
         >
           <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 shrink-0 space-y-2">
-            <h3 className="font-black text-slate-800 text-sm">Conversas</h3>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSubAbaApp('devocional')}
+                className="md:hidden h-8 px-2.5 rounded-full bg-blue-900 text-white text-[11px] font-bold cursor-pointer active:scale-95 shrink-0"
+              >
+                ← Voltar ao app
+              </button>
+              <h3 className="font-black text-slate-800 text-sm">Conversas</h3>
+            </div>
             <input
               type="text"
               value={buscaChat}
               onChange={(e) => setBuscaChat(e.target.value)}
               placeholder="Buscar membro..."
-              className="w-full border border-slate-200 rounded-full px-3 py-1.5 text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600"
+              className="w-full border border-slate-200 rounded-full px-3 py-1.5 text-base md:text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600"
             />
           </div>
 
@@ -976,7 +1016,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
           </div>
 
           {/* Mensagens */}
-          <div className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-1.5 select-text">
+          <div ref={msgsContainerRef} className="flex-1 overflow-y-auto overscroll-contain min-h-0 px-3 py-3 space-y-1.5 select-text">
             {mensagensChat.length === 0 ? (
               <div className="h-full flex items-center justify-center">
                 <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-center shadow-sm max-w-[80%]">
@@ -990,7 +1030,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 const rotulo = rotuloData(m.created_at);
                 const mostrarData = rotulo && rotulo !== dataAnterior;
                 if (rotulo) dataAnterior = rotulo;
-                const nomeRemetente = nomePorEmail[m.sender?.trim().toLowerCase()] || m.sender;
+                const nomeRemetente = nomeDoRemetente(m.sender);
 
                 return (
                   <React.Fragment key={m.id}>
@@ -1033,7 +1073,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
                 );
               })
             )}
-            <div ref={fimMensagensRef} />
           </div>
 
           {/* Campo de envio */}
@@ -1043,7 +1082,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
               value={novaMensagemChat}
               onChange={(e) => setNovaMensagemChat(e.target.value)}
               placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}` : 'Mensagem para todos os membros'}
-              className="flex-1 min-w-0 border border-slate-200 rounded-full px-4 py-2.5 text-[13px] outline-none bg-white focus:ring-2 focus:ring-emerald-600"
+              className="flex-1 min-w-0 border border-slate-200 rounded-full px-4 py-2.5 text-base md:text-[13px] outline-none bg-white focus:ring-2 focus:ring-emerald-600"
             />
             <button
               type="submit"
@@ -1067,11 +1106,17 @@ export default function AppMobileModule({ loggedUser }: Props) {
   };
 
   // No celular, ao abrir uma conversa, esconde o menu para ganhar espaço (como no WhatsApp)
-  const esconderMenu = subAbaApp === 'chat' && telaChat === 'conversa';
+  const esconderMenu = subAbaApp === 'chat';
 
   return (
-    <div className="max-w-4xl mx-auto w-full bg-slate-100 h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative">
-      {/* CABEÇALHO */}
+    <div
+      className={`max-w-4xl mx-auto w-full bg-slate-100 h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative ${
+        subAbaApp === 'chat'
+          ? 'max-md:fixed max-md:inset-0 max-md:z-40 max-md:h-[100dvh] max-md:max-h-none max-md:rounded-none max-md:border-0 max-md:shadow-none'
+          : ''
+      }`}
+    >
+      {/* CABEÇALHO (no celular some por completo dentro do chat) */}
       <div className={`bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0 ${esconderMenu ? 'hidden md:block' : ''}`}>
         <div className="flex justify-between items-center">
           <div>

@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 import UtilitariosModule from './utilitarios/UtilitariosModule';
 import ReuniaoModule from './reuniao/ReuniaoModule';
 import ChatModule, { ligarPara, nomeBonito } from './ChatModule';
+import DevocionalPessoal from './utilitarios/DevocionalPessoal';
 import { classesConteudo, dataBR, hojeLocal, htmlParaExibir, htmlParaTexto, podeEditarDevocional, temFormatacao, textoParaHtml } from './devocionalUtil';
 
 interface Props {
@@ -193,6 +194,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [editDevReflexao, setEditDevReflexao] = useState('');
   const [editDevAutor, setEditDevAutor] = useState('Pastor / Equipe Pastoral');
   const [savingDevocional, setSavingDevocional] = useState(false);
+  const [meusDevocionaisAberto, setMeusDevocionaisAberto] = useState(false);
 
   const [gerandoImagem, setGerandoImagem] = useState(false);
   const [modalStoryGeradoOpen, setModalStoryGeradoOpen] = useState(false);
@@ -801,6 +803,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const noUtil = subAbaApp === 'utilitarios' || subAbaApp === 'reuniao';
   const tituloAba = ABAS.find((a) => a.id === subAbaApp)?.titulo || '';
   const nomeUsuario = membroPerfil?.nome ? nomeBonito(membroPerfil.nome) : loggedUser?.nome_usuario || 'Membro';
+  const primeiroNome = (nomeUsuario || '').trim().split(/\s+/)[0] || 'Irmão';
+  const horaAgora = new Date().getHours();
+  const saudacao = horaAgora < 12 ? 'Bom dia' : horaAgora < 18 ? 'Boa tarde' : 'Boa noite';
+  const hojePorExtenso = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const avatar = (
     <button
@@ -826,12 +832,20 @@ export default function AppMobileModule({ loggedUser }: Props) {
       {naInicio ? (
         /* TELA INICIAL: grade de ícones grandes */
         <div className="flex-1 min-h-0 overflow-y-auto flex flex-col text-white">
-          <div className="px-5 pt-5 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] text-blue-200 truncate">Olá, {nomeUsuario}</p>
-              <h2 className="text-lg font-black leading-tight">{dadosIgreja.nome_igreja}</h2>
+          <div className="px-5 pt-6">
+            <div className="flex items-center justify-between gap-3">
+              <p className="min-w-0 truncate text-[11px] font-black uppercase tracking-[0.22em] text-amber-300">
+                {saudacao}, {primeiroNome}
+              </p>
+              {avatar}
             </div>
-            {avatar}
+            <h1 className="mt-2 text-[2rem] sm:text-5xl font-black leading-[1.02] tracking-tight bg-gradient-to-br from-white via-amber-50 to-amber-300 bg-clip-text text-transparent drop-shadow-[0_2px_12px_rgba(251,191,36,0.25)] [overflow-wrap:anywhere]">
+              {dadosIgreja.nome_igreja}
+            </h1>
+            <div className="mt-3 flex items-center gap-3">
+              <span className="h-1 w-12 rounded-full bg-gradient-to-r from-amber-400 to-rose-400" aria-hidden="true" />
+              <span className="text-[11px] font-semibold text-blue-200 first-letter:uppercase">{hojePorExtenso}</span>
+            </div>
           </div>
 
           <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 gap-x-2 gap-y-7 px-5 py-8 content-center">
@@ -886,6 +900,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             emailUsuario={emailUsuario}
             nomeUsuario={nomeUsuario}
             isAdmin={!!isAdminOuLider}
+            podePublicarDevocional={podeEditarDev}
           />
         </div>
       ) : (
@@ -1338,6 +1353,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     >
                       💬 Compartilhar Texto no WhatsApp
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setMeusDevocionaisAberto(true)}
+                      className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-pink-500 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer"
+                    >
+                      💜 Meus devocionais (feitos na Bíblia)
+                    </button>
                   </div>
                 </div>
               )}
@@ -1462,6 +1484,18 @@ export default function AppMobileModule({ loggedUser }: Props) {
             </form>
           </div>
         </div>
+      )}
+
+      {/* MEUS DEVOCIONAIS (os mesmos da Bíblia em Utilitários) */}
+      {meusDevocionaisAberto && (
+        <DevocionalPessoal
+          email={emailUsuario}
+          nome={nomeUsuario}
+          rascunho={null}
+          onFechar={() => setMeusDevocionaisAberto(false)}
+          podePublicar={podeEditarDev}
+          codigoIgreja={codigoIgreja}
+        />
       )}
 
       {/* MODAL DEVOCIONAL */}

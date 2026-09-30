@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { supabase } from './supabase';
 
 interface Props {
@@ -33,8 +33,43 @@ interface Devocional {
   data: string;
 }
 
+type SubAba = 'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat';
+
+const ABAS: { id: SubAba; icone: string; titulo: string; sub: string }[] = [
+  { id: 'chat', icone: '💬', titulo: 'Chat Geral', sub: 'Mensagens' },
+  { id: 'minha_agenda', icone: '📅', titulo: 'Agenda', sub: 'Compromissos' },
+  { id: 'perfil', icone: '👤', titulo: 'Meu Perfil', sub: 'Dados' },
+  { id: 'celula', icone: '🏡', titulo: 'Célula', sub: 'Encontros' },
+  { id: 'igreja', icone: '⛪', titulo: 'A Igreja', sub: 'Endereço' },
+  { id: 'cadastro', icone: '📝', titulo: 'Cadastro', sub: 'Formulário' },
+  { id: 'contribua', icone: '💖', titulo: 'Contribua', sub: 'Dízimos' },
+  { id: 'devocional', icone: '📖', titulo: 'Devocional', sub: 'Palavra' },
+];
+
+// ── Helpers do chat ──
+const rotuloData = (iso?: string) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  const hoje = new Date();
+  const ontem = new Date();
+  ontem.setDate(hoje.getDate() - 1);
+  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (mesmoDia(d, hoje)) return 'Hoje';
+  if (mesmoDia(d, ontem)) return 'Ontem';
+  return d.toLocaleDateString('pt-BR');
+};
+
+const horaMsg = (m: any) => {
+  if (m.created_at) {
+    const d = new Date(m.created_at);
+    if (!isNaN(d.getTime())) return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  return m.time || '';
+};
+
 export default function AppMobileModule({ loggedUser }: Props) {
-  const [subAbaApp, setSubAbaApp] = useState<'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat'>('chat');
+  const [subAbaApp, setSubAbaApp] = useState<SubAba>('chat');
   const [loading, setLoading] = useState(false);
 
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
@@ -101,7 +136,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [minhaCelula, setMinhaCelula] = useState<any>(null);
   const [participantesCelula, setParticipantesCelula] = useState<any[]>([]);
   const [reunioesCelula, setReunioesCelula] = useState<any[]>([]);
-  
+
   const [modalNovaReuniao, setModalNovaReuniao] = useState(false);
   const [itemEditandoReuniao, setItemEditandoReuniao] = useState<any | null>(null);
   const [dataReuniao, setDataReuniao] = useState(new Date().toISOString().split('T')[0]);
@@ -109,14 +144,23 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [temaEstudo, setTemaEstudo] = useState('');
   const [comentariosCelula, setComentariosCelula] = useState('');
 
+  // ── Estado do chat ──
   const [listaMembrosChat, setListaMembrosChat] = useState<any[]>([]);
   const [membroSelecionadoChat, setMembroSelecionadoChat] = useState<any>(null);
-  const [mensagensChat, setMensagensChat] = useState<any[]>([]);
+  const [todasMensagens, setTodasMensagens] = useState<any[]>([]);
   const [novaMensagemChat, setNovaMensagemChat] = useState('');
+  const [buscaChat, setBuscaChat] = useState('');
+  const [telaChat, setTelaChat] = useState<'lista' | 'conversa'>('lista'); // usado só em telas pequenas
+  const fimMensagensRef = useRef<HTMLDivElement | null>(null);
 
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
   const emailUsuario = loggedUser?.email?.trim().toLowerCase() || loggedUser?.usuario || 'admin@sistema.com';
-  const isAdminOuLider = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador' || loggedUser?.perfil === 'lider' || loggedUser?.funcao === 'admin' || loggedUser?.cargo === 'Pastor';
+  const isAdminOuLider =
+    loggedUser?.perfil === 'admin' ||
+    loggedUser?.perfil === 'administrador' ||
+    loggedUser?.perfil === 'lider' ||
+    loggedUser?.funcao === 'admin' ||
+    loggedUser?.cargo === 'Pastor';
 
   const formatarWhatsapp = (num: string) => {
     if (!num) return '';
@@ -134,11 +178,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     if (!emailUsuario) return;
     setCarregandoCadastro(true);
     try {
-      const { data } = await supabase
-        .from('members')
-        .select('*')
-        .eq('email', emailUsuario)
-        .maybeSingle();
+      const { data } = await supabase.from('members').select('*').eq('email', emailUsuario).maybeSingle();
 
       if (data) {
         setNomeMembro(data.nome || '');
@@ -152,9 +192,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         setBatizado(data.batizado || 'Sim');
         setObservacoesMembro(data.observacoes || '');
 
-        if (data.cadastro_concluido && !isAdminOuLider) {
-          setJaCadastrado(true);
-        }
+        if (data.cadastro_concluido && !isAdminOuLider) setJaCadastrado(true);
       }
     } catch (err) {
       console.error('Erro ao verificar cadastro:', err);
@@ -163,120 +201,62 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // ── CHAT: carregar membros (não depende de nenhum estado que mude sozinho) ──
   const carregarMembrosChat = useCallback(async () => {
     try {
-      let membrosEncontrados: any[] = [];
-      
-      // 1. Tenta buscar na tabela 'members'
-      const { data: resMembers, error: errMembers } = await supabase
-        .from('members')
-        .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-        
+      let encontrados: any[] = [];
+      const cols = 'id, nome, email, celular_principal, tipo_cadastro, foto_url';
+
+      const { data: resMembers, error: errMembers } = await supabase.from('members').select(cols);
       if (!errMembers && resMembers && resMembers.length > 0) {
-        membrosEncontrados = resMembers;
+        encontrados = resMembers;
       } else {
-        // 2. Fallback para 'membros' caso exista
-        const { data: resMembros, error: errMembros } = await supabase
-          .from('membros')
-          .select('id, nome, email, celular_principal, tipo_cadastro, foto_url');
-          
-        if (!errMembros && resMembros && resMembros.length > 0) {
-          membrosEncontrados = resMembros;
-        }
+        const { data: resMembros, error: errMembros } = await supabase.from('membros').select(cols);
+        if (!errMembros && resMembros && resMembros.length > 0) encontrados = resMembros;
       }
 
-      // 3. FALLBACK DE SEGURANÇA: Se a base de dados bloquear por RLS, extraímos os participantes através da tabela de mensagens e do próprio utilizador logado
-      if (membrosEncontrados.length === 0) {
-        const { data: msgsAll } = await supabase.from('chat_mensagens').select('sender, recipient_id');
-        const emailsUnicos = new Set<string>();
-        
-        if (msgsAll) {
-          msgsAll.forEach(m => {
-            if (m.sender) emailsUnicos.add(m.sender.trim().toLowerCase());
-          });
-        }
-        
-        // Garante que o utilizador atual e outros de teste aparecem sempre
-        emailsUnicos.add(emailUsuario);
-        emailsUnicos.add('alineerb@gmail.com');
-
-        membrosEncontrados = Array.from(emailsUnicos).map((email, idx) => ({
-          id: `fallback-id-${idx}`,
-          nome: email === emailUsuario ? (membroPerfil?.nome || 'EU (LOGADO)') : email.split('@')[0].toUpperCase(),
-          email: email,
+      // Fallback: monta a lista a partir de quem já enviou mensagens
+      if (encontrados.length === 0) {
+        const { data: msgsAll } = await supabase.from('chat_mensagens').select('sender');
+        const emails = new Set<string>();
+        (msgsAll || []).forEach((m: any) => m.sender && emails.add(m.sender.trim().toLowerCase()));
+        emails.add(emailUsuario);
+        encontrados = Array.from(emails).map((email) => ({
+          id: email,
+          nome: email.split('@')[0].toUpperCase(),
+          email,
           tipo_cadastro: 'Membro',
-          celular_principal: ''
+          celular_principal: '',
         }));
       }
 
-      setListaMembrosChat(membrosEncontrados);
+      setListaMembrosChat(encontrados);
     } catch (err) {
-      console.error('Erro crítico ao carregar membros do chat:', err);
-      // Fallback extremo para nunca deixar o chat vazio na interface
-      setListaMembrosChat([
-        { id: 'fallback-1', nome: 'ALINEERB', email: 'alineerb@gmail.com', tipo_cadastro: 'Membro', celular_principal: '' },
-        { id: 'fallback-2', nome: 'RODRIGO', email: emailUsuario, tipo_cadastro: 'Administrador', celular_principal: '' }
-      ]);
+      console.error('Erro ao carregar membros do chat:', err);
     }
-  }, [emailUsuario, membroPerfil]);
+  }, [emailUsuario]);
 
-  // ── BLOCO 1: CARREGAR MENSAGENS DO CHAT PRIVADO OU TRANSMISSÃO ──
+  // ── CHAT: uma única busca traz todas as mensagens; o filtro é feito em memória (useMemo) ──
   const carregarMensagensChat = useCallback(async () => {
     try {
-      if (!membroSelecionadoChat) {
-        // Modo Transmissão Geral (Broadcast)
-        const { data, error } = await supabase
-          .from('chat_mensagens')
-          .select('*')
-          .eq('is_broadcast', true)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        if (data) setMensagensChat(Array.from(new Map(data.map(m => [m.id, m])).values()));
-      } else {
-        // Busca as mensagens e filtra com segurança total no cliente (evita erros de tipo UUID vs Text)
-        const meuEmail = emailUsuario?.trim().toLowerCase();
-        const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
-        const outroId = membroSelecionadoChat.id;
-        const meuId = membroPerfil?.id || '';
-
-        const { data, error } = await supabase
-          .from('chat_mensagens')
-          .select('*')
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-
-        if (data) {
-          const mensagensFiltradas = data.filter((m) => {
-            if (m.is_broadcast) return false;
-            const s = m.sender?.trim().toLowerCase();
-            const r = m.recipient_id;
-
-            // Verifica se é mensagem enviada por mim para este destinatário, ou vice-versa
-            const minhaParaOutro = (s === meuEmail) && (r === outroId || r === emailOutro);
-            const outroParaMim = (s === emailOutro) && (r === meuId || r === meuEmail);
-
-            return minhaParaOutro || outroParaMim;
-          });
-
-          setMensagensChat(Array.from(new Map(mensagensFiltradas.map(m => [m.id, m])).values()));
-        }
-      }
+      const { data, error } = await supabase
+        .from('chat_mensagens')
+        .select('*')
+        .order('created_at', { ascending: true })
+        .limit(1000);
+      if (error) throw error;
+      if (data) setTodasMensagens(data);
     } catch (err) {
       console.error('Erro ao carregar mensagens:', err);
     }
-  }, [membroSelecionadoChat, emailUsuario, membroPerfil]);
+  }, []);
 
+  // ── Dados gerais do app (NÃO chama mais o chat: era isso que causava o "Carregando dados..." infinito) ──
   const carregarDadosApp = useCallback(async () => {
     setLoading(true);
     try {
       if (emailUsuario) {
-        const { data: dataMembro } = await supabase
-          .from('members')
-          .select('*')
-          .eq('email', emailUsuario)
-          .maybeSingle();
+        const { data: dataMembro } = await supabase.from('members').select('*').eq('email', emailUsuario).maybeSingle();
 
         if (dataMembro) {
           setMembroPerfil(dataMembro);
@@ -287,19 +267,13 @@ export default function AppMobileModule({ loggedUser }: Props) {
           setCidade(dataMembro.cidade || '');
 
           if (dataMembro.celula_id) {
-            const { data: dataCel } = await supabase
-              .from('celulas')
-              .select('*')
-              .eq('id', dataMembro.celula_id)
-              .maybeSingle();
-
+            const { data: dataCel } = await supabase.from('celulas').select('*').eq('id', dataMembro.celula_id).maybeSingle();
             if (dataCel) setMinhaCelula(dataCel);
 
             const { data: dataPart } = await supabase
               .from('members')
               .select('id, nome, celular_principal, foto_url')
               .eq('celula_id', dataMembro.celula_id);
-
             if (dataPart) setParticipantesCelula(dataPart);
           }
         }
@@ -310,14 +284,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
         .select('*')
         .order('data', { ascending: true })
         .order('hora', { ascending: true });
-
       if (dataAgenda) setMinhaAgenda(dataAgenda);
 
-      const { data: dataIgr } = await supabase
-        .from('igrejas')
-        .select('*')
-        .maybeSingle();
-
+      const { data: dataIgr } = await supabase.from('igrejas').select('*').maybeSingle();
       if (dataIgr) {
         setDadosIgreja({
           nome_igreja: dataIgr.nome_fantasia || dataIgr.razao_social || 'Sua Igreja',
@@ -350,60 +319,147 @@ export default function AppMobileModule({ loggedUser }: Props) {
         });
       }
 
-      const { data: dataReunioes } = await supabase
-        .from('reunioes_celulas')
-        .select('*')
-        .order('data_reuniao', { ascending: false });
-
+      const { data: dataReunioes } = await supabase.from('reunioes_celulas').select('*').order('data_reuniao', { ascending: false });
       if (dataReunioes) setReunioesCelula(dataReunioes);
-
-      // Carrega membros do chat também
-      await carregarMembrosChat();
-      await carregarMensagensChat();
-
     } catch (err: any) {
       console.error('Erro ao carregar app mobile:', err);
     } finally {
       setLoading(false);
     }
-  }, [emailUsuario, carregarMembrosChat, carregarMensagensChat]);
+  }, [emailUsuario]);
 
   useEffect(() => {
     carregarDadosApp();
     verificarStatusCadastro();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [carregarDadosApp]);
 
+  // Chat: carga inicial + tempo real + atualização de segurança a cada 8s
   useEffect(() => {
-    if (subAbaApp === 'chat') {
-      carregarMembrosChat();
-      carregarMensagensChat();
-    }
-  }, [subAbaApp, membroSelecionadoChat, carregarMembrosChat, carregarMensagensChat]);
+    carregarMembrosChat();
+    carregarMensagensChat();
+  }, [carregarMembrosChat, carregarMensagensChat]);
+
+  useEffect(() => {
+    const canal = supabase
+      .channel('chat_mensagens_rt')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_mensagens' }, () => {
+        carregarMensagensChat();
+      })
+      .subscribe();
+
+    const timer = setInterval(() => {
+      if (subAbaApp === 'chat') carregarMensagensChat();
+    }, 8000);
+
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(canal);
+    };
+  }, [carregarMensagensChat, subAbaApp]);
+
+  // ── CHAT: dados derivados ──
+  const meuId = useMemo(
+    () => membroPerfil?.id || listaMembrosChat.find((m) => m.email?.trim().toLowerCase() === emailUsuario)?.id || '',
+    [membroPerfil, listaMembrosChat, emailUsuario]
+  );
+
+  const nomePorEmail = useMemo(() => {
+    const mapa: Record<string, string> = {};
+    listaMembrosChat.forEach((m) => {
+      if (m.email) mapa[m.email.trim().toLowerCase()] = m.nome;
+    });
+    return mapa;
+  }, [listaMembrosChat]);
+
+  const mensagensChat = useMemo(() => {
+    if (!membroSelecionadoChat) return todasMensagens.filter((m) => m.is_broadcast);
+
+    const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
+    const outroId = membroSelecionadoChat.id;
+
+    return todasMensagens.filter((m) => {
+      if (m.is_broadcast) return false;
+      const s = m.sender?.trim().toLowerCase();
+      const r = m.recipient_id;
+      const minhaParaOutro = s === emailUsuario && (r === outroId || r === emailOutro);
+      const outroParaMim = s === emailOutro && (r === meuId || r === emailUsuario);
+      return minhaParaOutro || outroParaMim;
+    });
+  }, [todasMensagens, membroSelecionadoChat, emailUsuario, meuId]);
+
+  // Lista lateral: sem o próprio usuário, sem duplicados, ordenada pela última conversa (como no WhatsApp)
+  const membrosOrdenados = useMemo(() => {
+    const ultima: Record<string, { ts: number; texto: string }> = {};
+
+    todasMensagens.forEach((m) => {
+      if (m.is_broadcast) return;
+      const s = m.sender?.trim().toLowerCase();
+      let outro: any = null;
+      if (s === emailUsuario) {
+        outro = listaMembrosChat.find((x) => x.id === m.recipient_id || x.email?.trim().toLowerCase() === m.recipient_id);
+      } else {
+        const alvo = m.recipient_id;
+        if (alvo === meuId || alvo === emailUsuario) {
+          outro = listaMembrosChat.find((x) => x.email?.trim().toLowerCase() === s);
+        }
+      }
+      if (!outro) return;
+      const ts = m.created_at ? new Date(m.created_at).getTime() : 0;
+      if (!ultima[outro.id] || ts >= ultima[outro.id].ts) {
+        ultima[outro.id] = { ts, texto: `${s === emailUsuario ? 'Você: ' : ''}${m.text}` };
+      }
+    });
+
+    const vistos = new Set<string>();
+    return listaMembrosChat
+      .filter((m) => {
+        if (m.email?.trim().toLowerCase() === emailUsuario) return false;
+        if (vistos.has(m.id)) return false;
+        vistos.add(m.id);
+        return true;
+      })
+      .filter((m) => !buscaChat.trim() || m.nome?.toLowerCase().includes(buscaChat.trim().toLowerCase()))
+      .map((m) => ({ ...m, _ultima: ultima[m.id] }))
+      .sort((a, b) => {
+        const ta = a._ultima?.ts || 0;
+        const tb = b._ultima?.ts || 0;
+        if (ta !== tb) return tb - ta;
+        return (a.nome || '').localeCompare(b.nome || '');
+      });
+  }, [listaMembrosChat, todasMensagens, emailUsuario, meuId, buscaChat]);
+
+  // Rolagem automática para a última mensagem
+  useEffect(() => {
+    fimMensagensRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [mensagensChat.length, membroSelecionadoChat, telaChat]);
+
+  const abrirConversa = (membro: any | null) => {
+    setMembroSelecionadoChat(membro);
+    setTelaChat('conversa');
+  };
 
   const handleEnviarMensagemChat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!novaMensagemChat.trim()) return;
+    const texto = novaMensagemChat.trim();
+    if (!texto) return;
 
+    setNovaMensagemChat('');
     try {
       const payload: any = {
         codigo_igreja: codigoIgreja,
         sender: emailUsuario,
-        text: novaMensagemChat.trim(),
+        text: texto,
         time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         is_broadcast: !membroSelecionadoChat,
       };
-
-      if (membroSelecionadoChat) {
-        payload.recipient_id = membroSelecionadoChat.id;
-      }
+      if (membroSelecionadoChat) payload.recipient_id = membroSelecionadoChat.id;
 
       const { error } = await supabase.from('chat_mensagens').insert([payload]);
       if (error) throw error;
-
-      setNovaMensagemChat('');
       carregarMensagensChat();
-      carregarMembrosChat();
     } catch (err: any) {
+      setNovaMensagemChat(texto);
       alert('Erro ao enviar mensagem: ' + err.message);
     }
   };
@@ -413,16 +469,16 @@ export default function AppMobileModule({ loggedUser }: Props) {
     try {
       const { error } = await supabase.from('chat_mensagens').delete().eq('id', id);
       if (error) throw error;
-      carregarMensagensChat();
+      setTodasMensagens((prev) => prev.filter((m) => m.id !== id));
     } catch (err: any) {
       alert('Erro ao excluir mensagem: ' + err.message);
     }
   };
 
+  // ── Demais handlers (inalterados) ──
   const handleSalvarPerfil = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!membroPerfil) return alert('Cadastro de membro não localizado.');
-
     try {
       const { error } = await supabase
         .from('members')
@@ -434,7 +490,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
           cidade: cidade.trim(),
         })
         .eq('id', membroPerfil.id);
-
       if (error) throw error;
       alert('📱 Seu perfil foi atualizado com sucesso!');
       carregarDadosApp();
@@ -445,12 +500,10 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const handleFinalizarCadastroUnico = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (jaCadastrado && !isAdminOuLider) {
       alert('Dados já confirmados. Procure a secretaria.');
       return;
     }
-
     if (!nomeMembro.trim()) return alert('Informe seu nome completo na Etapa 1.');
 
     try {
@@ -485,10 +538,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       };
 
       if (membroAtual?.id) {
-        const { error } = await supabase
-          .from('members')
-          .update(payload)
-          .eq('id', membroAtual.id);
+        const { error } = await supabase.from('members').update(payload).eq('id', membroAtual.id);
         if (error) throw error;
       } else {
         const { error } = await supabase.from('members').insert([payload]);
@@ -538,11 +588,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       };
 
       if (itemEditandoAgenda) {
-        const { error } = await supabase
-          .from('agenda_mobile')
-          .update(payload)
-          .eq('id', itemEditandoAgenda.id);
-
+        const { error } = await supabase.from('agenda_mobile').update(payload).eq('id', itemEditandoAgenda.id);
         if (error) throw error;
         alert('✏️ Compromisso atualizado com sucesso!');
       } else {
@@ -565,7 +611,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
     try {
       const { error } = await supabase.from('agenda_mobile').delete().eq('id', id);
       if (error) throw error;
-
       alert('Compromisso removido.');
       carregarDadosApp();
     } catch (err: any) {
@@ -593,7 +638,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const handleSalvarReuniaoCelula = async (e: React.FormEvent) => {
     e.preventDefault();
-
     try {
       const payload = {
         codigo_igreja: codigoIgreja,
@@ -606,11 +650,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       };
 
       if (itemEditandoReuniao) {
-        const { error } = await supabase
-          .from('reunioes_celulas')
-          .update(payload)
-          .eq('id', itemEditandoReuniao.id);
-
+        const { error } = await supabase.from('reunioes_celulas').update(payload).eq('id', itemEditandoReuniao.id);
         if (error) throw error;
         alert('✏️ Encontro da célula atualizado com sucesso!');
       } else {
@@ -645,10 +685,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     const texto = `*Devocional Diário - ${dadosIgreja.nome_igreja}*\n\n📖 *${devocionalDoDia.titulo}*\n${devocionalDoDia.versiculo ? `"${devocionalDoDia.versiculo}"\n` : ''}_${devocionalDoDia.referencia}_\n\n*Reflexão:*\n${textoLimpo}\n\n✍️ *Por:* ${devocionalDoDia.autor}`;
 
     if (navigator.share) {
-      navigator.share({
-        title: devocionalDoDia.titulo,
-        text: texto,
-      });
+      navigator.share({ title: devocionalDoDia.titulo, text: texto });
     } else {
       navigator.clipboard.writeText(texto);
       alert('✨ Devocional copiado com sucesso! Abra o WhatsApp para compartilhar.');
@@ -667,9 +704,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   const handleSalvarDevocionalMobile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editDevTitulo.trim() || !editDevReflexao.trim()) {
-      return alert('Preencha o título e o texto da reflexão.');
-    }
+    if (!editDevTitulo.trim() || !editDevReflexao.trim()) return alert('Preencha o título e o texto da reflexão.');
 
     setSavingDevocional(true);
     try {
@@ -684,18 +719,11 @@ export default function AppMobileModule({ loggedUser }: Props) {
       };
 
       if (devocionalDoDia.id) {
-        const { error } = await supabase
-          .from('devotionals')
-          .update(payload)
-          .eq('id', devocionalDoDia.id);
-
+        const { error } = await supabase.from('devotionals').update(payload).eq('id', devocionalDoDia.id);
         if (error) throw error;
         alert('✏️ Devocional atualizado com sucesso!');
       } else {
-        const { error } = await supabase
-          .from('devotionals')
-          .insert([payload]);
-
+        const { error } = await supabase.from('devotionals').insert([payload]);
         if (error) throw error;
         alert('✅ Devocional publicado com sucesso!');
       }
@@ -716,7 +744,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
       canvas.width = 1080;
       canvas.height = 1920;
       const ctx = canvas.getContext('2d');
-
       if (!ctx) return;
 
       const gradFundo = ctx.createRadialGradient(540, 400, 50, 540, 960, 1100);
@@ -724,7 +751,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
       gradFundo.addColorStop(0.35, '#1e3a8a');
       gradFundo.addColorStop(0.75, '#0f172a');
       gradFundo.addColorStop(1, '#020617');
-      
       ctx.fillStyle = gradFundo;
       ctx.fillRect(0, 0, 1080, 1920);
 
@@ -733,7 +759,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         const y = Math.random() * 1920;
         const radius = Math.random() * 3 + 1;
         const alpha = Math.random() * 0.5 + 0.1;
-        
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(253, 224, 71, ${alpha})`;
@@ -765,7 +790,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         const words = text.split(' ');
         const lines: string[] = [];
         let currentLine = words[0];
-
         for (let i = 1; i < words.length; i++) {
           const width = ctx.measureText(currentLine + ' ' + words[i]).width;
           if (width < maxW) {
@@ -782,7 +806,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
       ctx.fillStyle = '#ffffff';
       const fontTitulo = 'bold 50px sans-serif';
       const linhasTitulo = quebrarTexto(`"${devocionalDoDia.titulo}"`, 860, fontTitulo);
-      
+
       let yPos = 370;
       ctx.font = fontTitulo;
       linhasTitulo.slice(0, 3).forEach((linha) => {
@@ -802,7 +826,6 @@ export default function AppMobileModule({ loggedUser }: Props) {
         ctx.fillStyle = '#e0f2fe';
         const fontVerso = 'italic 30px sans-serif';
         const linhasVerso = quebrarTexto(`"${devocionalDoDia.versiculo}"`, 820, fontVerso);
-        
         ctx.font = fontVerso;
         linhasVerso.slice(0, 3).forEach((linha) => {
           ctx.fillText(linha, 540, yPos);
@@ -833,18 +856,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
       ctx.fillStyle = '#fef08a';
       ctx.font = 'italic bold 38px Georgia, serif';
       ctx.textAlign = 'center';
-      
-      const nomeAutor = devocionalDoDia.autor || 'Pastor / Equipe Pastoral';
-      ctx.fillText(`✍️ ${nomeAutor}`, 540, 1710);
+      ctx.fillText(`✍️ ${devocionalDoDia.autor || 'Pastor / Equipe Pastoral'}`, 540, 1710);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '26px sans-serif';
       ctx.fillText(dadosIgreja.nome_igreja, 540, 1755);
 
-      const dataUrl = canvas.toDataURL('image/png');
-      setImagemStoryDataUrl(dataUrl);
+      setImagemStoryDataUrl(canvas.toDataURL('image/png'));
       setModalStoryGeradoOpen(true);
-
     } catch (err: any) {
       alert('Erro ao gerar imagem para Stories: ' + err.message);
     } finally {
@@ -852,11 +871,208 @@ export default function AppMobileModule({ loggedUser }: Props) {
     }
   };
 
+  // ── JSX do chat ──
+  const renderChat = () => {
+    let dataAnterior = '';
+    const nomeConversa = membroSelecionadoChat ? membroSelecionadoChat.nome : 'Transmissão Geral';
+
+    return (
+      <div className="flex-1 min-h-0 flex bg-white text-xs overflow-hidden">
+        {/* LISTA DE CONVERSAS */}
+        <aside
+          className={`${telaChat === 'conversa' ? 'hidden' : 'flex'} md:flex w-full md:w-72 md:shrink-0 border-r border-slate-200 bg-white flex-col min-h-0`}
+        >
+          <div className="px-3 py-2.5 bg-slate-50 border-b border-slate-200 shrink-0 space-y-2">
+            <h3 className="font-black text-slate-800 text-sm">Conversas</h3>
+            <input
+              type="text"
+              value={buscaChat}
+              onChange={(e) => setBuscaChat(e.target.value)}
+              placeholder="Buscar membro..."
+              className="w-full border border-slate-200 rounded-full px-3 py-1.5 text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600"
+            />
+          </div>
+
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <button
+              type="button"
+              onClick={() => abrirConversa(null)}
+              className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-slate-100 cursor-pointer transition ${
+                !membroSelecionadoChat ? 'bg-emerald-50' : 'hover:bg-slate-50'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-full bg-emerald-700 text-white flex items-center justify-center text-base shrink-0">📢</div>
+              <div className="min-w-0 flex-1">
+                <p className="font-bold text-slate-900 text-[13px] truncate">Transmissão Geral</p>
+                <p className="text-[11px] text-emerald-700 truncate">Mensagem para toda a igreja</p>
+              </div>
+            </button>
+
+            {membrosOrdenados.length === 0 ? (
+              <p className="text-[11px] text-slate-400 text-center py-6 px-3">Nenhum membro encontrado.</p>
+            ) : (
+              membrosOrdenados.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => abrirConversa(m)}
+                  className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-slate-100 cursor-pointer transition ${
+                    membroSelecionadoChat?.id === m.id ? 'bg-emerald-50' : 'hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 overflow-hidden">
+                    {m.foto_url ? <img src={m.foto_url} alt="" className="w-full h-full object-cover" /> : '👤'}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex justify-between items-baseline gap-2">
+                      <p className="font-bold text-slate-900 text-[13px] truncate">{m.nome}</p>
+                      {m._ultima?.ts ? (
+                        <span className="text-[10px] text-slate-400 shrink-0">
+                          {new Date(m._ultima.ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="text-[11px] text-slate-500 truncate">{m._ultima?.texto || m.tipo_cadastro || 'Membro'}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+
+        {/* JANELA DA CONVERSA */}
+        <section
+          className={`${telaChat === 'lista' ? 'hidden' : 'flex'} md:flex flex-1 min-w-0 min-h-0 flex-col bg-[#efeae2] bg-[radial-gradient(#d9d0c5_1px,transparent_1px)] [background-size:16px_16px]`}
+        >
+          {/* Cabeçalho da conversa */}
+          <div className="bg-[#005e54] text-white px-2.5 py-2 flex items-center gap-2 shrink-0 shadow-md">
+            <button
+              type="button"
+              onClick={() => setTelaChat('lista')}
+              className="md:hidden w-8 h-8 flex items-center justify-center rounded-full hover:bg-emerald-800 cursor-pointer text-base"
+              aria-label="Voltar para conversas"
+            >
+              ←
+            </button>
+            <div className="w-9 h-9 rounded-full bg-emerald-800 flex items-center justify-center shrink-0 overflow-hidden">
+              {membroSelecionadoChat ? (
+                membroSelecionadoChat.foto_url ? (
+                  <img src={membroSelecionadoChat.foto_url} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  '👤'
+                )
+              ) : (
+                '📢'
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-[13px] truncate">{nomeConversa}</h3>
+              <p className="text-[10px] text-emerald-100 truncate">
+                {membroSelecionadoChat
+                  ? `Celular: ${membroSelecionadoChat.celular_principal || 'não informado'}`
+                  : 'Mensagem enviada para todos os membros'}
+              </p>
+            </div>
+          </div>
+
+          {/* Mensagens */}
+          <div className="flex-1 overflow-y-auto min-h-0 px-3 py-3 space-y-1.5 select-text">
+            {mensagensChat.length === 0 ? (
+              <div className="h-full flex items-center justify-center">
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-2.5 rounded-xl text-center shadow-sm max-w-[80%]">
+                  <p className="font-bold text-xs">Nenhuma mensagem ainda</p>
+                  <p className="text-[11px]">Escreva abaixo para iniciar a conversa.</p>
+                </div>
+              </div>
+            ) : (
+              mensagensChat.map((m) => {
+                const meuMsg = m.sender?.trim().toLowerCase() === emailUsuario;
+                const rotulo = rotuloData(m.created_at);
+                const mostrarData = rotulo && rotulo !== dataAnterior;
+                if (rotulo) dataAnterior = rotulo;
+                const nomeRemetente = nomePorEmail[m.sender?.trim().toLowerCase()] || m.sender;
+
+                return (
+                  <React.Fragment key={m.id}>
+                    {mostrarData && (
+                      <div className="flex justify-center py-1.5">
+                        <span className="bg-white/90 text-slate-500 text-[10px] px-3 py-0.5 rounded-lg shadow-sm">{rotulo}</span>
+                      </div>
+                    )}
+
+                    <div className={`flex ${meuMsg ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        className={`group relative px-2.5 pt-1.5 pb-1 rounded-lg max-w-[80%] shadow-sm ${
+                          meuMsg ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'
+                        }`}
+                      >
+                        {!meuMsg && !membroSelecionadoChat && (
+                          <p className="text-[10px] font-bold text-emerald-800 mb-0.5 truncate">{nomeRemetente}</p>
+                        )}
+                        <p className="text-[13px] leading-snug text-slate-900 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
+                          {m.text}
+                        </p>
+                        <div className="flex items-center justify-end gap-1 mt-0.5 text-[10px] text-slate-500 select-none">
+                          <span>{horaMsg(m)}</span>
+                          {meuMsg && <span className="text-sky-600 font-bold tracking-tighter">✓✓</span>}
+                          {meuMsg && (
+                            <button
+                              type="button"
+                              onClick={() => handleExcluirMensagemChat(m.id)}
+                              className="opacity-0 group-hover:opacity-100 focus:opacity-100 text-rose-600 hover:text-rose-800 cursor-pointer transition"
+                              title="Excluir mensagem"
+                              aria-label="Excluir mensagem"
+                            >
+                              🗑
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })
+            )}
+            <div ref={fimMensagensRef} />
+          </div>
+
+          {/* Campo de envio */}
+          <form onSubmit={handleEnviarMensagemChat} className="px-2.5 py-2 bg-[#f0f2f5] flex gap-2 items-center shrink-0">
+            <input
+              type="text"
+              value={novaMensagemChat}
+              onChange={(e) => setNovaMensagemChat(e.target.value)}
+              placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}` : 'Mensagem para todos os membros'}
+              className="flex-1 min-w-0 border border-slate-200 rounded-full px-4 py-2.5 text-[13px] outline-none bg-white focus:ring-2 focus:ring-emerald-600"
+            />
+            <button
+              type="submit"
+              disabled={!novaMensagemChat.trim()}
+              className="w-10 h-10 bg-[#005e54] hover:bg-[#004d44] disabled:opacity-40 text-white rounded-full shadow flex items-center justify-center cursor-pointer shrink-0 transition active:scale-95"
+              aria-label="Enviar mensagem"
+            >
+              ➤
+            </button>
+          </form>
+        </section>
+      </div>
+    );
+  };
+
+  const estilosAba = (ativa: boolean, id: SubAba) => {
+    if (!ativa) return 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30';
+    return id === 'chat'
+      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg'
+      : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg';
+  };
+
+  // No celular, ao abrir uma conversa, esconde o menu para ganhar espaço (como no WhatsApp)
+  const esconderMenu = subAbaApp === 'chat' && telaChat === 'conversa';
+
   return (
-    <div className="max-w-4xl mx-auto w-full bg-slate-100 h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative select-none">
-      
+    <div className="max-w-4xl mx-auto w-full bg-slate-100 h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative">
       {/* CABEÇALHO */}
-      <div className="bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0">
+      <div className={`bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0 ${esconderMenu ? 'hidden md:block' : ''}`}>
         <div className="flex justify-between items-center">
           <div>
             <h2 className="text-base font-black">📱 App {dadosIgreja.nome_igreja}</h2>
@@ -869,512 +1085,124 @@ export default function AppMobileModule({ loggedUser }: Props) {
           )}
         </div>
 
-        {/* BOTÕES DE NAVEGAÇÃO */}
-        <div className="space-y-1.5 pt-0.5">
-          <div className="grid grid-cols-4 gap-1.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-0.5">
+          {ABAS.map((aba) => (
             <button
+              key={aba.id}
               type="button"
-              onClick={() => setSubAbaApp('chat')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'chat' 
-                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-emerald-950/40 text-emerald-200 hover:bg-emerald-800/60 border border-emerald-800/30'
-              }`}
+              onClick={() => setSubAbaApp(aba.id)}
+              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm select-none ${estilosAba(
+                subAbaApp === aba.id,
+                aba.id
+              )}`}
             >
-              <span className="text-base">💬</span>
+              <span className="text-base">{aba.icone}</span>
               <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Chat Geral</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Mensagens</p>
+                <p className="font-black truncate text-[11px]">{aba.titulo}</p>
+                <p className="text-[9px] opacity-80 font-normal truncate">{aba.sub}</p>
               </div>
             </button>
-
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('minha_agenda')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'minha_agenda' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">📅</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Agenda</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Compromissos</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('perfil')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'perfil' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">👤</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Meu Perfil</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Dados</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('celula')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'celula' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">🏡</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Célula</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Encontros</p>
-              </div>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-4 gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('igreja')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'igreja' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">⛪</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">A Igreja</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Endereço</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('cadastro')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'cadastro' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">📝</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Cadastro</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Formulário</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('contribua')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'contribua' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">💖</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Contribua</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Dízimos</p>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setSubAbaApp('devocional')}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm ${
-                subAbaApp === 'devocional' 
-                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg scale-[1.01]' 
-                  : 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30'
-              }`}
-            >
-              <span className="text-base">📖</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">Devocional</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">Palavra</p>
-              </div>
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
       {/* ÁREA DE CONTEÚDO */}
-      <div className="p-3.5 flex-1 overflow-y-auto space-y-3 min-h-0 bg-slate-100 relative">
-        {loading ? (
-          <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
-        ) : (
-          <>
-            {/* 0. CHAT COM DUAS COLUNAS */}
-            {subAbaApp === 'chat' && (
-              <div className="bg-white rounded-2xl shadow-sm border overflow-hidden flex h-full min-h-[420px] text-xs">
-                
-                {/* COLUNA ESQUERDA: LISTA DE MEMBROS ORDENADA POR ÚLTIMAS CONVERSAS/COMENTÁRIOS */}
-                <div className="w-1/3 border-r bg-slate-50 flex flex-col shrink-0">
-                  <div className="p-2.5 bg-slate-100 border-b shrink-0 flex justify-between items-center">
+      {subAbaApp === 'chat' ? (
+        renderChat()
+      ) : (
+        <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 bg-slate-100 relative">
+          {loading ? (
+            <p className="text-center py-6 text-xs text-slate-500">Carregando dados...</p>
+          ) : (
+            <>
+              {/* 1. ABA PERFIL */}
+              {subAbaApp === 'perfil' && (
+                <div className="bg-white p-3.5 rounded-2xl shadow-sm border space-y-3 text-xs">
+                  <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">✏️ Editar Meu Cadastro</h3>
+                  <p className="text-[10px] text-slate-500">Você pode atualizar sua foto de perfil e seu endereço residencial.</p>
+
+                  <form onSubmit={handleSalvarPerfil} className="space-y-2.5">
                     <div>
-                      <h3 className="font-black text-slate-800 text-xs">💬 Conversas</h3>
-                      <p className="text-[9px] text-slate-500">Recentes em evidência</p>
-                    </div>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-1.5 space-y-1">
-                    <div
-                      onClick={() => setMembroSelecionadoChat(null)}
-                      className={`p-2 rounded-xl cursor-pointer transition flex items-center gap-2 ${
-                        !membroSelecionadoChat ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
-                      }`}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-emerald-700 text-white flex items-center justify-center font-bold text-xs shrink-0 shadow">
-                        📢
-                      </div>
-                      <div className="truncate flex-1">
-                        <div className="flex justify-between items-center">
-                          <p className="font-black text-slate-900 text-xs truncate">Transmissão Geral</p>
-                        </div>
-                        <p className="text-[9px] text-emerald-700 font-semibold truncate">Enviar para toda a rede</p>
-                      </div>
+                      <label className="block font-bold text-slate-700 mb-1">URL da Foto de Perfil</label>
+                      <input
+                        type="text"
+                        placeholder="Cole a URL ou base64 da imagem"
+                        value={fotoUrl}
+                        onChange={(e) => setFotoUrl(e.target.value)}
+                        className="w-full border rounded-xl p-2 font-mono text-[10px]"
+                      />
                     </div>
 
-                    {listaMembrosChat.length === 0 ? (
-                      <p className="text-[10px] text-slate-400 text-center py-4 px-2">Nenhum membro encontrado.</p>
-                    ) : (
-                      listaMembrosChat.map((m) => {
-                        const selecionado = membroSelecionadoChat?.id === m.id;
-                        return (
-                          <div
-                            key={m.id}
-                            onClick={() => setMembroSelecionadoChat(m)}
-                            className={`p-2 rounded-xl cursor-pointer transition flex items-center justify-between gap-2 ${
-                              selecionado ? 'bg-blue-50 border border-blue-200 shadow-sm' : 'hover:bg-slate-200/60'
-                            }`}
-                          >
-                            <div className="flex items-center gap-2 truncate flex-1">
-                              <div className="relative">
-                                <div className="w-8 h-8 rounded-full bg-slate-300 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
-                                  {m.foto_url ? (
-                                    <img src={m.foto_url} alt="" className="w-full h-full rounded-full object-cover" />
-                                  ) : (
-                                    '👤'
-                                  )}
-                                </div>
-                                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white"></span>
-                              </div>
-
-                              <div className="truncate flex-1">
-                                <div className="flex justify-between items-center">
-                                  <p className="font-bold text-slate-800 text-xs truncate">{m.nome}</p>
-                                </div>
-                                <p className="text-[9px] text-slate-500 truncate">
-                                  {m.tipo_cadastro || 'Membro'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-
-                {/* COLUNA DIREITA: JANELA DE MENSAGENS */}
-                <div className="flex-1 flex flex-col bg-[#efeae2] bg-[radial-gradient(#d1c7bd_1px,transparent_1px)] [background-size:16px_16px] min-h-0">
-                  <div className="bg-[#005e54] text-white p-2.5 flex justify-between items-center shrink-0 shadow-md">
-                    <div className="truncate pr-2">
-                      <h3 className="font-bold text-xs truncate flex items-center gap-1.5">
-                        {membroSelecionadoChat ? `👤 ${membroSelecionadoChat.nome}` : '📢 Transmissão Geral'}
-                      </h3>
-                      <p className="text-[9px] text-emerald-100 truncate">
-                        {membroSelecionadoChat ? `Celular: ${membroSelecionadoChat.celular_principal || 'Não informado'}` : 'Mensagem enviada para todos os membros'}
-                      </p>
-                    </div>
-                    {membroSelecionadoChat && (
-                      <button
-                        type="button"
-                        onClick={() => setMembroSelecionadoChat(null)}
-                        className="text-[9px] bg-emerald-900 hover:bg-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-700 shrink-0 cursor-pointer font-medium"
-                      >
-                        ⬅️ Voltar Geral
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5 min-h-0">
-                    {mensagensChat.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-slate-500 py-6">
-                        <div className="bg-emerald-100/90 border border-emerald-300 text-emerald-900 p-3 rounded-2xl text-center shadow-sm max-w-[80%] space-y-1">
-                          <p className="font-bold text-xs">🔒 Nenhuma mensagem ainda</p>
-                          <p className="text-[10px]">Envie uma mensagem abaixo para iniciar a conversa!</p>
-                        </div>
+                    <div className="space-y-2 border-t pt-2">
+                      <label className="block font-bold text-slate-700">Endereço Residencial</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        <input type="text" placeholder="Rua / Av." value={rua} onChange={(e) => setRua(e.target.value)} className="col-span-2 border rounded-xl p-2" />
+                        <input type="text" placeholder="Nº" value={numero} onChange={(e) => setNumero(e.target.value)} className="border rounded-xl p-2" />
                       </div>
-                    ) : (
-                      mensagensChat.map((m) => {
-                        const meuMsg = m.sender?.trim().toLowerCase() === emailUsuario?.trim().toLowerCase();
-                        return (
-                          <div key={m.id} className={`flex flex-col ${meuMsg ? 'items-end' : 'items-start'}`}>
-                            {!meuMsg && <span className="text-[9px] font-bold text-emerald-900 px-1 mb-0.5">{m.sender}</span>}
-                            
-                            <div className={`relative px-3.5 py-2 rounded-2xl max-w-[80%] text-xs shadow-sm break-words ${
-                              meuMsg 
-                                ? 'bg-[#dcf8c6] text-slate-900 rounded-tr-none border border-[#c1e8b2]' 
-                                : 'bg-white text-slate-900 rounded-tl-none border border-slate-200 font-normal'
-                            }`}>
-                              <p className="leading-relaxed text-[12px]">{m.text}</p>
-                              <div className={`flex items-center justify-end gap-1.5 mt-1 select-none ${meuMsg ? 'text-[9px] text-slate-500' : 'text-[9px] text-slate-400'}`}>
-                                <span>{m.time || ''}</span>
-                                {meuMsg && (
-                                  <>
-                                    <span className="text-sky-600 font-bold tracking-tighter">✓✓</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleExcluirMensagemChat(m.id)}
-                                      className="text-rose-600 hover:text-rose-800 ml-1 cursor-pointer font-bold"
-                                      title="Excluir mensagem"
-                                    >
-                                      🗑
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input type="text" placeholder="Bairro" value={bairro} onChange={(e) => setBairro(e.target.value)} className="border rounded-xl p-2" />
+                        <input type="text" placeholder="Cidade" value={cidade} onChange={(e) => setCidade(e.target.value)} className="border rounded-xl p-2" />
+                      </div>
+                    </div>
 
-                  <form onSubmit={handleEnviarMensagemChat} className="p-2.5 border-t bg-[#f0f0f0] flex gap-2 items-center shrink-0 shadow">
-                    <input
-                      type="text"
-                      value={novaMensagemChat}
-                      onChange={(e) => setNovaMensagemChat(e.target.value)}
-                      placeholder={membroSelecionadoChat ? `Mensagem para ${membroSelecionadoChat.nome}...` : 'Escrever mensagem para todos os membros...'}
-                      className="flex-1 border border-slate-300 rounded-full px-4 py-2 text-xs outline-none bg-white focus:ring-2 focus:ring-emerald-600 transition shadow-inner"
-                    />
-                    <button
-                      type="submit"
-                      className="h-9 px-4 bg-[#005e54] hover:bg-[#004d44] text-white font-bold rounded-full shadow flex items-center justify-center cursor-pointer text-xs shrink-0 transition active:scale-95 gap-1"
-                    >
-                      <span>Enviar</span>
-                      <span>➤</span>
+                    <button type="submit" className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-1">
+                      💾 Atualizar Meu Cadastro
                     </button>
                   </form>
                 </div>
+              )}
 
-              </div>
-            )}
-
-            {/* 1. ABA PERFIL */}
-            {subAbaApp === 'perfil' && (
-              <div className="bg-white p-3.5 rounded-2xl shadow-sm border space-y-3 text-xs">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">✏️ Editar Meu Cadastro</h3>
-                <p className="text-[10px] text-slate-500">
-                  Você pode atualizar sua foto de perfil e seu endereço residencial.
-                </p>
-
-                <form onSubmit={handleSalvarPerfil} className="space-y-2.5">
-                  <div>
-                    <label className="block font-bold text-slate-700 mb-1">URL da Foto de Perfil</label>
-                    <input
-                      type="text"
-                      placeholder="Cole a URL ou base64 da imagem"
-                      value={fotoUrl}
-                      onChange={(e) => setFotoUrl(e.target.value)}
-                      className="w-full border rounded-xl p-2 font-mono text-[10px]"
-                    />
-                  </div>
-
-                  <div className="space-y-2 border-t pt-2">
-                    <label className="block font-bold text-slate-700">Endereço Residencial</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Rua / Av."
-                        value={rua}
-                        onChange={(e) => setRua(e.target.value)}
-                        className="col-span-2 border rounded-xl p-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Nº"
-                        value={numero}
-                        onChange={(e) => setNumero(e.target.value)}
-                        className="border rounded-xl p-2"
-                      />
+              {/* 2. ABA AGENDA */}
+              {subAbaApp === 'minha_agenda' && (
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between items-center bg-white p-3 rounded-2xl border shadow-sm">
+                    <div>
+                      <h3 className="font-black text-blue-900 text-xs flex items-center gap-1.5">📅 Minha Agenda & Alarmes</h3>
+                      <p className="text-[9px] text-slate-500">Seus compromissos com alerta sonoro</p>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Bairro"
-                        value={bairro}
-                        onChange={(e) => setBairro(e.target.value)}
-                        className="border rounded-xl p-2"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Cidade"
-                        value={cidade}
-                        onChange={(e) => setCidade(e.target.value)}
-                        className="border rounded-xl p-2"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-1"
-                  >
-                    💾 Atualizar Meu Cadastro
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {/* 2. ABA AGENDA & ALARMES */}
-            {subAbaApp === 'minha_agenda' && (
-              <div className="space-y-2.5 text-xs">
-                <div className="flex justify-between items-center bg-white p-3 rounded-2xl border shadow-sm">
-                  <div>
-                    <h3 className="font-black text-blue-900 text-xs flex items-center gap-1.5">
-                      📅 Minha Agenda & Alarmes
-                    </h3>
-                    <p className="text-[9px] text-slate-500">Seus compromissos com alerta sonoro</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleAbrirCriarAgenda}
-                    className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1"
-                  >
-                    ➕ Criar
-                  </button>
-                </div>
-
-                {minhaAgenda.length === 0 ? (
-                  <div className="p-6 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-1.5">
-                    <p className="font-bold text-slate-700 text-xs">Sua agenda está vazia.</p>
-                    <p className="text-[10px] text-slate-500">Clique em "+ Criar" para agendar um compromisso!</p>
-                  </div>
-                ) : (
-                  minhaAgenda.map((item) => (
-                    <div key={item.id} className="bg-white p-3 rounded-2xl border space-y-1 shadow-sm flex justify-between items-center">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-blue-900 text-xs">
-                            📅 {item.data} às {item.hora}
-                          </span>
-                          {item.lembrete_minutos !== undefined && (
-                            <span className="text-[9px] bg-amber-50 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
-                              🔔 {item.lembrete_minutos}m antes
-                            </span>
-                          )}
-                        </div>
-                        <p className="font-bold text-slate-800 text-xs mt-0.5">{item.descricao}</p>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleAbrirEditarAgenda(item)}
-                          title="Editar compromisso"
-                          className="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleExcluirCompromisso(item.id)}
-                          title="Excluir compromisso"
-                          className="w-7 h-7 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
-                        >
-                          🗑️
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-
-            {/* 3. ABA CÉLULA */}
-            {subAbaApp === 'celula' && (
-              <div className="space-y-3 text-xs">
-                <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
-                  <div className="flex justify-between items-center border-b pb-1.5">
-                    <h3 className="font-black text-blue-900 text-xs">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
                     <button
                       type="button"
-                      onClick={handleAbrirCriarReuniao}
-                      className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer text-[10px]"
+                      onClick={handleAbrirCriarAgenda}
+                      className="px-3 py-1.5 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs flex items-center gap-1"
                     >
-                      ➕ Registrar Encontro
+                      ➕ Criar
                     </button>
                   </div>
 
-                  <p className="text-slate-500 text-[10px]">
-                    Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
-                  </p>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
-                  <h4 className="font-bold text-slate-700 uppercase text-[9px] tracking-wider">
-                    👥 Integrantes da Célula ({participantesCelula.length})
-                  </h4>
-                  <div className="space-y-1.5">
-                    {participantesCelula.map((p) => (
-                      <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
-                        <span className="font-bold text-slate-800">{p.nome}</span>
-                        <a
-                          href={`https://wa.me/${formatarWhatsapp(p.celular_principal)}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 cursor-pointer"
-                        >
-                          💬 WhatsApp
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
-                  <h4 className="font-bold text-slate-700 uppercase text-[9px] tracking-wider">
-                    📋 Histórico de Encontros & Notas
-                  </h4>
-                  {reunioesCelula.length === 0 ? (
-                    <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registrado.</p>
+                  {minhaAgenda.length === 0 ? (
+                    <div className="p-6 text-center bg-white rounded-2xl border border-dashed text-slate-400 space-y-1.5">
+                      <p className="font-bold text-slate-700 text-xs">Sua agenda está vazia.</p>
+                      <p className="text-[10px] text-slate-500">Clique em "+ Criar" para agendar um compromisso!</p>
+                    </div>
                   ) : (
-                    reunioesCelula.map((r) => (
-                      <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
+                    minhaAgenda.map((item) => (
+                      <div key={item.id} className="bg-white p-3 rounded-2xl border space-y-1 shadow-sm flex justify-between items-center">
                         <div>
-                          <span className="font-bold text-blue-900 block text-[10px]">
-                            📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
-                          </span>
-                          {r.estudo_tema && <p className="font-medium text-slate-800 text-[10px]">📘 Estudo: {r.estudo_tema}</p>}
-                          {r.comentarios && <p className="text-slate-500 italic text-[9px]">💬 Nota: {r.comentarios}</p>}
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-blue-900 text-xs">📅 {item.data} às {item.hora}</span>
+                            {item.lembrete_minutos !== undefined && (
+                              <span className="text-[9px] bg-amber-50 text-amber-800 font-bold px-1.5 py-0.5 rounded border border-amber-200">
+                                🔔 {item.lembrete_minutos}m antes
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-bold text-slate-800 text-xs mt-0.5">{item.descricao}</p>
                         </div>
 
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleAbrirEditarReuniao(r)}
-                            className="w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
-                            title="Editar Reunião"
+                            onClick={() => handleAbrirEditarAgenda(item)}
+                            title="Editar compromisso"
+                            className="w-7 h-7 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
                           >
-                            ✏️️
+                            ✏️
                           </button>
-
                           <button
                             type="button"
-                            onClick={() => handleExcluirReuniao(r.id)}
-                            className="w-6 h-6 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
-                            title="Excluir Reunião"
+                            onClick={() => handleExcluirCompromisso(item.id)}
+                            title="Excluir compromisso"
+                            className="w-7 h-7 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl flex items-center justify-center cursor-pointer transition"
                           >
                             🗑️
                           </button>
@@ -1383,375 +1211,336 @@ export default function AppMobileModule({ loggedUser }: Props) {
                     ))
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* 4. ABA IGREJA */}
-            {subAbaApp === 'igreja' && (
-              <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">⛪ Informações da Igreja</h3>
-
-                <div className="bg-slate-50 p-3.5 rounded-xl border space-y-2">
-                  <strong className="block text-slate-700">📍 Endereço Oficial</strong>
-                  <p className="text-slate-600 font-medium text-[11px]">{dadosIgreja.endereco_completo}</p>
-
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dadosIgreja.endereco_completo)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full text-center py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer mt-1 text-[11px]"
-                  >
-                    🗺️ Como Chegar na Igreja (GPS)
-                  </a>
-                </div>
-
-                <div className="bg-slate-50 p-3.5 rounded-xl border space-y-2">
-                  <strong className="block text-slate-700">📸 Redes Sociais</strong>
-                  <a
-                    href={dadosIgreja.link_instagram}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="block w-full text-center py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer text-[11px]"
-                  >
-                    📷 Acessar Instagram Oficial
-                  </a>
-                </div>
-              </div>
-            )}
-
-            {/* 5. ABA CADASTRO EM ETAPAS */}
-            {subAbaApp === 'cadastro' && (
-              <div className="bg-white p-3.5 rounded-2xl border shadow-sm space-y-3 text-xs">
-                <div className="border-b pb-1.5 flex justify-between items-center">
-                  <div>
-                    <h3 className="font-black text-blue-900 text-xs">📝 Ficha de Cadastro Oficial</h3>
-                    <p className="text-[9px] text-slate-500">Etapa {etapaCadastro} de 3</p>
+              {/* 3. ABA CÉLULA */}
+              {subAbaApp === 'celula' && (
+                <div className="space-y-3 text-xs">
+                  <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
+                    <div className="flex justify-between items-center border-b pb-1.5">
+                      <h3 className="font-black text-blue-900 text-xs">🏡 {minhaCelula?.nome_celula || 'Minha Célula'}</h3>
+                      <button
+                        type="button"
+                        onClick={handleAbrirCriarReuniao}
+                        className="px-2 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg cursor-pointer text-[10px]"
+                      >
+                        ➕ Registrar Encontro
+                      </button>
+                    </div>
+                    <p className="text-slate-500 text-[10px]">
+                      Líder: <strong>{minhaCelula?.lider || 'Não definido'}</strong> • Dia: <strong>{minhaCelula?.dia_reuniao || 'Segunda'}</strong>
+                    </p>
                   </div>
-                  <div className="flex gap-1">
-                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 1 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 2 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                    <span className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= 3 ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
-                  </div>
-                </div>
 
-                {carregandoCadastro ? (
-                  <p className="text-center text-xs text-slate-500 py-4">Carregando informações...</p>
-                ) : jaCadastrado && !isAdminOuLider ? (
-                  <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-1">
-                    <p>🔒 Dados já confirmados e salvos.</p>
-                    <p className="text-[9px] text-amber-700">Caso precise alterar algum dado, procure a secretaria da igreja.</p>
-                  </div>
-                ) : (
-                  <form onSubmit={handleFinalizarCadastroUnico} className="space-y-2.5">
-                    {etapaCadastro === 1 && (
-                      <div className="space-y-2.5">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">1️⃣ Dados Pessoais Básicos</h4>
-                        <div>
-                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Nome Completo *</label>
-                          <input
-                            type="text"
-                            value={nomeMembro}
-                            onChange={(e) => setNomeMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2 font-bold text-slate-800 text-xs"
-                            required
-                          />
-                        </div>
-                        <div>
-                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Celular / WhatsApp *</label>
-                          <input
-                            type="text"
-                            value={celularMembro}
-                            onChange={(e) => setCelularMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2 text-xs"
-                            placeholder="(00) 00000-0000"
-                            required
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Nascimento</label>
-                            <input
-                              type="date"
-                              value={dataNascMembro}
-                              onChange={(e) => setDataNascMembro(e.target.value)}
-                              className="w-full border rounded-xl p-2 bg-white text-xs"
-                            />
-                          </div>
-                          <div>
-                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Estado Civil</label>
-                            <select
-                              value={estadoCivil}
-                              onChange={(e) => setEstadoCivil(e.target.value)}
-                              className="w-full border rounded-xl p-2 bg-white text-xs"
-                            >
-                              <option value="Solteiro(a)">Solteiro(a)</option>
-                              <option value="Casado(a)">Casado(a)</option>
-                              <option value="Divorciado(a)">Divorciado(a)</option>
-                              <option value="Viúvo(a)">Viúvo(a)</option>
-                            </select>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
-                            setEtapaCadastro(2);
-                          }}
-                          className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2 text-xs"
-                        >
-                          Próxima ➡️
-                        </button>
-                      </div>
-                    )}
-
-                    {etapaCadastro === 2 && (
-                      <div className="space-y-2.5">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">2️⃣ Endereço Residencial</h4>
-                        <div className="grid grid-cols-3 gap-2">
-                          <input
-                            type="text"
-                            placeholder="CEP"
-                            value={cepMembro}
-                            onChange={(e) => setCepMembro(e.target.value)}
-                            className="border rounded-xl p-2 text-xs"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Bairro"
-                            value={bairroMembro}
-                            onChange={(e) => setBairroMembro(e.target.value)}
-                            className="col-span-2 border rounded-xl p-2 text-xs"
-                          />
-                        </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <input
-                            type="text"
-                            placeholder="Rua / Avenida"
-                            value={ruaMembro}
-                            onChange={(e) => setRuaMembro(e.target.value)}
-                            className="col-span-2 border rounded-xl p-2 text-xs"
-                          />
-                          <input
-                            type="text"
-                            placeholder="Nº"
-                            value={numeroMembro}
-                            onChange={(e) => setNumeroMembro(e.target.value)}
-                            className="border rounded-xl p-2 text-xs"
-                          />
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setEtapaCadastro(1)}
-                            className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs"
+                  <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
+                    <h4 className="font-bold text-slate-700 uppercase text-[9px] tracking-wider">👥 Integrantes da Célula ({participantesCelula.length})</h4>
+                    <div className="space-y-1.5">
+                      {participantesCelula.map((p) => (
+                        <div key={p.id} className="flex justify-between items-center p-2 bg-slate-50 rounded-xl">
+                          <span className="font-bold text-slate-800">{p.nome}</span>
+                          <a
+                            href={`https://wa.me/${formatarWhatsapp(p.celular_principal)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 cursor-pointer"
                           >
-                            ⬅️ Voltar
-                          </button>
+                            💬 WhatsApp
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-3.5 rounded-2xl border space-y-2 shadow-sm">
+                    <h4 className="font-bold text-slate-700 uppercase text-[9px] tracking-wider">📋 Histórico de Encontros & Notas</h4>
+                    {reunioesCelula.length === 0 ? (
+                      <p className="text-slate-400 italic text-center py-2 text-[10px]">Nenhum evento registrado.</p>
+                    ) : (
+                      reunioesCelula.map((r) => (
+                        <div key={r.id} className="p-2.5 bg-slate-50 rounded-xl border space-y-1 flex justify-between items-center">
+                          <div>
+                            <span className="font-bold text-blue-900 block text-[10px]">
+                              📅 {r.data_reuniao?.split('-').reverse().join('/')} às {r.hora_reuniao}
+                            </span>
+                            {r.estudo_tema && <p className="font-medium text-slate-800 text-[10px]">📘 Estudo: {r.estudo_tema}</p>}
+                            {r.comentarios && <p className="text-slate-500 italic text-[9px]">💬 Nota: {r.comentarios}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleAbrirEditarReuniao(r)}
+                              className="w-6 h-6 bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
+                              title="Editar Reunião"
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleExcluirReuniao(r.id)}
+                              className="w-6 h-6 bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold rounded-lg flex items-center justify-center cursor-pointer text-[10px]"
+                              title="Excluir Reunião"
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. ABA IGREJA */}
+              {subAbaApp === 'igreja' && (
+                <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
+                  <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">⛪ Informações da Igreja</h3>
+
+                  <div className="bg-slate-50 p-3.5 rounded-xl border space-y-2">
+                    <strong className="block text-slate-700">📍 Endereço Oficial</strong>
+                    <p className="text-slate-600 font-medium text-[11px]">{dadosIgreja.endereco_completo}</p>
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(dadosIgreja.endereco_completo)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-full text-center py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow cursor-pointer mt-1 text-[11px]"
+                    >
+                      🗺️ Como Chegar na Igreja (GPS)
+                    </a>
+                  </div>
+
+                  <div className="bg-slate-50 p-3.5 rounded-xl border space-y-2">
+                    <strong className="block text-slate-700">📸 Redes Sociais</strong>
+                    <a
+                      href={dadosIgreja.link_instagram}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block w-full text-center py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl shadow cursor-pointer text-[11px]"
+                    >
+                      📷 Acessar Instagram Oficial
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              {/* 5. ABA CADASTRO */}
+              {subAbaApp === 'cadastro' && (
+                <div className="bg-white p-3.5 rounded-2xl border shadow-sm space-y-3 text-xs">
+                  <div className="border-b pb-1.5 flex justify-between items-center">
+                    <div>
+                      <h3 className="font-black text-blue-900 text-xs">📝 Ficha de Cadastro Oficial</h3>
+                      <p className="text-[9px] text-slate-500">Etapa {etapaCadastro} de 3</p>
+                    </div>
+                    <div className="flex gap-1">
+                      {[1, 2, 3].map((n) => (
+                        <span key={n} className={`w-2.5 h-2.5 rounded-full ${etapaCadastro >= n ? 'bg-blue-600' : 'bg-slate-200'}`}></span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {carregandoCadastro ? (
+                    <p className="text-center text-xs text-slate-500 py-4">Carregando informações...</p>
+                  ) : jaCadastrado && !isAdminOuLider ? (
+                    <div className="p-3.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-center font-bold text-xs space-y-1">
+                      <p>🔒 Dados já confirmados e salvos.</p>
+                      <p className="text-[9px] text-amber-700">Caso precise alterar algum dado, procure a secretaria da igreja.</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleFinalizarCadastroUnico} className="space-y-2.5">
+                      {etapaCadastro === 1 && (
+                        <div className="space-y-2.5">
+                          <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">1️⃣ Dados Pessoais Básicos</h4>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Nome Completo *</label>
+                            <input type="text" value={nomeMembro} onChange={(e) => setNomeMembro(e.target.value)} className="w-full border rounded-xl p-2 font-bold text-slate-800 text-xs" required />
+                          </div>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Celular / WhatsApp *</label>
+                            <input type="text" value={celularMembro} onChange={(e) => setCelularMembro(e.target.value)} className="w-full border rounded-xl p-2 text-xs" placeholder="(00) 00000-0000" required />
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Nascimento</label>
+                              <input type="date" value={dataNascMembro} onChange={(e) => setDataNascMembro(e.target.value)} className="w-full border rounded-xl p-2 bg-white text-xs" />
+                            </div>
+                            <div>
+                              <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Estado Civil</label>
+                              <select value={estadoCivil} onChange={(e) => setEstadoCivil(e.target.value)} className="w-full border rounded-xl p-2 bg-white text-xs">
+                                <option value="Solteiro(a)">Solteiro(a)</option>
+                                <option value="Casado(a)">Casado(a)</option>
+                                <option value="Divorciado(a)">Divorciado(a)</option>
+                                <option value="Viúvo(a)">Viúvo(a)</option>
+                              </select>
+                            </div>
+                          </div>
                           <button
                             type="button"
-                            onClick={() => setEtapaCadastro(3)}
-                            className="w-1/2 py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
+                            onClick={() => {
+                              if (!nomeMembro.trim()) return alert('Informe seu nome completo para continuar.');
+                              setEtapaCadastro(2);
+                            }}
+                            className="w-full py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer mt-2 text-xs"
                           >
                             Próxima ➡️
                           </button>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {etapaCadastro === 3 && (
-                      <div className="space-y-2.5">
-                        <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">3️⃣ Dados Eclesiásticos & Finalização</h4>
-                        <div>
-                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">É batizado(a) nas águas?</label>
-                          <select
-                            value={batizado}
-                            onChange={(e) => setBatizado(e.target.value)}
-                            className="w-full border rounded-xl p-2 bg-white text-xs"
-                          >
-                            <option value="Sim">Sim</option>
-                            <option value="Não">Não</option>
-                          </select>
+                      {etapaCadastro === 2 && (
+                        <div className="space-y-2.5">
+                          <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">2️⃣ Endereço Residencial</h4>
+                          <div className="grid grid-cols-3 gap-2">
+                            <input type="text" placeholder="CEP" value={cepMembro} onChange={(e) => setCepMembro(e.target.value)} className="border rounded-xl p-2 text-xs" />
+                            <input type="text" placeholder="Bairro" value={bairroMembro} onChange={(e) => setBairroMembro(e.target.value)} className="col-span-2 border rounded-xl p-2 text-xs" />
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <input type="text" placeholder="Rua / Avenida" value={ruaMembro} onChange={(e) => setRuaMembro(e.target.value)} className="col-span-2 border rounded-xl p-2 text-xs" />
+                            <input type="text" placeholder="Nº" value={numeroMembro} onChange={(e) => setNumeroMembro(e.target.value)} className="border rounded-xl p-2 text-xs" />
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => setEtapaCadastro(1)} className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs">⬅️ Voltar</button>
+                            <button type="button" onClick={() => setEtapaCadastro(3)} className="w-1/2 py-2.5 bg-blue-900 text-white font-bold rounded-xl shadow cursor-pointer text-xs">Próxima ➡️</button>
+                          </div>
                         </div>
-                        <div>
-                          <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Observações ou Pedido de Oração</label>
-                          <textarea
-                            value={observacoesMembro}
-                            onChange={(e) => setObservacoesMembro(e.target.value)}
-                            className="w-full border rounded-xl p-2 text-xs"
-                            rows={2}
-                            placeholder="Alguma observação importante..."
-                          />
-                        </div>
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            type="button"
-                            onClick={() => setEtapaCadastro(2)}
-                            className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs"
-                          >
-                            ⬅️ Voltar
-                          </button>
-                          <button
-                            type="submit"
-                            className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
-                          >
-                            💾 Salvar Cadastro
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </form>
-                )}
-              </div>
-            )}
+                      )}
 
-            {/* 6. ABA CONTRIBUA */}
-            {subAbaApp === 'contribua' && (
-              <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
-                <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">💖 Contribua com a Obra</h3>
-                <p className="text-[10px] text-slate-600 leading-relaxed">
-                  "Cada um contribua segundo propôs no seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria." (2 Coríntios 9:7)
-                </p>
+                      {etapaCadastro === 3 && (
+                        <div className="space-y-2.5">
+                          <h4 className="font-bold text-blue-900 bg-blue-50 p-1.5 rounded-lg text-[11px]">3️⃣ Dados Eclesiásticos & Finalização</h4>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">É batizado(a) nas águas?</label>
+                            <select value={batizado} onChange={(e) => setBatizado(e.target.value)} className="w-full border rounded-xl p-2 bg-white text-xs">
+                              <option value="Sim">Sim</option>
+                              <option value="Não">Não</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Observações ou Pedido de Oração</label>
+                            <textarea value={observacoesMembro} onChange={(e) => setObservacoesMembro(e.target.value)} className="w-full border rounded-xl p-2 text-xs" rows={2} placeholder="Alguma observação importante..." />
+                          </div>
+                          <div className="flex gap-2 pt-1">
+                            <button type="button" onClick={() => setEtapaCadastro(2)} className="w-1/2 py-2.5 bg-slate-200 font-bold rounded-xl cursor-pointer text-xs">⬅️ Voltar</button>
+                            <button type="submit" className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs">💾 Salvar Cadastro</button>
+                          </div>
+                        </div>
+                      )}
+                    </form>
+                  )}
+                </div>
+              )}
 
-                <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2 text-center">
-                  <span className="text-xl">💠</span>
-                  <strong className="block text-amber-900 font-bold text-[11px]">Chave PIX (CNPJ da Igreja)</strong>
-                  <p className="font-mono text-xs bg-white p-2 rounded-lg border text-slate-700 select-all font-bold">
-                    {dadosIgreja.chave_pix || dadosIgreja.cnpj || 'CNPJ não configurado'}
+              {/* 6. ABA CONTRIBUA */}
+              {subAbaApp === 'contribua' && (
+                <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
+                  <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">💖 Contribua com a Obra</h3>
+                  <p className="text-[10px] text-slate-600 leading-relaxed">
+                    "Cada um contribua segundo propôs no seu coração; não com tristeza, ou por necessidade; porque Deus ama ao que dá com alegria." (2 Coríntios 9:7)
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const pixChave = dadosIgreja.chave_pix || dadosIgreja.cnpj || '';
-                      if (!pixChave) return alert('Nenhum CNPJ/Chave PIX cadastrado para esta igreja.');
-                      navigator.clipboard.writeText(pixChave);
-                      alert('CNPJ / Chave PIX copiado com sucesso!');
-                    }}
-                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-[11px]"
-                  >
-                    📋 Copiar Chave PIX (CNPJ)
-                  </button>
-                </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border text-[10px] text-slate-500 text-center">
-                  Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!
-                </div>
-              </div>
-            )}
+                  <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-2 text-center">
+                    <span className="text-xl">💠</span>
+                    <strong className="block text-amber-900 font-bold text-[11px]">Chave PIX (CNPJ da Igreja)</strong>
+                    <p className="font-mono text-xs bg-white p-2 rounded-lg border text-slate-700 select-all font-bold">
+                      {dadosIgreja.chave_pix || dadosIgreja.cnpj || 'CNPJ não configurado'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const pixChave = dadosIgreja.chave_pix || dadosIgreja.cnpj || '';
+                        if (!pixChave) return alert('Nenhum CNPJ/Chave PIX cadastrado para esta igreja.');
+                        navigator.clipboard.writeText(pixChave);
+                        alert('CNPJ / Chave PIX copiado com sucesso!');
+                      }}
+                      className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer transition text-[11px]"
+                    >
+                      📋 Copiar Chave PIX (CNPJ)
+                    </button>
+                  </div>
 
-            {/* 7. ABA DEVOCIONAL */}
-            {subAbaApp === 'devocional' && (
-              <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
-                <div className="border-b pb-1.5 flex justify-between items-center">
-                  <h3 className="font-black text-blue-900 text-sm flex items-center gap-1.5">
-                    📖 Devocional Diário
-                  </h3>
-                  
-                  <div className="flex items-center gap-2">
-                    {isAdminOuLider && (
-                      <button
-                        type="button"
-                        onClick={handleAbrirEditarDevocional}
-                        className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow text-[10px] flex items-center gap-1 cursor-pointer transition"
-                      >
-                        ✏ {devocionalDoDia.id ? 'Editar' : 'Novo'}
-                      </button>
-                    )}
-                    <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
-                      {devocionalDoDia.data}
-                    </span>
+                  <div className="p-2.5 bg-slate-50 rounded-xl border text-[10px] text-slate-500 text-center">
+                    Após realizar sua contribuição por dízimo ou oferta, guarde o comprovante. Deus abençoe sua vida e sua generosidade!
                   </div>
                 </div>
+              )}
 
-                <div className="space-y-2 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 text-white p-4 rounded-2xl shadow-inner">
-                  <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">
-                    PALAVRA DO DIA
-                  </span>
-                  
-                  <h4 className="font-extrabold text-sm text-yellow-300 leading-snug">
-                    "{devocionalDoDia.titulo}"
-                  </h4>
+              {/* 7. ABA DEVOCIONAL */}
+              {subAbaApp === 'devocional' && (
+                <div className="bg-white p-4 rounded-2xl border space-y-3 text-xs shadow-sm">
+                  <div className="border-b pb-1.5 flex justify-between items-center">
+                    <h3 className="font-black text-blue-900 text-sm flex items-center gap-1.5">📖 Devocional Diário</h3>
+                    <div className="flex items-center gap-2">
+                      {isAdminOuLider && (
+                        <button
+                          type="button"
+                          onClick={handleAbrirEditarDevocional}
+                          className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg shadow text-[10px] flex items-center gap-1 cursor-pointer transition"
+                        >
+                          ✏ {devocionalDoDia.id ? 'Editar' : 'Novo'}
+                        </button>
+                      )}
+                      <span className="text-[9px] bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">{devocionalDoDia.data}</span>
+                    </div>
+                  </div>
 
-                  {devocionalDoDia.versiculo && (
-                    <p className="text-xs font-semibold text-blue-100 leading-relaxed italic border-l-2 border-yellow-400 pl-2 my-1">
-                      "{devocionalDoDia.versiculo}"
-                    </p>
-                  )}
+                  <div className="space-y-2 bg-gradient-to-br from-slate-900 via-indigo-950 to-blue-900 text-white p-4 rounded-2xl shadow-inner">
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-blue-300 block">PALAVRA DO DIA</span>
+                    <h4 className="font-extrabold text-sm text-yellow-300 leading-snug">"{devocionalDoDia.titulo}"</h4>
+                    {devocionalDoDia.versiculo && (
+                      <p className="text-xs font-semibold text-blue-100 leading-relaxed italic border-l-2 border-yellow-400 pl-2 my-1">
+                        "{devocionalDoDia.versiculo}"
+                      </p>
+                    )}
+                    {devocionalDoDia.referencia && <p className="text-[10px] text-blue-300 font-bold">📍 {devocionalDoDia.referencia}</p>}
+                  </div>
 
-                  {devocionalDoDia.referencia && (
-                    <p className="text-[10px] text-blue-300 font-bold">
-                      📍 {devocionalDoDia.referencia}
-                    </p>
-                  )}
+                  <div className="space-y-2 text-slate-700 leading-relaxed pt-1">
+                    <strong className="block text-slate-800 font-bold text-[11px]">Reflexão:</strong>
+                    <div
+                      className="text-[11px] whitespace-pre-wrap text-slate-600 leading-relaxed"
+                      dangerouslySetInnerHTML={{ __html: devocionalDoDia.reflexao }}
+                    />
+                    {devocionalDoDia.autor && (
+                      <p className="text-[10px] text-slate-500 font-bold italic pt-1 text-right">✍️ {devocionalDoDia.autor}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleGerarImagemStories}
+                      disabled={gerandoImagem}
+                      className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
+                    >
+                      📸 {gerandoImagem ? 'Gerando arte...' : 'Gerar Arte de Stories (9:16)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCompartilharDevocional}
+                      className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      💬 Compartilhar Texto no WhatsApp
+                    </button>
+                  </div>
                 </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
-                <div className="space-y-2 text-slate-700 leading-relaxed pt-1">
-                  <strong className="block text-slate-800 font-bold text-[11px]">
-                    Reflexão:
-                  </strong>
-                  
-                  <div 
-                    className="text-[11px] whitespace-pre-wrap text-slate-600 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: devocionalDoDia.reflexao }}
-                  />
-
-                  {devocionalDoDia.autor && (
-                    <p className="text-[10px] text-slate-500 font-bold italic pt-1 text-right">
-                      ✍️ {devocionalDoDia.autor}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={handleGerarImagemStories}
-                    disabled={gerandoImagem}
-                    className="w-full py-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold rounded-xl transition text-[11px] flex items-center justify-center gap-1.5 shadow-md active:scale-95 cursor-pointer disabled:opacity-50"
-                  >
-                    📸 {gerandoImagem ? 'Carregando Cenário Profissional...' : 'Gerar Arte de Stories c/ Foto de Fundo (9:16)'}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCompartilharDevocional}
-                    className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold rounded-xl transition text-[10px] flex items-center justify-center gap-1.5 shadow-sm active:scale-95 cursor-pointer"
-                  >
-                    💬 Compartilhar Texto no WhatsApp
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {/* MODAL DE VISUALIZAÇÃO E DOWNLOAD DO STORY */}
+      {/* MODAL STORY */}
       {modalStoryGeradoOpen && (
         <div className="fixed inset-0 bg-slate-950/90 z-50 flex flex-col items-center justify-center p-3">
           <div className="bg-slate-900 border border-slate-700 w-full max-w-xs rounded-3xl p-3 flex flex-col items-center space-y-3 shadow-2xl">
             <div className="w-full flex justify-between items-center text-white px-1">
               <span className="font-bold text-xs">📸 Sua Arte para Stories</span>
-              <button
-                type="button"
-                onClick={() => setModalStoryGeradoOpen(false)}
-                className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer"
-              >
-                ✕
-              </button>
+              <button type="button" onClick={() => setModalStoryGeradoOpen(false)} className="text-slate-400 hover:text-white font-bold text-sm cursor-pointer">✕</button>
             </div>
-
             <div className="relative w-full aspect-[9/16] rounded-2xl overflow-hidden border-2 border-amber-400/50 shadow-lg bg-black">
-              <img
-                src={imagemStoryDataUrl}
-                alt="Devocional Instagram Story"
-                className="w-full h-full object-cover select-none"
-              />
+              <img src={imagemStoryDataUrl} alt="Devocional Instagram Story" className="w-full h-full object-cover select-none" />
             </div>
-
             <p className="text-[10px] text-amber-300 font-medium text-center">
               💡 <strong>No celular:</strong> Pressione e segure a imagem acima para salvar direto na galeria de fotos!
             </p>
-
             <div className="flex gap-2 w-full pt-1">
               <a
                 href={imagemStoryDataUrl}
@@ -1765,55 +1554,29 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL AGENDA MOBILE */}
+      {/* MODAL AGENDA */}
       {modalNovaAgenda && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl">
-            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
-              {itemEditandoAgenda ? '✏️ Editar Compromisso' : '➕ Novo Compromisso'}
-            </h3>
+            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">{itemEditandoAgenda ? '✏️ Editar Compromisso' : '➕ Novo Compromisso'}</h3>
             <form onSubmit={handleSalvarMinhaAgenda} className="space-y-2.5">
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Descrição *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Reunião, Culto..."
-                  value={novoTitulo}
-                  onChange={(e) => setNovoTitulo(e.target.value)}
-                  className="w-full border rounded-xl p-2 font-semibold text-slate-800 text-xs"
-                  required
-                />
+                <input type="text" placeholder="Ex: Reunião, Culto..." value={novoTitulo} onChange={(e) => setNovoTitulo(e.target.value)} className="w-full border rounded-xl p-2 font-semibold text-slate-800 text-xs" required />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Data</label>
-                  <input
-                    type="date"
-                    value={novaData}
-                    onChange={(e) => setNovaData(e.target.value)}
-                    className="w-full border rounded-xl p-1.5 font-semibold text-xs"
-                    required
-                  />
+                  <input type="date" value={novaData} onChange={(e) => setNovaData(e.target.value)} className="w-full border rounded-xl p-1.5 font-semibold text-xs" required />
                 </div>
                 <div>
                   <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Hora</label>
-                  <input
-                    type="time"
-                    value={novaHora}
-                    onChange={(e) => setNovaHora(e.target.value)}
-                    className="w-full border rounded-xl p-1.5 font-semibold text-xs"
-                    required
-                  />
+                  <input type="time" value={novaHora} onChange={(e) => setNovaHora(e.target.value)} className="w-full border rounded-xl p-1.5 font-semibold text-xs" required />
                 </div>
               </div>
-
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">🔔 Alarme Sonoro</label>
-                <select
-                  value={lembreteMinutos}
-                  onChange={(e) => setLembreteMinutos(Number(e.target.value))}
-                  className="w-full border rounded-xl p-2 bg-white outline-none text-xs"
-                >
+                <select value={lembreteMinutos} onChange={(e) => setLembreteMinutos(Number(e.target.value))} className="w-full border rounded-xl p-2 bg-white outline-none text-xs">
                   <option value={0}>Na hora exata</option>
                   <option value={5}>5 minutos antes</option>
                   <option value={15}>15 minutos antes</option>
@@ -1821,19 +1584,9 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   <option value={60}>1 hora antes</option>
                 </select>
               </div>
-
               <div className="flex gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setModalNovaAgenda(false)}
-                  className="w-full py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs"
-                >
+                <button type="button" onClick={() => setModalNovaAgenda(false)} className="w-full py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs">Cancelar</button>
+                <button type="submit" className="w-full py-2 bg-blue-900 hover:bg-blue-800 text-white font-bold rounded-xl shadow cursor-pointer text-xs">
                   {itemEditandoAgenda ? 'Salvar Alterações' : 'Salvar'}
                 </button>
               </div>
@@ -1860,17 +1613,14 @@ export default function AppMobileModule({ loggedUser }: Props) {
                   <input type="time" value={horaReuniao} onChange={(e) => setHoraReuniao(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs" />
                 </div>
               </div>
-
               <div>
                 <label className="block font-bold mb-0.5 text-[10px]">Tema / Estudo</label>
                 <input type="text" placeholder="Ex: Lição 4..." value={temaEstudo} onChange={(e) => setTemaEstudo(e.target.value)} className="w-full border rounded-xl p-2 text-xs" />
               </div>
-
               <div>
                 <label className="block font-bold mb-0.5 text-[10px]">Comentários e Notas</label>
                 <textarea placeholder="Observações..." value={comentariosCelula} onChange={(e) => setComentariosCelula(e.target.value)} className="w-full border rounded-xl p-2 text-xs" rows={2} />
               </div>
-
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
@@ -1891,96 +1641,39 @@ export default function AppMobileModule({ loggedUser }: Props) {
         </div>
       )}
 
-      {/* MODAL DE CRIAÇÃO / EDIÇÃO DE DEVOCIONAL */}
+      {/* MODAL DEVOCIONAL */}
       {modalDevocionalOpen && (
         <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-xs rounded-3xl p-4 space-y-2.5 text-xs shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">
-              {devocionalDoDia.id ? '✏️ Editar Devocional' : '➕ Novo Devocional'}
-            </h3>
-            
+            <h3 className="font-black text-blue-900 text-sm border-b pb-1.5">{devocionalDoDia.id ? '✏️ Editar Devocional' : '➕ Novo Devocional'}</h3>
             <form onSubmit={handleSalvarDevocionalMobile} className="space-y-2">
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Data de Publicação</label>
-                <input
-                  type="date"
-                  value={editDevData}
-                  onChange={(e) => setEditDevData(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 font-semibold text-xs"
-                  required
-                />
+                <input type="date" value={editDevData} onChange={(e) => setEditDevData(e.target.value)} className="w-full border rounded-xl p-1.5 font-semibold text-xs" required />
               </div>
-
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Título da Mensagem *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: O Poder da Oração"
-                  value={editDevTitulo}
-                  onChange={(e) => setEditDevTitulo(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 font-bold text-xs"
-                  required
-                />
+                <input type="text" placeholder="Ex: O Poder da Oração" value={editDevTitulo} onChange={(e) => setEditDevTitulo(e.target.value)} className="w-full border rounded-xl p-1.5 font-bold text-xs" required />
               </div>
-
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Referência Bíblica *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Mateus 28:18-19"
-                  value={editDevRef}
-                  onChange={(e) => setEditDevRef(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 text-xs font-medium"
-                  required
-                />
+                <input type="text" placeholder="Ex: Mateus 28:18-19" value={editDevRef} onChange={(e) => setEditDevRef(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs font-medium" required />
               </div>
-
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Versículo / Passagem</label>
-                <textarea
-                  placeholder="Texto do versículo em destaque"
-                  value={editDevVersiculo}
-                  onChange={(e) => setEditDevVersiculo(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 text-xs"
-                  rows={2}
-                />
+                <textarea placeholder="Texto do versículo em destaque" value={editDevVersiculo} onChange={(e) => setEditDevVersiculo(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs" rows={2} />
               </div>
-
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Reflexão / Mensagem *</label>
-                <textarea
-                  placeholder="Escreva a reflexão diária..."
-                  value={editDevReflexao}
-                  onChange={(e) => setEditDevReflexao(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 text-xs"
-                  rows={4}
-                  required
-                />
+                <textarea placeholder="Escreva a reflexão diária..." value={editDevReflexao} onChange={(e) => setEditDevReflexao(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs" rows={4} required />
               </div>
-
               <div>
                 <label className="block font-bold text-slate-700 mb-0.5 text-[10px]">Autor</label>
-                <input
-                  type="text"
-                  value={editDevAutor}
-                  onChange={(e) => setEditDevAutor(e.target.value)}
-                  className="w-full border rounded-xl p-1.5 text-xs font-semibold"
-                />
+                <input type="text" value={editDevAutor} onChange={(e) => setEditDevAutor(e.target.value)} className="w-full border rounded-xl p-1.5 text-xs font-semibold" />
               </div>
-
               <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setModalDevocionalOpen(false)}
-                  className="w-1/2 py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingDevocional}
-                  className="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs disabled:opacity-50"
-                >
+                <button type="button" onClick={() => setModalDevocionalOpen(false)} className="w-1/2 py-2 bg-slate-100 font-bold rounded-xl cursor-pointer hover:bg-slate-200 text-xs">Cancelar</button>
+                <button type="submit" disabled={savingDevocional} className="w-1/2 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shadow cursor-pointer text-xs disabled:opacity-50">
                   {savingDevocional ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>

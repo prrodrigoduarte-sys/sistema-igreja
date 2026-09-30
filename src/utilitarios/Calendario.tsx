@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { IconeUtil } from './IconesUtil';
-import { TipoData, chaveData, dataDeChave, datasDoAno, diaDoAno, diasNoAno, semanaISO } from './feriados';
+import { type TipoData, chaveData, dataDeChave, datasDoAno, diaDoAno, diasNoAno, semanaISO } from './feriados';
 
 interface Compromisso {
   data: string; // AAAA-MM-DD

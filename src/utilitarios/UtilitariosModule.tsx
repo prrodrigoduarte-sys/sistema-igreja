@@ -21,6 +21,7 @@ interface Props {
   emailUsuario: string;
   nomeUsuario: string;
   isAdmin: boolean;
+  podePublicarDevocional?: boolean;
 }
 
 type Ferramenta = 'biblia' | 'calculadora' | 'cientifica' | 'tempo' | 'calendario' | 'tabela' | 'editor' | 'jurisig' | 'balcao';
@@ -38,7 +39,7 @@ const FERRAMENTAS: { id: Ferramenta; icone: string; titulo: string; descricao: s
   { id: 'editor', icone: 'editor', titulo: 'Editor de texto', descricao: 'Documentos completos', cor: 'from-orange-400 to-red-500', sombra: 'shadow-orange-500/40' },
 ];
 
-export default function UtilitariosModule({ compromissos = [], codigoIgreja, emailUsuario, nomeUsuario, isAdmin }: Props) {
+export default function UtilitariosModule({ compromissos = [], codigoIgreja, emailUsuario, nomeUsuario, isAdmin, podePublicarDevocional = false }: Props) {
   const [atual, setAtual] = useState<Ferramenta | null>(null);
   const ferramenta = FERRAMENTAS.find((f) => f.id === atual) || null;
 
@@ -111,7 +112,9 @@ export default function UtilitariosModule({ compromissos = [], codigoIgreja, ema
           </div>
         )}
 
-        {atual === 'biblia' && <Biblia emailUsuario={emailUsuario} nomeUsuario={nomeUsuario} />}
+        {atual === 'biblia' && (
+          <Biblia emailUsuario={emailUsuario} nomeUsuario={nomeUsuario} codigoIgreja={codigoIgreja} podePublicarDevocional={podePublicarDevocional} />
+        )}
         {atual === 'calculadora' && <Calculadora modo="normal" />}
         {atual === 'cientifica' && <Calculadora modo="cientifica" />}
         {atual === 'tempo' && <Tempo />}

@@ -1,6 +1,29 @@
 // src/UsuariosModule.tsx
 import React, { useEffect, useState } from 'react';
 import { supabase } from './supabase';
+import {
+  CHAVES_FINANCEIRO,
+  FINANCEIRO_PADRAO,
+  FINANCEIRO_SOMENTE_LANCAMENTO,
+  FINANCEIRO_TOTAL,
+  SUBMODULOS_FINANCEIRO,
+  type ChaveFinanceiro,
+} from './permissoesFinanceiro';
+
+// Sub-opções do Financeiro todas desmarcadas
+const FINANCEIRO_NADA = Object.fromEntries(CHAVES_FINANCEIRO.map((c) => [c, false])) as Record<ChaveFinanceiro, boolean>;
+
+const permissoesVazias = (): { [key: string]: boolean } => ({
+  dashboard: false,
+  cadastros: false,
+  celulas: false,
+  discipulado: false,
+  agenda: false,
+  financeiro: false,
+  projetos: false,
+  app_mobile: true,
+  ...FINANCEIRO_NADA,
+});
 
 export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [usuarios, setUsuarios] = useState<any[]>([]);
@@ -9,23 +32,14 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   // Estados do Modal de Edição / Cadastro
   const [showModal, setShowModal] = useState(false);
   const [editingUsuario, setEditingUsuario] = useState<any | null>(null);
-  
+
   const [nomeUsuario, setNomeUsuario] = useState('');
   const [emailUsuario, setEmailUsuario] = useState('');
   const [perfilUsuario, setPerfilUsuario] = useState('comum');
   const [senhaAdminInput, setSenhaAdminInput] = useState('');
 
-  // Permissões individuais por usuário (Checkboxes dos módulos)
-  const [permissoesUsuario, setPermissoesUsuario] = useState<{ [key: string]: boolean }>({
-    dashboard: false,
-    cadastros: false,
-    celulas: false,
-    discipulado: false,
-    agenda: false,
-    financeiro: false,
-    projetos: false,
-    app_mobile: true,
-  });
+  // Permissões individuais por usuário (Checkboxes dos módulos + sub-opções do Financeiro)
+  const [permissoesUsuario, setPermissoesUsuario] = useState<{ [key: string]: boolean }>(permissoesVazias);
 
   // Senha Mestre
   const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
@@ -33,7 +47,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   const [senhaMestreAtual, setSenhaMestreAtual] = useState(() => {
     return localStorage.getItem(chaveSenhaMestre) || '1234';
   });
-  
+
   const [showModalSenhaMestre, setShowModalSenhaMestre] = useState(false);
   const [novaSenhaMestre, setNovaSenhaMestre] = useState('');
   const [senhaAntigaInput, setSenhaAntigaInput] = useState('');
@@ -65,7 +79,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setEmailUsuario('');
     const isPrimeiro = usuarios.length === 0;
     setPerfilUsuario(isPrimeiro ? 'administrador' : 'comum');
-    
+
     setPermissoesUsuario({
       dashboard: isPrimeiro,
       cadastros: isPrimeiro,
@@ -75,6 +89,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
       financeiro: isPrimeiro,
       projetos: isPrimeiro,
       app_mobile: true,
+      ...(isPrimeiro ? FINANCEIRO_TOTAL : FINANCEIRO_NADA),
     });
 
     setSenhaAdminInput('');
@@ -87,16 +102,8 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
     setEmailUsuario(usuario.email || '');
     setPerfilUsuario(usuario.perfil || 'comum');
 
-    let permsIniciais: { [key: string]: boolean } = {
-      dashboard: false,
-      cadastros: false,
-      celulas: false,
-      discipulado: false,
-      agenda: false,
-      financeiro: false,
-      projetos: false,
-      app_mobile: true,
-    };
+    const permsIniciais = permissoesVazias();
+    let temSubFinanceiro = false;
 
     try {
       const { data: permData } = await supabase
@@ -107,11 +114,15 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
       if (permData && permData.length > 0) {
         permData.forEach((p) => {
           permsIniciais[p.modulo] = p.permitido;
+          if ((CHAVES_FINANCEIRO as string[]).includes(p.modulo)) temSubFinanceiro = true;
         });
       }
     } catch (err) {
       console.error('Erro ao carregar permissões do usuário:', err);
     }
+
+    // Usuário antigo com Financeiro liberado, mas sem as sub-opções: mostra o acesso que ele já tinha
+    if (permsIniciais.financeiro && !temSubFinanceiro) Object.assign(permsIniciais, FINANCEIRO_PADRAO);
 
     setPermissoesUsuario(permsIniciais);
     setSenhaAdminInput('');
@@ -119,10 +130,31 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
   };
 
   const handleCheckboxChange = (modulo: string) => {
-    setPermissoesUsuario((prev) => ({
-      ...prev,
-      [modulo]: !prev[modulo],
-    }));
+    setPermissoesUsuario((prev) => {
+      const ligado = !prev[modulo];
+      const novo = { ...prev, [modulo]: ligado };
+      // Ao liberar o Financeiro sem nenhuma sub-opção marcada, já sugere o acesso padrão
+      if (modulo === 'financeiro' && ligado && !CHAVES_FINANCEIRO.some((c) => prev[c])) Object.assign(novo, FINANCEIRO_PADRAO);
+      return novo;
+    });
+  };
+
+  // Sub-opções do Financeiro: editar e agradecer ficam na lista, então exigem "Ver lançamentos"
+  const handleSubFinanceiro = (chave: ChaveFinanceiro) => {
+    setPermissoesUsuario((prev) => {
+      const ligado = !prev[chave];
+      const novo = { ...prev, [chave]: ligado };
+      if (ligado && (chave === 'fin_editar' || chave === 'fin_agradecer')) novo.fin_ver = true;
+      if (!ligado && chave === 'fin_ver') {
+        novo.fin_editar = false;
+        novo.fin_agradecer = false;
+      }
+      return novo;
+    });
+  };
+
+  const aplicarModeloFinanceiro = (modelo: Record<ChaveFinanceiro, boolean>) => {
+    setPermissoesUsuario((prev) => ({ ...prev, ...modelo }));
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -130,6 +162,11 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
     if (senhaAdminInput !== senhaMestreAtual && loggedUser?.perfil !== 'administrador' && loggedUser?.perfil !== 'admin') {
       alert('🔒 Senha mestre de segurança incorreta.');
+      return;
+    }
+
+    if (permissoesUsuario.financeiro && !CHAVES_FINANCEIRO.some((c) => permissoesUsuario[c])) {
+      alert('Marque pelo menos uma opção do Financeiro (por exemplo "Registrar lançamentos") ou desmarque o módulo Financeiro.');
       return;
     }
 
@@ -163,7 +200,10 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
       }
 
       if (usuarioId) {
-        const novasPermissoesRows = Object.entries(permissoesUsuario).map(([modulo, permitido]) => ({
+        // Sem o módulo Financeiro, todas as sub-opções ficam desligadas
+        const permissoesFinais = permissoesUsuario.financeiro ? permissoesUsuario : { ...permissoesUsuario, ...FINANCEIRO_NADA };
+
+        const novasPermissoesRows = Object.entries(permissoesFinais).map(([modulo, permitido]) => ({
           usuario_id: usuarioId,
           modulo: modulo,
           permitido: permitido,
@@ -189,7 +229,7 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
   const handleDelete = async (id: string) => {
     const confirmacaoSenha = window.prompt('🔒 Digite a senha mestre para excluir este usuário:');
-    
+
     if (confirmacaoSenha !== senhaMestreAtual) {
       alert('Senha mestre incorreta. Exclusão cancelada.');
       return;
@@ -246,12 +286,26 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
   const totalUsuarios = usuarios.length;
   const qtdAdmin = usuarios.filter((u) => u.perfil === 'administrador' || u.perfil === 'admin').length;
+  const qtdPastor = usuarios.filter((u) => u.perfil === 'pastor').length;
   const qtdLider = usuarios.filter((u) => u.perfil === 'lider').length;
   const qtdComum = usuarios.filter((u) => u.perfil === 'comum' || !u.perfil).length;
 
   const percAdmin = totalUsuarios > 0 ? (qtdAdmin / totalUsuarios) * 100 : 0;
+  const percPastor = totalUsuarios > 0 ? (qtdPastor / totalUsuarios) * 100 : 0;
   const percLider = totalUsuarios > 0 ? (qtdLider / totalUsuarios) * 100 : 0;
   const percComum = totalUsuarios > 0 ? (qtdComum / totalUsuarios) * 100 : 0;
+
+  const modulosSimples: { chave: string; rotulo: string }[] = [
+    { chave: 'dashboard', rotulo: '📊 Dashboard' },
+    { chave: 'cadastros', rotulo: '📂 Cadastros' },
+    { chave: 'celulas', rotulo: '🏡 Células' },
+    { chave: 'discipulado', rotulo: '🌱 Discipulado' },
+    { chave: 'agenda', rotulo: '📅 Agenda Geral' },
+    { chave: 'projetos', rotulo: '📁 Projetos' },
+    { chave: 'app_mobile', rotulo: '📱 App Mobile' },
+  ];
+
+  const ehModelo = (modelo: Record<ChaveFinanceiro, boolean>) => CHAVES_FINANCEIRO.every((c) => !!permissoesUsuario[c] === modelo[c]);
 
   return (
     <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6 max-w-4xl mx-auto">
@@ -287,12 +341,14 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
 
           <div className="w-full h-4 bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
             {percAdmin > 0 && <div style={{ width: `${percAdmin}%` }} className="bg-blue-900 h-full" />}
+            {percPastor > 0 && <div style={{ width: `${percPastor}%` }} className="bg-violet-600 h-full" />}
             {percLider > 0 && <div style={{ width: `${percLider}%` }} className="bg-emerald-600 h-full" />}
             {percComum > 0 && <div style={{ width: `${percComum}%` }} className="bg-slate-400 h-full" />}
           </div>
 
-          <div className="flex gap-4 text-[11px] font-semibold text-slate-600 pt-1">
+          <div className="flex flex-wrap gap-4 text-[11px] font-semibold text-slate-600 pt-1">
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-900 inline-block" /><span>Administradores ({qtdAdmin})</span></div>
+            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-violet-600 inline-block" /><span>Pastores ({qtdPastor})</span></div>
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-600 inline-block" /><span>Líderes ({qtdLider})</span></div>
             <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /><span>Comuns ({qtdComum})</span></div>
           </div>
@@ -389,54 +445,94 @@ export default function UsuariosModule({ loggedUser }: { loggedUser: any }) {
                 >
                   <option value="comum">Comum</option>
                   <option value="lider">Líder</option>
+                  <option value="pastor">Pastor</option>
                   <option value="administrador">Administrador</option>
                 </select>
+                {(perfilUsuario === 'administrador' || perfilUsuario === 'admin') && (
+                  <p className="mt-1 text-[11px] text-blue-800">O administrador tem acesso total ao Financeiro, independentemente das opções abaixo.</p>
+                )}
               </div>
 
               <div className="border-t pt-3 space-y-2">
                 <label className="block font-black text-blue-900 text-sm">🔓 Liberação de Módulos (Zerar ou Conceder)</label>
                 <p className="text-[11px] text-slate-500">Marque apenas os módulos que este usuário poderá visualizar e acessar:</p>
 
-                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.dashboard} onChange={() => handleCheckboxChange('dashboard')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">📊 Dashboard</span>
-                  </label>
+                <div className="bg-slate-50 p-3 rounded-2xl border space-y-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    {modulosSimples.map((m) => (
+                      <label key={m.chave} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={!!permissoesUsuario[m.chave]}
+                          onChange={() => handleCheckboxChange(m.chave)}
+                          className="w-4 h-4 rounded text-blue-900 cursor-pointer"
+                        />
+                        <span className="font-semibold text-slate-700">{m.rotulo}</span>
+                      </label>
+                    ))}
+                  </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.cadastros} onChange={() => handleCheckboxChange('cadastros')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">📂 Cadastros</span>
-                  </label>
+                  {/* FINANCEIRO com sub-opções */}
+                  <div className={`rounded-xl border p-3 space-y-2 ${permissoesUsuario.financeiro ? 'bg-white border-blue-200' : 'border-slate-200'}`}>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={!!permissoesUsuario.financeiro}
+                        onChange={() => handleCheckboxChange('financeiro')}
+                        className="w-4 h-4 rounded text-blue-900 cursor-pointer"
+                      />
+                      <span className="font-black text-slate-800">💰 Financeiro</span>
+                    </label>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.celulas} onChange={() => handleCheckboxChange('celulas')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">🏡 Células</span>
-                  </label>
+                    {permissoesUsuario.financeiro && (
+                      <div className="pl-6 space-y-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => aplicarModeloFinanceiro(FINANCEIRO_SOMENTE_LANCAMENTO)}
+                            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer border ${
+                              ehModelo(FINANCEIRO_SOMENTE_LANCAMENTO) ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'
+                            }`}
+                          >
+                            Somente lançamento
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => aplicarModeloFinanceiro(FINANCEIRO_PADRAO)}
+                            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer border ${
+                              ehModelo(FINANCEIRO_PADRAO) ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'
+                            }`}
+                          >
+                            Tesouraria (sem editar)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => aplicarModeloFinanceiro(FINANCEIRO_TOTAL)}
+                            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] cursor-pointer border ${
+                              ehModelo(FINANCEIRO_TOTAL) ? 'bg-blue-900 text-white border-blue-900' : 'bg-white text-blue-900 border-blue-200 hover:bg-blue-50'
+                            }`}
+                          >
+                            Acesso completo
+                          </button>
+                        </div>
 
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.discipulado} onChange={() => handleCheckboxChange('discipulado')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">🌱 Discipulado</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.agenda} onChange={() => handleCheckboxChange('agenda')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">📅 Agenda Geral</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.financeiro} onChange={() => handleCheckboxChange('financeiro')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">💰 Financeiro</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.projetos} onChange={() => handleCheckboxChange('projetos')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">📁 Projetos</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={permissoesUsuario.app_mobile} onChange={() => handleCheckboxChange('app_mobile')} className="w-4 h-4 rounded text-blue-900 cursor-pointer" />
-                    <span className="font-semibold text-slate-700">📱 App Mobile</span>
-                  </label>
+                        {SUBMODULOS_FINANCEIRO.map((sub) => (
+                          <label key={sub.chave} className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!permissoesUsuario[sub.chave]}
+                              onChange={() => handleSubFinanceiro(sub.chave)}
+                              className="w-4 h-4 mt-0.5 rounded text-blue-900 cursor-pointer shrink-0"
+                            />
+                            <span>
+                              <span className="block font-semibold text-slate-700">{sub.rotulo}</span>
+                              <span className="block text-[10px] text-slate-500">{sub.descricao}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

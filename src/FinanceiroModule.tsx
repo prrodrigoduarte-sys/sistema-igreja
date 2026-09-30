@@ -1,7 +1,10 @@
 // src/FinanceiroModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
-import { carregarPermissoesFinanceiro, FINANCEIRO_PADRAO, PermissoesFinanceiro } from './permissoesFinanceiro';
+import { carregarPermissoesFinanceiro, FINANCEIRO_SOMENTE_LANCAMENTO, PermissoesFinanceiro } from './permissoesFinanceiro';
+
+// Enquanto as permissões carregam (ou se falharem), o acesso fica fechado — nunca aberto por engano
+const FINANCEIRO_FECHADO: PermissoesFinanceiro = { ...FINANCEIRO_SOMENTE_LANCAMENTO, fin_lancar: false };
 
 interface Lancamento {
   id: string;
@@ -127,7 +130,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [membrosList, setMembrosList] = useState<Membro[]>([]);
   const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
   const [semTabelaTransf, setSemTabelaTransf] = useState(false);
-  const [permFin, setPermFin] = useState<PermissoesFinanceiro>(FINANCEIRO_PADRAO);
+  const [permFin, setPermFin] = useState<PermissoesFinanceiro>(FINANCEIRO_FECHADO);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,9 +176,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   // Só o administrador edita ou exclui lançamentos e cadastra/edita contas
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
-  const exigirAdmin = () => {
-    if (isAdmin) return true;
-    alert('🔒 Apenas o administrador pode fazer esta alteração.');
+  // Trava de segurança: confere a permissão marcada em Controle de Usuários (administrador pode tudo)
+  const exigirPerm = (permitido: boolean) => {
+    if (isAdmin || permitido) return true;
+    alert('🔒 Você não tem permissão para esta ação. Peça ao administrador para liberar em Controle de Usuários.');
     return false;
   };
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
@@ -184,14 +188,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   useEffect(() => {
     if (!loggedUser) return;
     let ativo = true;
-    carregarPermissoesFinanceiro(loggedUser.id, isAdmin)
+    carregarPermissoesFinanceiro(loggedUser.id, isAdmin, loggedUser?.email || loggedUser?.usuario)
       .then((p) => ativo && setPermFin(p))
-      .catch(() => ativo && setPermFin(FINANCEIRO_PADRAO));
+      .catch(() => ativo && setPermFin(FINANCEIRO_FECHADO));
     return () => {
       ativo = false;
     };
   }, [loggedUser, isAdmin]);
   const podeTransferir = isAdmin || permFin.fin_transferir;
+  const podeLancar = isAdmin || permFin.fin_lancar;
+  const podeVer = isAdmin || permFin.fin_ver;
+  const podeEditar = isAdmin || permFin.fin_editar;
+  const podeAgradecer = isAdmin || permFin.fin_agradecer;
+  const podeRelatorios = isAdmin || permFin.fin_relatorios;
+  const podeContas = isAdmin || permFin.fin_contas;
   const verTransferencias = podeTransferir || permFin.fin_ver;
 
   const registrarLog = async (acao: string, detalhes: string) => {
@@ -282,7 +292,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingLancamento && !exigirAdmin()) return;
+    if (editingLancamento && !exigirPerm(podeEditar)) return;
     try {
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
@@ -439,7 +449,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitConta = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!exigirAdmin()) return;
+    if (!exigirPerm(podeContas)) return;
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
 
@@ -481,7 +491,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitAdm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!exigirAdmin()) return;
+    if (!exigirPerm(podeContas)) return;
     try {
       const payload = { ...formAdm, codigo_igreja: codigoIgreja };
 
@@ -524,7 +534,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const confirmarExclusao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemParaExcluir) return;
-    if (!exigirAdmin()) return;
+    if (!exigirPerm(itemParaExcluir.tipo === 'lancamento' || itemParaExcluir.tipo === 'transferencia' ? podeEditar : podeContas)) return;
 
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({
@@ -840,6 +850,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             📊 Plano de Contas
           </button>
+          {podeRelatorios && (
           <button
             type="button"
             onClick={() => { setSubAba('relatorios'); fetchDados(); }}
@@ -849,6 +860,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             📈 Relatórios
           </button>
+          )}
         </div>
       </div>
 
@@ -869,6 +881,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             🔁 Transferir entre contas
           </button>
           )}
+          {podeLancar && (
           <button
             type="button"
             onClick={() => {
@@ -883,14 +896,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             + Novo Lançamento
           </button>
+          )}
           </div>
         )}
 
-        {subAba === 'contas_adm' && (
+        {subAba === 'contas_adm' && podeContas && (
           <button
             type="button"
             onClick={() => {
-              if (!exigirAdmin()) return;
+              if (!exigirPerm(podeContas)) return;
               setEditingAdm(null);
               setFormAdm(formContaAdmInicial);
               setSenhaExclusao('');
@@ -902,11 +916,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
         )}
 
-        {subAba === 'plano_contas' && (
+        {subAba === 'plano_contas' && podeContas && (
           <button
             type="button"
             onClick={() => {
-              if (!exigirAdmin()) return;
+              if (!exigirPerm(podeContas)) return;
               setEditingConta(null);
               setFormConta(formContaContabilInicial);
               setSenhaExclusao('');
@@ -921,7 +935,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       {!isAdmin && (
         <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs no-print">
-          🔒 Você pode registrar lançamentos e ver os relatórios. <strong>Editar, excluir e cadastrar contas</strong> é só para o administrador.
+          🔒 Seu acesso ao Financeiro:{' '}
+          <strong>
+            {[
+              podeLancar && 'registrar lançamentos',
+              podeTransferir && 'transferir entre contas',
+              podeVer && 'ver lançamentos e recibos',
+              podeEditar && 'editar e excluir lançamentos',
+              podeAgradecer && 'agradecer no chat',
+              podeRelatorios && 'relatórios',
+              podeContas && 'contas e plano de contas',
+            ]
+              .filter(Boolean)
+              .join(', ') || 'nenhum'}
+          </strong>
+          . O restante é liberado pelo administrador.
         </div>
       )}
 
@@ -931,7 +959,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
       {!loading && subAba === 'lancamentos' && (
         <>
-          {lancamentos.length === 0 ? (
+          {!podeVer ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <p className="text-slate-500 text-sm">Você pode registrar lançamentos, mas não tem permissão para ver a lista.</p>
+            </div>
+          ) : lancamentos.length === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
               <p className="text-slate-500 text-sm">Nenhum lançamento financeiro registrado.</p>
             </div>
@@ -983,6 +1015,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          {podeVer && (
                           <button
                             type="button"
                             onClick={() => {
@@ -994,8 +1027,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             🖨️ Recibo
                           </button>
+                          )}
 
-                          {ehDizimoOuOferta && (
+                          {ehDizimoOuOferta && podeAgradecer && (
                             <button
                               type="button"
                               onClick={() => handleEnviarChatInterno(l)}
@@ -1010,10 +1044,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             </button>
                           )}
 
+                          {podeEditar && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (!exigirAdmin()) return;
+                              if (!exigirPerm(podeEditar)) return;
                               setEditingLancamento(l);
                               setFormLancamento({
                                 data_lancamento: l.data_lancamento || '',
@@ -1034,11 +1069,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             Editar
                           </button>
+                          )}
 
+                          {podeEditar && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (!exigirAdmin()) return;
+                              if (!exigirPerm(podeEditar)) return;
                               setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
                               setSenhaExclusao('');
                               setShowDeleteModal(true);
@@ -1047,6 +1084,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             Excluir
                           </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1100,10 +1138,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                               📄 Comprovante
                             </a>
                           )}
+                          {podeEditar && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (!exigirAdmin()) return;
+                              if (!exigirPerm(podeEditar)) return;
                               setItemParaExcluir({
                                 id: t.id,
                                 tipo: 'transferencia',
@@ -1116,6 +1155,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             Excluir
                           </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1155,10 +1195,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       <td className="p-3 text-slate-600">{adm.agencia || '-'}</td>
                       <td className="p-3 text-slate-600">{adm.numero_conta || '-'}</td>
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setEditingAdm(adm);
                             setFormAdm({
                               codigo_conta: adm.codigo_conta,
@@ -1173,10 +1214,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Editar
                         </button>
+                        )}
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setItemParaExcluir({ id: adm.id, tipo: 'conta_adm', nome: `${adm.codigo_conta} - ${adm.nome_conta}` });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
@@ -1185,6 +1228,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Excluir
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1224,10 +1268,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         </span>
                       </td>
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setEditingConta(c);
                             setFormConta({
                               codigo_conta: c.codigo_conta,
@@ -1242,10 +1287,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Editar
                         </button>
+                        )}
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
@@ -1254,6 +1301,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Excluir
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -1265,7 +1313,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       )}
 
       {/* CONTEÚDO DA ABA: RELATÓRIOS */}
-      {!loading && subAba === 'relatorios' && (
+      {!loading && subAba === 'relatorios' && podeRelatorios && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
             <button

@@ -25,6 +25,7 @@ const AUTOR_PADRAO = 'Pastor / Equipe Pastoral';
 
 export default function DevocionalModule({ loggedUser }: Props) {
   const podeEditar = podeEditarDevocional(loggedUser);
+  const codigoIgreja = loggedUser?.codigo_igreja || 'IGR-001';
 
   const [lista, setLista] = useState<ItemDevocional[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -45,11 +46,12 @@ export default function DevocionalModule({ loggedUser }: Props) {
     const { data: dados, error } = await supabase
       .from('devotionals')
       .select('*')
+      .eq('codigo_igreja', codigoIgreja)
       .order('publish_date', { ascending: false })
       .limit(200);
     if (!error && dados) setLista(dados);
     setCarregando(false);
-  }, []);
+  }, [codigoIgreja]);
 
   // Carga inicial + atualização automática quando alguém salva pelo app
   useEffect(() => {
@@ -110,6 +112,7 @@ export default function DevocionalModule({ loggedUser }: Props) {
       content_html: html,
       author_name: autor.trim() || AUTOR_PADRAO,
       is_published: publicado,
+      codigo_igreja: codigoIgreja,
     };
 
     const { error } = selecionadoId

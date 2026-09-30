@@ -33,18 +33,61 @@ interface Devocional {
   data: string;
 }
 
-type SubAba = 'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat';
+type SubAba = 'perfil' | 'minha_agenda' | 'celula' | 'igreja' | 'cadastro' | 'contribua' | 'devocional' | 'chat' | 'inicio';
 
-const ABAS: { id: SubAba; icone: string; titulo: string; sub: string }[] = [
-  { id: 'chat', icone: '💬', titulo: 'Chat Geral', sub: 'Mensagens' },
-  { id: 'minha_agenda', icone: '📅', titulo: 'Agenda', sub: 'Compromissos' },
-  { id: 'perfil', icone: '👤', titulo: 'Meu Perfil', sub: 'Dados' },
-  { id: 'celula', icone: '🏡', titulo: 'Célula', sub: 'Encontros' },
-  { id: 'igreja', icone: '⛪', titulo: 'A Igreja', sub: 'Endereço' },
-  { id: 'cadastro', icone: '📝', titulo: 'Cadastro', sub: 'Formulário' },
-  { id: 'contribua', icone: '💖', titulo: 'Contribua', sub: 'Dízimos' },
-  { id: 'devocional', icone: '📖', titulo: 'Devocional', sub: 'Palavra' },
+const ABAS: { id: Exclude<SubAba, 'inicio'>; icone: string; titulo: string }[] = [
+  { id: 'chat', icone: 'chat', titulo: 'Chat Geral' },
+  { id: 'minha_agenda', icone: 'agenda', titulo: 'Agenda' },
+  { id: 'perfil', icone: 'perfil', titulo: 'Meu Perfil' },
+  { id: 'celula', icone: 'celula', titulo: 'Célula' },
+  { id: 'igreja', icone: 'igreja', titulo: 'A Igreja' },
+  { id: 'cadastro', icone: 'cadastro', titulo: 'Cadastro' },
+  { id: 'contribua', icone: 'contribua', titulo: 'Contribua' },
+  { id: 'devocional', icone: 'devocional', titulo: 'Devocional' },
 ];
+
+const ICONES: Record<string, React.ReactNode> = {
+  chat: <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />,
+  agenda: (
+    <>
+      <rect x="3" y="4" width="18" height="18" rx="2" />
+      <path d="M16 2v4M8 2v4M3 10h18" />
+    </>
+  ),
+  perfil: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+    </>
+  ),
+  celula: (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </>
+  ),
+  igreja: (
+    <>
+      <path d="m18 7 4 2v11a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9l4-2" />
+      <path d="M14 22v-4a2 2 0 0 0-4 0v4M18 22V5l-6-3-6 3v17M12 7v5M10 9h4" />
+    </>
+  ),
+  cadastro: (
+    <>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a2 2 0 0 0 2 2h4M10 9H8M16 13H8M16 17H8" />
+    </>
+  ),
+  contribua: <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />,
+  devocional: <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />,
+};
+
+const Icone = ({ nome, className }: { nome: string; className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+    {ICONES[nome]}
+  </svg>
+);
 
 // ── Helpers do chat ──
 const rotuloData = (iso?: string) => {
@@ -127,7 +170,7 @@ const horaMsg = (m: any) => {
 };
 
 export default function AppMobileModule({ loggedUser }: Props) {
-  const [subAbaApp, setSubAbaApp] = useState<SubAba>('devocional');
+  const [subAbaApp, setSubAbaApp] = useState<SubAba>('inicio');
   const [loading, setLoading] = useState(false);
 
   const [membroPerfil, setMembroPerfil] = useState<any>(null);
@@ -999,7 +1042,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setSubAbaApp('devocional')}
+                onClick={() => setSubAbaApp('inicio')}
                 className="md:hidden h-8 px-2.5 rounded-full bg-blue-900 text-white text-[11px] font-bold cursor-pointer active:scale-95 shrink-0"
               >
                 ← Voltar ao app
@@ -1197,61 +1240,84 @@ export default function AppMobileModule({ loggedUser }: Props) {
     );
   };
 
-  const estilosAba = (ativa: boolean, id: SubAba) => {
-    if (!ativa) return 'bg-blue-950/40 text-blue-200 hover:bg-blue-800/60 border border-blue-800/30';
-    return id === 'chat'
-      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-emerald-500/30 shadow-lg'
-      : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-blue-500/30 shadow-lg';
-  };
+  const naInicio = subAbaApp === 'inicio';
+  const noChat = subAbaApp === 'chat';
+  const tituloAba = ABAS.find((a) => a.id === subAbaApp)?.titulo || '';
+  const nomeUsuario = membroPerfil?.nome ? nomeBonito(membroPerfil.nome) : loggedUser?.nome_usuario || 'Membro';
 
-  // No celular, ao abrir uma conversa, esconde o menu para ganhar espaço (como no WhatsApp)
-  const esconderMenu = subAbaApp === 'chat';
+  const avatar = (
+    <button
+      type="button"
+      onClick={() => setSubAbaApp('perfil')}
+      className="shrink-0 w-9 h-9 rounded-full border-2 border-white/80 overflow-hidden bg-blue-800 flex items-center justify-center cursor-pointer"
+      aria-label="Abrir meu perfil"
+    >
+      {fotoUrl ? <img src={fotoUrl} alt="" className="w-full h-full object-cover" /> : <Icone nome="perfil" className="w-5 h-5 text-white" />}
+    </button>
+  );
 
   return (
     <div
-      className={`max-w-4xl mx-auto w-full bg-slate-100 h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative ${
-        subAbaApp === 'chat'
+      className={`max-w-4xl mx-auto w-full h-[720px] max-h-[92dvh] rounded-3xl border border-slate-300 shadow-2xl overflow-hidden flex flex-col relative ${
+        naInicio ? 'bg-gradient-to-b from-blue-950 via-blue-900 to-indigo-950' : 'bg-slate-100'
+      } ${
+        noChat
           ? 'max-md:fixed max-md:inset-0 max-md:z-40 max-md:h-[100dvh] max-md:max-h-none max-md:rounded-none max-md:border-0 max-md:shadow-none'
           : ''
       }`}
     >
-      {/* CABEÇALHO (no celular some por completo dentro do chat) */}
-      <div className={`bg-blue-900 text-white p-3.5 space-y-2.5 shrink-0 ${esconderMenu ? 'hidden md:block' : ''}`}>
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-base font-black">📱 App {dadosIgreja.nome_igreja}</h2>
-            <p className="text-[10px] text-blue-200">Olá, {membroPerfil?.nome || loggedUser?.nome_usuario || 'Membro'}</p>
+      {naInicio ? (
+        /* TELA INICIAL: grade de ícones grandes */
+        <div className="flex-1 min-h-0 overflow-y-auto flex flex-col text-white">
+          <div className="px-5 pt-5 flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] text-blue-200 truncate">Olá, {nomeUsuario}</p>
+              <h2 className="text-lg font-black leading-tight">{dadosIgreja.nome_igreja}</h2>
+            </div>
+            {avatar}
           </div>
-          {fotoUrl ? (
-            <img src={fotoUrl} alt="Foto" className="w-8 h-8 rounded-full border-2 border-white object-cover" />
-          ) : (
-            <div className="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center font-bold border-2 border-white text-xs">👤</div>
-          )}
-        </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-0.5">
-          {ABAS.map((aba) => (
-            <button
-              key={aba.id}
-              type="button"
-              onClick={() => setSubAbaApp(aba.id)}
-              className={`p-2 rounded-xl transition-all flex items-center gap-2 cursor-pointer font-bold text-xs shadow-sm select-none ${estilosAba(
-                subAbaApp === aba.id,
-                aba.id
-              )}`}
-            >
-              <span className="text-base">{aba.icone}</span>
-              <div className="text-left truncate">
-                <p className="font-black truncate text-[11px]">{aba.titulo}</p>
-                <p className="text-[9px] opacity-80 font-normal truncate">{aba.sub}</p>
-              </div>
-            </button>
-          ))}
+          <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 gap-x-2 gap-y-7 px-5 py-8 content-center">
+            {ABAS.map((aba) => (
+              <button
+                key={aba.id}
+                type="button"
+                onClick={() => setSubAbaApp(aba.id)}
+                className="group flex flex-col items-center gap-2 cursor-pointer select-none focus:outline-none"
+              >
+                <span
+                  className={`w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl flex items-center justify-center ring-1 transition group-active:scale-95 group-focus-visible:ring-2 group-focus-visible:ring-white ${
+                    aba.id === 'chat'
+                      ? 'bg-emerald-500/20 ring-emerald-400/50 text-emerald-200 group-hover:bg-emerald-500/30'
+                      : 'bg-white/5 ring-white/15 text-white group-hover:bg-white/10'
+                  }`}
+                >
+                  <Icone nome={aba.icone} className="w-8 h-8" />
+                </span>
+                <span className="text-[11px] font-bold text-center leading-tight text-blue-50">{aba.titulo}</span>
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      ) : (
+        /* BARRA DA SEÇÃO: botão voltar + título (no celular some dentro do chat, que tem a própria barra) */
+        <div className={`bg-blue-900 text-white px-2.5 py-2.5 items-center gap-2 shrink-0 ${noChat ? 'hidden md:flex' : 'flex'}`}>
+          <button
+            type="button"
+            onClick={() => setSubAbaApp('inicio')}
+            className="h-9 px-2.5 rounded-full hover:bg-blue-800 flex items-center gap-1.5 text-xs font-bold cursor-pointer active:scale-95 transition"
+            aria-label="Voltar ao início do app"
+          >
+            <span aria-hidden="true">←</span>
+            <span>Início</span>
+          </button>
+          <h2 className="font-black text-sm flex-1 truncate">{tituloAba}</h2>
+          {avatar}
+        </div>
+      )}
 
       {/* ÁREA DE CONTEÚDO */}
-      {subAbaApp === 'chat' ? (
+      {naInicio ? null : subAbaApp === 'chat' ? (
         renderChat()
       ) : (
         <div className="flex-1 min-h-0 overflow-y-auto p-3.5 space-y-3 bg-slate-100 relative">

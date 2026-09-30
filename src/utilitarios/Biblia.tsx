@@ -99,9 +99,11 @@ const cache = new Map<string, Versiculo[]>();
 interface Props {
   emailUsuario?: string;
   nomeUsuario?: string;
+  codigoIgreja?: string;
+  podePublicarDevocional?: boolean;
 }
 
-export default function Biblia({ emailUsuario = '', nomeUsuario = '' }: Props) {
+export default function Biblia({ emailUsuario = '', nomeUsuario = '', codigoIgreja = '', podePublicarDevocional = false }: Props) {
   const [pos, setPos] = useState<Posicao>(lerPosicao);
   const [versiculos, setVersiculos] = useState<Versiculo[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -502,6 +504,8 @@ export default function Biblia({ emailUsuario = '', nomeUsuario = '' }: Props) {
           rascunho={typeof devocional === 'string' ? null : devocional}
           onFechar={() => setDevocional(null)}
           onMudou={setTotalDevocionais}
+          podePublicar={podePublicarDevocional}
+          codigoIgreja={codigoIgreja}
         />
       )}
       {aviso && (

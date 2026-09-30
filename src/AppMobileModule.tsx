@@ -60,6 +60,25 @@ const rotuloData = (iso?: string) => {
   return d.toLocaleDateString('pt-BR');
 };
 
+const nomeDoEmail = (email?: string) => {
+  const prefixo = (email || '').trim().toLowerCase().split('@')[0].replace(/[._-]+/g, ' ');
+  return prefixo ? prefixo.replace(/\b\w/g, (c) => c.toUpperCase()) : 'Membro';
+};
+
+// "ALINE DAMASCENO DUARTE" -> "Aline Damasceno Duarte"
+const nomeBonito = (nome?: string) => {
+  const minusculas = ['de', 'da', 'do', 'das', 'dos', 'e'];
+  return (nome || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((p, i) => (i > 0 && minusculas.includes(p) ? p : p.charAt(0).toUpperCase() + p.slice(1)))
+    .join(' ');
+};
+
+// Mensagens antigas foram gravadas com este prefixo; não faz sentido exibi-lo
+const limparTexto = (t?: string) => (t || '').replace(/^\s*\[TRANSMISSÃO PARA TODOS\]\s*/i, '');
+
 const horaMsg = (m: any) => {
   if (m.created_at) {
     const d = new Date(m.created_at);
@@ -150,6 +169,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
   const [todasMensagens, setTodasMensagens] = useState<any[]>([]);
   const [novaMensagemChat, setNovaMensagemChat] = useState('');
   const [buscaChat, setBuscaChat] = useState('');
+  const [avisoMembros, setAvisoMembros] = useState('');
   const [telaChat, setTelaChat] = useState<'lista' | 'conversa'>('lista'); // usado só em telas pequenas
   const msgsContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -204,37 +224,34 @@ export default function AppMobileModule({ loggedUser }: Props) {
   // ── CHAT: carregar membros (não depende de nenhum estado que mude sozinho) ──
   const carregarMembrosChat = useCallback(async () => {
     try {
-      let encontrados: any[] = [];
-      const cols = 'id, nome, email, celular_principal, tipo_cadastro, foto_url';
-
-      const { data: resMembers, error: errMembers } = await supabase.from('members').select(cols);
-      if (!errMembers && resMembers && resMembers.length > 0) {
-        encontrados = resMembers;
-      } else {
-        const { data: resMembros, error: errMembros } = await supabase.from('membros').select(cols);
-        if (!errMembros && resMembros && resMembros.length > 0) encontrados = resMembros;
+      const { data, error } = await supabase.from('members').select('*');
+      if (error) {
+        console.error('Erro ao ler members:', error);
+        setAvisoMembros(`Não foi possível ler a tabela members: ${error.message}`);
+        return;
       }
+      setAvisoMembros('');
 
-      // Fallback: monta a lista a partir de quem já enviou mensagens
-      if (encontrados.length === 0) {
-        const { data: msgsAll } = await supabase.from('chat_mensagens').select('sender');
-        const emails = new Set<string>();
-        (msgsAll || []).forEach((m: any) => m.sender && emails.add(m.sender.trim().toLowerCase()));
-        emails.add(emailUsuario);
-        encontrados = Array.from(emails).map((email) => ({
-          id: email,
-          nome: email.split('@')[0].toUpperCase(),
-          email,
-          tipo_cadastro: 'Membro',
-          celular_principal: '',
-        }));
-      }
+      // A conversa é identificada pelo e-mail (é o que fica gravado em sender/recipient_id).
+      // Membros sem e-mail não têm como receber mensagem e ficam de fora.
+      const vistos = new Set<string>();
+      const lista = (data || [])
+        .filter((m: any) => m.nome && m.email && String(m.email).trim())
+        .map((m: any) => ({
+          id: String(m.id),
+          nome: nomeBonito(m.nome),
+          email: String(m.email).trim().toLowerCase(),
+          celular_principal: m.celular_principal || '',
+          tipo_cadastro: m.tipo_cadastro || 'Membro',
+          foto_url: m.foto_url || '',
+        }))
+        .filter((m: any) => (vistos.has(m.email) ? false : (vistos.add(m.email), true)));
 
-      setListaMembrosChat(encontrados);
+      setListaMembrosChat(lista);
     } catch (err) {
       console.error('Erro ao carregar membros do chat:', err);
     }
-  }, [emailUsuario]);
+  }, []);
 
   // ── CHAT: uma única busca traz todas as mensagens; o filtro é feito em memória (useMemo) ──
   const carregarMensagensChat = useCallback(async () => {
@@ -368,74 +385,84 @@ export default function AppMobileModule({ loggedUser }: Props) {
 
   // ── CHAT: dados derivados ──
   const meuId = useMemo(
-    () => membroPerfil?.id || listaMembrosChat.find((m) => m.email?.trim().toLowerCase() === emailUsuario)?.id || '',
+    () => String(membroPerfil?.id ?? listaMembrosChat.find((m) => m.email === emailUsuario)?.id ?? ''),
     [membroPerfil, listaMembrosChat, emailUsuario]
   );
 
   const nomePorEmail = useMemo(() => {
     const mapa: Record<string, string> = {};
     listaMembrosChat.forEach((m) => {
-      if (m.email) mapa[m.email.trim().toLowerCase()] = m.nome;
+      mapa[m.email] = m.nome;
     });
     return mapa;
   }, [listaMembrosChat]);
 
+  const emailPorId = useMemo(() => {
+    const mapa: Record<string, string> = {};
+    listaMembrosChat.forEach((m) => {
+      mapa[String(m.id)] = m.email;
+    });
+    return mapa;
+  }, [listaMembrosChat]);
+
+  // Dada uma mensagem privada, devolve o e-mail da OUTRA pessoa da conversa (ou null se não for comigo)
+  const outroDaMensagem = useCallback(
+    (m: any): string | null => {
+      if (m.is_broadcast) return null;
+      const s = (m.sender || '').trim().toLowerCase();
+      const r = String(m.recipient_id ?? '').trim().toLowerCase();
+      if (!s || !r) return null;
+      if (s === emailUsuario) return r.includes('@') ? r : emailPorId[r] || null; // recipient antigo era um id
+      if (r === emailUsuario || (meuId && r === meuId.toLowerCase())) return s;
+      return null;
+    },
+    [emailUsuario, meuId, emailPorId]
+  );
+
   const mensagensChat = useMemo(() => {
     if (!membroSelecionadoChat) return todasMensagens.filter((m) => m.is_broadcast);
-
     const emailOutro = membroSelecionadoChat.email?.trim().toLowerCase();
-    const outroId = membroSelecionadoChat.id;
+    return todasMensagens.filter((m) => outroDaMensagem(m) === emailOutro);
+  }, [todasMensagens, membroSelecionadoChat, outroDaMensagem]);
 
-    return todasMensagens.filter((m) => {
-      if (m.is_broadcast) return false;
-      const s = m.sender?.trim().toLowerCase();
-      const r = m.recipient_id;
-      const minhaParaOutro = s === emailUsuario && (r === outroId || r === emailOutro);
-      const outroParaMim = s === emailOutro && (r === meuId || r === emailUsuario);
-      return minhaParaOutro || outroParaMim;
-    });
-  }, [todasMensagens, membroSelecionadoChat, emailUsuario, meuId]);
-
-  // Lista lateral: sem o próprio usuário, sem duplicados, ordenada pela última conversa (como no WhatsApp)
+  // Lista lateral: membros com e-mail + quem já conversou comigo mas não tem cadastro; ordenada pela última mensagem
   const membrosOrdenados = useMemo(() => {
     const ultima: Record<string, { ts: number; texto: string }> = {};
 
-    todasMensagens.forEach((m) => {
-      if (m.is_broadcast) return;
-      const s = m.sender?.trim().toLowerCase();
-      let outro: any = null;
-      if (s === emailUsuario) {
-        outro = listaMembrosChat.find((x) => x.id === m.recipient_id || x.email?.trim().toLowerCase() === m.recipient_id);
-      } else {
-        const alvo = m.recipient_id;
-        if (alvo === meuId || alvo === emailUsuario) {
-          outro = listaMembrosChat.find((x) => x.email?.trim().toLowerCase() === s);
-        }
-      }
+    todasMensagens.forEach((m, idx) => {
+      const outro = outroDaMensagem(m);
       if (!outro) return;
-      const ts = m.created_at ? new Date(m.created_at).getTime() : 0;
-      if (!ultima[outro.id] || ts >= ultima[outro.id].ts) {
-        ultima[outro.id] = { ts, texto: `${s === emailUsuario ? 'Você: ' : ''}${m.text}` };
+      const ts = (m.created_at ? new Date(m.created_at).getTime() : 0) || idx + 1;
+      if (!ultima[outro] || ts >= ultima[outro].ts) {
+        const minha = (m.sender || '').trim().toLowerCase() === emailUsuario;
+        ultima[outro] = { ts, texto: `${minha ? 'Você: ' : ''}${limparTexto(m.text)}` };
       }
     });
 
-    const vistos = new Set<string>();
-    return listaMembrosChat
-      .filter((m) => {
-        if (m.email?.trim().toLowerCase() === emailUsuario) return false;
-        if (vistos.has(m.id)) return false;
-        vistos.add(m.id);
-        return true;
-      })
-      .filter((m) => !buscaChat.trim() || m.nome?.toLowerCase().includes(buscaChat.trim().toLowerCase()))
-      .map((m) => ({ ...m, _ultima: ultima[m.id] }))
+    const base = listaMembrosChat.filter((m) => m.email !== emailUsuario);
+    const conhecidos = new Set(base.map((m) => m.email));
+    const fantasmas = Object.keys(ultima)
+      .filter((email) => !conhecidos.has(email) && email !== emailUsuario)
+      .map((email) => ({
+        id: email,
+        nome: nomeDoEmail(email),
+        email,
+        celular_principal: '',
+        tipo_cadastro: 'E-mail sem cadastro em members',
+        foto_url: '',
+      }));
+
+    const termo = buscaChat.trim().toLowerCase();
+    return [...base, ...fantasmas]
+      .filter((m) => !termo || m.nome?.toLowerCase().includes(termo))
+      .map((m) => ({ ...m, _ultima: ultima[m.email] }))
       .sort((a, b) => {
         const ta = a._ultima?.ts || 0;
         const tb = b._ultima?.ts || 0;
         if (ta !== tb) return tb - ta;
         return (a.nome || '').localeCompare(b.nome || '');
       });
-  }, [listaMembrosChat, todasMensagens, emailUsuario, meuId, buscaChat]);
+  }, [listaMembrosChat, todasMensagens, emailUsuario, buscaChat, outroDaMensagem]);
 
   // Rolagem automática para a última mensagem
   // (scrollIntoView movia a página inteira no celular e causava o "tremor"; aqui só rola a lista)
@@ -461,8 +488,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
     const chave = email?.trim().toLowerCase() || '';
     if (chave === emailUsuario) return membroPerfil?.nome || loggedUser?.nome_usuario || 'Você';
     if (nomePorEmail[chave]) return nomePorEmail[chave];
-    const prefixo = chave.split('@')[0].replace(/[._-]+/g, ' ');
-    return prefixo ? prefixo.replace(/\b\w/g, (c) => c.toUpperCase()) : 'Membro';
+    return nomeDoEmail(chave);
   };
 
   const abrirConversa = (membro: any | null) => {
@@ -484,7 +510,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
         time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
         is_broadcast: !membroSelecionadoChat,
       };
-      if (membroSelecionadoChat) payload.recipient_id = membroSelecionadoChat.id;
+      if (membroSelecionadoChat) payload.recipient_id = membroSelecionadoChat.email;
 
       const { error } = await supabase.from('chat_mensagens').insert([payload]);
       if (error) throw error;
@@ -948,16 +974,22 @@ export default function AppMobileModule({ loggedUser }: Props) {
               </div>
             </button>
 
+            {avisoMembros && (
+              <div className="m-2 p-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[10px] leading-snug">
+                <strong>Nomes indisponíveis.</strong> {avisoMembros}
+              </div>
+            )}
+
             {membrosOrdenados.length === 0 ? (
               <p className="text-[11px] text-slate-400 text-center py-6 px-3">Nenhum membro encontrado.</p>
             ) : (
               membrosOrdenados.map((m) => (
                 <button
-                  key={m.id}
+                  key={m.email}
                   type="button"
                   onClick={() => abrirConversa(m)}
                   className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 border-b border-slate-100 cursor-pointer transition ${
-                    membroSelecionadoChat?.id === m.id ? 'bg-emerald-50' : 'hover:bg-slate-50'
+                    membroSelecionadoChat?.email === m.email ? 'bg-emerald-50' : 'hover:bg-slate-50'
                   }`}
                 >
                   <div className="w-10 h-10 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 overflow-hidden">
@@ -1050,7 +1082,7 @@ export default function AppMobileModule({ loggedUser }: Props) {
                           <p className="text-[10px] font-bold text-emerald-800 mb-0.5 truncate">{nomeRemetente}</p>
                         )}
                         <p className="text-[13px] leading-snug text-slate-900 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-                          {m.text}
+                          {limparTexto(m.text)}
                         </p>
                         <div className="flex items-center justify-end gap-1 mt-0.5 text-[10px] text-slate-500 select-none">
                           <span>{horaMsg(m)}</span>

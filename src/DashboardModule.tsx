@@ -135,14 +135,21 @@ const moedaCurta = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { notation: 
 
 interface LancamentoResumo {
   data_lancamento: string;
-  tipo: 'receita' | 'despesa';
+  tipo: 'receita' | 'despesa' | 'saldo'; // saldo = saldo inicial / ajuste (valor pode ser negativo)
   valor: number;
   conta_corrente_id: string | null;
+}
+
+interface TransferenciaResumo {
+  conta_origem_id: string;
+  conta_destino_id: string;
+  valor: number;
 }
 
 function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
   const [lancs, setLancs] = useState<LancamentoResumo[]>([]);
   const [contas, setContas] = useState<{ id: string; nome: string }[]>([]);
+  const [transfs, setTransfs] = useState<TransferenciaResumo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [conta, setConta] = useState(''); // '' = todas
@@ -182,7 +189,13 @@ function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
           .from('contas_financeiras')
           .select('id, codigo_conta, nome_conta')
           .eq('codigo_igreja', codigoIgreja);
+        // Transferências entre contas: mudam o saldo de cada conta (se a tabela não existir, segue sem elas)
+        const { data: dadosTransf } = await supabase
+          .from('transferencias_financeiras')
+          .select('conta_origem_id, conta_destino_id, valor')
+          .eq('codigo_igreja', codigoIgreja);
         if (!ativo) return;
+        setTransfs((dadosTransf as TransferenciaResumo[]) || []);
         setLancs(todos);
         setContas((dadosContas || []).map((c: any) => ({ id: c.id, nome: `${c.codigo_conta} (${c.nome_conta})` })));
       } catch (e: any) {
@@ -202,7 +215,18 @@ function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
 
   const f = useMemo(() => {
     const daConta = (l: LancamentoResumo) => !conta || (l.conta_corrente_id || '') === conta;
-    const sinal = (l: LancamentoResumo) => (l.tipo === 'receita' ? 1 : -1) * Number(l.valor || 0);
+    // Quanto cada lançamento muda o saldo: entrada soma, saída tira, saldo/ajuste usa o próprio sinal
+    const sinal = (l: LancamentoResumo) => {
+      const val = Number(l.valor || 0);
+      if (l.tipo === 'saldo') return val;
+      return l.tipo === 'receita' ? Math.abs(val) : -Math.abs(val);
+    };
+    // Efeito das transferências no saldo de uma conta
+    const transfDaConta = (id: string) =>
+      transfs.reduce(
+        (acc, t) => acc + (t.conta_destino_id === id ? Number(t.valor || 0) : 0) - (t.conta_origem_id === id ? Number(t.valor || 0) : 0),
+        0
+      );
 
     const meses: { chave: string; rotulo: string; entradas: number; saidas: number }[] = [];
     for (let i = 11; i >= 0; i--) {
@@ -212,12 +236,13 @@ function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
     lancs.filter(daConta).forEach((l) => {
       const m = meses.find((x) => x.chave === (l.data_lancamento || '').slice(0, 7));
       if (!m) return;
+      // Lançamento de saldo não é entrada nem saída do mês
       if (l.tipo === 'receita') m.entradas += Number(l.valor || 0);
-      else m.saidas += Number(l.valor || 0);
+      else if (l.tipo === 'despesa') m.saidas += Number(l.valor || 0);
     });
 
     const ultimo = meses[11];
-    const saldoAtual = lancs.filter(daConta).reduce((acc, l) => acc + sinal(l), 0);
+    const saldoAtual = lancs.filter(daConta).reduce((acc, l) => acc + sinal(l), 0) + (conta ? transfDaConta(conta) : 0);
 
     // Por conta: mês atual + saldo de sempre
     const ids = Array.from(new Set([...contas.map((c) => c.id), ...lancs.map((l) => l.conta_corrente_id || '')]));
@@ -229,15 +254,15 @@ function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
           id,
           nome: id ? contas.find((c) => c.id === id)?.nome || 'Conta removida' : 'Sem conta informada',
           entradas: doMes.filter((l) => l.tipo === 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0),
-          saidas: doMes.filter((l) => l.tipo !== 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0),
-          saldo: daquela.reduce((acc, l) => acc + sinal(l), 0),
-          usada: daquela.length > 0,
+          saidas: doMes.filter((l) => l.tipo === 'despesa').reduce((acc, l) => acc + Number(l.valor || 0), 0),
+          saldo: daquela.reduce((acc, l) => acc + sinal(l), 0) + (id ? transfDaConta(id) : 0),
+          usada: daquela.length > 0 || transfs.some((t) => t.conta_origem_id === id || t.conta_destino_id === id),
         };
       })
       .filter((c) => c.usada || contas.some((x) => x.id === c.id));
 
     return { meses, ultimo, saldoAtual, porConta };
-  }, [lancs, contas, conta]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [lancs, contas, conta, transfs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const v = (n: number) => (oculto ? 'R$ •••' : moeda(n));
   const resultadoMes = f.ultimo.entradas - f.ultimo.saidas;
@@ -296,7 +321,7 @@ function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
               {c.cor && <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: c.cor }} aria-hidden="true" />}
               {c.rotulo}
             </p>
-            <p className="mt-1 text-xl sm:text-2xl font-black text-slate-900 tabular-nums">
+            <p className={`mt-1 text-xl sm:text-2xl font-black tabular-nums ${!c.cor && c.valor < 0 && !oculto ? 'text-rose-700' : 'text-slate-900'}`}>
               {carregando ? '…' : (!c.cor && c.valor < 0 && !oculto ? '−' : '') + v(Math.abs(c.valor))}
             </p>
           </div>

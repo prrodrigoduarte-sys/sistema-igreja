@@ -126,8 +126,269 @@ function ColunasMensais({ meses }: { meses: { rotulo: string; membros: number; v
   );
 }
 
+
+// ── FINANCEIRO (só para administrador) ──
+const COR_ENTRADA = '#2a78d6'; // azul
+const COR_SAIDA = '#eb6834'; // laranja
+const moeda = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const moedaCurta = (v: number) => 'R$ ' + v.toLocaleString('pt-BR', { notation: 'compact', maximumFractionDigits: 1 });
+
+interface LancamentoResumo {
+  data_lancamento: string;
+  tipo: 'receita' | 'despesa';
+  valor: number;
+  conta_corrente_id: string | null;
+}
+
+function ResumoFinanceiro({ codigoIgreja }: { codigoIgreja: string }) {
+  const [lancs, setLancs] = useState<LancamentoResumo[]>([]);
+  const [contas, setContas] = useState<{ id: string; nome: string }[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [erro, setErro] = useState('');
+  const [conta, setConta] = useState(''); // '' = todas
+  const [oculto, setOculto] = useState(() => {
+    try {
+      return localStorage.getItem('dash_fin_oculto') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('dash_fin_oculto', oculto ? '1' : '0');
+    } catch {}
+  }, [oculto]);
+
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      setCarregando(true);
+      setErro('');
+      try {
+        const todos: LancamentoResumo[] = [];
+        for (let inicio = 0; ; inicio += POR_PAGINA) {
+          const { data, error } = await supabase
+            .from('lancamentos_financeiros')
+            .select('data_lancamento, tipo, valor, conta_corrente_id')
+            .eq('codigo_igreja', codigoIgreja)
+            .order('data_lancamento', { ascending: true })
+            .range(inicio, inicio + POR_PAGINA - 1);
+          if (error) throw error;
+          todos.push(...((data as LancamentoResumo[]) || []));
+          if (!data || data.length < POR_PAGINA) break;
+        }
+        const { data: dadosContas } = await supabase
+          .from('contas_financeiras')
+          .select('id, codigo_conta, nome_conta')
+          .eq('codigo_igreja', codigoIgreja);
+        if (!ativo) return;
+        setLancs(todos);
+        setContas((dadosContas || []).map((c: any) => ({ id: c.id, nome: `${c.codigo_conta} (${c.nome_conta})` })));
+      } catch (e: any) {
+        if (ativo) setErro('Não foi possível carregar o financeiro: ' + (e?.message || e));
+      } finally {
+        if (ativo) setCarregando(false);
+      }
+    })();
+    return () => {
+      ativo = false;
+    };
+  }, [codigoIgreja]);
+
+  const hoje = new Date();
+  const chave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const mesAtual = chave(hoje);
+
+  const f = useMemo(() => {
+    const daConta = (l: LancamentoResumo) => !conta || (l.conta_corrente_id || '') === conta;
+    const sinal = (l: LancamentoResumo) => (l.tipo === 'receita' ? 1 : -1) * Number(l.valor || 0);
+
+    const meses: { chave: string; rotulo: string; entradas: number; saidas: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(hoje.getFullYear(), hoje.getMonth() - i, 1);
+      meses.push({ chave: chave(d), rotulo: MESES[d.getMonth()], entradas: 0, saidas: 0 });
+    }
+    lancs.filter(daConta).forEach((l) => {
+      const m = meses.find((x) => x.chave === (l.data_lancamento || '').slice(0, 7));
+      if (!m) return;
+      if (l.tipo === 'receita') m.entradas += Number(l.valor || 0);
+      else m.saidas += Number(l.valor || 0);
+    });
+
+    const ultimo = meses[11];
+    const saldoAtual = lancs.filter(daConta).reduce((acc, l) => acc + sinal(l), 0);
+
+    // Por conta: mês atual + saldo de sempre
+    const ids = Array.from(new Set([...contas.map((c) => c.id), ...lancs.map((l) => l.conta_corrente_id || '')]));
+    const porConta = ids
+      .map((id) => {
+        const daquela = lancs.filter((l) => (l.conta_corrente_id || '') === id);
+        const doMes = daquela.filter((l) => (l.data_lancamento || '').slice(0, 7) === mesAtual);
+        return {
+          id,
+          nome: id ? contas.find((c) => c.id === id)?.nome || 'Conta removida' : 'Sem conta informada',
+          entradas: doMes.filter((l) => l.tipo === 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0),
+          saidas: doMes.filter((l) => l.tipo !== 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0),
+          saldo: daquela.reduce((acc, l) => acc + sinal(l), 0),
+          usada: daquela.length > 0,
+        };
+      })
+      .filter((c) => c.usada || contas.some((x) => x.id === c.id));
+
+    return { meses, ultimo, saldoAtual, porConta };
+  }, [lancs, contas, conta]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const v = (n: number) => (oculto ? 'R$ •••' : moeda(n));
+  const resultadoMes = f.ultimo.entradas - f.ultimo.saidas;
+  // Escala com números redondos (ex.: 0, 2 mil, 4 mil, 6 mil, 8 mil, 10 mil)
+  const maiorValor = Math.max(1, ...f.meses.map((m) => Math.max(m.entradas, m.saidas)));
+  const bruto = maiorValor / 4;
+  const potencia = Math.pow(10, Math.floor(Math.log10(bruto)));
+  const passo = ([1, 2, 2.5, 5, 10].find((x) => x * potencia >= bruto) || 10) * potencia;
+  const maximo = Math.ceil(maiorValor / passo) * passo;
+  const linhas = Array.from({ length: Math.round(maximo / passo) + 1 }, (_, i) => i * passo);
+  const nomeMes = hoje.toLocaleDateString('pt-BR', { month: 'long' });
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-5">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="font-black text-slate-800">💰 Financeiro</h3>
+          <p className="text-xs text-slate-500">Visível só para administradores · {conta ? contas.find((c) => c.id === conta)?.nome : 'todas as contas'}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <select
+            value={conta}
+            onChange={(e) => setConta(e.target.value)}
+            className="border border-slate-300 rounded-xl px-3 py-2 text-xs bg-white font-medium"
+            aria-label="Conta"
+          >
+            <option value="">Todas as contas</option>
+            {contas.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nome}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setOculto(!oculto)}
+            className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-bold text-slate-700 cursor-pointer whitespace-nowrap"
+          >
+            {oculto ? '👁 Mostrar valores' : '🙈 Ocultar valores'}
+          </button>
+        </div>
+      </div>
+
+      {erro && <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-3">{erro}</p>}
+
+      {/* NÚMEROS DO MÊS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { rotulo: `Entradas em ${nomeMes}`, valor: f.ultimo.entradas, cor: COR_ENTRADA },
+          { rotulo: `Saídas em ${nomeMes}`, valor: f.ultimo.saidas, cor: COR_SAIDA },
+          { rotulo: `Resultado de ${nomeMes}`, valor: resultadoMes, cor: '' },
+          { rotulo: 'Saldo atual', valor: f.saldoAtual, cor: '' },
+        ].map((c) => (
+          <div key={c.rotulo} className="rounded-xl bg-slate-50 border border-slate-100 p-3.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 first-letter:uppercase">
+              {c.cor && <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: c.cor }} aria-hidden="true" />}
+              {c.rotulo}
+            </p>
+            <p className="mt-1 text-xl sm:text-2xl font-black text-slate-900 tabular-nums">
+              {carregando ? '…' : (!c.cor && c.valor < 0 && !oculto ? '−' : '') + v(Math.abs(c.valor))}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* ENTRADAS × SAÍDAS MÊS A MÊS */}
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+          <p className="text-sm font-black text-slate-800">Entradas e saídas mês a mês</p>
+          <div className="flex items-center gap-4 text-[11px] text-slate-600">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm" style={{ background: COR_ENTRADA }} aria-hidden="true" />
+              Entradas
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-sm" style={{ background: COR_SAIDA }} aria-hidden="true" />
+              Saídas
+            </span>
+          </div>
+        </div>
+        {carregando ? (
+          <p className="text-xs text-slate-400">Carregando...</p>
+        ) : (
+          <div className="relative h-52 pl-14 pb-6">
+            {linhas.map((val) => (
+              <div key={val} className="absolute left-14 right-0 border-t border-slate-100" style={{ bottom: `calc(${(val / maximo) * 100}% * (1 - 24 / 208) + 24px)` }}>
+                <span className="absolute -left-14 -translate-y-1/2 w-[3.25rem] whitespace-nowrap text-right text-[10px] text-slate-400 tabular-nums">{oculto ? '' : moedaCurta(val)}</span>
+              </div>
+            ))}
+            <div className="absolute left-14 right-0 top-0 bottom-6 flex items-end gap-1">
+              {f.meses.map((m) => (
+                <div key={m.chave} tabIndex={0} className="group relative flex h-full flex-1 items-end justify-center gap-[2px] outline-none">
+                  <span className="block w-full max-w-[16px] rounded-t" style={{ height: `${(m.entradas / maximo) * 100}%`, background: COR_ENTRADA, minHeight: m.entradas ? 3 : 0 }} />
+                  <span className="block w-full max-w-[16px] rounded-t" style={{ height: `${(m.saidas / maximo) * 100}%`, background: COR_SAIDA, minHeight: m.saidas ? 3 : 0 }} />
+                  <span className="absolute -bottom-5 text-[10px] text-slate-500">{m.rotulo}</span>
+                  <span className="pointer-events-none absolute bottom-full mb-1 hidden whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1.5 text-[10px] leading-relaxed text-white shadow-lg group-hover:block group-focus:block z-10">
+                    <strong className="capitalize">{m.rotulo}</strong>
+                    <br />
+                    Entradas: {v(m.entradas)}
+                    <br />
+                    Saídas: {v(m.saidas)}
+                    <br />
+                    Resultado: {(m.entradas - m.saidas < 0 && !oculto ? '−' : '') + v(Math.abs(m.entradas - m.saidas))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* POR CONTA */}
+      <div className="overflow-x-auto">
+        <p className="text-sm font-black text-slate-800 mb-2">Por conta</p>
+        <table className="w-full text-left text-xs min-w-[480px]">
+          <thead>
+            <tr className="border-b bg-slate-50 text-slate-600 uppercase font-bold">
+              <th className="p-2.5">Conta</th>
+              <th className="p-2.5 text-right">Entradas ({nomeMes})</th>
+              <th className="p-2.5 text-right">Saídas ({nomeMes})</th>
+              <th className="p-2.5 text-right">Saldo atual</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {f.porConta.map((c) => (
+              <tr key={c.id || 'sem-conta'} className={conta && conta !== c.id ? 'opacity-40' : ''}>
+                <td className="p-2.5 font-semibold text-slate-800">{c.nome}</td>
+                <td className="p-2.5 text-right tabular-nums text-slate-700">{v(c.entradas)}</td>
+                <td className="p-2.5 text-right tabular-nums text-slate-700">{v(c.saidas)}</td>
+                <td className={`p-2.5 text-right tabular-nums font-black ${c.saldo < 0 ? 'text-rose-700' : 'text-slate-900'}`}>
+                  {(c.saldo < 0 && !oculto ? '−' : '') + v(Math.abs(c.saldo))}
+                </td>
+              </tr>
+            ))}
+            {!carregando && f.porConta.length === 0 && (
+              <tr>
+                <td colSpan={4} className="p-4 text-center text-slate-400">
+                  Nenhuma conta cadastrada.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardHome({ loggedUser }: Props) {
   const codigoIgreja = loggedUser?.codigo_igreja || loggedUser?.igrejas?.codigo_igreja || 'IGR-001';
+  const ehAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
 
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [nomeIgreja, setNomeIgreja] = useState('');
@@ -379,6 +640,9 @@ export default function DashboardHome({ loggedUser }: Props) {
           </button>
         ))}
       </div>
+
+      {/* FINANCEIRO: só administrador (para os demais nem busca os valores) */}
+      {ehAdmin && <ResumoFinanceiro codigoIgreja={codigoIgreja} />}
 
       {/* GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

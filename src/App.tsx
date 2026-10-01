@@ -69,6 +69,11 @@ export default function App() {
 
   const [qrCodeUrlDinamico, setQrCodeUrlDinamico] = useState('');
   const [gerandoQr, setGerandoQr] = useState(false);
+  // Link de cadastro: o mesmo do QR Code, para copiar ou mandar pelo WhatsApp
+  const [linkCadastro, setLinkCadastro] = useState('');
+  const [validadeHoras, setValidadeHoras] = useState(24);
+  const [linkExpiraEm, setLinkExpiraEm] = useState('');
+  const [linkCopiado, setLinkCopiado] = useState(false);
 
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
   // Devocional: administrador e pastor (a mesma regra do aplicativo)
@@ -136,7 +141,7 @@ export default function App() {
     setGerandoQr(true);
     try {
       const tokenUnico = Math.random().toString(36).substring(2) + Date.now().toString(36);
-      const dataExpiracao = new Date(new Date().getTime() + 6 * 60 * 60 * 1000).toISOString();
+      const dataExpiracao = new Date(new Date().getTime() + validadeHoras * 60 * 60 * 1000).toISOString();
 
       const { error } = await supabase.from('tokens_cadastro_temporario').insert([
         {
@@ -152,9 +157,12 @@ export default function App() {
       const novaUrlQr = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(linkCompleto)}`;
 
       setQrCodeUrlDinamico(novaUrlQr);
+      setLinkCadastro(linkCompleto);
+      setLinkExpiraEm(dataExpiracao);
+      setLinkCopiado(false);
     } catch (err: any) {
       console.error('Erro ao gerar QR Code:', err);
-      alert('Erro ao gerar QR Code temporário.');
+      alert('Erro ao gerar o link de cadastro.');
     } finally {
       setGerandoQr(false);
     }
@@ -164,6 +172,7 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setQrCodeUrlDinamico('');
+        setLinkCadastro('');
         setIsMobileModalOpen(false);
         setIsConfigModalOpen(false);
       }
@@ -1183,40 +1192,111 @@ export default function App() {
 
             <div className="space-y-3 border-t pt-4">
               <h4 className="text-sm font-bold text-blue-900">
-                📱 Gerar QR Code para Membros
+                🔗 Link e QR Code de Cadastro de Membros
               </h4>
               <p className="text-xs leading-relaxed text-slate-600">
-                Gere um QR Code temporário para cadastro rápido pelo telemóvel.
+                Gere um link temporário: mande pelo WhatsApp ou mostre o QR Code para a pessoa preencher o próprio cadastro pelo celular.
               </p>
 
-              {isAdmin && (
+              {isAdmin ? (
                 <div className="space-y-3">
-                  <button
-                    type="button"
-                    onClick={gerarNovoQrCodeTemporario}
-                    disabled={gerandoQr}
-                    className="w-full rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50 cursor-pointer"
-                  >
-                    {gerandoQr ? 'Gerando QR Code...' : '⚡ Gerar QR Code na Tela'}
-                  </button>
+                  <div className="flex gap-2">
+                    <select
+                      value={validadeHoras}
+                      onChange={(e) => setValidadeHoras(Number(e.target.value))}
+                      className="rounded-xl border bg-white px-3 py-3 text-xs font-bold text-slate-700"
+                      aria-label="Validade do link"
+                    >
+                      <option value={6}>Vale 6 horas</option>
+                      <option value={24}>Vale 24 horas</option>
+                      <option value={72}>Vale 3 dias</option>
+                      <option value={168}>Vale 7 dias</option>
+                      <option value={720}>Vale 30 dias</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={gerarNovoQrCodeTemporario}
+                      disabled={gerandoQr}
+                      className="flex-1 rounded-xl bg-indigo-900 px-4 py-3 text-xs font-bold text-white transition hover:bg-indigo-800 disabled:opacity-50 cursor-pointer"
+                    >
+                      {gerandoQr ? 'Gerando...' : linkCadastro ? '🔄 Gerar novo link' : '⚡ Gerar link de cadastro'}
+                    </button>
+                  </div>
 
-                  {qrCodeUrlDinamico && (
-                    <div className="space-y-3 rounded-2xl border bg-slate-50 p-4 text-center">
-                      <img
-                        src={qrCodeUrlDinamico}
-                        alt="QR Code temporário para cadastro"
-                        className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
-                      />
+                  {linkCadastro && (
+                    <div className="space-y-3 rounded-2xl border bg-slate-50 p-4">
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-500 uppercase mb-1">Link de cadastro</p>
+                        <div className="flex gap-2">
+                          <input
+                            readOnly
+                            value={linkCadastro}
+                            onFocus={(e) => e.target.select()}
+                            className="min-w-0 flex-1 rounded-xl border bg-white px-3 py-2 text-xs text-slate-700"
+                          />
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(linkCadastro);
+                                setLinkCopiado(true);
+                                setTimeout(() => setLinkCopiado(false), 2500);
+                              } catch {
+                                alert('Não foi possível copiar. Selecione o link e copie manualmente.');
+                              }
+                            }}
+                            className={`shrink-0 rounded-xl px-3 py-2 text-xs font-bold cursor-pointer transition ${
+                              linkCopiado ? 'bg-emerald-600 text-white' : 'bg-blue-900 text-white hover:bg-blue-800'
+                            }`}
+                          >
+                            {linkCopiado ? '✓ Copiado' : '📋 Copiar'}
+                          </button>
+                        </div>
+                        {linkExpiraEm && (
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            Vale até {new Date(linkExpiraEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.
+                          </p>
+                        )}
+                      </div>
+
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          `Olá! Faça seu cadastro na nossa igreja pelo link abaixo (leva 2 minutos):\n${linkCadastro}`
+                        )}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-emerald-700"
+                      >
+                        💬 Enviar pelo WhatsApp
+                      </a>
+
+                      {qrCodeUrlDinamico && (
+                        <div className="text-center space-y-2 border-t pt-3">
+                          <img
+                            src={qrCodeUrlDinamico}
+                            alt="QR Code do link de cadastro"
+                            className="mx-auto h-48 w-48 rounded-xl border bg-white object-contain p-2 shadow-sm"
+                          />
+                          <p className="text-[11px] text-slate-500">Ou peça para a pessoa apontar a câmera do celular para o QR Code.</p>
+                        </div>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => setQrCodeUrlDinamico('')}
-                        className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+                        onClick={() => {
+                          setQrCodeUrlDinamico('');
+                          setLinkCadastro('');
+                          setLinkExpiraEm('');
+                        }}
+                        className="w-full rounded-lg bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700 transition hover:bg-rose-100 cursor-pointer"
                       >
-                        ✕ Fechar QR Code
+                        ✕ Fechar
                       </button>
                     </div>
                   )}
                 </div>
+              ) : (
+                <p className="text-xs text-slate-500">Apenas administradores podem gerar o link de cadastro.</p>
               )}
             </div>
           </div>

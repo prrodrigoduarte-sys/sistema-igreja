@@ -7,6 +7,7 @@ interface Membro {
   id: any;
   nome: string;
   tipo?: string;
+  celula_id?: any; // célula em que participa
 }
 
 interface Rede {
@@ -162,6 +163,170 @@ function SeletorMembro({
   );
 }
 
+
+// ── Participantes de uma célula ──
+// Regras: Líder, Vice e Anfitrião não entram como participantes; cada membro participa de uma célula só.
+function ParticipantesCelula({
+  celula,
+  celulas,
+  membros,
+  temCampoCelula,
+  onFechar,
+  onMudou,
+}: {
+  celula: Celula;
+  celulas: Celula[];
+  membros: Membro[];
+  temCampoCelula: boolean;
+  onFechar: () => void;
+  onMudou: (membroId: any, celulaId: any) => void;
+}) {
+  const [busca, setBusca] = useState('');
+  const [salvandoId, setSalvandoId] = useState<any>(null);
+
+  const lideranca: [string, any][] = [
+    ['👑 Líder', celula.lider_id],
+    ['🤝 Vice-Líder', celula.vice_id],
+    ['🏠 Anfitrião', celula.anfitriao_id],
+  ];
+  const papelNaCelula = (id: any) => lideranca.find(([, lid]) => lid && String(lid) === String(id))?.[0];
+  const nomeDe = (id: any) => nomeBonito(membros.find((m) => String(m.id) === String(id))?.nome);
+  const nomeCelula = (id: any) => celulas.find((c) => String(c.id) === String(id))?.nome || 'outra célula';
+
+  const participantes = membros.filter((m) => m.celula_id != null && String(m.celula_id) === String(celula.id));
+  const termo = semAcento(busca.trim());
+  const candidatos = termo
+    ? membros.filter((m) => semAcento(m.nome).includes(termo) && String(m.celula_id ?? '') !== String(celula.id)).slice(0, 40)
+    : [];
+
+  const alterar = async (m: Membro, novaCelula: any) => {
+    setSalvandoId(m.id);
+    const { error } = await supabase.from('members').update({ celula_id: novaCelula }).eq('id', m.id);
+    setSalvandoId(null);
+    if (error) return alert('Não foi possível salvar: ' + error.message);
+    onMudou(m.id, novaCelula);
+  };
+
+  const incluir = (m: Membro) => {
+    const papel = papelNaCelula(m.id);
+    if (papel) return alert(`${nomeBonito(m.nome)} já é ${papel.replace(/^\S+\s/, '')} desta célula e não pode ser incluído como participante.`);
+    if (m.celula_id != null && String(m.celula_id) !== String(celula.id)) {
+      if (!window.confirm(`${nomeBonito(m.nome)} participa da célula "${nomeCelula(m.celula_id)}". Mover para "${celula.nome}"?`)) return;
+    }
+    setBusca('');
+    alterar(m, celula.id);
+  };
+
+  const remover = (m: Membro) => {
+    if (!window.confirm(`Remover ${nomeBonito(m.nome)} da célula "${celula.nome}"?`)) return;
+    alterar(m, null);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4" onClick={onFechar}>
+      <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 space-y-4 max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-start gap-3 border-b pb-3 shrink-0">
+          <div>
+            <h3 className="text-xl font-black text-blue-900">👥 {celula.nome}</h3>
+            <p className="text-xs text-slate-500">
+              {participantes.length} participante(s) + liderança
+              {celula.dia_semana ? ` · ${celula.dia_semana}${celula.horario ? ` às ${celula.horario}` : ''}` : ''}
+            </p>
+          </div>
+          <button type="button" onClick={onFechar} className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl cursor-pointer">
+            ✕ Fechar
+          </button>
+        </div>
+
+        {!temCampoCelula ? (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-sm leading-relaxed">
+            Para guardar os participantes, o cadastro de membros precisa do campo <strong>celula_id</strong>. Rode o arquivo <strong>membros_celula.sql</strong> no
+            SQL Editor do Supabase e abra esta tela de novo.
+          </div>
+        ) : (
+          <>
+            {/* LIDERANÇA */}
+            <div className="grid grid-cols-3 gap-2 shrink-0">
+              {lideranca.map(([papel, id]) => (
+                <div key={papel} className="rounded-xl bg-blue-50 border border-blue-100 p-2.5">
+                  <p className="text-[10px] font-bold text-blue-700">{papel}</p>
+                  <p className="text-xs font-bold text-slate-800 truncate">{id ? nomeDe(id) || '—' : <span className="text-slate-400">Não definido</span>}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* INCLUIR */}
+            <div className="relative shrink-0">
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="🔎 Digite o nome para incluir um participante..."
+                className="w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600"
+                autoFocus
+              />
+              {termo && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-10 max-h-60 overflow-y-auto">
+                  {candidatos.length === 0 ? (
+                    <div className="p-3 text-xs text-slate-500 text-center">Nenhum membro com “{busca}” fora desta célula.</div>
+                  ) : (
+                    candidatos.map((m) => {
+                      const papel = papelNaCelula(m.id);
+                      const outra = m.celula_id != null ? nomeCelula(m.celula_id) : '';
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => incluir(m)}
+                          disabled={!!papel || salvandoId === m.id}
+                          className="w-full text-left px-4 py-2 text-xs border-b border-slate-100 last:border-b-0 flex items-center justify-between gap-2 hover:bg-blue-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-white"
+                        >
+                          <span className="font-medium truncate">{nomeBonito(m.nome)}</span>
+                          <span className="shrink-0 text-[10px] text-slate-500">
+                            {papel ? `${papel} desta célula` : outra ? `na célula ${outra}` : m.tipo !== 'Membro' ? m.tipo : '+ incluir'}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* LISTA */}
+            <div className="overflow-y-auto flex-1 -mx-1 px-1">
+              {participantes.length === 0 ? (
+                <p className="p-6 text-center text-xs text-slate-400 border border-dashed rounded-xl">Nenhum participante ainda. Use a busca acima para incluir.</p>
+              ) : (
+                <ul className="divide-y border rounded-xl">
+                  {participantes.map((m) => (
+                    <li key={m.id} className="flex items-center gap-3 px-3 py-2">
+                      <span className="w-8 h-8 rounded-full bg-slate-200 text-slate-600 text-xs font-black flex items-center justify-center shrink-0">
+                        {nomeBonito(m.nome).charAt(0)}
+                      </span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-slate-800 truncate">{nomeBonito(m.nome)}</span>
+                        {m.tipo && m.tipo !== 'Membro' && <span className="block text-[10px] text-slate-500">{m.tipo}</span>}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => remover(m)}
+                        disabled={salvandoId === m.id}
+                        className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] font-bold cursor-pointer disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }: CelulasModuleProps) {
   const [subAba, setSubAba] = useState<Aba>(subAbaInicial);
   const [membros, setMembros] = useState<Membro[]>([]);
@@ -172,6 +337,8 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const [salvando, setSalvando] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [temCampoCelula, setTemCampoCelula] = useState(true);
+  const [celulaParticipantes, setCelulaParticipantes] = useState<Celula | null>(null);
 
   // Filtros da lista
   const [filtroRede, setFiltroRede] = useState('');
@@ -212,21 +379,35 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const carregarDados = useCallback(async () => {
     setLoading(true);
 
-    // Membros desta igreja (tabela "members", coluna "nome"), de 1000 em 1000
-    try {
+    // Membros desta igreja (tabela "members", coluna "nome"), de 1000 em 1000.
+    // Tenta trazer também a célula de cada um (celula_id); se o campo ainda não existir no banco, segue sem ele.
+    const lerMembros = async (comCelula: boolean) => {
       const todos: Membro[] = [];
       for (let inicio = 0; ; inicio += POR_PAGINA) {
         const { data, error } = await supabase
           .from('members')
-          .select('id, nome, tipo_cadastro')
+          .select(comCelula ? 'id, nome, tipo_cadastro, celula_id' : 'id, nome, tipo_cadastro')
           .eq('codigo_igreja', codigoIgreja)
           .order('nome', { ascending: true })
           .range(inicio, inicio + POR_PAGINA - 1);
         if (error) throw error;
-        todos.push(...(data || []).filter((m: any) => m.nome).map((m: any) => ({ id: m.id, nome: m.nome, tipo: m.tipo_cadastro || 'Membro' })));
+        todos.push(
+          ...(data || [])
+            .filter((m: any) => m.nome)
+            .map((m: any) => ({ id: m.id, nome: m.nome, tipo: m.tipo_cadastro || 'Membro', celula_id: comCelula ? m.celula_id : undefined }))
+        );
         if (!data || data.length < POR_PAGINA) break;
       }
-      setMembros(todos);
+      return todos;
+    };
+    try {
+      try {
+        setMembros(await lerMembros(true));
+        setTemCampoCelula(true);
+      } catch {
+        setMembros(await lerMembros(false));
+        setTemCampoCelula(false);
+      }
     } catch (e) {
       console.warn('Erro ao carregar membros:', e);
     }
@@ -260,6 +441,7 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
   const setorPorId = (id?: string | null) => setores.find((s) => String(s.id) === String(id));
   const setoresDaRede = (redeId: string) => setores.filter((s) => String(s.rede_id || '') === String(redeId));
   const celulasDoSetor = (setorId?: string) => celulas.filter((c) => String(c.setor_id || '') === String(setorId));
+  const participantesDa = (celulaId?: any) => membros.filter((m) => m.celula_id != null && String(m.celula_id) === String(celulaId));
 
   const limparFormularios = () => {
     setEditingId(null);
@@ -336,6 +518,19 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     if (!nomeCelula.trim()) return alert('Informe o nome da Célula');
     if (!setorCelulaId) return alert('Escolha o Setor a que esta Célula pertence.');
     if (liderCelulaId && viceCelulaId && String(liderCelulaId) === String(viceCelulaId)) return alert('O Líder e o Vice-Líder precisam ser pessoas diferentes.');
+    if (editingId) {
+      const participantes = participantesDa(editingId);
+      const conflito = [
+        ['Líder', liderCelulaId],
+        ['Vice-Líder', viceCelulaId],
+        ['Anfitrião', anfitriaoCelulaId],
+      ].find(([, id]) => id && participantes.some((p) => String(p.id) === String(id)));
+      if (conflito) {
+        return alert(
+          `${getNomeMembro(conflito[1])} está na lista de participantes desta célula e não pode ser também ${conflito[0]}. Remova-o dos participantes antes.`
+        );
+      }
+    }
 
     const endFormatado = [rua, numero, bairro, cidade].map((x) => x.trim()).filter(Boolean).join(', ');
     const payload = {
@@ -384,7 +579,9 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
     if (tabela === 'setores' && celulasDoSetor(id).length) {
       return alert(`O Setor "${nome}" tem ${celulasDoSetor(id).length} célula(s). Mude essas células de Setor ou exclua-as antes.`);
     }
-    if (!window.confirm(`Excluir "${nome}"?`)) return;
+    const qtdPart = tabela === 'celulas' ? participantesDa(id).length : 0;
+    if (!window.confirm(`Excluir "${nome}"?${qtdPart ? `\n\nOs ${qtdPart} participante(s) continuam cadastrados, só ficam sem célula.` : ''}`)) return;
+    if (qtdPart) await supabase.from('members').update({ celula_id: null }).eq('celula_id', id);
     const { error } = await supabase.from(tabela).delete().eq('id', id);
     if (error) return alert('Não foi possível excluir: ' + error.message);
     carregarDados();
@@ -523,6 +720,14 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
                     <p className="text-xs text-slate-600">🤝 <strong>Vice:</strong> {getNomeMembro(c.vice_id) || 'Não atribuído'}</p>
                     <p className="text-xs text-slate-600">🏠 <strong>Anfitrião:</strong> {getNomeMembro(c.anfitriao_id) || 'Não atribuído'}</p>
                     <p className="text-xs text-slate-600">📅 {c.dia_semana || 'Não informado'} às {c.horario || '19:30'}</p>
+                    <button
+                      type="button"
+                      onClick={() => setCelulaParticipantes(c)}
+                      className="w-full mt-1 flex items-center justify-between rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-100 px-3 py-2 text-xs font-bold text-blue-900 cursor-pointer"
+                    >
+                      <span>👥 Participantes</span>
+                      <span className="rounded-full bg-blue-900 text-white px-2 py-0.5 text-[11px]">{participantesDa(c.id).length}</span>
+                    </button>
                     {c.endereco && (
                       <a
                         href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(c.endereco)}`}
@@ -663,6 +868,18 @@ export default function CelulasModule({ loggedUser, subAbaInicial = 'celulas' }:
             })
           )}
         </div>
+      )}
+
+      {/* PARTICIPANTES DA CÉLULA */}
+      {celulaParticipantes && (
+        <ParticipantesCelula
+          celula={celulaParticipantes}
+          celulas={celulas}
+          membros={membros}
+          temCampoCelula={temCampoCelula}
+          onFechar={() => setCelulaParticipantes(null)}
+          onMudou={(id, celulaId) => setMembros((prev) => prev.map((m) => (String(m.id) === String(id) ? { ...m, celula_id: celulaId } : m)))}
+        />
       )}
 
       {/* MODAL */}

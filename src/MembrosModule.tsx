@@ -1,5 +1,5 @@
 // src/MembrosModule.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { supabase } from './supabase';
 
 interface Membro {
@@ -69,21 +69,59 @@ const formInicial = {
   ministerio_id: '',
 };
 
+// Colunas da LISTA: leves (sem foto). A ficha completa só é buscada ao clicar em Ver ou Editar.
+const COLUNAS_LISTA = 'id, nome, tipo_cadastro, celular_principal, email, ministerio_id';
+const POR_PAGINA = 30;
+
+// Reduz a foto no aparelho antes de salvar (a do celular tem vários MB; aqui fica com ~40 KB)
+function reduzirFoto(arquivo: File, lado = 400, qualidade = 0.8): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(arquivo);
+    img.onload = () => {
+      const escala = Math.min(1, lado / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return reject(new Error('Não foi possível processar a imagem.'));
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('Não foi possível processar a imagem.'))), 'image/jpeg', qualidade);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Arquivo de imagem inválido.'));
+    };
+    img.src = url;
+  });
+}
+
+const blobParaDataUrl = (b: Blob) =>
+  new Promise<string>((resolve) => {
+    const r = new FileReader();
+    r.onloadend = () => resolve(r.result as string);
+    r.readAsDataURL(b);
+  });
+
 export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [membros, setMembros] = useState<Membro[]>([]);
+  const [fotos, setFotos] = useState<Record<string, string>>({});
+  const [temMais, setTemMais] = useState(false);
   const [ministerios, setMinisterios] = useState<Ministerio[]>([]);
   const [termoBusca, setTermoBusca] = useState('');
   const [loading, setLoading] = useState(false);
+  const [carregandoFicha, setCarregandoFicha] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showDetalhesModal, setShowDetalhesModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
+
   const [editingMember, setEditingMember] = useState<Membro | null>(null);
   const [membroSelecionado, setMembroSelecionado] = useState<Membro | null>(null);
   const [membroParaExcluir, setMembroParaExcluir] = useState<{ id: string; nome: string } | null>(null);
-  
+
   const [senhaExclusao, setSenhaExclusao] = useState('');
   const [formMembro, setFormMembro] = useState(formInicial);
   const [uploadingFoto, setUploadingFoto] = useState(false);
@@ -92,66 +130,106 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
   const [extratoMembro, setExtratoMembro] = useState<TransacaoFinanceira[]>([]);
   const [loadingExtrato, setLoadingExtrato] = useState(false);
 
+  const buscaAtual = useRef(0); // ignora respostas de buscas antigas (quem digita rápido)
+
   const codigoIgreja =
     loggedUser?.codigo_igreja ||
     loggedUser?.igrejas?.codigo_igreja;
 
-  // Buscar Membros e Ministérios
-  // Buscar Membros apenas sob demanda ou por pesquisa (Ignora maiúsculas/minúsculas)
-  // Buscar Membros apenas por ação do usuário (evita timeout automático)
-  // Buscar Membros de forma ultra rápida com limite de segurança
-  const handlePesquisar = useCallback(async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    
-    if (!codigoIgreja) {
-      setError('Código da igreja não encontrado.');
-      return;
+  // Ministérios: uma vez só
+  useEffect(() => {
+    if (!codigoIgreja) return;
+    supabase
+      .from('ministerios')
+      .select('*')
+      .eq('codigo_igreja', codigoIgreja)
+      .then(({ data, error: e }) => {
+        if (!e) setMinisterios(data || []);
+      });
+  }, [codigoIgreja]);
+
+  // Fotos da lista: só as que são link (leves). Fotos antigas gravadas dentro da tabela aparecem só na ficha.
+  const carregarFotos = async (lista: Membro[]) => {
+    const ids = lista.map((m) => m.id);
+    if (!ids.length) return;
+    const { data } = await supabase.from('members').select('id, foto_url').in('id', ids).like('foto_url', 'http%');
+    if (data?.length) {
+      setFotos((prev) => {
+        const novo = { ...prev };
+        data.forEach((d: any) => {
+          if (d.foto_url) novo[String(d.id)] = d.foto_url;
+        });
+        return novo;
+      });
     }
+  };
 
-    setLoading(true);
-    setError(null);
-
-    try {
-      let queryMembros = supabase
-        .from('members')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja)
-        .neq('tipo_cadastro', 'Visitante');
-
-      if (termoBusca.trim() !== '') {
-        queryMembros = queryMembros.ilike('nome', `%${termoBusca.trim()}%`).limit(15);
-      } else {
-        queryMembros = queryMembros.limit(10).order('nome', { ascending: true });
+  // Busca (pela caixa de pesquisa ou "Carregar mais")
+  const buscar = useCallback(
+    async (termo: string, inicio = 0) => {
+      if (!codigoIgreja) {
+        setError('Código da igreja não encontrado.');
+        return;
       }
+      const minhaBusca = ++buscaAtual.current;
+      setLoading(true);
+      setError(null);
 
-      const { data, error: erroConsulta } = await queryMembros;
-      if (erroConsulta) throw erroConsulta;
+      try {
+        let consulta = supabase
+          .from('members')
+          .select(COLUNAS_LISTA)
+          .eq('codigo_igreja', codigoIgreja)
+          .neq('tipo_cadastro', 'Visitante')
+          .order('nome', { ascending: true })
+          .range(inicio, inicio + POR_PAGINA - 1);
 
-      setMembros(data || []);
+        if (termo.trim() !== '') consulta = consulta.ilike('nome', `%${termo.trim()}%`);
 
-      const resMin = await supabase
-        .from('ministerios')
-        .select('*')
-        .eq('codigo_igreja', codigoIgreja);
+        const { data, error: erroConsulta } = await consulta;
+        if (minhaBusca !== buscaAtual.current) return; // chegou uma busca mais nova
+        if (erroConsulta) throw erroConsulta;
 
-      if (!resMin.error) {
-        setMinisterios(resMin.data || []);
+        const lista = (data || []) as unknown as Membro[];
+        setMembros((prev) => (inicio === 0 ? lista : [...prev, ...lista]));
+        setTemMais(lista.length === POR_PAGINA);
+        carregarFotos(lista);
+      } catch (erro: any) {
+        console.error('Erro ao buscar dados:', erro);
+        if (inicio === 0) setMembros([]);
+        setError(erro?.message || 'Erro ao buscar dados.');
+      } finally {
+        if (minhaBusca === buscaAtual.current) setLoading(false);
       }
-    } catch (erro: any) {
-      console.error('Erro ao buscar dados:', erro);
-      setMembros([]);
-      setError(erro?.message || 'Erro ao buscar dados.');
-    } finally {
-      setLoading(false);
-    }
-  }, [codigoIgreja, termoBusca]);
+    },
+    [codigoIgreja]
+  );
 
+  // Pesquisa automática: espera a pessoa parar de digitar (em vez de buscar a cada letra)
   useEffect(() => {
     if (!loggedUser || !codigoIgreja) return;
-    handlePesquisar();
-  }, [loggedUser, codigoIgreja, handlePesquisar]);
+    const t = setTimeout(() => buscar(termoBusca, 0), termoBusca ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [termoBusca, loggedUser, codigoIgreja, buscar]);
 
-  // Carregar Extrato Financeiro do Membro selecionado (ÚNICO E LIMPO)
+  const handlePesquisar = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    buscar(termoBusca, 0);
+  };
+
+  // Ficha completa (com foto) de um membro
+  const carregarFicha = async (id: string): Promise<Membro | null> => {
+    setCarregandoFicha(true);
+    const { data, error: e } = await supabase.from('members').select('*').eq('id', id).maybeSingle();
+    setCarregandoFicha(false);
+    if (e || !data) {
+      alert('Não foi possível abrir a ficha: ' + (e?.message || 'membro não encontrado'));
+      return null;
+    }
+    return data as Membro;
+  };
+
+  // Carregar Extrato Financeiro do Membro selecionado
   useEffect(() => {
     const carregarExtratoFinanceiro = async () => {
       if (!membroSelecionado?.id) return;
@@ -159,7 +237,8 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       try {
         const { data, error } = await supabase
           .from('lancamentos_financeiros')
-          .select('*')
+          .select('id, descricao, valor, tipo, data_lancamento')
+          .eq('codigo_igreja', codigoIgreja)
           .eq('membro_id', membroSelecionado.id)
           .order('data_lancamento', { ascending: false });
 
@@ -179,7 +258,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     if (showDetalhesModal && membroSelecionado) {
       carregarExtratoFinanceiro();
     }
-  }, [showDetalhesModal, membroSelecionado]);
+  }, [showDetalhesModal, membroSelecionado, codigoIgreja]);
 
   const handleOpenNewMemberModal = () => {
     setEditingMember(null);
@@ -187,9 +266,18 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
     setShowMemberModal(true);
   };
 
-  const handleOpenEditMemberModal = (membro: Membro) => {
+  const handleVer = async (m: Membro) => {
+    const ficha = await carregarFicha(m.id);
+    if (!ficha) return;
+    setMembroSelecionado(ficha);
+    setShowDetalhesModal(true);
+  };
+
+  const handleOpenEditMemberModal = async (resumo: Membro) => {
+    const membro = await carregarFicha(resumo.id);
+    if (!membro) return;
     setEditingMember(membro);
-    
+
     let filhosFormatados = [''];
     try {
       if (typeof membro.filhos === 'string' && membro.filhos.trim() !== '') {
@@ -254,21 +342,17 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
     setUploadingFoto(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `membros/${fileName}`;
+      const foto = await reduzirFoto(file);
+      const filePath = `membros/${codigoIgreja || 'sem-igreja'}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('membros-fotos')
-        .upload(filePath, file);
+        .upload(filePath, foto, { contentType: 'image/jpeg' });
 
       if (uploadError) {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setFormMembro((prev) => ({ ...prev, foto_url: reader.result as string }));
-          setUploadingFoto(false);
-        };
-        reader.readAsDataURL(file);
+        // Sem o Storage, guarda a foto (já reduzida) no próprio cadastro
+        const dataUrl = await blobParaDataUrl(foto);
+        setFormMembro((prev) => ({ ...prev, foto_url: dataUrl }));
         return;
       }
 
@@ -277,9 +361,9 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         .getPublicUrl(filePath);
 
       setFormMembro((prev) => ({ ...prev, foto_url: publicURLData.publicUrl }));
-    } catch (err) {
+    } catch (err: any) {
       console.error('Erro no upload:', err);
-      alert('Erro ao carregar imagem.');
+      alert('Erro ao carregar imagem: ' + (err?.message || ''));
     } finally {
       setUploadingFoto(false);
     }
@@ -340,8 +424,16 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         alert('Membro cadastrado com sucesso!');
       }
 
+      if (editingMember) {
+        setFotos((prev) => {
+          const novo = { ...prev };
+          if (payload.foto_url?.startsWith('http')) novo[String(editingMember.id)] = payload.foto_url;
+          else delete novo[String(editingMember.id)];
+          return novo;
+        });
+      }
       handleCloseModal();
-      handlePesquisar();
+      buscar(termoBusca, 0);
     } catch (err: any) {
       console.error('Erro ao salvar membro:', err);
       alert('Erro ao salvar membro: ' + (err.message || 'Erro desconhecido'));
@@ -360,7 +452,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
     try {
       const emailUsuario = loggedUser?.usuario || loggedUser?.email;
-      
+
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: emailUsuario,
         password: senhaExclusao,
@@ -382,7 +474,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
       setShowDeleteModal(false);
       setMembroParaExcluir(null);
       setSenhaExclusao('');
-      handlePesquisar();
+      setMembros((prev) => prev.filter((m) => m.id !== membroParaExcluir.id));
     } catch (err: any) {
       console.error('Erro ao excluir:', err);
       alert('Erro ao excluir membro: ' + (err.message || 'Erro desconhecido'));
@@ -405,7 +497,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 max-w-6xl mx-auto space-y-6">
-      
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-3xl font-black text-blue-900 tracking-tight">
@@ -430,7 +522,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
           type="text"
           value={termoBusca}
           onChange={(e) => setTermoBusca(e.target.value)}
-          placeholder="Digite o nome do membro para pesquisar..."
+          placeholder="Digite o nome do membro (a busca começa sozinha)..."
           className="flex-1 border border-slate-300 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
@@ -441,7 +533,12 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </button>
       </form>
 
-      {loading && <p className="text-slate-500 py-4">Buscando membros...</p>}
+      {loading && membros.length === 0 && <p className="text-slate-500 py-4">Buscando membros...</p>}
+      {carregandoFicha && (
+        <div className="fixed left-1/2 -translate-x-1/2 top-6 z-[60] rounded-full bg-slate-900 text-white text-xs font-bold px-4 py-2 shadow-lg">
+          Abrindo ficha...
+        </div>
+      )}
       {error && <p className="text-red-500 py-4">Erro: {error}</p>}
 
       {!loading && !error && membros.length === 0 && (
@@ -450,8 +547,8 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
         </div>
       )}
 
-      {!loading && !error && membros.length > 0 && (
-        <div className="overflow-x-auto">
+      {!error && membros.length > 0 && (
+        <div className={`overflow-x-auto transition-opacity ${loading ? 'opacity-60' : ''}`}>
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
@@ -465,12 +562,13 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             </thead>
             <tbody className="divide-y text-sm">
               {membros.map((m) => {
+                const foto = fotos[String(m.id)];
                 return (
                   <tr key={m.id} className="hover:bg-slate-50/80 transition">
                     <td className="p-3">
                       <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center font-bold text-slate-500 text-xs">
-                        {m.foto_url ? (
-                          <img src={m.foto_url} alt={m.nome} className="w-full h-full object-cover" />
+                        {foto ? (
+                          <img src={foto} alt={m.nome} loading="lazy" className="w-full h-full object-cover" />
                         ) : (
                           m.nome?.charAt(0) || '?'
                         )}
@@ -483,7 +581,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
                     <td className="p-3 text-right space-x-1 whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => { setMembroSelecionado(m); setShowDetalhesModal(true); }}
+                        onClick={() => handleVer(m)}
                         className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition cursor-pointer"
                       >
                         Ver Completo/financeiro
@@ -508,6 +606,19 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
               })}
             </tbody>
           </table>
+
+          {temMais && (
+            <div className="pt-4 text-center">
+              <button
+                type="button"
+                onClick={() => buscar(termoBusca, membros.length)}
+                disabled={loading}
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-sm rounded-xl cursor-pointer disabled:opacity-60"
+              >
+                {loading ? 'Carregando...' : `Carregar mais (${membros.length} exibidos)`}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -529,7 +640,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              
+
               {/* Seção de Foto */}
               <div className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border">
                 <div className="w-16 h-16 rounded-full bg-slate-200 overflow-hidden flex items-center justify-center text-slate-400 font-bold">
@@ -800,7 +911,8 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
 
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer"
+                  disabled={uploadingFoto}
+                  className="px-6 py-2.5 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-md transition cursor-pointer disabled:opacity-60"
                 >
                   {editingMember ? 'Salvar alterações' : 'Cadastrar membro'}
                 </button>
@@ -880,8 +992,8 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Tipo</span>{membroSelecionado.tipo_cadastro}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Ministério</span>{getNomeMinisterio(membroSelecionado.ministerio_id)}</div>
-              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Nascimento</span>{membroSelecionado.data_nascimento || '-'}</div>
-              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Batismo</span>{membroSelecionado.data_batismo || '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Nascimento</span>{membroSelecionado.data_nascimento ? membroSelecionado.data_nascimento.split('-').reverse().join('/') : '-'}</div>
+              <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Batismo</span>{membroSelecionado.data_batismo ? membroSelecionado.data_batismo.split('-').reverse().join('/') : '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl"><span className="block text-xs font-bold text-slate-400 uppercase">Cônjuge</span>{membroSelecionado.conjuge || '-'}</div>
               <div className="bg-slate-50 p-3 rounded-xl">
                 <span className="block text-xs font-bold text-slate-400 uppercase">Filhos</span>
@@ -902,7 +1014,7 @@ export default function MembrosModule({ loggedUser }: MembrosModuleProps) {
             {/* EXTRATO FINANCEIRO DO MEMBRO */}
             <div className="border-t pt-4 space-y-3">
               <h4 className="font-black text-blue-900 text-sm">💰 Extrato de Caixa do Membro (Dízimos, Ofertas e Lançamentos)</h4>
-              
+
               {loadingExtrato ? (
                 <p className="text-xs text-slate-400 py-2">Carregando extrato financeiro...</p>
               ) : extratoMembro.length === 0 ? (

@@ -6,11 +6,14 @@ import { carregarPermissoesFinanceiro, FINANCEIRO_SOMENTE_LANCAMENTO, Permissoes
 // Enquanto as permissões carregam (ou se falharem), o acesso fica fechado — nunca aberto por engano
 const FINANCEIRO_FECHADO: PermissoesFinanceiro = { ...FINANCEIRO_SOMENTE_LANCAMENTO, fin_lancar: false };
 
+// receita = entrada · despesa = saída · saldo = saldo inicial ou ajuste (valor pode ser positivo ou negativo)
+type TipoLancamento = 'receita' | 'despesa' | 'saldo';
+
 interface Lancamento {
   id: string;
   codigo_igreja: string;
   data_lancamento: string;
-  tipo: 'receita' | 'despesa';
+  tipo: TipoLancamento;
   descricao: string;
   valor: number;
   conta_corrente_id: string;
@@ -54,7 +57,7 @@ interface Transferencia {
   documento_url?: string;
 }
 
-// Uma linha do extrato: lançamento comum ou uma das duas pontas de uma transferência
+// Uma linha do extrato: lançamento comum, lançamento de saldo ou uma das duas pontas de uma transferência
 interface Movimento {
   id: string;
   data: string;
@@ -63,6 +66,7 @@ interface Movimento {
   entrada: number;
   saida: number;
   transferencia: boolean;
+  ajuste: boolean;
 }
 
 interface FinanceiroModuleProps {
@@ -86,10 +90,19 @@ const fimDoMes = (ano: number, mes: number) => {
 };
 const dataBR = (iso?: string) => (iso ? iso.split('-').reverse().join('/') : '');
 const moeda = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+// Valor com sinal na frente: + R$ 10,00 / − R$ 10,00
+const moedaComSinal = (v: number) => `${v < 0 ? '−' : '+'} ${moeda(Math.abs(v))}`;
+
+// Quanto o lançamento muda o saldo da conta: entrada soma, saída tira, saldo/ajuste usa o próprio sinal
+const efeitoNoSaldo = (l: { tipo: TipoLancamento; valor: number }) => {
+  const v = Number(l.valor || 0);
+  if (l.tipo === 'saldo') return v;
+  return l.tipo === 'receita' ? Math.abs(v) : -Math.abs(v);
+};
 
 const formLancamentoInicial = {
   data_lancamento: hojeLocal(),
-  tipo: 'receita' as 'receita' | 'despesa',
+  tipo: 'receita' as TipoLancamento,
   descricao: '',
   valor: '',
   conta_corrente_id: '',
@@ -141,6 +154,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
   const [relacionadoMembro, setRelacionadoMembro] = useState(false);
   const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
+  // Só para o tipo Saldo: 1 = positivo (a conta tem dinheiro), -1 = negativo (a conta está devendo)
+  const [sinalSaldo, setSinalSaldo] = useState<1 | -1>(1);
 
   // Modal Transferência entre contas
   const [showModalTransf, setShowModalTransf] = useState(false);
@@ -203,6 +218,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const podeRelatorios = isAdmin || permFin.fin_relatorios;
   const podeContas = isAdmin || permFin.fin_contas;
   const verTransferencias = podeTransferir || permFin.fin_ver;
+  // Lançar saldo inicial / ajuste mexe direto no saldo das contas: só quem pode editar lançamentos
+  const podeLancarSaldo = podeEditar;
 
   const registrarLog = async (acao: string, detalhes: string) => {
     try {
@@ -293,6 +310,20 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingLancamento && !exigirPerm(podeEditar)) return;
+
+    const ehSaldo = formLancamento.tipo === 'saldo';
+    if (ehSaldo && !exigirPerm(podeLancarSaldo)) return;
+
+    const valorDigitado = Math.abs(parseFloat(String(formLancamento.valor).replace(',', '.')));
+    if (!Number.isFinite(valorDigitado) || valorDigitado <= 0) {
+      alert('Informe um valor maior que zero.');
+      return;
+    }
+    if (ehSaldo && !formLancamento.conta_corrente_id) {
+      alert('Escolha a conta (Caixa / Banco) deste saldo.');
+      return;
+    }
+
     try {
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
@@ -332,12 +363,16 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         data_lancamento: formLancamento.data_lancamento,
         tipo: formLancamento.tipo,
         descricao: formLancamento.descricao,
-        valor: parseFloat(formLancamento.valor as string),
+        // No saldo o valor guarda o sinal (pode ficar negativo); entrada e saída são sempre positivas
+        valor: ehSaldo ? sinalSaldo * valorDigitado : valorDigitado,
         conta_corrente_id: formLancamento.conta_corrente_id || null,
-        id_conta_contabil: formLancamento.id_conta_contabil || null,
-        membro_id: relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
+        // Saldo não é receita nem despesa: não vai para o plano de contas nem fica ligado a membro
+        id_conta_contabil: ehSaldo ? null : formLancamento.id_conta_contabil || null,
+        membro_id: !ehSaldo && relacionadoMembro && formLancamento.membro_id ? formLancamento.membro_id : null,
         documento_url: docUrl || null,
       };
+
+      const textoValor = ehSaldo ? moedaComSinal(payload.valor) : moeda(payload.valor);
 
       if (editingLancamento) {
         const { error } = await supabase
@@ -346,13 +381,16 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           .eq('id', editingLancamento.id);
 
         if (error) throw error;
-        await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
+        await registrarLog('EDITAR_LANCAMENTO', `Atualizou o lançamento: "${payload.descricao}" (${textoValor})`);
         alert('Lançamento atualizado com sucesso!');
       } else {
         const { error } = await supabase.from('lancamentos_financeiros').insert([payload]);
         if (error) throw error;
-        await registrarLog('NOVO_LANCAMENTO', `Criou o lançamento: "${payload.descricao}" (R$ ${payload.valor})`);
-        alert('Lançamento realizado com sucesso!');
+        await registrarLog(
+          ehSaldo ? 'NOVO_SALDO' : 'NOVO_LANCAMENTO',
+          `${ehSaldo ? 'Lançou saldo/ajuste' : 'Criou o lançamento'}: "${payload.descricao}" (${textoValor}) em ${getNomeContaAdm(payload.conta_corrente_id || '')}`
+        );
+        alert(ehSaldo ? 'Saldo lançado com sucesso!' : 'Lançamento realizado com sucesso!');
       }
 
       setShowModalLancamento(false);
@@ -360,10 +398,18 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       setFormLancamento({ ...formLancamentoInicial, data_lancamento: hojeLocal() });
       setArquivoDocumento(null);
       setRelacionadoMembro(false);
+      setSinalSaldo(1);
       setSenhaExclusao('');
       fetchDados();
     } catch (err: any) {
-      alert('Erro ao salvar lançamento: ' + err.message);
+      const msg = String(err?.message || err);
+      // Banco ainda sem o ajuste para aceitar o tipo "saldo" / valor negativo
+      const faltaSql = ehSaldo && /check|constraint|violat|enum|invalid input/i.test(msg);
+      alert(
+        'Erro ao salvar lançamento: ' +
+          msg +
+          (faltaSql ? '\n\nO banco ainda não aceita lançamentos de saldo. Rode o arquivo saldo_financeiro.sql no SQL Editor do Supabase e tente de novo.' : '')
+      );
     }
   };
 
@@ -671,11 +717,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   // (datas no formato AAAA-MM-DD podem ser comparadas como texto)
   const noPeriodo = (l: Lancamento) =>
     (!dataInicio || (l.data_lancamento || '') >= dataInicio) && (!dataFim || (l.data_lancamento || '') <= dataFim);
-  const antesDoPeriodo = (l: Lancamento) => !!dataInicio && (l.data_lancamento || '') < dataInicio;
-  const sinal = (l: Lancamento) => (l.tipo === 'receita' ? 1 : -1) * Number(l.valor || 0);
-  const daConta = (l: Lancamento) => !contaExtrato || (l.conta_corrente_id || '') === contaExtrato;
 
-  const lancamentosPeriodo = lancamentos.filter(noPeriodo);
+  // Diário, Balancete e DRE usam só receitas e despesas: lançamento de saldo não é arrecadação nem gasto
+  const lancamentosPeriodo = lancamentos.filter((l) => noPeriodo(l) && l.tipo !== 'saldo');
+  const saldosNoPeriodo = lancamentos.filter((l) => noPeriodo(l) && l.tipo === 'saldo');
 
   const dadosBalancete = contasContabeis.map((conta) => {
     const lancsDaConta = lancamentosPeriodo.filter((l) => l.id_conta_contabil === conta.id);
@@ -694,25 +739,29 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const resultadoLiquido = totalReceitas - totalDespesas;
 
   // ── MOVIMENTOS DAS CONTAS ADM ──
-  // Lançamentos (receita/despesa) e transferências entre contas. A transferência tira de uma conta e põe na outra,
-  // então muda o saldo de cada conta, mas NÃO conta como receita nem despesa (DRE, Balancete e Diário não mudam).
+  // Lançamentos (receita/despesa/saldo) e transferências entre contas. Transferência e saldo mudam o saldo
+  // de cada conta, mas NÃO contam como receita nem despesa (DRE, Balancete e Diário não mudam).
   const nomeConta = (id: string) => (id ? getNomeContaAdm(id) : 'Sem conta informada');
   const movimentos: Movimento[] = [
-    ...lancamentos.map((l): Movimento => ({
-      id: l.id,
-      data: l.data_lancamento || '',
-      contaId: l.conta_corrente_id || '',
-      descricao: l.descricao,
-      entrada: l.tipo === 'receita' ? Number(l.valor || 0) : 0,
-      saida: l.tipo === 'receita' ? 0 : Number(l.valor || 0),
-      transferencia: false,
-    })),
+    ...lancamentos.map((l): Movimento => {
+      const efeito = efeitoNoSaldo(l);
+      return {
+        id: l.id,
+        data: l.data_lancamento || '',
+        contaId: l.conta_corrente_id || '',
+        descricao: l.descricao,
+        entrada: efeito > 0 ? efeito : 0,
+        saida: efeito < 0 ? -efeito : 0,
+        transferencia: false,
+        ajuste: l.tipo === 'saldo',
+      };
+    }),
     ...transferencias.flatMap((t): Movimento[] => {
       const v = Number(t.valor || 0);
       const obs = t.descricao ? ` · ${t.descricao}` : '';
       return [
-        { id: `${t.id}:s`, data: t.data_transferencia || '', contaId: t.conta_origem_id, descricao: `Transferência enviada para ${nomeConta(t.conta_destino_id)}${obs}`, entrada: 0, saida: v, transferencia: true },
-        { id: `${t.id}:e`, data: t.data_transferencia || '', contaId: t.conta_destino_id, descricao: `Transferência recebida de ${nomeConta(t.conta_origem_id)}${obs}`, entrada: v, saida: 0, transferencia: true },
+        { id: `${t.id}:s`, data: t.data_transferencia || '', contaId: t.conta_origem_id, descricao: `Transferência enviada para ${nomeConta(t.conta_destino_id)}${obs}`, entrada: 0, saida: v, transferencia: true, ajuste: false },
+        { id: `${t.id}:e`, data: t.data_transferencia || '', contaId: t.conta_destino_id, descricao: `Transferência recebida de ${nomeConta(t.conta_origem_id)}${obs}`, entrada: v, saida: 0, transferencia: true, ajuste: false },
       ];
     }),
   ].sort((a, b) => a.data.localeCompare(b.data)); // estável: na mesma data, lançamentos vêm antes das transferências
@@ -743,8 +792,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     const anterior = daquela.filter(movAntesDoPeriodo).reduce((acc, m) => acc + liquido(m), 0);
     const periodo = daquela.filter(movNoPeriodo);
     const soma = (lista: Movimento[], campo: 'entrada' | 'saida') => lista.reduce((acc, m) => acc + m[campo], 0);
-    const entradas = soma(periodo.filter((m) => !m.transferencia), 'entrada');
-    const saidas = soma(periodo.filter((m) => !m.transferencia), 'saida');
+    const comuns = periodo.filter((m) => !m.transferencia && !m.ajuste);
+    const entradas = soma(comuns, 'entrada');
+    const saidas = soma(comuns, 'saida');
+    const ajustes = periodo.filter((m) => m.ajuste).reduce((acc, m) => acc + liquido(m), 0);
     const transfRecebidas = soma(periodo.filter((m) => m.transferencia), 'entrada');
     const transfEnviadas = soma(periodo.filter((m) => m.transferencia), 'saida');
     return {
@@ -753,13 +804,32 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       anterior,
       entradas,
       saidas,
+      ajustes,
       transfRecebidas,
       transfEnviadas,
-      saldo: anterior + entradas - saidas + transfRecebidas - transfEnviadas,
+      saldo: anterior + entradas - saidas + ajustes + transfRecebidas - transfEnviadas,
     };
   });
 
+  // Cartões "Saldo das contas" (todas as datas, inclusive saldos e transferências)
+  const saldosAtuais = idsContas.map((id) => ({ id, nome: nomeConta(id), saldo: saldoContaAtual(id) }));
+  const saldoTotalAtual = saldosAtuais.reduce((acc, c) => acc + c.saldo, 0);
+
   const transferenciasPeriodo = transferencias.filter((t) => (!dataInicio || t.data_transferencia >= dataInicio) && (!dataFim || t.data_transferencia <= dataFim));
+
+  // Prévia do saldo dentro do formulário de lançamento
+  const valorFormNum = Math.abs(parseFloat(String(formLancamento.valor).replace(',', '.'))) || 0;
+  const efeitoForm = efeitoNoSaldo({
+    tipo: formLancamento.tipo,
+    valor: formLancamento.tipo === 'saldo' ? sinalSaldo * valorFormNum : valorFormNum,
+  });
+  const saldoContaForm = formLancamento.conta_corrente_id ? saldoContaAtual(formLancamento.conta_corrente_id) : 0;
+  // Na edição, o valor antigo já está no saldo: tira ele antes de somar o novo
+  const efeitoAntigoForm =
+    editingLancamento && (editingLancamento.conta_corrente_id || '') === formLancamento.conta_corrente_id
+      ? efeitoNoSaldo(editingLancamento)
+      : 0;
+  const saldoDepoisForm = saldoContaForm - efeitoAntigoForm + efeitoForm;
 
   const hojeData = new Date();
   const atalhosPeriodo = [
@@ -772,6 +842,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     dataInicio || dataFim
       ? `Período: ${dataInicio ? dataBR(dataInicio) : 'início'} a ${dataFim ? dataBR(dataFim) : 'hoje'}`
       : 'Período: todos os lançamentos';
+
+  const corSaldo = (v: number) => (v >= 0 ? 'text-blue-900' : 'text-rose-700');
 
   return (
     <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 w-full max-w-6xl mx-auto space-y-6">
@@ -881,12 +953,30 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             🔁 Transferir entre contas
           </button>
           )}
+          {podeLancarSaldo && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingLancamento(null);
+              setFormLancamento({ ...formLancamentoInicial, tipo: 'saldo', descricao: 'Saldo inicial', data_lancamento: hojeLocal() });
+              setSinalSaldo(1);
+              setArquivoDocumento(null);
+              setRelacionadoMembro(false);
+              setSenhaExclusao('');
+              setShowModalLancamento(true);
+            }}
+            className="px-4 py-3 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+          >
+            ⚖️ Lançar saldo
+          </button>
+          )}
           {podeLancar && (
           <button
             type="button"
             onClick={() => {
               setEditingLancamento(null);
               setFormLancamento({ ...formLancamentoInicial, data_lancamento: hojeLocal() });
+              setSinalSaldo(1);
               setArquivoDocumento(null);
               setRelacionadoMembro(false);
               setSenhaExclusao('');
@@ -941,7 +1031,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               podeLancar && 'registrar lançamentos',
               podeTransferir && 'transferir entre contas',
               podeVer && 'ver lançamentos e recibos',
-              podeEditar && 'editar e excluir lançamentos',
+              podeEditar && 'editar e excluir lançamentos e lançar saldo',
               podeAgradecer && 'agradecer no chat',
               podeRelatorios && 'relatórios',
               podeContas && 'contas e plano de contas',
@@ -959,6 +1049,33 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
       {!loading && subAba === 'lancamentos' && (
         <>
+          {/* SALDO DAS CONTAS (positivo em azul, negativo em vermelho) */}
+          {podeVer && saldosAtuais.length > 0 && (
+            <div className="space-y-2 no-print">
+              <h3 className="font-black text-blue-900 text-base">⚖️ Saldo das contas</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {saldosAtuais.map((c) => (
+                  <div
+                    key={c.id || 'sem-conta'}
+                    className={`rounded-2xl border p-4 ${c.saldo < 0 ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200'}`}
+                  >
+                    <p className="text-xs font-bold text-slate-600 truncate" title={c.nome}>{c.nome}</p>
+                    <p className={`text-xl font-black mt-1 whitespace-nowrap ${corSaldo(c.saldo)}`}>{moeda(c.saldo)}</p>
+                    {c.saldo < 0 && <p className="text-[11px] font-bold text-rose-700 mt-0.5">▼ Saldo negativo</p>}
+                  </div>
+                ))}
+                <div className={`rounded-2xl border-2 p-4 ${saldoTotalAtual < 0 ? 'bg-rose-50 border-rose-300' : 'bg-blue-50 border-blue-200'}`}>
+                  <p className="text-xs font-bold text-slate-700">Total de todas as contas</p>
+                  <p className={`text-xl font-black mt-1 whitespace-nowrap ${corSaldo(saldoTotalAtual)}`}>{moeda(saldoTotalAtual)}</p>
+                  {saldoTotalAtual < 0 && <p className="text-[11px] font-bold text-rose-700 mt-0.5">▼ Saldo negativo</p>}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Soma de entradas, saídas, transferências e lançamentos de saldo. Para informar quanto uma conta já tinha, use <strong>⚖️ Lançar saldo</strong>.
+              </p>
+            </div>
+          )}
+
           {!podeVer ? (
             <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
               <p className="text-slate-500 text-sm">Você pode registrar lançamentos, mas não tem permissão para ver a lista.</p>
@@ -984,20 +1101,25 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 <tbody className="divide-y text-sm">
                   {lancamentos.map((l) => {
                     const isReceita = l.tipo === 'receita';
+                    const isSaldo = l.tipo === 'saldo';
                     const nomeMembro = getNomeMembroVinculado(l.membro_id);
                     const descLower = (l.descricao || '').toLowerCase();
-                    const ehDizimoOuOferta = descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta');
+                    const ehDizimoOuOferta = !isSaldo && (descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta'));
 
                     return (
-                      <tr key={l.id} className="hover:bg-slate-50/80 transition">
+                      <tr key={l.id} className={`hover:bg-slate-50/80 transition ${isSaldo ? 'bg-amber-50/50' : ''}`}>
                         <td className="p-3 whitespace-nowrap text-slate-600">
                           {l.data_lancamento ? l.data_lancamento.split('-').reverse().join('/') : '-'}
                         </td>
                         <td className="p-3 whitespace-nowrap">
                           <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            isReceita ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            isSaldo
+                              ? 'bg-amber-100 text-amber-800'
+                              : isReceita
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : 'bg-rose-100 text-rose-800'
                           }`}>
-                            {isReceita ? '🟢 Receita' : '🔴 Despesa'}
+                            {isSaldo ? '⚖️ Saldo' : isReceita ? '🟢 Receita' : '🔴 Despesa'}
                           </span>
                         </td>
                         <td className="p-3 font-semibold text-slate-800">{l.descricao}</td>
@@ -1011,11 +1133,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           )}
                         </td>
                         <td className="p-3 text-slate-600 text-xs">{getNomeContaAdm(l.conta_corrente_id)}</td>
-                        <td className={`p-3 text-right font-black ${isReceita ? 'text-emerald-700' : 'text-rose-700'}`}>
-                          R$ {Number(l.valor || 0).toFixed(2)}
+                        <td
+                          className={`p-3 text-right font-black whitespace-nowrap ${
+                            isSaldo ? corSaldo(Number(l.valor || 0)) : isReceita ? 'text-emerald-700' : 'text-rose-700'
+                          }`}
+                        >
+                          {isSaldo ? moedaComSinal(Number(l.valor || 0)) : `R$ ${Number(l.valor || 0).toFixed(2)}`}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                          {podeVer && (
+                          {podeVer && !isSaldo && (
                           <button
                             type="button"
                             onClick={() => {
@@ -1049,17 +1175,19 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             type="button"
                             onClick={() => {
                               if (!exigirPerm(podeEditar)) return;
+                              const valorNum = Number(l.valor || 0);
                               setEditingLancamento(l);
                               setFormLancamento({
                                 data_lancamento: l.data_lancamento || '',
                                 tipo: l.tipo || 'receita',
                                 descricao: l.descricao || '',
-                                valor: l.valor?.toString() || '',
+                                valor: l.valor != null ? String(Math.abs(valorNum)) : '',
                                 conta_corrente_id: l.conta_corrente_id || '',
                                 id_conta_contabil: l.id_conta_contabil || '',
                                 membro_id: l.membro_id || '',
                                 documento_url: l.documento_url || '',
                               });
+                              setSinalSaldo(valorNum < 0 ? -1 : 1);
                               setArquivoDocumento(null);
                               setRelacionadoMembro(Boolean(l.membro_id));
                               setSenhaExclusao('');
@@ -1184,6 +1312,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <th className="p-3">Nome / Banco</th>
                     <th className="p-3">Agência</th>
                     <th className="p-3">Número da Conta</th>
+                    {podeVer && <th className="p-3 text-right">Saldo atual</th>}
                     <th className="p-3 text-right">Ações</th>
                   </tr>
                 </thead>
@@ -1194,6 +1323,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       <td className="p-3 font-semibold text-slate-800">{adm.nome_conta}</td>
                       <td className="p-3 text-slate-600">{adm.agencia || '-'}</td>
                       <td className="p-3 text-slate-600">{adm.numero_conta || '-'}</td>
+                      {podeVer && (
+                        <td className={`p-3 text-right font-black whitespace-nowrap ${corSaldo(saldoContaAtual(adm.id))}`}>
+                          {moeda(saldoContaAtual(adm.id))}
+                        </td>
+                      )}
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
                         {podeContas && (
                         <button
@@ -1455,6 +1589,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <th className="p-3 text-right">Saldo anterior</th>
                           <th className="p-3 text-right">Entradas</th>
                           <th className="p-3 text-right">Saídas</th>
+                          <th className="p-3 text-right">Saldos / ajustes</th>
                           <th className="p-3 text-right">Transf. recebidas</th>
                           <th className="p-3 text-right">Transf. enviadas</th>
                           <th className="p-3 text-right">Saldo final</th>
@@ -1464,23 +1599,31 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         {resumoPorConta.map((c) => (
                           <tr key={c.id || 'sem-conta'}>
                             <td className="p-3 font-semibold text-slate-800">{c.nome}</td>
-                            <td className="p-3 text-right text-slate-600">{moeda(c.anterior)}</td>
+                            <td className={`p-3 text-right ${c.anterior < 0 ? 'text-rose-700' : 'text-slate-600'}`}>{moeda(c.anterior)}</td>
                             <td className="p-3 text-right font-bold text-emerald-700">{moeda(c.entradas)}</td>
                             <td className="p-3 text-right font-bold text-rose-700">{moeda(c.saidas)}</td>
+                            <td className={`p-3 text-right font-bold ${c.ajustes < 0 ? 'text-rose-700' : 'text-amber-700'}`}>{c.ajustes ? moedaComSinal(c.ajustes) : moeda(0)}</td>
                             <td className="p-3 text-right font-bold text-sky-700">{moeda(c.transfRecebidas)}</td>
                             <td className="p-3 text-right font-bold text-sky-700">{moeda(c.transfEnviadas)}</td>
-                            <td className={`p-3 text-right font-black ${c.saldo >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(c.saldo)}</td>
+                            <td className={`p-3 text-right font-black ${corSaldo(c.saldo)}`}>{moeda(c.saldo)}</td>
                           </tr>
                         ))}
-                        <tr className="bg-slate-50 font-black">
-                          <td className="p-3 text-slate-800">Total geral</td>
-                          <td className="p-3 text-right text-slate-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.anterior, 0))}</td>
-                          <td className="p-3 text-right text-emerald-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.entradas, 0))}</td>
-                          <td className="p-3 text-right text-rose-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.saidas, 0))}</td>
-                          <td className="p-3 text-right text-sky-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.transfRecebidas, 0))}</td>
-                          <td className="p-3 text-right text-sky-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.transfEnviadas, 0))}</td>
-                          <td className="p-3 text-right text-blue-900">{moeda(resumoPorConta.reduce((acc, c) => acc + c.saldo, 0))}</td>
-                        </tr>
+                        {(() => {
+                          const tot = (campo: 'anterior' | 'entradas' | 'saidas' | 'ajustes' | 'transfRecebidas' | 'transfEnviadas' | 'saldo') =>
+                            resumoPorConta.reduce((acc, c) => acc + c[campo], 0);
+                          return (
+                            <tr className="bg-slate-50 font-black">
+                              <td className="p-3 text-slate-800">Total geral</td>
+                              <td className={`p-3 text-right ${tot('anterior') < 0 ? 'text-rose-700' : 'text-slate-700'}`}>{moeda(tot('anterior'))}</td>
+                              <td className="p-3 text-right text-emerald-700">{moeda(tot('entradas'))}</td>
+                              <td className="p-3 text-right text-rose-700">{moeda(tot('saidas'))}</td>
+                              <td className={`p-3 text-right ${tot('ajustes') < 0 ? 'text-rose-700' : 'text-amber-700'}`}>{tot('ajustes') ? moedaComSinal(tot('ajustes')) : moeda(0)}</td>
+                              <td className="p-3 text-right text-sky-700">{moeda(tot('transfRecebidas'))}</td>
+                              <td className="p-3 text-right text-sky-700">{moeda(tot('transfEnviadas'))}</td>
+                              <td className={`p-3 text-right ${corSaldo(tot('saldo'))}`}>{moeda(tot('saldo'))}</td>
+                            </tr>
+                          );
+                        })()}
                       </tbody>
                     </table>
                   </div>
@@ -1506,7 +1649,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <td className="p-3 font-bold text-slate-700">Saldo anterior</td>
                           <td className="p-3" />
                           <td className="p-3" />
-                          <td className={`p-3 text-right font-black ${saldoAnterior >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(saldoAnterior)}</td>
+                          <td className={`p-3 text-right font-black ${corSaldo(saldoAnterior)}`}>{moeda(saldoAnterior)}</td>
                         </tr>
                       )}
                       {movimentosComSaldo.length === 0 && (
@@ -1515,25 +1658,28 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         </tr>
                       )}
                       {movimentosComSaldo.map((m) => (
-                        <tr key={m.id} className={m.transferencia ? 'bg-sky-50/60' : ''}>
+                        <tr key={m.id} className={m.transferencia ? 'bg-sky-50/60' : m.ajuste ? 'bg-amber-50/60' : ''}>
                           <td className="p-3 text-slate-600 whitespace-nowrap">{dataBR(m.data)}</td>
                           <td className="p-3 font-semibold text-slate-800">{nomeConta(m.contaId)}</td>
                           <td className="p-3 text-slate-600">
                             {m.transferencia && (
                               <span className="mr-1.5 px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px] font-bold">🔁 TRANSF.</span>
                             )}
+                            {m.ajuste && (
+                              <span className="mr-1.5 px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold">⚖️ SALDO</span>
+                            )}
                             {m.descricao}
                           </td>
                           <td className="p-3 text-right font-bold text-emerald-700">{m.entrada > 0 ? moeda(m.entrada) : '-'}</td>
                           <td className="p-3 text-right font-bold text-rose-700">{m.saida > 0 ? moeda(m.saida) : '-'}</td>
-                          <td className={`p-3 text-right font-black ${m.saldoParcial >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>
+                          <td className={`p-3 text-right font-black ${corSaldo(m.saldoParcial)}`}>
                             {moeda(m.saldoParcial)}
                           </td>
                         </tr>
                       ))}
                       <tr className="bg-slate-50">
                         <td colSpan={5} className="p-3 text-right font-black text-slate-800">Saldo final</td>
-                        <td className={`p-3 text-right font-black ${saldoFinalExtrato >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(saldoFinalExtrato)}</td>
+                        <td className={`p-3 text-right font-black ${corSaldo(saldoFinalExtrato)}`}>{moeda(saldoFinalExtrato)}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -1546,9 +1692,17 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
                 <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
-                {transferenciasPeriodo.length > 0 && (
+                {(transferenciasPeriodo.length > 0 || saldosNoPeriodo.length > 0) && (
                   <p className="text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded-xl p-2.5 mb-4">
-                    {transferenciasPeriodo.length} {transferenciasPeriodo.length === 1 ? 'transferência entre contas' : 'transferências entre contas'} no período não aparece{transferenciasPeriodo.length === 1 ? '' : 'm'} aqui, pois não são receita nem despesa. Veja em Conta Corrente.
+                    {[
+                      transferenciasPeriodo.length > 0 &&
+                        `${transferenciasPeriodo.length} ${transferenciasPeriodo.length === 1 ? 'transferência entre contas' : 'transferências entre contas'}`,
+                      saldosNoPeriodo.length > 0 &&
+                        `${saldosNoPeriodo.length} ${saldosNoPeriodo.length === 1 ? 'lançamento de saldo' : 'lançamentos de saldo'}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' e ')}{' '}
+                    no período não {transferenciasPeriodo.length + saldosNoPeriodo.length === 1 ? 'aparece' : 'aparecem'} aqui, pois não são receita nem despesa. Veja em Conta Corrente.
                   </p>
                 )}
 
@@ -1652,7 +1806,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b pb-4 mb-6 sticky top-0 bg-white z-10">
               <h3 className="text-xl font-black text-blue-900">
-                {editingLancamento ? 'Editar Lançamento Financeiro' : 'Novo Lançamento Financeiro'}
+                {formLancamento.tipo === 'saldo'
+                  ? editingLancamento ? 'Editar Lançamento de Saldo' : '⚖️ Lançar Saldo (inicial ou ajuste)'
+                  : editingLancamento ? 'Editar Lançamento Financeiro' : 'Novo Lançamento Financeiro'}
               </h3>
               <button
                 type="button"
@@ -1669,12 +1825,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Tipo *</label>
                   <select
                     value={formLancamento.tipo}
-                    onChange={(e) => setFormLancamento({ ...formLancamento, tipo: e.target.value as any })}
+                    onChange={(e) => setFormLancamento({ ...formLancamento, tipo: e.target.value as TipoLancamento })}
                     className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
                     required
                   >
                     <option value="receita">🟢 Receita (Entrada)</option>
                     <option value="despesa">🔴 Despesa (Saída)</option>
+                    {(podeLancarSaldo || formLancamento.tipo === 'saldo') && (
+                      <option value="saldo">⚖️ Saldo (inicial ou ajuste)</option>
+                    )}
                   </select>
                 </div>
 
@@ -1690,17 +1849,58 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </div>
               </div>
 
+              {formLancamento.tipo === 'saldo' && (
+                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-4 text-xs space-y-1">
+                  <p className="font-bold">⚖️ Para que serve o lançamento de saldo?</p>
+                  <p>
+                    • <strong>Saldo inicial:</strong> o dinheiro que a conta já tinha quando você começou a usar o sistema (use a data desse dia).
+                  </p>
+                  <p>
+                    • <strong>Ajuste:</strong> acertar uma diferença com o extrato do banco ou com o caixa.
+                  </p>
+                  <p>Ele muda o saldo da conta, mas <strong>não é receita nem despesa</strong>: não entra no DRE, no Balancete nem no Diário.</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição *</label>
                 <input
                   type="text"
                   value={formLancamento.descricao}
                   onChange={(e) => setFormLancamento({ ...formLancamento, descricao: e.target.value })}
-                  placeholder="Ex: Dízimos do Culto, Conta de Luz"
+                  placeholder={formLancamento.tipo === 'saldo' ? 'Ex: Saldo inicial, Ajuste conforme extrato do banco' : 'Ex: Dízimos do Culto, Conta de Luz'}
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none"
                   required
                 />
               </div>
+
+              {formLancamento.tipo === 'saldo' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">O saldo é *</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSinalSaldo(1)}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-bold border-2 transition cursor-pointer ${
+                        sinalSaldo === 1 ? 'bg-blue-900 border-blue-900 text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      ➕ Positivo
+                      <span className="block text-[11px] font-medium opacity-80">a conta tem dinheiro</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSinalSaldo(-1)}
+                      className={`px-3 py-2.5 rounded-xl text-sm font-bold border-2 transition cursor-pointer ${
+                        sinalSaldo === -1 ? 'bg-rose-700 border-rose-700 text-white' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      ➖ Negativo
+                      <span className="block text-[11px] font-medium opacity-80">a conta está devendo</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Valor (R$) *</label>
@@ -1714,6 +1914,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none font-bold text-blue-900"
                   required
                 />
+                {formLancamento.tipo === 'saldo' && valorFormNum > 0 && (
+                  <p className={`text-xs font-bold mt-1 ${sinalSaldo < 0 ? 'text-rose-700' : 'text-blue-900'}`}>
+                    Vai entrar no saldo da conta como {moedaComSinal(sinalSaldo * valorFormNum)}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1731,8 +1936,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     <option key={adm.id} value={adm.id}>{adm.codigo_conta} ({adm.nome_conta})</option>
                   ))}
                 </select>
+                {formLancamento.conta_corrente_id && podeVer && (
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-50 border rounded-xl p-2.5">
+                      <span className="block text-slate-500 font-bold">Saldo atual da conta</span>
+                      <span className={`font-black text-sm ${corSaldo(saldoContaForm)}`}>{moeda(saldoContaForm)}</span>
+                    </div>
+                    <div className={`border rounded-xl p-2.5 ${saldoDepoisForm < 0 ? 'bg-rose-50 border-rose-200' : 'bg-blue-50 border-blue-200'}`}>
+                      <span className="block text-slate-500 font-bold">Depois de salvar</span>
+                      <span className={`font-black text-sm ${corSaldo(saldoDepoisForm)}`}>{moeda(saldoDepoisForm)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
+              {formLancamento.tipo !== 'saldo' && (
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase mb-1">
                   📊 Conta do Plano de Contas (Contábil / DRE) *
@@ -1749,8 +1967,10 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   ))}
                 </select>
               </div>
+              )}
 
               {/* VÍNCULO COM MEMBRO */}
+              {formLancamento.tipo !== 'saldo' && (
               <div className="bg-slate-50 border p-4 rounded-2xl space-y-3">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-slate-800 text-xs">
                   <input
@@ -1792,6 +2012,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   </div>
                 )}
               </div>
+              )}
 
               {/* INSERIR DOCUMENTO / COMPROVANTE */}
               <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
@@ -1850,9 +2071,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-blue-900 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
+                  className={`px-6 py-2.5 text-white font-bold text-sm rounded-xl shadow cursor-pointer ${
+                    formLancamento.tipo === 'saldo' ? 'bg-amber-600 hover:bg-amber-500' : 'bg-blue-900'
+                  }`}
                 >
-                  {editingLancamento ? 'Salvar Alterações' : 'Salvar Lançamento'}
+                  {editingLancamento ? 'Salvar Alterações' : formLancamento.tipo === 'saldo' ? 'Salvar Saldo' : 'Salvar Lançamento'}
                 </button>
               </div>
             </form>
@@ -1928,7 +2151,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   </select>
                   {formTransf.conta_origem_id && (
                     <p className="text-xs text-slate-500 mt-1">
-                      Saldo atual: <strong className={saldoContaAtual(formTransf.conta_origem_id) >= 0 ? 'text-blue-900' : 'text-rose-700'}>{moeda(saldoContaAtual(formTransf.conta_origem_id))}</strong>
+                      Saldo atual: <strong className={corSaldo(saldoContaAtual(formTransf.conta_origem_id))}>{moeda(saldoContaAtual(formTransf.conta_origem_id))}</strong>
                     </p>
                   )}
                 </div>
@@ -1950,7 +2173,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   </select>
                   {formTransf.conta_destino_id && (
                     <p className="text-xs text-slate-500 mt-1">
-                      Saldo atual: <strong className={saldoContaAtual(formTransf.conta_destino_id) >= 0 ? 'text-blue-900' : 'text-rose-700'}>{moeda(saldoContaAtual(formTransf.conta_destino_id))}</strong>
+                      Saldo atual: <strong className={corSaldo(saldoContaAtual(formTransf.conta_destino_id))}>{moeda(saldoContaAtual(formTransf.conta_destino_id))}</strong>
                     </p>
                   )}
                 </div>

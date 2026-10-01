@@ -1,6 +1,10 @@
 // src/FinanceiroModule.tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from './supabase';
+import { carregarPermissoesFinanceiro, FINANCEIRO_SOMENTE_LANCAMENTO, PermissoesFinanceiro } from './permissoesFinanceiro';
+
+// Enquanto as permissões carregam (ou se falharem), o acesso fica fechado — nunca aberto por engano
+const FINANCEIRO_FECHADO: PermissoesFinanceiro = { ...FINANCEIRO_SOMENTE_LANCAMENTO, fin_lancar: false };
 
 interface Lancamento {
   id: string;
@@ -39,6 +43,28 @@ interface Membro {
   celular_principal?: string;
 }
 
+interface Transferencia {
+  id: string;
+  codigo_igreja: string;
+  data_transferencia: string;
+  conta_origem_id: string;
+  conta_destino_id: string;
+  valor: number;
+  descricao?: string;
+  documento_url?: string;
+}
+
+// Uma linha do extrato: lançamento comum ou uma das duas pontas de uma transferência
+interface Movimento {
+  id: string;
+  data: string;
+  contaId: string;
+  descricao: string;
+  entrada: number;
+  saida: number;
+  transferencia: boolean;
+}
+
 interface FinanceiroModuleProps {
   loggedUser: any;
 }
@@ -72,6 +98,14 @@ const formLancamentoInicial = {
   documento_url: '',
 };
 
+const formTransfInicial = () => ({
+  data_transferencia: hojeLocal(),
+  conta_origem_id: '',
+  conta_destino_id: '',
+  valor: '',
+  descricao: '',
+});
+
 const formContaContabilInicial = {
   codigo_conta: '',
   nome_conta: '',
@@ -94,6 +128,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [contasContabeis, setContasContabeis] = useState<ContaContabil[]>([]);
   const [contasAdmList, setContasAdmList] = useState<ContaFinanceiraAdm[]>([]);
   const [membrosList, setMembrosList] = useState<Membro[]>([]);
+  const [transferencias, setTransferencias] = useState<Transferencia[]>([]);
+  const [semTabelaTransf, setSemTabelaTransf] = useState(false);
+  const [permFin, setPermFin] = useState<PermissoesFinanceiro>(FINANCEIRO_FECHADO);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +141,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [formLancamento, setFormLancamento] = useState(formLancamentoInicial);
   const [relacionadoMembro, setRelacionadoMembro] = useState(false);
   const [arquivoDocumento, setArquivoDocumento] = useState<File | null>(null);
+
+  // Modal Transferência entre contas
+  const [showModalTransf, setShowModalTransf] = useState(false);
+  const [formTransf, setFormTransf] = useState(formTransfInicial);
+  const [arquivoTransf, setArquivoTransf] = useState<File | null>(null);
+  const [salvandoTransf, setSalvandoTransf] = useState(false);
 
   // Modais Plano de Contas
   const [showModalConta, setShowModalConta] = useState(false);
@@ -117,7 +160,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   // Exclusão / Senha
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_adm'; nome: string } | null>(null);
+  const [itemParaExcluir, setItemParaExcluir] = useState<{ id: string; tipo: 'lancamento' | 'conta_contabil' | 'conta_adm' | 'transferencia'; nome: string } | null>(null);
   const [senhaExclusao, setSenhaExclusao] = useState('');
 
   // Modal Impressão de Comprovante / Recibo
@@ -133,12 +176,33 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   // Só o administrador edita ou exclui lançamentos e cadastra/edita contas
   const isAdmin = loggedUser?.perfil === 'admin' || loggedUser?.perfil === 'administrador';
-  const exigirAdmin = () => {
-    if (isAdmin) return true;
-    alert('🔒 Apenas o administrador pode fazer esta alteração.');
+  // Trava de segurança: confere a permissão marcada em Controle de Usuários (administrador pode tudo)
+  const exigirPerm = (permitido: boolean) => {
+    if (isAdmin || permitido) return true;
+    alert('🔒 Você não tem permissão para esta ação. Peça ao administrador para liberar em Controle de Usuários.');
     return false;
   };
   const emailUsuarioLogado = loggedUser?.usuario || loggedUser?.email || 'admin@sistema.com';
+
+  // Sub-permissões do Financeiro (administrador pode tudo)
+  useEffect(() => {
+    if (!loggedUser) return;
+    let ativo = true;
+    carregarPermissoesFinanceiro(loggedUser.id, isAdmin, loggedUser?.email || loggedUser?.usuario)
+      .then((p) => ativo && setPermFin(p))
+      .catch(() => ativo && setPermFin(FINANCEIRO_FECHADO));
+    return () => {
+      ativo = false;
+    };
+  }, [loggedUser, isAdmin]);
+  const podeTransferir = isAdmin || permFin.fin_transferir;
+  const podeLancar = isAdmin || permFin.fin_lancar;
+  const podeVer = isAdmin || permFin.fin_ver;
+  const podeEditar = isAdmin || permFin.fin_editar;
+  const podeAgradecer = isAdmin || permFin.fin_agradecer;
+  const podeRelatorios = isAdmin || permFin.fin_relatorios;
+  const podeContas = isAdmin || permFin.fin_contas;
+  const verTransferencias = podeTransferir || permFin.fin_ver;
 
   const registrarLog = async (acao: string, detalhes: string) => {
     try {
@@ -184,6 +248,22 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       if (!resAdm.error) setContasAdmList(resAdm.data || []);
 
+      // Transferências entre contas (se a tabela ainda não existir, o resto do módulo segue funcionando)
+      const resTransf = await supabase
+        .from('transferencias_financeiras')
+        .select('*')
+        .eq('codigo_igreja', codigoIgreja)
+        .order('data_transferencia', { ascending: true });
+
+      if (resTransf.error) {
+        const falta = resTransf.error.code === '42P01' || resTransf.error.code === 'PGRST205' || /transferencias_financeiras/.test(resTransf.error.message || '');
+        setSemTabelaTransf(falta);
+        setTransferencias([]);
+      } else {
+        setSemTabelaTransf(false);
+        setTransferencias(resTransf.data || []);
+      }
+
       // BUSCA DE MEMBROS RESTRITA EXATAMENTE À IGREJA ATUAL
       const resMemb = await supabase
         .from('members')
@@ -212,7 +292,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitLancamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingLancamento && !exigirAdmin()) return;
+    if (editingLancamento && !exigirPerm(podeEditar)) return;
     try {
       if (editingLancamento) {
         const { error: authError } = await supabase.auth.signInWithPassword({
@@ -287,9 +367,89 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
   };
 
+  const handleSubmitTransferencia = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (salvandoTransf) return;
+    if (!podeTransferir) {
+      alert('🔒 Você não tem permissão para transferir entre contas. Peça ao administrador.');
+      return;
+    }
+
+    const valor = parseFloat(formTransf.valor);
+    if (!formTransf.conta_origem_id || !formTransf.conta_destino_id) {
+      alert('Escolha a conta de origem e a conta de destino.');
+      return;
+    }
+    if (formTransf.conta_origem_id === formTransf.conta_destino_id) {
+      alert('A conta de origem e a de destino precisam ser diferentes.');
+      return;
+    }
+    if (!Number.isFinite(valor) || valor <= 0) {
+      alert('Informe um valor maior que zero.');
+      return;
+    }
+
+    // Aviso (não bloqueia): a conta de origem ficaria negativa na data escolhida
+    const saldoOrigem = saldoContaAte(formTransf.conta_origem_id, formTransf.data_transferencia);
+    if (saldoOrigem - valor < 0) {
+      const ok = window.confirm(
+        `O saldo de ${getNomeContaAdm(formTransf.conta_origem_id)} em ${dataBR(formTransf.data_transferencia)} é ${moeda(saldoOrigem)}.\n` +
+          `Depois desta transferência ele ficaria em ${moeda(saldoOrigem - valor)}.\n\nDeseja continuar mesmo assim?`
+      );
+      if (!ok) return;
+    }
+
+    setSalvandoTransf(true);
+    try {
+      let docUrl: string | null = null;
+      if (arquivoTransf) {
+        const nomeArquivo = `${codigoIgreja}/transferencias/${Date.now()}_${arquivoTransf.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('documentos_financeiros')
+          .upload(nomeArquivo, arquivoTransf);
+        if (uploadError || !uploadData) {
+          const continuar = window.confirm(
+            `Não foi possível enviar o comprovante (${uploadError?.message || 'erro desconhecido'}).\n\nDeseja salvar a transferência mesmo assim, sem o comprovante?`
+          );
+          if (!continuar) return;
+        } else {
+          docUrl = supabase.storage.from('documentos_financeiros').getPublicUrl(nomeArquivo).data.publicUrl;
+        }
+      }
+
+      const payload = {
+        codigo_igreja: codigoIgreja,
+        data_transferencia: formTransf.data_transferencia,
+        conta_origem_id: formTransf.conta_origem_id,
+        conta_destino_id: formTransf.conta_destino_id,
+        valor,
+        descricao: formTransf.descricao.trim() || null,
+        documento_url: docUrl,
+        created_by: emailUsuarioLogado,
+      };
+
+      const { error } = await supabase.from('transferencias_financeiras').insert([payload]);
+      if (error) throw error;
+
+      await registrarLog(
+        'NOVA_TRANSFERENCIA',
+        `Transferiu ${moeda(valor)} de ${getNomeContaAdm(payload.conta_origem_id)} para ${getNomeContaAdm(payload.conta_destino_id)}`
+      );
+      alert('Transferência registrada com sucesso!');
+      setShowModalTransf(false);
+      setFormTransf(formTransfInicial());
+      setArquivoTransf(null);
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao salvar transferência: ' + err.message);
+    } finally {
+      setSalvandoTransf(false);
+    }
+  };
+
   const handleSubmitConta = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!exigirAdmin()) return;
+    if (!exigirPerm(podeContas)) return;
     try {
       const payload = { ...formConta, codigo_igreja: codigoIgreja };
 
@@ -331,7 +491,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const handleSubmitAdm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!exigirAdmin()) return;
+    if (!exigirPerm(podeContas)) return;
     try {
       const payload = { ...formAdm, codigo_igreja: codigoIgreja };
 
@@ -374,7 +534,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const confirmarExclusao = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!itemParaExcluir) return;
-    if (!exigirAdmin()) return;
+    if (!exigirPerm(itemParaExcluir.tipo === 'lancamento' || itemParaExcluir.tipo === 'transferencia' ? podeEditar : podeContas)) return;
 
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({
@@ -390,6 +550,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       let tabela = 'lancamentos_financeiros';
       if (itemParaExcluir.tipo === 'conta_contabil') tabela = 'plano_contas_contabil';
       if (itemParaExcluir.tipo === 'conta_adm') tabela = 'contas_financeiras';
+      if (itemParaExcluir.tipo === 'transferencia') tabela = 'transferencias_financeiras';
 
       const { error } = await supabase.from(tabela).delete().eq('id', itemParaExcluir.id);
       if (error) throw error;
@@ -532,25 +693,73 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
   const resultadoLiquido = totalReceitas - totalDespesas;
 
+  // ── MOVIMENTOS DAS CONTAS ADM ──
+  // Lançamentos (receita/despesa) e transferências entre contas. A transferência tira de uma conta e põe na outra,
+  // então muda o saldo de cada conta, mas NÃO conta como receita nem despesa (DRE, Balancete e Diário não mudam).
+  const nomeConta = (id: string) => (id ? getNomeContaAdm(id) : 'Sem conta informada');
+  const movimentos: Movimento[] = [
+    ...lancamentos.map((l): Movimento => ({
+      id: l.id,
+      data: l.data_lancamento || '',
+      contaId: l.conta_corrente_id || '',
+      descricao: l.descricao,
+      entrada: l.tipo === 'receita' ? Number(l.valor || 0) : 0,
+      saida: l.tipo === 'receita' ? 0 : Number(l.valor || 0),
+      transferencia: false,
+    })),
+    ...transferencias.flatMap((t): Movimento[] => {
+      const v = Number(t.valor || 0);
+      const obs = t.descricao ? ` · ${t.descricao}` : '';
+      return [
+        { id: `${t.id}:s`, data: t.data_transferencia || '', contaId: t.conta_origem_id, descricao: `Transferência enviada para ${nomeConta(t.conta_destino_id)}${obs}`, entrada: 0, saida: v, transferencia: true },
+        { id: `${t.id}:e`, data: t.data_transferencia || '', contaId: t.conta_destino_id, descricao: `Transferência recebida de ${nomeConta(t.conta_origem_id)}${obs}`, entrada: v, saida: 0, transferencia: true },
+      ];
+    }),
+  ].sort((a, b) => a.data.localeCompare(b.data)); // estável: na mesma data, lançamentos vêm antes das transferências
+
+  const movNoPeriodo = (m: Movimento) => (!dataInicio || m.data >= dataInicio) && (!dataFim || m.data <= dataFim);
+  const movAntesDoPeriodo = (m: Movimento) => !!dataInicio && m.data < dataInicio;
+  const liquido = (m: Movimento) => m.entrada - m.saida;
+  const movDaConta = (m: Movimento) => !contaExtrato || m.contaId === contaExtrato;
+
+  // Saldo de uma conta até uma data (usado para avisar antes de deixar a conta negativa)
+  const saldoContaAte = (id: string, ate: string) =>
+    movimentos.filter((m) => m.contaId === id && (!ate || m.data <= ate)).reduce((acc, m) => acc + liquido(m), 0);
+  const saldoContaAtual = (id: string) => movimentos.filter((m) => m.contaId === id).reduce((acc, m) => acc + liquido(m), 0);
+
   // Extrato: começa pelo saldo de tudo o que houve antes da data inicial
-  const saldoAnterior = lancamentos.filter((l) => antesDoPeriodo(l) && daConta(l)).reduce((acc, l) => acc + sinal(l), 0);
+  const saldoAnterior = movimentos.filter((m) => movAntesDoPeriodo(m) && movDaConta(m)).reduce((acc, m) => acc + liquido(m), 0);
   let saldoAcumulado = saldoAnterior;
-  const lancamentosComSaldo = lancamentosPeriodo.filter(daConta).map((l) => {
-    saldoAcumulado += sinal(l);
-    return { ...l, saldoParcial: saldoAcumulado };
+  const movimentosComSaldo = movimentos.filter((m) => movNoPeriodo(m) && movDaConta(m)).map((m) => {
+    saldoAcumulado += liquido(m);
+    return { ...m, saldoParcial: saldoAcumulado };
   });
   const saldoFinalExtrato = saldoAcumulado;
 
   // Resumo por conta (aparece quando o extrato está em "Todas as contas")
-  const idsContas = Array.from(new Set([...contasAdmList.map((c) => c.id), ...lancamentos.map((l) => l.conta_corrente_id || '')]));
+  const idsContas = Array.from(new Set([...contasAdmList.map((c) => c.id), ...movimentos.map((m) => m.contaId)]));
   const resumoPorConta = idsContas.map((id) => {
-    const daquela = lancamentos.filter((l) => (l.conta_corrente_id || '') === id);
-    const anterior = daquela.filter(antesDoPeriodo).reduce((acc, l) => acc + sinal(l), 0);
-    const periodo = daquela.filter(noPeriodo);
-    const entradas = periodo.filter((l) => l.tipo === 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0);
-    const saidas = periodo.filter((l) => l.tipo === 'despesa').reduce((acc, l) => acc + Number(l.valor || 0), 0);
-    return { id, nome: id ? getNomeContaAdm(id) : 'Sem conta informada', anterior, entradas, saidas, saldo: anterior + entradas - saidas };
+    const daquela = movimentos.filter((m) => m.contaId === id);
+    const anterior = daquela.filter(movAntesDoPeriodo).reduce((acc, m) => acc + liquido(m), 0);
+    const periodo = daquela.filter(movNoPeriodo);
+    const soma = (lista: Movimento[], campo: 'entrada' | 'saida') => lista.reduce((acc, m) => acc + m[campo], 0);
+    const entradas = soma(periodo.filter((m) => !m.transferencia), 'entrada');
+    const saidas = soma(periodo.filter((m) => !m.transferencia), 'saida');
+    const transfRecebidas = soma(periodo.filter((m) => m.transferencia), 'entrada');
+    const transfEnviadas = soma(periodo.filter((m) => m.transferencia), 'saida');
+    return {
+      id,
+      nome: nomeConta(id),
+      anterior,
+      entradas,
+      saidas,
+      transfRecebidas,
+      transfEnviadas,
+      saldo: anterior + entradas - saidas + transfRecebidas - transfEnviadas,
+    };
   });
+
+  const transferenciasPeriodo = transferencias.filter((t) => (!dataInicio || t.data_transferencia >= dataInicio) && (!dataFim || t.data_transferencia <= dataFim));
 
   const hojeData = new Date();
   const atalhosPeriodo = [
@@ -641,6 +850,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             📊 Plano de Contas
           </button>
+          {podeRelatorios && (
           <button
             type="button"
             onClick={() => { setSubAba('relatorios'); fetchDados(); }}
@@ -650,12 +860,28 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             📈 Relatórios
           </button>
+          )}
         </div>
       </div>
 
       {/* BOTÕES DE AÇÃO SUPERIOR */}
       <div className="flex justify-end no-print">
         {subAba === 'lancamentos' && (
+          <div className="flex flex-wrap justify-end gap-2">
+          {podeTransferir && (
+          <button
+            type="button"
+            onClick={() => {
+              setFormTransf(formTransfInicial());
+              setArquivoTransf(null);
+              setShowModalTransf(true);
+            }}
+            className="px-4 py-3 bg-sky-700 hover:bg-sky-600 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+          >
+            🔁 Transferir entre contas
+          </button>
+          )}
+          {podeLancar && (
           <button
             type="button"
             onClick={() => {
@@ -670,13 +896,15 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           >
             + Novo Lançamento
           </button>
+          )}
+          </div>
         )}
 
-        {subAba === 'contas_adm' && (
+        {subAba === 'contas_adm' && podeContas && (
           <button
             type="button"
             onClick={() => {
-              if (!exigirAdmin()) return;
+              if (!exigirPerm(podeContas)) return;
               setEditingAdm(null);
               setFormAdm(formContaAdmInicial);
               setSenhaExclusao('');
@@ -688,11 +916,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
           </button>
         )}
 
-        {subAba === 'plano_contas' && (
+        {subAba === 'plano_contas' && podeContas && (
           <button
             type="button"
             onClick={() => {
-              if (!exigirAdmin()) return;
+              if (!exigirPerm(podeContas)) return;
               setEditingConta(null);
               setFormConta(formContaContabilInicial);
               setSenhaExclusao('');
@@ -707,7 +935,21 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       {!isAdmin && (
         <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs no-print">
-          🔒 Você pode registrar lançamentos e ver os relatórios. <strong>Editar, excluir e cadastrar contas</strong> é só para o administrador.
+          🔒 Seu acesso ao Financeiro:{' '}
+          <strong>
+            {[
+              podeLancar && 'registrar lançamentos',
+              podeTransferir && 'transferir entre contas',
+              podeVer && 'ver lançamentos e recibos',
+              podeEditar && 'editar e excluir lançamentos',
+              podeAgradecer && 'agradecer no chat',
+              podeRelatorios && 'relatórios',
+              podeContas && 'contas e plano de contas',
+            ]
+              .filter(Boolean)
+              .join(', ') || 'nenhum'}
+          </strong>
+          . O restante é liberado pelo administrador.
         </div>
       )}
 
@@ -717,7 +959,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       {/* CONTEÚDO DA ABA: LANÇAMENTOS */}
       {!loading && subAba === 'lancamentos' && (
         <>
-          {lancamentos.length === 0 ? (
+          {!podeVer ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+              <p className="text-slate-500 text-sm">Você pode registrar lançamentos, mas não tem permissão para ver a lista.</p>
+            </div>
+          ) : lancamentos.length === 0 ? (
             <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
               <p className="text-slate-500 text-sm">Nenhum lançamento financeiro registrado.</p>
             </div>
@@ -769,6 +1015,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           R$ {Number(l.valor || 0).toFixed(2)}
                         </td>
                         <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          {podeVer && (
                           <button
                             type="button"
                             onClick={() => {
@@ -780,8 +1027,9 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             🖨️ Recibo
                           </button>
+                          )}
 
-                          {ehDizimoOuOferta && (
+                          {ehDizimoOuOferta && podeAgradecer && (
                             <button
                               type="button"
                               onClick={() => handleEnviarChatInterno(l)}
@@ -796,10 +1044,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             </button>
                           )}
 
+                          {podeEditar && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (!exigirAdmin()) return;
+                              if (!exigirPerm(podeEditar)) return;
                               setEditingLancamento(l);
                               setFormLancamento({
                                 data_lancamento: l.data_lancamento || '',
@@ -820,11 +1069,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             Editar
                           </button>
+                          )}
 
+                          {podeEditar && (
                           <button
                             type="button"
                             onClick={() => {
-                              if (!exigirAdmin()) return;
+                              if (!exigirPerm(podeEditar)) return;
                               setItemParaExcluir({ id: l.id, tipo: 'lancamento', nome: l.descricao });
                               setSenhaExclusao('');
                               setShowDeleteModal(true);
@@ -833,6 +1084,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           >
                             Excluir
                           </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -840,6 +1092,78 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/* TRANSFERÊNCIAS ENTRE CONTAS */}
+          {verTransferencias && (
+          <div className="space-y-2 no-print">
+            <h3 className="font-black text-blue-900 text-base">🔁 Transferências entre contas</h3>
+            {semTabelaTransf ? (
+              <div className="p-4 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-xs">
+                A tabela <code>transferencias_financeiras</code> ainda não existe no Supabase. Rode o arquivo <code>transferencias_financeiras.sql</code> no SQL Editor e recarregue.
+              </div>
+            ) : transferencias.length === 0 ? (
+              <div className="p-5 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+                <p className="text-slate-500 text-sm">Nenhuma transferência registrada.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                      <th className="p-3">Data</th>
+                      <th className="p-3">De</th>
+                      <th className="p-3">Para</th>
+                      <th className="p-3">Descrição</th>
+                      <th className="p-3 text-right">Valor</th>
+                      <th className="p-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y text-sm">
+                    {[...transferencias].reverse().map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-50/80 transition">
+                        <td className="p-3 whitespace-nowrap text-slate-600">{dataBR(t.data_transferencia) || '-'}</td>
+                        <td className="p-3 text-xs text-slate-700">{nomeConta(t.conta_origem_id)}</td>
+                        <td className="p-3 text-xs text-slate-700">➜ {nomeConta(t.conta_destino_id)}</td>
+                        <td className="p-3 text-slate-600">{t.descricao || '-'}</td>
+                        <td className="p-3 text-right font-black text-sky-700">{moeda(Number(t.valor || 0))}</td>
+                        <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                          {t.documento_url && (
+                            <a
+                              href={t.documento_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition"
+                            >
+                              📄 Comprovante
+                            </a>
+                          )}
+                          {podeEditar && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!exigirPerm(podeEditar)) return;
+                              setItemParaExcluir({
+                                id: t.id,
+                                tipo: 'transferencia',
+                                nome: `transferência de ${moeda(Number(t.valor || 0))} (${nomeConta(t.conta_origem_id)} ➜ ${nomeConta(t.conta_destino_id)})`,
+                              });
+                              setSenhaExclusao('');
+                              setShowDeleteModal(true);
+                            }}
+                            className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                          >
+                            Excluir
+                          </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
           )}
         </>
       )}
@@ -871,10 +1195,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                       <td className="p-3 text-slate-600">{adm.agencia || '-'}</td>
                       <td className="p-3 text-slate-600">{adm.numero_conta || '-'}</td>
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setEditingAdm(adm);
                             setFormAdm({
                               codigo_conta: adm.codigo_conta,
@@ -889,10 +1214,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Editar
                         </button>
+                        )}
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setItemParaExcluir({ id: adm.id, tipo: 'conta_adm', nome: `${adm.codigo_conta} - ${adm.nome_conta}` });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
@@ -901,6 +1228,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Excluir
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -940,10 +1268,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         </span>
                       </td>
                       <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setEditingConta(c);
                             setFormConta({
                               codigo_conta: c.codigo_conta,
@@ -958,10 +1287,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Editar
                         </button>
+                        )}
+                        {podeContas && (
                         <button
                           type="button"
                           onClick={() => {
-                            if (!exigirAdmin()) return;
+                            if (!exigirPerm(podeContas)) return;
                             setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
                             setSenhaExclusao('');
                             setShowDeleteModal(true);
@@ -970,6 +1301,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         >
                           Excluir
                         </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -981,7 +1313,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       )}
 
       {/* CONTEÚDO DA ABA: RELATÓRIOS */}
-      {!loading && subAba === 'relatorios' && (
+      {!loading && subAba === 'relatorios' && podeRelatorios && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-slate-50 p-2 rounded-2xl border no-print">
             <button
@@ -1123,6 +1455,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <th className="p-3 text-right">Saldo anterior</th>
                           <th className="p-3 text-right">Entradas</th>
                           <th className="p-3 text-right">Saídas</th>
+                          <th className="p-3 text-right">Transf. recebidas</th>
+                          <th className="p-3 text-right">Transf. enviadas</th>
                           <th className="p-3 text-right">Saldo final</th>
                         </tr>
                       </thead>
@@ -1133,6 +1467,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                             <td className="p-3 text-right text-slate-600">{moeda(c.anterior)}</td>
                             <td className="p-3 text-right font-bold text-emerald-700">{moeda(c.entradas)}</td>
                             <td className="p-3 text-right font-bold text-rose-700">{moeda(c.saidas)}</td>
+                            <td className="p-3 text-right font-bold text-sky-700">{moeda(c.transfRecebidas)}</td>
+                            <td className="p-3 text-right font-bold text-sky-700">{moeda(c.transfEnviadas)}</td>
                             <td className={`p-3 text-right font-black ${c.saldo >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(c.saldo)}</td>
                           </tr>
                         ))}
@@ -1141,6 +1477,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <td className="p-3 text-right text-slate-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.anterior, 0))}</td>
                           <td className="p-3 text-right text-emerald-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.entradas, 0))}</td>
                           <td className="p-3 text-right text-rose-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.saidas, 0))}</td>
+                          <td className="p-3 text-right text-sky-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.transfRecebidas, 0))}</td>
+                          <td className="p-3 text-right text-sky-700">{moeda(resumoPorConta.reduce((acc, c) => acc + c.transfEnviadas, 0))}</td>
                           <td className="p-3 text-right text-blue-900">{moeda(resumoPorConta.reduce((acc, c) => acc + c.saldo, 0))}</td>
                         </tr>
                       </tbody>
@@ -1171,27 +1509,28 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           <td className={`p-3 text-right font-black ${saldoAnterior >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(saldoAnterior)}</td>
                         </tr>
                       )}
-                      {lancamentosComSaldo.length === 0 && (
+                      {movimentosComSaldo.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="p-6 text-center text-xs text-slate-400">Nenhum lançamento neste período.</td>
+                          <td colSpan={6} className="p-6 text-center text-xs text-slate-400">Nenhum movimento neste período.</td>
                         </tr>
                       )}
-                      {lancamentosComSaldo.map((l) => {
-                        const isReceita = l.tipo === 'receita';
-                        const saldoPositivo = l.saldoParcial >= 0;
-                        return (
-                          <tr key={l.id}>
-                            <td className="p-3 text-slate-600 whitespace-nowrap">{dataBR(l.data_lancamento)}</td>
-                            <td className="p-3 font-semibold text-slate-800">{getNomeContaAdm(l.conta_corrente_id)}</td>
-                            <td className="p-3 text-slate-600">{l.descricao}</td>
-                            <td className="p-3 text-right font-bold text-emerald-700">{isReceita ? moeda(Number(l.valor)) : '-'}</td>
-                            <td className="p-3 text-right font-bold text-rose-700">{!isReceita ? moeda(Number(l.valor)) : '-'}</td>
-                            <td className={`p-3 text-right font-black ${saldoPositivo ? 'text-blue-900' : 'text-rose-700'}`}>
-                              {moeda(l.saldoParcial)}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      {movimentosComSaldo.map((m) => (
+                        <tr key={m.id} className={m.transferencia ? 'bg-sky-50/60' : ''}>
+                          <td className="p-3 text-slate-600 whitespace-nowrap">{dataBR(m.data)}</td>
+                          <td className="p-3 font-semibold text-slate-800">{nomeConta(m.contaId)}</td>
+                          <td className="p-3 text-slate-600">
+                            {m.transferencia && (
+                              <span className="mr-1.5 px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 text-[10px] font-bold">🔁 TRANSF.</span>
+                            )}
+                            {m.descricao}
+                          </td>
+                          <td className="p-3 text-right font-bold text-emerald-700">{m.entrada > 0 ? moeda(m.entrada) : '-'}</td>
+                          <td className="p-3 text-right font-bold text-rose-700">{m.saida > 0 ? moeda(m.saida) : '-'}</td>
+                          <td className={`p-3 text-right font-black ${m.saldoParcial >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>
+                            {moeda(m.saldoParcial)}
+                          </td>
+                        </tr>
+                      ))}
                       <tr className="bg-slate-50">
                         <td colSpan={5} className="p-3 text-right font-black text-slate-800">Saldo final</td>
                         <td className={`p-3 text-right font-black ${saldoFinalExtrato >= 0 ? 'text-blue-900' : 'text-rose-700'}`}>{moeda(saldoFinalExtrato)}</td>
@@ -1207,6 +1546,11 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Livro Diário</h3>
                 <p className="text-xs text-slate-500 mb-4">Registro cronológico de todas as operações contábeis da igreja.</p>
+                {transferenciasPeriodo.length > 0 && (
+                  <p className="text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded-xl p-2.5 mb-4">
+                    {transferenciasPeriodo.length} {transferenciasPeriodo.length === 1 ? 'transferência entre contas' : 'transferências entre contas'} no período não aparece{transferenciasPeriodo.length === 1 ? '' : 'm'} aqui, pois não são receita nem despesa. Veja em Conta Corrente.
+                  </p>
+                )}
 
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
@@ -1512,6 +1856,145 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE TRANSFERÊNCIA ENTRE CONTAS */}
+      {showModalTransf && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-3xl shadow-2xl p-6 sm:p-8 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-4 mb-6">
+              <h3 className="text-xl font-black text-blue-900">🔁 Transferência entre contas</h3>
+              <button
+                type="button"
+                onClick={() => setShowModalTransf(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 font-bold text-xs rounded-xl transition cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+
+            {contasAdmList.length < 2 ? (
+              <p className="text-sm text-slate-600 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                Para transferir é preciso ter pelo menos duas contas administrativas cadastradas (por exemplo, Caixa e Banco). Cadastre a outra na aba <strong>Contas Adm</strong>.
+              </p>
+            ) : (
+              <form onSubmit={handleSubmitTransferencia} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Data *</label>
+                    <input
+                      type="date"
+                      value={formTransf.data_transferencia}
+                      onChange={(e) => setFormTransf({ ...formTransf, data_transferencia: e.target.value })}
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Valor (R$) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={formTransf.valor}
+                      onChange={(e) => setFormTransf({ ...formTransf, valor: e.target.value })}
+                      placeholder="0.00"
+                      className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none font-bold text-blue-900"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">De (sai desta conta) *</label>
+                  <select
+                    value={formTransf.conta_origem_id}
+                    onChange={(e) =>
+                      setFormTransf({
+                        ...formTransf,
+                        conta_origem_id: e.target.value,
+                        conta_destino_id: formTransf.conta_destino_id === e.target.value ? '' : formTransf.conta_destino_id,
+                      })
+                    }
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                    required
+                  >
+                    <option value="">Selecione a conta de origem...</option>
+                    {contasAdmList.map((adm) => (
+                      <option key={adm.id} value={adm.id}>{adm.codigo_conta} ({adm.nome_conta})</option>
+                    ))}
+                  </select>
+                  {formTransf.conta_origem_id && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Saldo atual: <strong className={saldoContaAtual(formTransf.conta_origem_id) >= 0 ? 'text-blue-900' : 'text-rose-700'}>{moeda(saldoContaAtual(formTransf.conta_origem_id))}</strong>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Para (entra nesta conta) *</label>
+                  <select
+                    value={formTransf.conta_destino_id}
+                    onChange={(e) => setFormTransf({ ...formTransf, conta_destino_id: e.target.value })}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none bg-white font-medium"
+                    required
+                  >
+                    <option value="">Selecione a conta de destino...</option>
+                    {contasAdmList
+                      .filter((adm) => adm.id !== formTransf.conta_origem_id)
+                      .map((adm) => (
+                        <option key={adm.id} value={adm.id}>{adm.codigo_conta} ({adm.nome_conta})</option>
+                      ))}
+                  </select>
+                  {formTransf.conta_destino_id && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Saldo atual: <strong className={saldoContaAtual(formTransf.conta_destino_id) >= 0 ? 'text-blue-900' : 'text-rose-700'}>{moeda(saldoContaAtual(formTransf.conta_destino_id))}</strong>
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Descrição (opcional)</label>
+                  <input
+                    type="text"
+                    value={formTransf.descricao}
+                    onChange={(e) => setFormTransf({ ...formTransf, descricao: e.target.value })}
+                    placeholder="Ex: Depósito do caixa no banco"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm outline-none"
+                  />
+                </div>
+
+                <div className="bg-blue-50/50 border border-blue-200 p-4 rounded-2xl space-y-2">
+                  <label className="block text-xs font-bold text-blue-900 uppercase">📎 Comprovante (opcional)</label>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setArquivoTransf(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+                    className="w-full border border-blue-300 rounded-xl px-3 py-2 text-xs bg-white font-medium cursor-pointer"
+                  />
+                  {arquivoTransf && <p className="text-xs text-emerald-700 font-bold">Selecionado: {arquivoTransf.name}</p>}
+                </div>
+
+                <p className="text-xs text-slate-500 bg-slate-50 border rounded-xl p-3">
+                  A transferência muda o saldo das duas contas, mas <strong>não é receita nem despesa</strong>: não altera o DRE, o Balancete nem o Diário.
+                </p>
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <button type="button" onClick={() => setShowModalTransf(false)} className="px-5 py-2.5 bg-slate-100 text-slate-700 font-bold text-sm rounded-xl cursor-pointer">
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoTransf}
+                    className="px-6 py-2.5 bg-sky-700 text-white font-bold text-sm rounded-xl shadow cursor-pointer disabled:opacity-60"
+                  >
+                    {salvandoTransf ? 'Salvando…' : 'Registrar Transferência'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

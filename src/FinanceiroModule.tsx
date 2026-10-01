@@ -100,6 +100,194 @@ const efeitoNoSaldo = (l: { tipo: TipoLancamento; valor: number }) => {
   return l.tipo === 'receita' ? Math.abs(v) : -Math.abs(v);
 };
 
+// ── PLANO DE CONTAS HIERÁRQUICO ──
+// A hierarquia vem do próprio código: 3 > 3.1 > 3.1.01 > 3.1.01.01.
+// Conta que tem subcontas é GRUPO (sintética, só soma); conta sem subcontas é ANALÍTICA (recebe lançamentos).
+const compararCodigo = (a: string, b: string) => a.localeCompare(b, 'pt-BR', { numeric: true });
+const NATUREZAS = ['Receita', 'Despesa', 'Ativo', 'Passivo'];
+
+// Modelo de plano de contas para igrejas (entidade sem fins lucrativos — ITG 2002)
+const PLANO_PADRAO_IGREJA: [string, string, string][] = [
+  ['1', 'ATIVO', 'Ativo'],
+  ['1.1', 'Ativo Circulante', 'Ativo'],
+  ['1.1.01', 'Disponível', 'Ativo'],
+  ['1.1.01.01', 'Caixa', 'Ativo'],
+  ['1.1.01.02', 'Bancos Conta Movimento', 'Ativo'],
+  ['1.1.01.03', 'Aplicações Financeiras', 'Ativo'],
+  ['1.1.02', 'Créditos a Receber', 'Ativo'],
+  ['1.1.02.01', 'Adiantamentos a Funcionários e Obreiros', 'Ativo'],
+  ['1.1.02.02', 'Outros Créditos', 'Ativo'],
+  ['1.2', 'Ativo Não Circulante', 'Ativo'],
+  ['1.2.01', 'Imobilizado', 'Ativo'],
+  ['1.2.01.01', 'Terrenos', 'Ativo'],
+  ['1.2.01.02', 'Edificações (Templo e Salas)', 'Ativo'],
+  ['1.2.01.03', 'Móveis e Utensílios', 'Ativo'],
+  ['1.2.01.04', 'Instrumentos Musicais', 'Ativo'],
+  ['1.2.01.05', 'Equipamentos de Som e Multimídia', 'Ativo'],
+  ['1.2.01.06', 'Veículos', 'Ativo'],
+  ['1.2.01.07', '(-) Depreciação Acumulada', 'Ativo'],
+  ['2', 'PASSIVO E PATRIMÔNIO SOCIAL', 'Passivo'],
+  ['2.1', 'Passivo Circulante', 'Passivo'],
+  ['2.1.01', 'Obrigações Trabalhistas', 'Passivo'],
+  ['2.1.01.01', 'Salários e Prebendas a Pagar', 'Passivo'],
+  ['2.1.01.02', 'INSS a Recolher', 'Passivo'],
+  ['2.1.01.03', 'FGTS a Recolher', 'Passivo'],
+  ['2.1.02', 'Fornecedores', 'Passivo'],
+  ['2.1.02.01', 'Fornecedores a Pagar', 'Passivo'],
+  ['2.1.03', 'Empréstimos e Financiamentos', 'Passivo'],
+  ['2.1.03.01', 'Empréstimos Bancários', 'Passivo'],
+  ['2.2', 'Passivo Não Circulante', 'Passivo'],
+  ['2.2.01', 'Financiamentos de Longo Prazo', 'Passivo'],
+  ['2.2.01.01', 'Financiamento do Templo', 'Passivo'],
+  ['2.3', 'Patrimônio Social', 'Passivo'],
+  ['2.3.01', 'Patrimônio Social', 'Passivo'],
+  ['2.3.01.01', 'Patrimônio Social', 'Passivo'],
+  ['2.3.01.02', 'Superávit / Déficit Acumulado', 'Passivo'],
+  ['3', 'RECEITAS', 'Receita'],
+  ['3.1', 'Receitas Eclesiásticas', 'Receita'],
+  ['3.1.01', 'Dízimos', 'Receita'],
+  ['3.1.01.01', 'Dízimos', 'Receita'],
+  ['3.1.02', 'Ofertas', 'Receita'],
+  ['3.1.02.01', 'Ofertas Gerais (Cultos)', 'Receita'],
+  ['3.1.02.02', 'Ofertas Missionárias', 'Receita'],
+  ['3.1.02.03', 'Ofertas para Construção', 'Receita'],
+  ['3.1.02.04', 'Ofertas Especiais / Campanhas', 'Receita'],
+  ['3.1.03', 'Primícias e Votos', 'Receita'],
+  ['3.1.03.01', 'Primícias', 'Receita'],
+  ['3.1.03.02', 'Votos', 'Receita'],
+  ['3.2', 'Receitas de Eventos e Ministérios', 'Receita'],
+  ['3.2.01', 'Eventos', 'Receita'],
+  ['3.2.01.01', 'Inscrições em Congressos e Retiros', 'Receita'],
+  ['3.2.01.02', 'Cantina e Bazar', 'Receita'],
+  ['3.2.01.03', 'Venda de Livros e Materiais', 'Receita'],
+  ['3.3', 'Outras Receitas', 'Receita'],
+  ['3.3.01', 'Receitas Financeiras', 'Receita'],
+  ['3.3.01.01', 'Rendimentos de Aplicações', 'Receita'],
+  ['3.3.02', 'Doações e Repasses Recebidos', 'Receita'],
+  ['3.3.02.01', 'Doações de Terceiros', 'Receita'],
+  ['3.3.02.02', 'Repasses da Convenção / Igreja Sede', 'Receita'],
+  ['3.3.03', 'Receitas Diversas', 'Receita'],
+  ['3.3.03.01', 'Aluguéis Recebidos', 'Receita'],
+  ['3.3.03.02', 'Outras Receitas', 'Receita'],
+  ['4', 'DESPESAS', 'Despesa'],
+  ['4.1', 'Pessoal e Ministério Pastoral', 'Despesa'],
+  ['4.1.01', 'Pessoal', 'Despesa'],
+  ['4.1.01.01', 'Prebenda / Côngrua Pastoral', 'Despesa'],
+  ['4.1.01.02', 'Salários de Funcionários', 'Despesa'],
+  ['4.1.01.03', 'Encargos Sociais (INSS / FGTS)', 'Despesa'],
+  ['4.1.01.04', 'Ajuda de Custo a Obreiros', 'Despesa'],
+  ['4.1.01.05', 'Plano de Saúde e Benefícios', 'Despesa'],
+  ['4.2', 'Despesas Administrativas', 'Despesa'],
+  ['4.2.01', 'Ocupação do Templo', 'Despesa'],
+  ['4.2.01.01', 'Aluguel', 'Despesa'],
+  ['4.2.01.02', 'Energia Elétrica', 'Despesa'],
+  ['4.2.01.03', 'Água e Esgoto', 'Despesa'],
+  ['4.2.01.04', 'Telefone e Internet', 'Despesa'],
+  ['4.2.01.05', 'IPTU e Taxas', 'Despesa'],
+  ['4.2.02', 'Manutenção e Materiais', 'Despesa'],
+  ['4.2.02.01', 'Manutenção e Reparos do Templo', 'Despesa'],
+  ['4.2.02.02', 'Material de Limpeza', 'Despesa'],
+  ['4.2.02.03', 'Material de Escritório', 'Despesa'],
+  ['4.2.02.04', 'Manutenção de Equipamentos', 'Despesa'],
+  ['4.2.03', 'Serviços de Terceiros', 'Despesa'],
+  ['4.2.03.01', 'Contabilidade', 'Despesa'],
+  ['4.2.03.02', 'Serviços Jurídicos', 'Despesa'],
+  ['4.2.03.03', 'Sistemas e Softwares', 'Despesa'],
+  ['4.2.03.04', 'Segurança e Monitoramento', 'Despesa'],
+  ['4.3', 'Despesas Eclesiásticas e Ministeriais', 'Despesa'],
+  ['4.3.01', 'Ministérios', 'Despesa'],
+  ['4.3.01.01', 'Missões e Missionários', 'Despesa'],
+  ['4.3.01.02', 'Ação Social / Ajuda a Necessitados', 'Despesa'],
+  ['4.3.01.03', 'Escola Bíblica e Discipulado', 'Despesa'],
+  ['4.3.01.04', 'Ministério Infantil', 'Despesa'],
+  ['4.3.01.05', 'Ministério de Jovens', 'Despesa'],
+  ['4.3.01.06', 'Ministério de Louvor', 'Despesa'],
+  ['4.3.01.07', 'Células', 'Despesa'],
+  ['4.3.02', 'Cultos e Eventos', 'Despesa'],
+  ['4.3.02.01', 'Santa Ceia', 'Despesa'],
+  ['4.3.02.02', 'Congressos, Retiros e Eventos', 'Despesa'],
+  ['4.3.02.03', 'Pregadores e Cantores Convidados', 'Despesa'],
+  ['4.3.02.04', 'Ornamentação e Decoração', 'Despesa'],
+  ['4.3.03', 'Repasses', 'Despesa'],
+  ['4.3.03.01', 'Repasses à Convenção / Igreja Sede', 'Despesa'],
+  ['4.4', 'Despesas Financeiras', 'Despesa'],
+  ['4.4.01', 'Despesas Bancárias', 'Despesa'],
+  ['4.4.01.01', 'Tarifas Bancárias', 'Despesa'],
+  ['4.4.01.02', 'Juros e Multas', 'Despesa'],
+  ['4.4.01.03', 'IOF', 'Despesa'],
+  ['4.5', 'Outras Despesas', 'Despesa'],
+  ['4.5.01', 'Despesas Gerais', 'Despesa'],
+  ['4.5.01.01', 'Combustível e Transporte', 'Despesa'],
+  ['4.5.01.02', 'Alimentação', 'Despesa'],
+  ['4.5.01.03', 'Despesas Diversas', 'Despesa'],
+];
+
+// Palavras da descrição → conta do modelo (usado em "Reorganizar lançamentos"); a primeira que bater vale
+const SUGESTOES_CONTA: [RegExp, string][] = [
+  [/d[ií]zimo/, '3.1.01.01'],
+  [/mission[aá]ria|miss[oõ]es.*oferta|oferta.*miss/, '3.1.02.02'],
+  [/constru[cç][aã]o.*oferta|oferta.*constru/, '3.1.02.03'],
+  [/campanha|oferta especial/, '3.1.02.04'],
+  [/oferta|culto|coleta/, '3.1.02.01'],
+  [/prim[ií]cia/, '3.1.03.01'],
+  [/\bvoto/, '3.1.03.02'],
+  [/inscri[cç]|congresso.*recei|retiro.*recei/, '3.2.01.01'],
+  [/cantina|bazar/, '3.2.01.02'],
+  [/livro|apostila|material.*venda/, '3.2.01.03'],
+  [/rendimento|aplica[cç]/, '3.3.01.01'],
+  [/doa[cç]/, '3.3.02.01'],
+  [/prebenda|c[oô]ngrua|sal[aá]rio.*pastor|pastor/, '4.1.01.01'],
+  [/sal[aá]rio|funcion[aá]ri/, '4.1.01.02'],
+  [/inss|fgts|encargo/, '4.1.01.03'],
+  [/ajuda de custo|obreiro/, '4.1.01.04'],
+  [/aluguel/, '4.2.01.01'],
+  [/energia|\bluz\b|cemig|enel|copel|celesc|light|coelba|equatorial|neoenergia|elektro/, '4.2.01.02'],
+  [/[aá]gua|esgoto|saneamento|copasa|sabesp|cedae|embasa|sanepar/, '4.2.01.03'],
+  [/internet|telefone|celular|wi-?fi/, '4.2.01.04'],
+  [/iptu|taxa/, '4.2.01.05'],
+  [/reparo|reforma|manuten[cç][aã]o.*templo|pedreiro|pintura|eletricista/, '4.2.02.01'],
+  [/limpeza/, '4.2.02.02'],
+  [/escrit[oó]rio|papel|caneta|impress/, '4.2.02.03'],
+  [/manuten[cç]/, '4.2.02.04'],
+  [/contabil|contador/, '4.2.03.01'],
+  [/advogad|jur[ií]dic/, '4.2.03.02'],
+  [/sistema|software|aplicativo|assinatura/, '4.2.03.03'],
+  [/seguran[cç]a|monitoramento|alarme/, '4.2.03.04'],
+  [/miss[oõ]es|mission[aá]rio/, '4.3.01.01'],
+  [/a[cç][aã]o social|cesta|necessitad/, '4.3.01.02'],
+  [/ebd|escola b[ií]blica|discipulado/, '4.3.01.03'],
+  [/infantil|crian[cç]a/, '4.3.01.04'],
+  [/jovens|juventude|adolescente/, '4.3.01.05'],
+  [/louvor|m[uú]sica/, '4.3.01.06'],
+  [/c[eé]lula/, '4.3.01.07'],
+  [/santa ceia|ceia/, '4.3.02.01'],
+  [/congresso|retiro|evento/, '4.3.02.02'],
+  [/pregador|preletor|cantor|convidado/, '4.3.02.03'],
+  [/decora[cç]|ornamenta|flores/, '4.3.02.04'],
+  [/conven[cç][aã]o|repasse|sede/, '4.3.03.01'],
+  [/tarifa|banc[aá]ri/, '4.4.01.01'],
+  [/juros|multa/, '4.4.01.02'],
+  [/\biof\b/, '4.4.01.03'],
+  [/combust[ií]vel|gasolina|transporte|uber|passagem/, '4.5.01.01'],
+  [/alimenta|lanche|refei[cç]/, '4.5.01.02'],
+];
+const sugerirContaPadrao = (texto: string, tipo: TipoLancamento) => {
+  const t = texto.toLowerCase();
+  const prefixo = tipo === 'receita' ? '3' : '4';
+  const achou = SUGESTOES_CONTA.find(([re, cod]) => cod.startsWith(prefixo) && re.test(t));
+  return achou ? achou[1] : tipo === 'receita' ? '3.3.03.02' : '4.5.01.03';
+};
+
+// Código pai = o maior código existente que é "prefixo" do código (3.1.01.01 → 3.1.01 → 3.1 → 3)
+const acharPai = (codigo: string, existentes: Set<string>) => {
+  const partes = codigo.trim().split('.');
+  for (let i = partes.length - 1; i > 0; i--) {
+    const p = partes.slice(0, i).join('.');
+    if (existentes.has(p)) return p;
+  }
+  return '';
+};
+
 const formLancamentoInicial = {
   data_lancamento: hojeLocal(),
   tipo: 'receita' as TipoLancamento,
@@ -167,6 +355,14 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const [showModalConta, setShowModalConta] = useState(false);
   const [editingConta, setEditingConta] = useState<ContaContabil | null>(null);
   const [formConta, setFormConta] = useState(formContaContabilInicial);
+  const [buscaPlano, setBuscaPlano] = useState('');
+  const [filtroNatureza, setFiltroNatureza] = useState('');
+  const [gruposFechados, setGruposFechados] = useState<Set<string>>(new Set());
+  const [showModalImportar, setShowModalImportar] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const [showModalReorganizar, setShowModalReorganizar] = useState(false);
+  const [escolhasReorg, setEscolhasReorg] = useState<Record<string, string>>({});
+  const [salvandoReorg, setSalvandoReorg] = useState(false);
 
   // Modais Conta Adm
   const [showModalAdm, setShowModalAdm] = useState(false);
@@ -496,8 +692,43 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const handleSubmitConta = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!exigirPerm(podeContas)) return;
+
+    const codigo = formConta.codigo_conta.trim().replace(/\s+/g, '').replace(/\.+$/, '');
+    if (!/^[0-9A-Za-z]+(\.[0-9A-Za-z]+)*$/.test(codigo)) {
+      alert('Código inválido. Use números separados por ponto, por exemplo: 4.2.01.06');
+      return;
+    }
+    const repetida = contasContabeis.find((c) => c.codigo_conta.trim() === codigo && c.id !== editingConta?.id);
+    if (repetida) {
+      alert(`Já existe a conta ${repetida.codigo_conta} - ${repetida.nome_conta}. Use outro código.`);
+      return;
+    }
+    if (editingConta && editingConta.codigo_conta.trim() !== codigo && (filhosPorCodigo.get(editingConta.codigo_conta.trim()) || []).length > 0) {
+      alert('Esta conta é um grupo com subcontas: o código dela não pode ser mudado (as subcontas ficariam soltas).');
+      return;
+    }
+    const codigosSemEsta = new Set(contasContabeis.filter((c) => c.id !== editingConta?.id).map((c) => c.codigo_conta.trim()));
+    const pai = acharPai(codigo, codigosSemEsta);
+    if (!editingConta && pai) {
+      const contaPai = contaPorCodigo.get(pai);
+      const lancsNoPai = contaPai ? qtdLancamentosConta.get(contaPai.id) || 0 : 0;
+      if (
+        lancsNoPai > 0 &&
+        !window.confirm(
+          `A conta ${pai} já tem ${lancsNoPai} lançamento(s). Criando uma subconta, ela vira um GRUPO e os próximos lançamentos devem ir nas subcontas.\n\nContinuar?`
+        )
+      )
+        return;
+    }
+
     try {
-      const payload = { ...formConta, codigo_igreja: codigoIgreja };
+      const payload = {
+        ...formConta,
+        codigo_conta: codigo,
+        nome_conta: formConta.nome_conta.trim(),
+        conta_pai: pai,
+        codigo_igreja: codigoIgreja,
+      };
 
       const { error: authError } = await supabase.auth.signInWithPassword({
         email: emailUsuarioLogado,
@@ -702,6 +933,202 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
   };
 
+  // ── HIERARQUIA DO PLANO DE CONTAS ──
+  const planoOrdenado = [...contasContabeis].sort((a, b) => compararCodigo(a.codigo_conta.trim(), b.codigo_conta.trim()));
+  const codigosPlano = new Set(planoOrdenado.map((c) => c.codigo_conta.trim()));
+  const contaPorCodigo = new Map(planoOrdenado.map((c) => [c.codigo_conta.trim(), c] as [string, ContaContabil]));
+  const paiPorCodigo = new Map(planoOrdenado.map((c) => [c.codigo_conta.trim(), acharPai(c.codigo_conta, codigosPlano)] as [string, string]));
+  const filhosPorCodigo = new Map<string, string[]>();
+  paiPorCodigo.forEach((pai, cod) => {
+    if (!pai) return;
+    filhosPorCodigo.set(pai, [...(filhosPorCodigo.get(pai) || []), cod]);
+  });
+  const ancestrais = (cod: string) => {
+    const lista: string[] = [];
+    let p = paiPorCodigo.get(cod) || '';
+    while (p) {
+      lista.push(p);
+      p = paiPorCodigo.get(p) || '';
+    }
+    return lista;
+  };
+  const nivelConta = (cod: string) => ancestrais(cod).length + 1;
+  const ehGrupo = (cod: string) => (filhosPorCodigo.get(cod.trim()) || []).length > 0;
+  // A conta e todas as subcontas dela (para somar os grupos)
+  const descendentesEEla = (cod: string) => planoOrdenado.filter((c) => {
+    const x = c.codigo_conta.trim();
+    return x === cod || ancestrais(x).includes(cod);
+  });
+  const caminhoConta = (cod: string) =>
+    ancestrais(cod)
+      .reverse()
+      .map((a) => contaPorCodigo.get(a)?.nome_conta || a)
+      .join(' › ');
+
+  const qtdLancamentosConta = new Map<string, number>();
+  lancamentos.forEach((l) => {
+    if (l.id_conta_contabil) qtdLancamentosConta.set(l.id_conta_contabil, (qtdLancamentosConta.get(l.id_conta_contabil) || 0) + 1);
+  });
+
+  // Próximo código livre dentro de um grupo (ex.: 4.2.01 com filhos até .05 → 4.2.01.06)
+  const sugerirCodigo = (pai: string) => {
+    const filhos = pai ? filhosPorCodigo.get(pai) || [] : planoOrdenado.map((c) => c.codigo_conta.trim()).filter((c) => !paiPorCodigo.get(c));
+    const finais = filhos.map((f) => f.split('.').pop() || '');
+    const numeros = finais.map((f) => parseInt(f, 10)).filter((n) => Number.isFinite(n));
+    const largura = finais.length ? Math.max(...finais.map((f) => f.length)) : pai && pai.split('.').length >= 2 ? 2 : 1;
+    let proximo = (numeros.length ? Math.max(...numeros) : 0) + 1;
+    const montar = (n: number) => (pai ? `${pai}.` : '') + String(n).padStart(largura, '0');
+    while (codigosPlano.has(montar(proximo))) proximo++;
+    return montar(proximo);
+  };
+
+  const abrirNovaConta = (pai: string) => {
+    if (!exigirPerm(podeContas)) return;
+    const contaPai = pai ? contaPorCodigo.get(pai) : undefined;
+    setEditingConta(null);
+    setFormConta({
+      ...formContaContabilInicial,
+      conta_pai: pai,
+      codigo_conta: sugerirCodigo(pai),
+      tipo_natureza: contaPai?.tipo_natureza || formContaContabilInicial.tipo_natureza,
+    });
+    setSenhaExclusao('');
+    setShowModalConta(true);
+  };
+
+  // Lista que aparece na aba Plano de Contas (com busca, filtro e grupos recolhidos)
+  const termoPlano = buscaPlano.trim().toLowerCase();
+  const linhasPlano = planoOrdenado.filter((c) => {
+    const cod = c.codigo_conta.trim();
+    if (filtroNatureza && c.tipo_natureza !== filtroNatureza) return false;
+    if (termoPlano) return cod.toLowerCase().startsWith(termoPlano) || (c.nome_conta || '').toLowerCase().includes(termoPlano);
+    return !ancestrais(cod).some((a) => gruposFechados.has(a));
+  });
+  const gruposDoPlano = planoOrdenado.map((c) => c.codigo_conta.trim()).filter((cod) => ehGrupo(cod));
+  // Contas antigas que usam um código do modelo com outro nome (ex.: "1 - Entradas"): serão renumeradas para 9.01, 9.02…
+  const normalizar = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const nomeModelo = new Map(PLANO_PADRAO_IGREJA.map(([cod, nome]) => [cod, nome] as [string, string]));
+  const contasEmConflito = planoOrdenado.filter((c) => {
+    const nm = nomeModelo.get(c.codigo_conta.trim());
+    return nm !== undefined && normalizar(nm) !== normalizar(c.nome_conta || '');
+  });
+  const codigosEmConflito = new Set(contasEmConflito.map((c) => c.codigo_conta.trim()));
+  const faltandoNoModelo = PLANO_PADRAO_IGREJA.filter(([cod]) => !codigosPlano.has(cod) || codigosEmConflito.has(cod));
+
+  // ── REORGANIZAR LANÇAMENTOS ANTIGOS NO PLANO PADRÃO ──
+  // Lançamentos (receita/despesa) sem conta, em conta-grupo ou em conta fora do modelo
+  const codigosModelo = new Set(PLANO_PADRAO_IGREJA.map(([cod]) => cod));
+  const modeloInstalado = codigosPlano.has('3.1.01.01') && codigosPlano.has('4.5.01.03');
+  const contaDoLanc = (l: Lancamento) => contasContabeis.find((c) => c.id === l.id_conta_contabil);
+  const lancsParaReorganizar = lancamentos.filter((l) => {
+    if (l.tipo === 'saldo') return false;
+    const c = contaDoLanc(l);
+    if (!c) return true;
+    const cod = c.codigo_conta.trim();
+    return !codigosModelo.has(cod) || ehGrupo(cod);
+  });
+
+  const abrirReorganizar = () => {
+    if (!exigirPerm(podeEditar)) return;
+    const escolhas: Record<string, string> = {};
+    lancsParaReorganizar.forEach((l) => {
+      const contaAtual = contaDoLanc(l);
+      const cod = sugerirContaPadrao(`${l.descricao || ''} ${contaAtual?.nome_conta || ''}`, l.tipo);
+      escolhas[l.id] = contaPorCodigo.get(cod)?.id || '';
+    });
+    setEscolhasReorg(escolhas);
+    setSenhaExclusao('');
+    setShowModalReorganizar(true);
+  };
+
+  const salvarReorganizacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!exigirPerm(podeEditar) || salvandoReorg) return;
+    const mudancas = lancsParaReorganizar.filter((l) => escolhasReorg[l.id] && escolhasReorg[l.id] !== l.id_conta_contabil);
+    if (mudancas.length === 0) {
+      alert('Nenhuma mudança para salvar.');
+      return;
+    }
+    setSalvandoReorg(true);
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: emailUsuarioLogado, password: senhaExclusao });
+      if (authError) {
+        alert('Senha incorreta! Nada foi alterado.');
+        return;
+      }
+      for (const l of mudancas) {
+        const { error } = await supabase
+          .from('lancamentos_financeiros')
+          .update({ id_conta_contabil: escolhasReorg[l.id] })
+          .eq('id', l.id)
+          .eq('codigo_igreja', codigoIgreja);
+        if (error) throw error;
+      }
+      await registrarLog('REORGANIZAR_LANCAMENTOS', `Moveu ${mudancas.length} lançamento(s) para o plano de contas padrão`);
+      alert(`${mudancas.length} lançamento(s) reorganizado(s)! Agora as contas antigas que ficaram vazias podem ser excluídas no Plano de Contas.`);
+      setShowModalReorganizar(false);
+      setSenhaExclusao('');
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao reorganizar: ' + (err?.message || err));
+    } finally {
+      setSalvandoReorg(false);
+    }
+  };
+
+  const importarPlanoPadrao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!exigirPerm(podeContas) || importando) return;
+    if (faltandoNoModelo.length === 0) {
+      alert('Seu plano já tem todas as contas do modelo.');
+      return;
+    }
+    setImportando(true);
+    try {
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: emailUsuarioLogado, password: senhaExclusao });
+      if (authError) {
+        alert('Senha incorreta! A importação foi cancelada.');
+        return;
+      }
+      // 1) Tira as contas antigas do caminho (os lançamentos continuam ligados a elas)
+      const ocupados = new Set([...codigosPlano, ...PLANO_PADRAO_IGREJA.map(([cod]) => cod)]);
+      let n = 1;
+      for (const c of contasEmConflito) {
+        let novo = `9.${String(n).padStart(2, '0')}`;
+        while (ocupados.has(novo)) novo = `9.${String(++n).padStart(2, '0')}`;
+        ocupados.add(novo);
+        n++;
+        const { error } = await supabase
+          .from('plano_contas_contabil')
+          .update({ codigo_conta: novo, conta_pai: '' })
+          .eq('id', c.id)
+          .eq('codigo_igreja', codigoIgreja);
+        if (error) throw error;
+      }
+      const todosCodigos = new Set([...ocupados]);
+      const linhas = faltandoNoModelo.map(([codigo_conta, nome_conta, tipo_natureza]) => ({
+        codigo_igreja: codigoIgreja,
+        codigo_conta,
+        nome_conta,
+        tipo_natureza,
+        conta_pai: acharPai(codigo_conta, todosCodigos),
+      }));
+      for (let i = 0; i < linhas.length; i += 200) {
+        const { error } = await supabase.from('plano_contas_contabil').insert(linhas.slice(i, i + 200));
+        if (error) throw error;
+      }
+      await registrarLog('IMPORTAR_PLANO_CONTAS', `Importou ${linhas.length} contas do modelo padrão para igrejas`);
+      alert(`${linhas.length} contas importadas com sucesso!`);
+      setShowModalImportar(false);
+      setSenhaExclusao('');
+      fetchDados();
+    } catch (err: any) {
+      alert('Erro ao importar o plano de contas: ' + (err?.message || err));
+    } finally {
+      setImportando(false);
+    }
+  };
+
   const getNomeContaAdm = (id: string) => {
     const adm = contasAdmList.find((x) => x.id === id);
     return adm ? `${adm.codigo_conta} (${adm.nome_conta})` : 'Caixa Geral';
@@ -722,11 +1149,40 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const lancamentosPeriodo = lancamentos.filter((l) => noPeriodo(l) && l.tipo !== 'saldo');
   const saldosNoPeriodo = lancamentos.filter((l) => noPeriodo(l) && l.tipo === 'saldo');
 
-  const dadosBalancete = contasContabeis.map((conta) => {
-    const lancsDaConta = lancamentosPeriodo.filter((l) => l.id_conta_contabil === conta.id);
-    const total = lancsDaConta.reduce((acc, l) => acc + Number(l.valor || 0), 0);
-    return { ...conta, total };
-  }).filter((c) => c.total > 0);
+  // Entradas e saídas do período em cada conta contábil (direto, sem somar subcontas)
+  const movContabilDireto = new Map<string, { entradas: number; saidas: number }>();
+  lancamentosPeriodo.forEach((l) => {
+    if (!l.id_conta_contabil) return;
+    const atual = movContabilDireto.get(l.id_conta_contabil) || { entradas: 0, saidas: 0 };
+    if (l.tipo === 'receita') atual.entradas += Number(l.valor || 0);
+    else atual.saidas += Number(l.valor || 0);
+    movContabilDireto.set(l.id_conta_contabil, atual);
+  });
+  // Grupos somam tudo o que está abaixo deles
+  const dadosBalancete = planoOrdenado
+    .map((conta) => {
+      const cod = conta.codigo_conta.trim();
+      const soma = descendentesEEla(cod).reduce(
+        (acc, c) => {
+          const m = movContabilDireto.get(c.id);
+          return m ? { entradas: acc.entradas + m.entradas, saidas: acc.saidas + m.saidas } : acc;
+        },
+        { entradas: 0, saidas: 0 }
+      );
+      return { ...conta, cod, nivel: nivelConta(cod), grupo: ehGrupo(cod), ...soma, total: soma.entradas + soma.saidas };
+    })
+    .filter((c) => c.total > 0);
+
+  // Lançamentos sem conta contábil válida (aparecem numa linha à parte para os totais baterem)
+  const idsPlano = new Set(contasContabeis.map((c) => c.id));
+  const semContaContabil = lancamentosPeriodo.filter((l) => !l.id_conta_contabil || !idsPlano.has(l.id_conta_contabil));
+  const semContaReceitas = semContaContabil.filter((l) => l.tipo === 'receita').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+  const semContaDespesas = semContaContabil.filter((l) => l.tipo === 'despesa').reduce((acc, l) => acc + Number(l.valor || 0), 0);
+
+  // DRE: até o 3º nível (ex.: 3 Receitas › 3.1 Eclesiásticas › 3.1.02 Ofertas)
+  const linhasDre = (campo: 'entradas' | 'saidas') =>
+    // o grupo de 1º nível (3 RECEITAS / 4 DESPESAS) já é o título do bloco, então não repete
+    dadosBalancete.filter((c) => c[campo] > 0 && c.nivel <= 3 && !(c.nivel === 1 && c.grupo));
 
   const totalReceitas = lancamentosPeriodo
     .filter((l) => l.tipo === 'receita')
@@ -1007,19 +1463,28 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
         )}
 
         {subAba === 'plano_contas' && podeContas && (
-          <button
-            type="button"
-            onClick={() => {
-              if (!exigirPerm(podeContas)) return;
-              setEditingConta(null);
-              setFormConta(formContaContabilInicial);
-              setSenhaExclusao('');
-              setShowModalConta(true);
-            }}
-            className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
-          >
-            + Nova Conta Contábil
-          </button>
+          <div className="flex flex-wrap justify-end gap-2">
+            {faltandoNoModelo.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (!exigirPerm(podeContas)) return;
+                  setSenhaExclusao('');
+                  setShowModalImportar(true);
+                }}
+                className="px-4 py-3 bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+              >
+                📥 Usar modelo para igrejas
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => abrirNovaConta('')}
+              className="px-4 py-3 bg-blue-900 hover:bg-blue-800 text-white font-bold text-sm rounded-xl shadow transition cursor-pointer"
+            >
+              + Nova Conta Principal
+            </button>
+          </div>
         )}
       </div>
 
@@ -1375,75 +1840,208 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
 
       {/* CONTEÚDO DA ABA: PLANO DE CONTAS */}
       {!loading && subAba === 'plano_contas' && (
-        <>
+        <div className="space-y-4">
           {contasContabeis.length === 0 ? (
-            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300">
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-3">
               <p className="text-slate-500 text-sm">Nenhuma conta cadastrada no plano de contas.</p>
+              {podeContas && (
+                <p className="text-slate-600 text-sm">
+                  Dica: clique em <strong>📥 Usar modelo para igrejas</strong> para começar com um plano completo (Dízimos, Ofertas, Prebenda, Energia, Missões…) e depois adapte.
+                </p>
+              )}
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
-                    <th className="p-3">Código</th>
-                    <th className="p-3">Nome da Conta</th>
-                    <th className="p-3">Natureza</th>
-                    <th className="p-3 text-right">Ações</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-sm">
-                  {contasContabeis.map((c) => (
-                    <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                      <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
-                      <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
-                      <td className="p-3">
-                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 border">
-                          {c.tipo_natureza}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right space-x-1 whitespace-nowrap">
-                        {podeContas && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!exigirPerm(podeContas)) return;
-                            setEditingConta(c);
-                            setFormConta({
-                              codigo_conta: c.codigo_conta,
-                              nome_conta: c.nome_conta,
-                              conta_pai: c.conta_pai || '',
-                              tipo_natureza: c.tipo_natureza,
-                            });
-                            setSenhaExclusao('');
-                            setShowModalConta(true);
-                          }}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Editar
-                        </button>
-                        )}
-                        {podeContas && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!exigirPerm(podeContas)) return;
-                            setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: c.nome_conta });
-                            setSenhaExclusao('');
-                            setShowDeleteModal(true);
-                          }}
-                          className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                        >
-                          Excluir
-                        </button>
-                        )}
-                      </td>
+            <>
+              {/* Busca, filtro e abrir/fechar grupos */}
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <label className="flex-1 text-xs font-bold text-slate-700">
+                  Buscar
+                  <input
+                    type="text"
+                    value={buscaPlano}
+                    onChange={(e) => setBuscaPlano(e.target.value)}
+                    placeholder="Código ou nome (ex: 4.2 ou energia)"
+                    className="block w-full mt-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white font-normal"
+                  />
+                </label>
+                <label className="text-xs font-bold text-slate-700">
+                  Natureza
+                  <select
+                    value={filtroNatureza}
+                    onChange={(e) => setFiltroNatureza(e.target.value)}
+                    className="block mt-1 border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white font-normal"
+                  >
+                    <option value="">Todas</option>
+                    {NATUREZAS.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </label>
+                {gruposDoPlano.length > 0 && !termoPlano && (
+                  <div className="flex gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setGruposFechados(new Set())}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer whitespace-nowrap"
+                    >
+                      ⊞ Abrir tudo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGruposFechados(new Set(gruposDoPlano.filter((g) => nivelConta(g) >= 2)))}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer whitespace-nowrap"
+                    >
+                      ⊟ Só os grupos
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-[11px] text-slate-600">
+                <span className="px-2 py-1 rounded-lg bg-slate-100 font-bold">📁 Grupo: só soma as contas de dentro</span>
+                <span className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold">📄 Conta analítica: recebe os lançamentos</span>
+                <span className="px-2 py-1">{contasContabeis.length} contas · {gruposDoPlano.length} grupos</span>
+              </div>
+
+              {modeloInstalado && lancsParaReorganizar.length > 0 && podeEditar && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-amber-50 border border-amber-200">
+                  <p className="text-sm text-amber-900">
+                    <strong>{lancsParaReorganizar.length} lançamento{lancsParaReorganizar.length === 1 ? '' : 's'}</strong>{' '}
+                    {lancsParaReorganizar.length === 1 ? 'está' : 'estão'} fora do plano padrão (sem conta, em conta antiga ou em grupo).
+                  </p>
+                  <button
+                    type="button"
+                    onClick={abrirReorganizar}
+                    className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-xl shadow cursor-pointer whitespace-nowrap"
+                  >
+                    🔀 Reorganizar lançamentos
+                  </button>
+                </div>
+              )}
+
+              <div className="overflow-x-auto border rounded-xl">
+                <table className="w-full text-left border-collapse min-w-[640px]">
+                  <thead>
+                    <tr className="border-b bg-slate-50 text-slate-700 text-xs uppercase font-bold">
+                      <th className="p-3">Código</th>
+                      <th className="p-3">Nome da Conta</th>
+                      <th className="p-3">Natureza</th>
+                      <th className="p-3 text-center">Lançamentos</th>
+                      <th className="p-3 text-right">Ações</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y text-sm">
+                    {linhasPlano.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-xs text-slate-400">Nenhuma conta encontrada.</td>
+                      </tr>
+                    )}
+                    {linhasPlano.map((c) => {
+                      const cod = c.codigo_conta.trim();
+                      const nivel = nivelConta(cod);
+                      const grupo = ehGrupo(cod);
+                      const fechado = gruposFechados.has(cod);
+                      const qtd = grupo
+                        ? descendentesEEla(cod).reduce((acc, x) => acc + (qtdLancamentosConta.get(x.id) || 0), 0)
+                        : qtdLancamentosConta.get(c.id) || 0;
+                      return (
+                        <tr key={c.id} className={`transition ${grupo ? (nivel === 1 ? 'bg-blue-50/70' : 'bg-slate-50/70') : 'hover:bg-slate-50/80'}`}>
+                          <td className={`p-3 whitespace-nowrap ${grupo ? 'font-black text-blue-900' : 'font-semibold text-slate-600'}`}>{cod}</td>
+                          <td className="p-3">
+                            <div className="flex items-center gap-1.5" style={{ paddingLeft: termoPlano ? 0 : (nivel - 1) * 20 }}>
+                              {grupo ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const novo = new Set(gruposFechados);
+                                    if (fechado) novo.delete(cod);
+                                    else novo.add(cod);
+                                    setGruposFechados(novo);
+                                  }}
+                                  className="w-5 h-5 shrink-0 rounded text-[10px] font-black text-blue-900 bg-white border border-blue-200 cursor-pointer"
+                                  title={fechado ? 'Abrir grupo' : 'Fechar grupo'}
+                                >
+                                  {fechado ? '▸' : '▾'}
+                                </button>
+                              ) : (
+                                <span className="w-5 shrink-0 text-center text-xs">📄</span>
+                              )}
+                              <span className={grupo ? `font-black ${nivel === 1 ? 'text-blue-900 uppercase' : 'text-slate-800'}` : 'text-slate-700'}>
+                                {c.nome_conta}
+                              </span>
+                              {termoPlano && ancestrais(cod).length > 0 && (
+                                <span className="text-[11px] text-slate-400 truncate">· {caminhoConta(cod)}</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3">
+                            <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-white text-slate-700 border">{c.tipo_natureza}</span>
+                          </td>
+                          <td className="p-3 text-center text-xs text-slate-500">{qtd || '-'}</td>
+                          <td className="p-3 text-right space-x-1 whitespace-nowrap">
+                            {podeContas && (
+                              <button
+                                type="button"
+                                onClick={() => abrirNovaConta(cod)}
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                                title="Criar uma conta dentro desta"
+                              >
+                                + Subconta
+                              </button>
+                            )}
+                            {podeContas && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!exigirPerm(podeContas)) return;
+                                  setEditingConta(c);
+                                  setFormConta({
+                                    codigo_conta: c.codigo_conta,
+                                    nome_conta: c.nome_conta,
+                                    conta_pai: paiPorCodigo.get(cod) || '',
+                                    tipo_natureza: c.tipo_natureza,
+                                  });
+                                  setSenhaExclusao('');
+                                  setShowModalConta(true);
+                                }}
+                                className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition cursor-pointer"
+                              >
+                                Editar
+                              </button>
+                            )}
+                            {podeContas && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (!exigirPerm(podeContas)) return;
+                                  if (grupo) {
+                                    alert('Este grupo tem subcontas. Exclua ou mova as subcontas antes de excluir o grupo.');
+                                    return;
+                                  }
+                                  const usados = qtdLancamentosConta.get(c.id) || 0;
+                                  if (usados > 0) {
+                                    alert(`Esta conta tem ${usados} lançamento(s). Para não perder o histórico, mude esses lançamentos para outra conta antes de excluir.`);
+                                    return;
+                                  }
+                                  setItemParaExcluir({ id: c.id, tipo: 'conta_contabil', nome: `${cod} - ${c.nome_conta}` });
+                                  setSenhaExclusao('');
+                                  setShowDeleteModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-lg transition cursor-pointer"
+                              >
+                                Excluir
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
-        </>
+        </div>
       )}
 
       {/* CONTEÚDO DA ABA: RELATÓRIOS */}
@@ -1740,7 +2338,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             {tipoRelatorio === 'balancete' && (
               <div>
                 <h3 className="font-black text-blue-900 text-lg mb-1">Relatório Contábil: Balancete de Verificação</h3>
-                <p className="text-xs text-slate-500 mb-4">Saldo acumulado por conta do plano de contas.</p>
+                <p className="text-xs text-slate-500 mb-4">Movimento do período por conta do plano de contas. Os grupos somam as contas de dentro.</p>
 
                 <div className="overflow-x-auto bg-white rounded-xl border">
                   <table className="w-full text-left border-collapse text-sm">
@@ -1749,18 +2347,45 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                         <th className="p-3">Código</th>
                         <th className="p-3">Nome da Conta</th>
                         <th className="p-3">Natureza</th>
-                        <th className="p-3 text-right">Saldo Movimentado</th>
+                        <th className="p-3 text-right">Entradas</th>
+                        <th className="p-3 text-right">Saídas</th>
+                        <th className="p-3 text-right">Total Movimentado</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y">
+                      {dadosBalancete.length === 0 && semContaContabil.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-6 text-center text-xs text-slate-400">Nenhum lançamento neste período.</td>
+                        </tr>
+                      )}
                       {dadosBalancete.map((c) => (
-                        <tr key={c.id}>
-                          <td className="p-3 font-bold text-blue-900">{c.codigo_conta}</td>
-                          <td className="p-3 font-semibold text-slate-800">{c.nome_conta}</td>
-                          <td className="p-3">{c.tipo_natureza}</td>
-                          <td className="p-3 text-right font-black text-slate-800">{moeda(c.total)}</td>
+                        <tr key={c.id} className={c.grupo ? (c.nivel === 1 ? 'bg-blue-50/70' : 'bg-slate-50') : ''}>
+                          <td className={`p-3 whitespace-nowrap ${c.grupo ? 'font-black text-blue-900' : 'font-semibold text-slate-600'}`}>{c.cod}</td>
+                          <td className={`p-3 ${c.grupo ? 'font-black text-slate-800' : 'text-slate-700'} ${c.nivel === 1 ? 'uppercase' : ''}`} style={{ paddingLeft: 12 + (c.nivel - 1) * 18 }}>
+                            {c.nome_conta}
+                          </td>
+                          <td className="p-3 text-xs">{c.tipo_natureza}</td>
+                          <td className="p-3 text-right text-emerald-700 whitespace-nowrap">{c.entradas ? moeda(c.entradas) : '-'}</td>
+                          <td className="p-3 text-right text-rose-700 whitespace-nowrap">{c.saidas ? moeda(c.saidas) : '-'}</td>
+                          <td className={`p-3 text-right whitespace-nowrap ${c.grupo ? 'font-black' : 'font-bold'} text-slate-800`}>{moeda(c.total)}</td>
                         </tr>
                       ))}
+                      {semContaContabil.length > 0 && (
+                        <tr className="bg-amber-50">
+                          <td className="p-3 text-amber-800 font-bold">—</td>
+                          <td className="p-3 text-amber-800 font-bold">Sem conta contábil ({semContaContabil.length} lançamento{semContaContabil.length === 1 ? '' : 's'})</td>
+                          <td className="p-3" />
+                          <td className="p-3 text-right text-emerald-700 whitespace-nowrap">{semContaReceitas ? moeda(semContaReceitas) : '-'}</td>
+                          <td className="p-3 text-right text-rose-700 whitespace-nowrap">{semContaDespesas ? moeda(semContaDespesas) : '-'}</td>
+                          <td className="p-3 text-right font-bold text-slate-800 whitespace-nowrap">{moeda(semContaReceitas + semContaDespesas)}</td>
+                        </tr>
+                      )}
+                      <tr className="bg-slate-100 font-black">
+                        <td className="p-3" colSpan={3}>Total do período</td>
+                        <td className="p-3 text-right text-emerald-700 whitespace-nowrap">{moeda(totalReceitas)}</td>
+                        <td className="p-3 text-right text-rose-700 whitespace-nowrap">{moeda(totalDespesas)}</td>
+                        <td className="p-3 text-right text-slate-800 whitespace-nowrap">{moeda(totalReceitas + totalDespesas)}</td>
+                      </tr>
                     </tbody>
                   </table>
                 </div>
@@ -1772,23 +2397,45 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
               <div className="space-y-4">
                 <div>
                   <h3 className="font-black text-blue-900 text-lg">Demonstração do Resultado do Exercício (DRE)</h3>
-                  <p className="text-xs text-slate-500">Resumo oficial de receitas, despesas e superávit/déficit do período.</p>
+                  <p className="text-xs text-slate-500">Receitas e despesas do período, agrupadas pelo plano de contas, e o superávit/déficit.</p>
                 </div>
 
-                <div className="bg-white rounded-2xl border p-6 space-y-4 shadow-sm">
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-bold text-emerald-800 text-sm">🟢 Total de Receitas</span>
-                    <span className="font-black text-emerald-700 text-base">{moeda(totalReceitas)}</span>
-                  </div>
+                <div className="bg-white rounded-2xl border p-4 sm:p-6 space-y-5 shadow-sm">
+                  {([
+                    { titulo: '🟢 Receitas', campo: 'entradas', total: totalReceitas, semConta: semContaReceitas, cor: 'text-emerald-700', corTitulo: 'text-emerald-800' },
+                    { titulo: '🔴 Despesas', campo: 'saidas', total: totalDespesas, semConta: semContaDespesas, cor: 'text-rose-700', corTitulo: 'text-rose-800' },
+                  ] as const).map((bloco) => (
+                    <div key={bloco.campo} className="space-y-1">
+                      <div className="flex justify-between items-center border-b-2 pb-2">
+                        <span className={`font-black text-sm uppercase ${bloco.corTitulo}`}>{bloco.titulo}</span>
+                        <span className={`font-black text-base whitespace-nowrap ${bloco.cor}`}>{moeda(bloco.total)}</span>
+                      </div>
+                      {linhasDre(bloco.campo).map((c) => (
+                        <div
+                          key={c.id}
+                          className={`flex justify-between items-center gap-3 py-1 text-sm ${c.grupo ? 'font-bold text-slate-800' : 'text-slate-600'}`}
+                          style={{ paddingLeft: Math.max(0, c.nivel - 2) * 18 }}
+                        >
+                          <span>
+                            <span className="text-slate-400 text-xs mr-1.5">{c.cod}</span>
+                            {c.nome_conta}
+                          </span>
+                          <span className="whitespace-nowrap">{moeda(c[bloco.campo])}</span>
+                        </div>
+                      ))}
+                      {bloco.semConta > 0 && (
+                        <div className="flex justify-between items-center gap-3 py-1 text-sm text-amber-800">
+                          <span>Sem conta contábil</span>
+                          <span className="whitespace-nowrap">{moeda(bloco.semConta)}</span>
+                        </div>
+                      )}
+                      {bloco.total === 0 && <p className="text-xs text-slate-400 py-1">Nada no período.</p>}
+                    </div>
+                  ))}
 
-                  <div className="flex justify-between items-center border-b pb-3">
-                    <span className="font-bold text-rose-800 text-sm">🔴 Total de Despesas</span>
-                    <span className="font-black text-rose-700 text-base">{moeda(totalDespesas)}</span>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="font-black text-blue-900 text-base"> Resultado Líquido (Superávit / Déficit):</span>
-                    <span className={`font-black text-lg ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
+                  <div className="flex justify-between items-center pt-3 border-t-2">
+                    <span className="font-black text-blue-900 text-base">Resultado Líquido ({resultadoLiquido >= 0 ? 'Superávit' : 'Déficit'}):</span>
+                    <span className={`font-black text-lg whitespace-nowrap ${resultadoLiquido >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                       {moeda(resultadoLiquido)}
                     </span>
                   </div>
@@ -1962,10 +2609,41 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   required
                 >
                   <option value="">Selecione a conta do plano contábil...</option>
-                  {contasContabeis.map((c) => (
-                    <option key={c.id} value={c.id}>{c.codigo_conta} - {c.nome_conta} ({c.tipo_natureza})</option>
-                  ))}
+                  {/* Só contas analíticas (sem subcontas); a natureza que combina com o tipo vem primeiro */}
+                  {[...NATUREZAS]
+                    .sort((x, y) => {
+                      const pref = formLancamento.tipo === 'receita' ? 'Receita' : 'Despesa';
+                      return (x === pref ? 0 : 1) - (y === pref ? 0 : 1);
+                    })
+                    .map((nat) => {
+                      const opcoes = planoOrdenado.filter(
+                        (c) => c.tipo_natureza === nat && (!ehGrupo(c.codigo_conta) || c.id === formLancamento.id_conta_contabil)
+                      );
+                      if (opcoes.length === 0) return null;
+                      return (
+                        <optgroup key={nat} label={nat}>
+                          {opcoes.map((c) => {
+                            const caminho = caminhoConta(c.codigo_conta.trim());
+                            return (
+                              <option key={c.id} value={c.id}>
+                                {c.codigo_conta} - {c.nome_conta}
+                                {caminho ? ` (${caminho})` : ''}
+                              </option>
+                            );
+                          })}
+                        </optgroup>
+                      );
+                    })}
+                  {/* Contas com natureza fora da lista padrão */}
+                  {planoOrdenado
+                    .filter((c) => !NATUREZAS.includes(c.tipo_natureza) && !ehGrupo(c.codigo_conta))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>{c.codigo_conta} - {c.nome_conta} ({c.tipo_natureza})</option>
+                    ))}
                 </select>
+                {formLancamento.id_conta_contabil && ehGrupo(contasContabeis.find((c) => c.id === formLancamento.id_conta_contabil)?.codigo_conta || '') && (
+                  <p className="text-xs text-amber-700 font-bold mt-1">⚠️ Esta conta virou um grupo. Escolha uma das subcontas dela.</p>
+                )}
               </div>
               )}
 
@@ -2398,6 +3076,49 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
             </h3>
 
             <form onSubmit={handleSubmitConta} className="space-y-4">
+              {(() => {
+                const travado = !!editingConta && ehGrupo(editingConta.codigo_conta);
+                const codEditando = editingConta?.codigo_conta.trim() || '';
+                return (
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">Fica dentro do grupo</label>
+                    <select
+                      value={formConta.conta_pai}
+                      disabled={travado}
+                      onChange={(e) => {
+                        const pai = e.target.value;
+                        const contaPai = pai ? contaPorCodigo.get(pai) : undefined;
+                        setFormConta({
+                          ...formConta,
+                          conta_pai: pai,
+                          codigo_conta: sugerirCodigo(pai),
+                          tipo_natureza: contaPai?.tipo_natureza || formConta.tipo_natureza,
+                        });
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm bg-white disabled:bg-slate-100"
+                    >
+                      <option value="">— Nenhum (conta principal) —</option>
+                      {planoOrdenado
+                        .filter((c) => {
+                          const cod = c.codigo_conta.trim();
+                          // Uma conta não pode ficar dentro dela mesma nem de uma subconta dela
+                          return !codEditando || (cod !== codEditando && !ancestrais(cod).includes(codEditando));
+                        })
+                        .map((c) => {
+                          const cod = c.codigo_conta.trim();
+                          return (
+                            <option key={c.id} value={cod}>
+                              {'\u00A0\u00A0'.repeat(nivelConta(cod) - 1)}
+                              {cod} - {c.nome_conta}
+                            </option>
+                          );
+                        })}
+                    </select>
+                    {travado && <p className="text-[11px] text-slate-500 mt-1">Este grupo tem subcontas, por isso não pode mudar de lugar.</p>}
+                  </div>
+                );
+              })()}
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">Código da Conta *</label>
                 <input
@@ -2405,9 +3126,13 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   value={formConta.codigo_conta}
                   onChange={(e) => setFormConta({ ...formConta, codigo_conta: e.target.value })}
                   placeholder="Ex: 3.1.01.01"
-                  className="w-full border rounded-xl px-3 py-2 text-sm"
+                  disabled={!!editingConta && ehGrupo(editingConta.codigo_conta)}
+                  className="w-full border rounded-xl px-3 py-2 text-sm font-bold text-blue-900 disabled:bg-slate-100"
                   required
                 />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Padrão: números separados por ponto. 1 Ativo · 2 Passivo · 3 Receitas · 4 Despesas. Ex.: 4.2.01.06
+                </p>
               </div>
 
               <div>
@@ -2462,6 +3187,148 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                   className="px-4 py-2 bg-blue-900 text-white text-sm font-bold rounded-xl cursor-pointer shadow"
                 >
                   {editingConta ? 'Salvar Alterações' : 'Cadastrar Conta'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: REORGANIZAR LANÇAMENTOS */}
+      {showModalReorganizar && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-xl font-black text-amber-700">🔀 Reorganizar lançamentos</h3>
+              <button
+                type="button"
+                onClick={() => setShowModalReorganizar(false)}
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                ✕ Fechar
+              </button>
+            </div>
+            <p className="text-sm text-slate-600">
+              Sugeri a conta certa pela descrição de cada lançamento. <strong>Confira</strong> e troque o que precisar antes de salvar.
+            </p>
+            <form onSubmit={salvarReorganizacao} className="space-y-4">
+              <div className="space-y-2">
+                {lancsParaReorganizar.map((l) => {
+                  const atual = contaDoLanc(l);
+                  const prefixo = l.tipo === 'receita' ? '3' : '4';
+                  const opcoes = planoOrdenado.filter((c) => {
+                    const cod = c.codigo_conta.trim();
+                    return codigosModelo.has(cod) && !ehGrupo(cod) && cod.startsWith(prefixo);
+                  });
+                  return (
+                    <div key={l.id} className="border rounded-2xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+                      <div className="text-sm">
+                        <p className="font-bold text-slate-800">
+                          <span className={l.tipo === 'receita' ? 'text-emerald-700' : 'text-rose-700'}>{l.tipo === 'receita' ? '🟢' : '🔴'}</span> {l.descricao}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {dataBR(l.data_lancamento)} · {moeda(Number(l.valor || 0))} · hoje em:{' '}
+                          <em>{atual ? `${atual.codigo_conta} - ${atual.nome_conta}` : 'sem conta'}</em>
+                        </p>
+                      </div>
+                      <select
+                        value={escolhasReorg[l.id] || ''}
+                        onChange={(e) => setEscolhasReorg({ ...escolhasReorg, [l.id]: e.target.value })}
+                        className="w-full border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white"
+                      >
+                        <option value="">— Deixar como está —</option>
+                        {opcoes.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.codigo_conta} - {c.nome_conta} ({caminhoConta(c.codigo_conta.trim())})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="pt-3 border-t space-y-3">
+                <input
+                  type="password"
+                  value={senhaExclusao}
+                  onChange={(e) => setSenhaExclusao(e.target.value)}
+                  placeholder="Sua senha para confirmar"
+                  className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-amber-500"
+                  required
+                />
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setShowModalReorganizar(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={salvandoReorg}
+                    className="px-4 py-2 bg-amber-600 text-white text-sm font-bold rounded-xl cursor-pointer disabled:opacity-60"
+                  >
+                    {salvandoReorg ? 'Salvando…' : 'Salvar reorganização'}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: IMPORTAR MODELO DE PLANO DE CONTAS */}
+      {showModalImportar && (
+        <div className="fixed inset-0 bg-slate-900/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 space-y-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-xl font-black text-emerald-800">📥 Modelo de plano de contas para igrejas</h3>
+            <p className="text-sm text-slate-600">
+              Um plano completo e organizado, no padrão contábil para entidades sem fins lucrativos (ITG 2002):
+            </p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {[
+                ['1', 'Ativo', 'Caixa, bancos, imóveis, instrumentos'],
+                ['2', 'Passivo e Patrimônio', 'Contas a pagar, empréstimos'],
+                ['3', 'Receitas', 'Dízimos, ofertas, eventos'],
+                ['4', 'Despesas', 'Prebenda, energia, missões'],
+              ].map(([cod, nome, ex]) => (
+                <div key={cod} className="bg-slate-50 border rounded-xl p-2.5">
+                  <p className="font-black text-blue-900">{cod} · {nome}</p>
+                  <p className="text-slate-500">{ex}</p>
+                </div>
+              ))}
+            </div>
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 space-y-1">
+              <p>
+                Serão criadas <strong>{faltandoNoModelo.length}</strong> contas.
+                {PLANO_PADRAO_IGREJA.length - faltandoNoModelo.length > 0 &&
+                  ` ${PLANO_PADRAO_IGREJA.length - faltandoNoModelo.length} já existem com o mesmo código e não serão duplicadas.`}
+              </p>
+              {contasEmConflito.length > 0 && (
+                <p>
+                  ⚠️ {contasEmConflito.length === 1 ? 'A conta antiga' : 'As contas antigas'}{' '}
+                  <strong>{contasEmConflito.map((c) => `${c.codigo_conta} - ${c.nome_conta}`).join(', ')}</strong>{' '}
+                  {contasEmConflito.length === 1 ? 'usa um código' : 'usam códigos'} do modelo e {contasEmConflito.length === 1 ? 'será renumerada' : 'serão renumeradas'} para 9.01, 9.02… (os lançamentos continuam nelas até você reorganizar).
+                </p>
+              )}
+              <p>Nada é apagado: suas contas atuais continuam. Depois você pode editar nomes, criar subcontas e mover as contas antigas para dentro dos grupos.</p>
+            </div>
+            <form onSubmit={importarPlanoPadrao} className="space-y-4">
+              <input
+                type="password"
+                value={senhaExclusao}
+                onChange={(e) => setSenhaExclusao(e.target.value)}
+                placeholder="Sua senha para confirmar"
+                className="w-full border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setShowModalImportar(false)} className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-xl cursor-pointer">
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={importando}
+                  className="px-4 py-2 bg-emerald-700 text-white text-sm font-bold rounded-xl cursor-pointer disabled:opacity-60"
+                >
+                  {importando ? 'Importando…' : 'Importar modelo'}
                 </button>
               </div>
             </form>

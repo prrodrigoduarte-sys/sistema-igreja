@@ -862,8 +862,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       return;
     }
 
-    if (!ehContribuicao(lanc)) {
-      alert('O agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
+    if (lanc.tipo !== 'receita') {
+      alert('O agradecimento é só para entradas (receitas).');
       return;
     }
 
@@ -881,9 +881,12 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     }
 
     try {
-      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${lanc.descricao}) no valor de R$ ${Number(
-        lanc.valor
-      ).toFixed(2)}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
+      // Usa o nome da conta contábil (ex.: "Dízimos") quando houver; senão, a descrição do lançamento
+      const contaContabil = contasContabeis.find((c) => c.id === lanc.id_conta_contabil);
+      const motivo = contaContabil?.nome_conta || lanc.descricao;
+      const textoMensagem = `Olá, ${membro.nome}! Recebemos a sua contribuição (${motivo}) no valor de ${moeda(
+        Number(lanc.valor || 0)
+      )}. Deus abençoe ricamente a sua casa e a sua vida! 🙏✨`;
 
       // Mesmas colunas usadas pelo chat do app e do sistema (ChatModule)
       const { error: chatError } = await supabase
@@ -927,18 +930,8 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
     return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
   };
 
-  // Dízimo/oferta (e primícias/votos): pela descrição OU pela conta contábil (ex.: 3.1.01 Dízimos, 3.1.02 Ofertas)
-  const PALAVRAS_CONTRIBUICAO = /d[ií]zimo|oferta|prim[ií]cia|\bvoto/;
-  const ehContribuicao = (l: Lancamento) => {
-    if (l.tipo !== 'receita') return false;
-    if (PALAVRAS_CONTRIBUICAO.test((l.descricao || '').toLowerCase())) return true;
-    const conta = contasContabeis.find((c) => c.id === l.id_conta_contabil);
-    if (!conta) return false;
-    const textoConta = [conta.nome_conta, ...ancestrais(conta.codigo_conta.trim()).map((a) => contaPorCodigo.get(a)?.nome_conta || '')]
-      .join(' ')
-      .toLowerCase();
-    return PALAVRAS_CONTRIBUICAO.test(textoConta);
-  };
+  // Agradecer: toda RECEITA que tem um membro vinculado (dízimo, oferta ou qualquer contribuição dele)
+  const podeSerAgradecido = (l: Lancamento) => l.tipo === 'receita' && !!l.membro_id;
 
   // ── HIERARQUIA DO PLANO DE CONTAS ──
   const planoOrdenado = [...contasContabeis].sort((a, b) => compararCodigo(a.codigo_conta.trim(), b.codigo_conta.trim()));
@@ -1575,7 +1568,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     const isReceita = l.tipo === 'receita';
                     const isSaldo = l.tipo === 'saldo';
                     const nomeMembro = getNomeMembroVinculado(l.membro_id);
-                    const ehDizimoOuOferta = ehContribuicao(l);
+                    const mostrarAgradecer = podeSerAgradecido(l);
 
                     return (
                       <tr key={l.id} className={`hover:bg-slate-50/80 transition ${isSaldo ? 'bg-amber-50/50' : ''}`}>
@@ -1626,7 +1619,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                           </button>
                           )}
 
-                          {ehDizimoOuOferta && podeAgradecer && (
+                          {mostrarAgradecer && podeAgradecer && (
                             <button
                               type="button"
                               onClick={() => handleEnviarChatInterno(l)}

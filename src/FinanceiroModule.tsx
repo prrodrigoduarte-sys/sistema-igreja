@@ -862,13 +862,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
       return;
     }
 
-    const descricao = (lanc.descricao || '').toLowerCase();
-    const ehDizimoOuOferta =
-      descricao.includes('dizimo') ||
-      descricao.includes('dízimo') ||
-      descricao.includes('oferta');
-
-    if (!ehDizimoOuOferta) {
+    if (!ehContribuicao(lanc)) {
       alert('O agradecimento é exclusivo para lançamentos de Dízimo ou Oferta.');
       return;
     }
@@ -931,6 +925,19 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
   const getNomeContaContabil = (id: string) => {
     const c = contasContabeis.find((x) => x.id === id);
     return c ? `${c.codigo_conta} - ${c.nome_conta}` : 'Não vinculada';
+  };
+
+  // Dízimo/oferta (e primícias/votos): pela descrição OU pela conta contábil (ex.: 3.1.01 Dízimos, 3.1.02 Ofertas)
+  const PALAVRAS_CONTRIBUICAO = /d[ií]zimo|oferta|prim[ií]cia|\bvoto/;
+  const ehContribuicao = (l: Lancamento) => {
+    if (l.tipo !== 'receita') return false;
+    if (PALAVRAS_CONTRIBUICAO.test((l.descricao || '').toLowerCase())) return true;
+    const conta = contasContabeis.find((c) => c.id === l.id_conta_contabil);
+    if (!conta) return false;
+    const textoConta = [conta.nome_conta, ...ancestrais(conta.codigo_conta.trim()).map((a) => contaPorCodigo.get(a)?.nome_conta || '')]
+      .join(' ')
+      .toLowerCase();
+    return PALAVRAS_CONTRIBUICAO.test(textoConta);
   };
 
   // ── HIERARQUIA DO PLANO DE CONTAS ──
@@ -1568,8 +1575,7 @@ export default function FinanceiroModule({ loggedUser }: FinanceiroModuleProps) 
                     const isReceita = l.tipo === 'receita';
                     const isSaldo = l.tipo === 'saldo';
                     const nomeMembro = getNomeMembroVinculado(l.membro_id);
-                    const descLower = (l.descricao || '').toLowerCase();
-                    const ehDizimoOuOferta = !isSaldo && (descLower.includes('dizimo') || descLower.includes('dízimo') || descLower.includes('oferta'));
+                    const ehDizimoOuOferta = ehContribuicao(l);
 
                     return (
                       <tr key={l.id} className={`hover:bg-slate-50/80 transition ${isSaldo ? 'bg-amber-50/50' : ''}`}>
